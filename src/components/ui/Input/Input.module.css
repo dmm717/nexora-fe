@@ -1,0 +1,48 @@
+.formGroup {
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: block;
+  font-size: clamp(0.8rem, calc(0.75rem + 0.2vw), 0.9rem);
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: clamp(0.25rem, calc(0.2rem + 0.5vh), 0.5rem);
+}
+
+.input {
+  width: 100%;
+  padding: clamp(0.6rem, calc(0.5rem + 0.5vh), 0.8rem) clamp(0.8rem, calc(0.5rem + 1vw), 1rem);
+  border: 1px solid rgba(0, 156, 166, 0.2);
+  border-radius: clamp(0.375rem, calc(0.2rem + 0.5vw), 0.5rem);
+  font-size: clamp(0.9rem, calc(0.85rem + 0.2vw), 1rem);
+  color: #1f2937;
+  transition: all 0.3s ease;
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.input::placeholder {
+  color: #9ca3af;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 clamp(0.15rem, calc(0.1rem + 0.2vw), 0.25rem) rgba(0, 156, 166, 0.15);
+}
+
+.inputError {
+  border-color: #ef4444 !important;
+}
+
+.inputError:focus {
+  box-shadow: 0 0 0 clamp(0.15rem, calc(0.1rem + 0.2vw), 0.25rem) rgba(239, 68, 68, 0.15) !important;
+}
+
+.errorMessage {
+  display: block;
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}

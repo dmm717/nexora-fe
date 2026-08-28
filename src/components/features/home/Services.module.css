@@ -1,0 +1,134 @@
+.servicesSection {
+  background-color: var(--color-bg-light);
+  padding: 8rem 0 6rem;
+}
+
+.container {
+  max-width: 80rem; /* 1280px */
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 4rem;
+}
+
+.tag {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.0625rem; /* 1px */
+  color: var(--color-primary);
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  margin: 0;
+}
+
+.highlight {
+  color: var(--color-primary);
+}
+
+.descArea {
+  max-width: 25rem; /* 400px */
+}
+
+.descArea p {
+  color: var(--color-text-gray);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.exploreLink {
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: opacity 0.3s ease;
+}
+
+.exploreLink:hover {
+  opacity: 0.8;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+.card {
+  background-color: var(--color-white);
+  padding: 2.5rem 2rem;
+  border-radius: 0.75rem; /* 12px */
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-0.3125rem); /* -5px */
+  box-shadow: var(--shadow-hover);
+}
+
+.iconWrapper {
+  width: 3rem; /* 48px */
+  height: 3rem; /* 48px */
+  border-radius: 0.5rem; /* 8px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  margin-bottom: 0.75rem;
+}
+
+.cardDesc {
+  color: var(--color-text-gray);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.cardLink {
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: opacity 0.3s ease;
+}
+
+.cardLink:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2rem;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .descArea {
+    max-width: 100%;
+  }
+}

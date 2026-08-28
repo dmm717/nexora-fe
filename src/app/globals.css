@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #009CA6;
+  --color-primary-hover: #007a82;
+  --color-text-dark: #1A2B4C;
+  --color-text-gray: #64748B;
+  --color-bg-light: #F8F9FA;
+  --color-white: #ffffff;
+  
+  --shadow-soft: 0 10px 40px -10px rgba(0,0,0,0.08);
+  --shadow-hover: 0 20px 40px -10px rgba(0,0,0,0.12);
+}
+
+@theme inline {
+  --color-background: var(--color-white);
+  --color-foreground: var(--color-text-dark);
+}
+
+html {
+  /* Fluid typography scaling for Desktop */
+  /* Base: 16px at 1440px viewport. Min: 12px. Max: 20px on ultrawide */
+  font-size: clamp(12px, calc(100vw / 1440 * 16), 20px);
+}
+
+@media (max-width: 768px) {
+  html {
+    /* Fluid typography scaling for Mobile */
+    /* Base: 16px at 390px viewport. Min: 10px. Max: 18px */
+    font-size: clamp(10px, calc(100vw / 390 * 16), 18px);
+  }
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-inter), sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}

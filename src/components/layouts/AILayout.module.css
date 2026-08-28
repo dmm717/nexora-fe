@@ -1,0 +1,183 @@
+.appWrapper {
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #E6F0FF 0%, #F5F7FA 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-inter), sans-serif;
+  overflow: hidden;
+  padding: 1.5rem;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  max-width: 1600px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  display: flex;
+  overflow: hidden;
+  color: #1A1A1A;
+}
+
+/* Left Sidebar */
+.leftSidebar {
+  width: 260px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  color: #111827;
+}
+
+.logoIcon {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #0D6EFD, #00d2df);
+  border-radius: 6px;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #6B7280;
+}
+
+.menuList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.menuItem {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.25rem;
+  border-radius: 12px;
+  font-weight: 500;
+  color: #4B5563;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.menuItem.active {
+  background: #FFFFFF;
+  color: #111827;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0 0;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ccc;
+}
+
+/* Main Content */
+.mainContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  position: relative;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.topMenu {
+  display: flex;
+  gap: 1.5rem;
+  background: rgba(255,255,255,0.7);
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4B5563;
+}
+
+.topMenu span.active {
+  background: #111827;
+  color: white;
+  padding: 0.25rem 1rem;
+  border-radius: 16px;
+}
+
+.pageContent {
+  flex: 1;
+  display: flex;
+  flex-direction: row; /* For inner splitting if needed */
+  gap: 1.5rem;
+  overflow: hidden;
+}
+
+/* Right Sidebar (Timeline) */
+.rightSidebar {
+  width: 320px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+}
+
+.rightHeader {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.filterTabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.filterTab {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  background: transparent;
+  color: #6B7280;
+}
+
+.filterTab.active {
+  background: #0D6EFD;
+  color: white;
+}

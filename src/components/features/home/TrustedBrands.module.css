@@ -1,0 +1,63 @@
+.brandsSection {
+  padding: 4rem 0 6rem;
+  background-color: var(--color-white);
+  border-top: 0.0625rem solid rgba(0,0,0,0.05); /* 1px */
+}
+
+.container {
+  max-width: 80rem; /* 1280px */
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.0625rem; /* 1px */
+  color: var(--color-text-gray);
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.logosRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  width: 100%;
+  max-width: 62.5rem; /* 1000px */
+}
+
+.logoItem {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #a0aec0;
+  transition: color 0.3s ease;
+  cursor: pointer;
+  /* Since we don't have SVGs right now, this simulates grayscale logos */
+}
+
+.logoItem:hover {
+  color: var(--color-text-dark);
+}
+
+@media (max-width: 768px) {
+  .logosRow {
+    justify-content: center;
+    gap: 3rem;
+  }
+  .logoItem {
+    width: 30%;
+    text-align: center;
+  }
+}
+@media (max-width: 480px) {
+  .logoItem {
+    width: 45%;
+  }
+}
