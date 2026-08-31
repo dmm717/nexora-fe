@@ -9,10 +9,12 @@ export const authApi = {
   },
 
   login: async (data: LoginRequest) => {
-    const response = await apiClient.post('/auth/login', data) as AuthResponse;
+    // Backend API trả về response bọc trong trường `data`
+    // Nên kiểu trả về thực tế là { data: AuthResponse }
+    const response = await apiClient.post('/auth/login', data) as { data?: AuthResponse };
     // Lưu Access Token vào memory ngay sau khi login thành công
-    if (response && response.accessToken) {
-      setAccessToken(response.accessToken);
+    if (response && response.data && response.data.accessToken) {
+      setAccessToken(response.data.accessToken);
     }
     return response;
   },

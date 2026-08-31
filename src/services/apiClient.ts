@@ -27,6 +27,22 @@ const getHeaders = (isPost = false) => {
   return headers;
 };
 
+// --- Refresh Token Queue Logic ---
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void, reject: (error: Error) => void }> = [];
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token as string);
+    }
+  });
+  failedQueue = [];
+};
+// ---------------------------------
+
 /**
  * Xử lý lỗi chung và refresh token khi 401
  */
@@ -41,36 +57,77 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     }
   }
 
-  if (response.status === 401) {
-    // Thử refresh token 1 lần
-    try {
-      const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include' // Bắt buộc để gửi cookie chứa refresh token lên server
-      });
+  const isAuthEndpoint = fetchParams.url.includes('/auth/login') || 
+                         fetchParams.url.includes('/auth/register') || 
+                         fetchParams.url.includes('/auth/refresh');
 
-      if (refreshRes.ok) {
-        const data = await refreshRes.json();
-        if (data.accessToken) {
-          setAccessToken(data.accessToken);
-          // Retry lại request ban đầu với token mới
-          const newHeaders = getHeaders(fetchParams.options.method === 'POST');
-          const retryRes = await fetch(fetchParams.url, {
-            ...fetchParams.options,
-            headers: newHeaders
-          });
-          
-          if (retryRes.ok) {
-            return retryRes.status === 204 ? null : await retryRes.json();
-          }
+  if (response.status === 401 && !isAuthEndpoint) {
+    if (isRefreshing) {
+      // Nếu đang refresh, cho request này vào hàng đợi
+      try {
+        await new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        });
+        // Khi promise resolve, token đã được set trong authStore, retry request
+        const newHeaders = getHeaders(fetchParams.options.method === 'POST');
+        const retryRes = await fetch(fetchParams.url, {
+          ...fetchParams.options,
+          headers: newHeaders
+        });
+        if (retryRes.ok) {
+          if (retryRes.status === 204) return null;
+          return await retryRes.json();
         }
+      } catch {
+        // Queue bị reject => Sẽ chạy xuống logic clear token
       }
-    } catch (e) {
-      console.error('Refresh token failed', e);
+    } else {
+      isRefreshing = true;
+      try {
+        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include' // Bắt buộc để gửi cookie chứa refresh token lên server
+        });
+
+        if (refreshRes.ok) {
+          const payload = await refreshRes.json();
+          const newToken = payload.data?.accessToken;
+          if (newToken) {
+            setAccessToken(newToken);
+            processQueue(null, newToken);
+
+            // Retry lại request ban đầu với token mới
+            const newHeaders = getHeaders(fetchParams.options.method === 'POST');
+            const retryRes = await fetch(fetchParams.url, {
+              ...fetchParams.options,
+              headers: newHeaders
+            });
+            
+            if (retryRes.ok) {
+              if (retryRes.status === 204) return null;
+              return await retryRes.json();
+            }
+            
+            // Nếu retry vẫn lỗi (mà không phải 401), xử lý lỗi bên dưới
+            const errorData = await retryRes.json().catch(() => ({}));
+            const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
+            throw new Error(translateErrorMessage(rawMessage));
+          } else {
+            processQueue(new Error('No new token provided'));
+          }
+        } else {
+          processQueue(new Error('Refresh API returned error'));
+        }
+      } catch (e) {
+        console.error('Refresh token failed', e);
+        processQueue(e as Error);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
-    // Nếu refresh thất bại => Xóa token và redirect
+    // Nếu logic refresh thất bại hoặc retry thất bại do 401
     clearAccessToken();
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -78,45 +135,60 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     }
   }
 
-  // Ném lỗi để UI xử lý
+  // Ném lỗi để UI xử lý (nếu không phải 401 hoặc đã thử retry mà vẫn lỗi nhưng không redirect)
   const errorData = await response.json().catch(() => ({}));
   const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
   throw new Error(translateErrorMessage(rawMessage));
 };
 
 export const apiClient = {
-  get: async (endpoint: string) => {
+  get: async (endpoint: string, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
     const options: RequestInit = {
       method: 'GET',
-      headers: getHeaders(false),
+      headers: { ...getHeaders(false), ...customOptions?.headers },
       credentials: 'include',
+      ...customOptions,
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
   },
 
-  post: async (endpoint: string, body?: unknown) => {
+  post: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
     const options: RequestInit = {
       method: 'POST',
-      headers: getHeaders(true),
-      credentials: 'include',
+      headers: { ...getHeaders(true), ...customOptions?.headers },
       body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
+      ...customOptions,
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
   },
 
-  patch: async (endpoint: string, body?: unknown) => {
+  patch: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
     const options: RequestInit = {
       method: 'PATCH',
-      headers: getHeaders(false),
-      credentials: 'include',
+      headers: { ...getHeaders(true), ...customOptions?.headers },
       body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
+      ...customOptions,
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
-  }
+  },
+
+  delete: async (endpoint: string, customOptions?: RequestInit) => {
+    const url = `${BASE_URL}${endpoint}`;
+    const options: RequestInit = {
+      method: 'DELETE',
+      headers: { ...getHeaders(false), ...customOptions?.headers },
+      credentials: 'include',
+      ...customOptions,
+    };
+    const response = await fetch(url, options);
+    return handleResponse(response, { url, options });
+  },
 };

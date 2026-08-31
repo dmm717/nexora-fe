@@ -1,30 +1,26 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import styles from './DashboardLayout.module.css';
+import styles from './DashboardLayout.module.css'; // Reuse CSS
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { userApi } from '@/services/userApi';
 import { authApi } from '@/services/authApi';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userEmail, setUserEmail] = useState('User');
+  const [userEmail, setUserEmail] = useState('Free User');
 
   useEffect(() => {
     let isMounted = true;
     userApi.getCurrentUser()
       .then(user => {
-        if (isMounted) {
-          if (user.email) setUserEmail(user.email);
-          if (user.roles?.includes('Admin')) {
-            setIsAdmin(true);
-          }
+        if (isMounted && user.email) {
+          setUserEmail(user.email);
         }
       })
       .catch(() => {
-        // Ignored, apiClient handles 401
+        // Ignored
       });
     
     return () => { isMounted = false; };
@@ -37,11 +33,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const menuItems = [
     {
-      title: 'Tổng quan',
+      title: 'Tài Khoản Miễn Phí',
       items: [
         {
-          name: 'Dashboard',
-          href: '/dashboard',
+          name: 'Dashboard (Free)',
+          href: '/public',
           icon: (
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -50,27 +46,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <rect x="3" y="14" width="7" height="7" rx="1" />
             </svg>
           )
-        }
-      ]
-    },
-    {
-      title: 'Luyện Phỏng Vấn',
-      items: [
-        {
-          name: 'Bắt đầu luyện tập',
-          href: '/dashboard/interviews',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          )
         },
         {
-          name: 'Phân tích CV',
-          href: '/dashboard/resumes',
+          name: 'Phân tích CV cơ bản',
+          href: '/public/resumes',
           icon: (
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -84,24 +63,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ]
     },
     {
-      title: 'Hệ thống',
+      title: 'Nâng cấp trải nghiệm',
       items: [
         {
-          name: 'Gói cước (Billing)',
-          href: '/dashboard/billing',
+          name: 'Khám phá Gói Cước',
+          href: '/plans',
           icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-              <line x1="1" y1="10" x2="23" y2="10" />
-            </svg>
-          )
-        },
-        {
-          name: 'Trạng thái hệ thống',
-          href: '/status',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            <svg className={styles.icon} style={{color: '#eab308'}} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           )
         }
@@ -111,11 +80,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={styles.container}>
-      {/* Left Sidebar */}
       <aside className={styles.leftSidebar}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}></div>
-          Nexora Premium
+          <div className={styles.logoIcon} style={{ background: 'linear-gradient(135deg, #10b981, #047857)' }}></div>
+          Nexora Public
         </div>
         
         {menuItems.map((section, idx) => (
@@ -134,11 +102,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         ))}
 
-        {/* Removed Admin panel from here since we moved it to AdminLayout */}
-
-        {/* User Profile */}
         <div className={styles.userProfile} onClick={handleLogout} title="Click to logout">
-          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatar} style={{ background: '#10b981' }}>{userEmail.charAt(0).toUpperCase()}</div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{userEmail.split('@')[0]}</span>
             <span className={styles.userRole}>Đăng xuất</span>
@@ -146,19 +111,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className={styles.mainContent}>
-        {/* We can dynamically set the page title based on the active route if needed, 
-            but for now, we'll let each page handle its own header, or provide a generic one. */}
         <header className={styles.header}>
-          <h1 className={styles.pageTitle}>Dashboard (Premium)</h1>
+          <h1 className={styles.pageTitle}>Tài Khoản Miễn Phí</h1>
           <div className={styles.topBar}>
-            <input type="text" aria-label="Search" placeholder="Tìm kiếm nhanh..." className={styles.searchBar} />
-            <button className={styles.actionButton}>Bắt đầu phỏng vấn</button>
+            <Link href="/plans" style={{textDecoration: 'none'}}>
+              <button className={styles.actionButton} style={{ background: 'linear-gradient(to right, #eab308, #ca8a04)' }}>
+                ⭐ Nâng cấp Premium
+              </button>
+            </Link>
           </div>
         </header>
         
-        {/* Page Content */}
         <div className={styles.pageContent}>
           {children}
         </div>

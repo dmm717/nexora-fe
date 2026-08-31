@@ -49,58 +49,38 @@ export default function Auth() {
   const toggleMode = (e: React.MouseEvent) => {
     e.preventDefault();
     const newIsLogin = !isLogin;
-    reset();
-    setGlobalError(null);
-    router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
     
-    // Professional Blur & Scale Fade (Depth Reveal)
-    if (cardRef.current && formWrapperRef.current) {
-      const card = cardRef.current;
+    if (formWrapperRef.current) {
       const form = formWrapperRef.current;
 
-      // 1. Fade and blur OUT the content
+      // 1. Fade OUT the content
       gsap.to(form, {
         opacity: 0,
-        filter: 'blur(8px)',
-        scale: 0.96,
-        duration: 0.3,
+        y: -10,
+        duration: 0.2,
         ease: 'power2.in',
         onComplete: () => {
-          // Freeze height to animate it smoothly
-          const startHeight = card.offsetHeight;
-          card.style.height = `${startHeight}px`;
-
+          reset();
+          setGlobalError(null);
+          router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
           setIsLogin(newIsLogin);
           
-          setTimeout(() => {
-            // Measure new height
-            card.style.height = 'auto';
-            const endHeight = card.offsetHeight;
-            card.style.height = `${startHeight}px`;
-
-            // Animate card height to match new content
-            gsap.to(card, {
-              height: endHeight,
-              duration: 0.4,
-              ease: 'power3.inOut',
-              clearProps: 'height'
+          // Wait for React to render the new state
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              // Fade IN the new content
+              gsap.fromTo(form,
+                { opacity: 0, y: 10 },
+                { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+              );
             });
-
-            // Fade and blur IN the new content
-            gsap.fromTo(form,
-              { opacity: 0, filter: 'blur(8px)', scale: 1.04 },
-              { opacity: 1, filter: 'blur(0px)', scale: 1, duration: 0.4, ease: 'power3.out', delay: 0.1 }
-            );
-
-            // Stagger internal elements slightly for extra polish
-            gsap.fromTo(form.children, 
-              { opacity: 0, y: 10 }, 
-              { opacity: 1, y: 0, duration: 0.4, stagger: 0.04, ease: 'power2.out', delay: 0.15 }
-            );
-          }, 10);
+          });
         }
       });
     } else {
+      reset();
+      setGlobalError(null);
+      router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
       setIsLogin(newIsLogin);
     }
   };

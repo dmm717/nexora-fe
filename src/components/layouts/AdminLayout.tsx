@@ -1,16 +1,15 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import styles from './DashboardLayout.module.css';
+import styles from './DashboardLayout.module.css'; // Reuse CSS
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { userApi } from '@/services/userApi';
 import { authApi } from '@/services/authApi';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userEmail, setUserEmail] = useState('User');
+  const [userEmail, setUserEmail] = useState('Admin');
 
   useEffect(() => {
     let isMounted = true;
@@ -18,17 +17,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(user => {
         if (isMounted) {
           if (user.email) setUserEmail(user.email);
-          if (user.roles?.includes('Admin')) {
-            setIsAdmin(true);
+          if (!user.roles?.includes('Admin')) {
+            // Optional: redirect non-admin users away
+            // router.push('/dashboard');
           }
         }
       })
       .catch(() => {
-        // Ignored, apiClient handles 401
+        // Ignored
       });
     
     return () => { isMounted = false; };
-  }, []);
+  }, [router]);
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -37,11 +37,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const menuItems = [
     {
-      title: 'Tổng quan',
+      title: 'Quản Trị Hệ Thống',
       items: [
         {
-          name: 'Dashboard',
-          href: '/dashboard',
+          name: 'Tổng quan Admin',
+          href: '/admin',
           icon: (
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -50,34 +50,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <rect x="3" y="14" width="7" height="7" rx="1" />
             </svg>
           )
-        }
-      ]
-    },
-    {
-      title: 'Luyện Phỏng Vấn',
-      items: [
+        },
         {
-          name: 'Bắt đầu luyện tập',
-          href: '/dashboard/interviews',
+          name: 'Quản lý Người dùng',
+          href: '/admin/users',
           icon: (
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
           )
         },
         {
-          name: 'Phân tích CV',
-          href: '/dashboard/resumes',
+          name: 'Quản lý Gói cước',
+          href: '/admin/plans',
           icon: (
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
           )
         }
@@ -87,17 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: 'Hệ thống',
       items: [
         {
-          name: 'Gói cước (Billing)',
-          href: '/dashboard/billing',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-              <line x1="1" y1="10" x2="23" y2="10" />
-            </svg>
-          )
-        },
-        {
-          name: 'Trạng thái hệ thống',
+          name: 'Trạng thái Server',
           href: '/status',
           icon: (
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -111,11 +93,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={styles.container}>
-      {/* Left Sidebar */}
       <aside className={styles.leftSidebar}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}></div>
-          Nexora Premium
+          <div className={styles.logoIcon} style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }}></div>
+          Nexora Admin
         </div>
         
         {menuItems.map((section, idx) => (
@@ -134,11 +115,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         ))}
 
-        {/* Removed Admin panel from here since we moved it to AdminLayout */}
-
-        {/* User Profile */}
         <div className={styles.userProfile} onClick={handleLogout} title="Click to logout">
-          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatar} style={{ background: '#ef4444' }}>{userEmail.charAt(0).toUpperCase()}</div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{userEmail.split('@')[0]}</span>
             <span className={styles.userRole}>Đăng xuất</span>
@@ -146,19 +124,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className={styles.mainContent}>
-        {/* We can dynamically set the page title based on the active route if needed, 
-            but for now, we'll let each page handle its own header, or provide a generic one. */}
         <header className={styles.header}>
-          <h1 className={styles.pageTitle}>Dashboard (Premium)</h1>
+          <h1 className={styles.pageTitle}>Admin Panel</h1>
           <div className={styles.topBar}>
-            <input type="text" aria-label="Search" placeholder="Tìm kiếm nhanh..." className={styles.searchBar} />
-            <button className={styles.actionButton}>Bắt đầu phỏng vấn</button>
+            <span style={{color: '#ef4444', fontWeight: 'bold', fontSize: '14px', marginRight: '20px'}}>
+              Khu vực quản trị
+            </span>
+            <button className={styles.actionButton} style={{ background: '#ef4444' }}>Cài đặt hệ thống</button>
           </div>
         </header>
         
-        {/* Page Content */}
         <div className={styles.pageContent}>
           {children}
         </div>

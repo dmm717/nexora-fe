@@ -1,4 +1,4 @@
-import styles from '@/components/AILayout.module.css';
+import styles from '@/components/layouts/AILayout.module.css';
 
 export default function AIPage() {
   return (

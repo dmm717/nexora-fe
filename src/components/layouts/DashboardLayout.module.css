@@ -2,43 +2,55 @@
   display: flex;
   height: 100vh;
   width: 100vw;
-  background-color: #F8F9FA;
+  background-color: #F9FAFB; /* Softer background */
   font-family: var(--font-inter), sans-serif;
   overflow: hidden;
-  color: #1A1A1A;
+  color: #111827;
 }
 
 /* Left Sidebar */
 .leftSidebar {
-  width: 260px;
+  width: 280px;
   background-color: #FFFFFF;
-  border-right: 1px solid #E5E7EB;
+  border-right: 1px solid #F3F4F6;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 0;
+  padding: 2rem 1rem;
   overflow-y: auto;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.01);
 }
 
 .logo {
-  padding: 0 1.5rem;
-  font-size: 1.5rem;
+  padding: 0 1rem;
+  font-size: 1.75rem;
   font-weight: 800;
-  color: #0D6EFD;
-  margin-bottom: 2rem;
+  color: #4F46E5; /* Indigo accent */
+  margin-bottom: 2.5rem;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoIcon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #4F46E5, #8B5CF6);
+  border-radius: 8px;
 }
 
 .menuSection {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .menuTitle {
-  padding: 0 1.5rem;
+  padding: 0 1rem;
   font-size: 0.75rem;
   text-transform: uppercase;
-  color: #888;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  letter-spacing: 0.5px;
+  color: #9CA3AF;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  letter-spacing: 1px;
 }
 
 .menuList {
@@ -50,12 +62,15 @@
 .menuItem {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1.5rem;
-  color: #4B5563;
-  font-size: 0.9rem;
+  gap: 12px;
+  padding: 0.85rem 1rem;
+  color: #6B7280;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
+  border-radius: 10px;
   transition: all 0.2s ease;
+  margin-bottom: 4px;
 }
 
 .menuItem:hover {
@@ -64,11 +79,60 @@
 }
 
 .menuItem.active {
-  background-color: #0D6EFD;
-  color: #FFFFFF;
-  margin: 0 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  background-color: #EEF2FF;
+  color: #4F46E5;
+  font-weight: 600;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+/* User Profile at bottom */
+.userProfile {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid #F3F4F6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.userProfile:hover {
+  background: #F9FAFB;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  background: #E5E7EB;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #4B5563;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.userName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.userRole {
+  font-size: 0.75rem;
+  color: #6B7280;
 }
 
 /* Main Content */
@@ -77,18 +141,19 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 2.5rem 3rem;
+  background: #F9FAFB;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .pageTitle {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: 700;
   color: #111827;
 }
@@ -100,42 +165,35 @@
 }
 
 .searchBar {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 100px;
   border: 1px solid #E5E7EB;
   background: #fff;
-  width: 250px;
-  font-size: 0.85rem;
+  width: 280px;
+  font-size: 0.9rem;
   outline: none;
+  transition: border-color 0.2s;
+}
+
+.searchBar:focus {
+  border-color: #4F46E5;
 }
 
 .actionButton {
-  background-color: #0D6EFD;
+  background-color: #4F46E5;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 100px;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-/* Right Sidebar */
-.rightSidebar {
-  width: 320px;
-  background-color: #F8F9FA;
-  border-left: 1px solid #E5E7EB;
-  padding: 1.5rem;
-  overflow-y: auto;
+.actionButton:hover {
+  background-color: #4338CA;
 }
 
-.rightHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.rightTitle {
-  font-weight: 600;
-  font-size: 1rem;
+.pageContent {
+  flex: 1;
 }
