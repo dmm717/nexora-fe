@@ -21,7 +21,11 @@ export interface CheckoutSessionResponse {
   amountMinor: number;
   currency: string;
   provider: string;
-  checkoutUrl: string;
+  checkout?: {
+    method: string;
+    url: string;
+    fields: Array<{ name: string; value: string }>;
+  };
 }
 
 export const billingApi = {
@@ -32,6 +36,16 @@ export const billingApi = {
 
   createCheckoutSession: async (planPriceId: string): Promise<CheckoutSessionResponse> => {
     const response = await apiClient.post('/checkout-sessions', { planPriceId }) as { data: CheckoutSessionResponse };
+    return response.data;
+  },
+
+  getOrderStatus: async (orderId: string): Promise<CheckoutSessionResponse> => {
+    const response = await apiClient.get(`/checkout-sessions/${orderId}`) as { data: CheckoutSessionResponse };
+    return response.data;
+  },
+
+  refreshOrderStatus: async (orderId: string): Promise<CheckoutSessionResponse> => {
+    const response = await apiClient.post(`/checkout-sessions/${orderId}/refresh`) as { data: CheckoutSessionResponse };
     return response.data;
   }
 };

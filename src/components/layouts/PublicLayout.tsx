@@ -82,7 +82,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className={styles.container}>
       <aside className={styles.leftSidebar}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon} style={{ background: 'linear-gradient(135deg, #10b981, #047857)' }}></div>
+          <div className={styles.logoIcon}></div>
           Nexora Public
         </div>
         
@@ -103,7 +103,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         ))}
 
         <div className={styles.userProfile} onClick={handleLogout} title="Click to logout">
-          <div className={styles.avatar} style={{ background: '#10b981' }}>{userEmail.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{userEmail.split('@')[0]}</span>
             <span className={styles.userRole}>Đăng xuất</span>
@@ -116,7 +116,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           <h1 className={styles.pageTitle}>Tài Khoản Miễn Phí</h1>
           <div className={styles.topBar}>
             <Link href="/plans" style={{textDecoration: 'none'}}>
-              <button className={styles.actionButton} style={{ background: 'linear-gradient(to right, #eab308, #ca8a04)' }}>
+              <button className={styles.actionButton}>
                 ⭐ Nâng cấp Premium
               </button>
             </Link>

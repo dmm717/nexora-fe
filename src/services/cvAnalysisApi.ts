@@ -43,10 +43,12 @@ export interface AnalysisView {
   resumeId: string;
   jobDescriptionId: string;
   status: string;
-  matchScore?: number;
-  strengths?: string[];
-  weaknesses?: string[];
-  recommendations?: string[];
+  result?: {
+    strengths?: string[];
+    gaps?: string[];
+    recommendations?: string[];
+    matchScore?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -59,7 +61,7 @@ export const cvAnalysisApi = {
 
   uploadFile: async (uploadUrl: string, file: File): Promise<void> => {
     // Determine if the URL is relative (starts with /api) or absolute.
-    const url = uploadUrl.startsWith('/') 
+    const url = uploadUrl.startsWith('/')
       ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1'}${uploadUrl.replace('/api/v1', '')}`
       : uploadUrl;
 
@@ -86,6 +88,11 @@ export const cvAnalysisApi = {
 
   createResume: async (uploadToken: string): Promise<ResumeView> => {
     const response = await apiClient.post('/resumes', { uploadToken }) as { data: ResumeView };
+    return response.data;
+  },
+
+  getResume: async (id: string): Promise<ResumeView> => {
+    const response = await apiClient.get(`/resumes/${id}`) as { data: ResumeView };
     return response.data;
   },
 

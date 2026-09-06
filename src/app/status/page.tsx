@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import styles from './StatusPage.module.css';
 import { healthApi, HealthStatus, OperationStatus } from '@/services/healthApi';
 
 export default function SystemStatusPage() {
+  const router = useRouter();
   const [liveness, setLiveness] = useState<string>('Loading...');
   const [readiness, setReadiness] = useState<HealthStatus | null>(null);
   const [operations, setOperations] = useState<OperationStatus | null>(null);
@@ -79,8 +82,18 @@ export default function SystemStatusPage() {
   return (
     <div className={styles.container}>
       <div className={styles.content}>
+        <div className={styles.headerTop}>
+          <button onClick={() => router.back()} className={styles.backBtn}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Trở lại
+          </button>
+        </div>
         <div className={styles.header}>
-          <span className={styles.brand}>NEXORA</span>
+          <div className={styles.logo}>
+            <Image src="/logo.png" alt="Nexora" width={160} height={40} style={{ objectFit: 'contain' }} priority />
+          </div>
           <h1 className={styles.title}>System Status</h1>
           <div className={`${styles.overallStatus} ${overall.className}`}>
             <div className={styles.pulse}></div>

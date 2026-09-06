@@ -16,29 +16,42 @@ export default function ResumeAnalysisDetailsPage() {
 
   useEffect(() => {
     let isMounted = true;
-    if (!id) return;
+    let timeoutId: NodeJS.Timeout;
 
-    cvAnalysisApi.getAnalysis(id)
-      .then(res => {
-        if (isMounted) {
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          setError(err.message || 'Không thể tải kết quả phân tích.');
-          setLoading(false);
-        }
-      });
-    
-    return () => { isMounted = false; };
+    const fetchAnalysis = () => {
+      if (!id) return;
+      cvAnalysisApi.getAnalysis(id)
+        .then(res => {
+          if (isMounted) {
+            setData(res);
+            if (res.status === 'completed' || res.status === 'failed') {
+              setLoading(false);
+            } else {
+              // Still processing, poll again in 2 seconds
+              timeoutId = setTimeout(fetchAnalysis, 2000);
+            }
+          }
+        })
+        .catch(err => {
+          if (isMounted) {
+            setError(err.message || 'Không thể tải kết quả phân tích.');
+            setLoading(false);
+          }
+        });
+    };
+
+    fetchAnalysis();
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [id]);
 
-  if (loading) {
+  if (loading || (data && (data.status === 'pending' || data.status === 'processing'))) {
     return (
       <div className={styles.container} style={{ textAlign: 'center', marginTop: '4rem' }}>
-        <div style={{ color: '#6b7280', fontSize: '1.25rem' }}>Đang tải kết quả phân tích...</div>
+        <div style={{ color: '#6b7280', fontSize: '1.25rem' }}>AI đang phân tích độ phù hợp (Quá trình này có thể mất vài chục giây)...</div>
       </div>
     );
   }
@@ -54,8 +67,23 @@ export default function ResumeAnalysisDetailsPage() {
     );
   }
 
-  // Define score color and text
-  const score = data.matchScore || 0;
+  // Handle potential casing differences from backend
+  let result: Record<string, unknown> = (data.result || (data as unknown as Record<string, unknown>).Result || {}) as Record<string, unknown>;
+  if (typeof result === 'string') {
+    try {
+      result = JSON.parse(result) as Record<string, unknown>;
+    } catch {
+      result = {};
+    }
+  }
+  
+  const hasScore = result.matchScore !== undefined || result.MatchScore !== undefined;
+  const score = (result.matchScore || result.MatchScore || 0) as number;
+  
+  const strengths = (result.strengths || result.Strengths || []) as string[];
+  const gaps = (result.gaps || result.Gaps || result.weaknesses || result.Weaknesses || []) as string[];
+  const recommendations = (result.recommendations || result.Recommendations || []) as string[];
+
   let scoreClass = styles.textPoor;
   let scoreText = 'Chưa phù hợp (Dưới mức kỳ vọng)';
   let scoreColor = '#ef4444'; // red
@@ -86,16 +114,18 @@ export default function ResumeAnalysisDetailsPage() {
         </button>
       </header>
 
-      {/* Score Card */}
-      <div className={styles.scoreCard}>
-        <div className={styles.scoreCircle} style={{ borderColor: scoreColor }}>
-          <div className={styles.scoreValue}>{score}</div>
-          <div className={styles.scoreLabel}>/ 100</div>
+      {/* Score Card - Only shown if Backend provides a score */}
+      {hasScore && (
+        <div className={styles.scoreCard}>
+          <div className={styles.scoreCircle} style={{ borderColor: scoreColor }}>
+            <div className={styles.scoreValue}>{score}</div>
+            <div className={styles.scoreLabel}>/ 100</div>
+          </div>
+          <div className={`${styles.scoreText} ${scoreClass}`}>
+            {scoreText}
+          </div>
         </div>
-        <div className={`${styles.scoreText} ${scoreClass}`}>
-          {scoreText}
-        </div>
-      </div>
+      )}
 
       <div className={styles.detailsGrid}>
         {/* Strengths */}
@@ -104,13 +134,13 @@ export default function ResumeAnalysisDetailsPage() {
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Điểm mạnh (Strengths)
+            Điểm mạnh
           </h2>
-          {(!data.strengths || data.strengths.length === 0) ? (
+          {(!strengths || strengths.length === 0) ? (
             <p style={{ color: '#6b7280' }}>Không tìm thấy điểm mạnh nổi bật nào.</p>
           ) : (
             <ul className={`${styles.list} ${styles.strengths}`}>
-              {data.strengths.map((item, idx) => (
+              {strengths.map((item: string, idx: number) => (
                 <li key={idx} className={styles.listItem}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -128,13 +158,13 @@ export default function ResumeAnalysisDetailsPage() {
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            Điểm yếu / Khoảng trống (Weaknesses)
+            Điểm yếu / Khoảng trống
           </h2>
-          {(!data.weaknesses || data.weaknesses.length === 0) ? (
+          {(!gaps || gaps.length === 0) ? (
             <p style={{ color: '#6b7280' }}>Không tìm thấy điểm yếu đáng kể.</p>
           ) : (
             <ul className={`${styles.list} ${styles.weaknesses}`}>
-              {data.weaknesses.map((item, idx) => (
+              {gaps.map((item: string, idx: number) => (
                 <li key={idx} className={styles.listItem}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -152,13 +182,13 @@ export default function ResumeAnalysisDetailsPage() {
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            Đề xuất cải thiện (Recommendations)
+            Đề xuất cải thiện
           </h2>
-          {(!data.recommendations || data.recommendations.length === 0) ? (
+          {(!recommendations || recommendations.length === 0) ? (
             <p style={{ color: '#6b7280' }}>Chưa có đề xuất nào.</p>
           ) : (
             <ul className={`${styles.list} ${styles.recommendations}`}>
-              {data.recommendations.map((item, idx) => (
+              {recommendations.map((item: string, idx: number) => (
                 <li key={idx} className={styles.listItem}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />

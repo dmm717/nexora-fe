@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import styles from './DashboardLayout.module.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -9,8 +10,19 @@ import { authApi } from '@/services/authApi';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
   const [userEmail, setUserEmail] = useState('User');
+  const [planCode, setPlanCode] = useState('Free');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(`.${styles.userProfileWrapper}`)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -18,9 +30,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(user => {
         if (isMounted) {
           if (user.email) setUserEmail(user.email);
-          if (user.roles?.includes('Admin')) {
-            setIsAdmin(true);
-          }
+          const currentPlan = user.billing?.entitlement?.planCode;
+          setPlanCode(currentPlan ? currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1).toLowerCase() : 'Free');
         }
       })
       .catch(() => {
@@ -28,139 +39,123 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
     
     return () => { isMounted = false; };
-  }, []);
+  }, [pathname]);
 
   const handleLogout = async () => {
     await authApi.logout();
     router.push('/auth');
   };
 
-  const menuItems = [
+  const navItems = [
     {
-      title: 'Tổng quan',
-      items: [
-        {
-          name: 'Dashboard',
-          href: '/dashboard',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-            </svg>
-          )
-        }
-      ]
+      name: 'Dashboard',
+      href: '/dashboard',
     },
     {
-      title: 'Luyện Phỏng Vấn',
-      items: [
-        {
-          name: 'Bắt đầu luyện tập',
-          href: '/dashboard/interviews',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          )
-        },
-        {
-          name: 'Phân tích CV',
-          href: '/dashboard/resumes',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
-          )
-        }
-      ]
+      name: 'Luyện tập',
+      href: '/dashboard/interviews',
     },
     {
-      title: 'Hệ thống',
-      items: [
-        {
-          name: 'Gói cước (Billing)',
-          href: '/dashboard/billing',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-              <line x1="1" y1="10" x2="23" y2="10" />
-            </svg>
-          )
-        },
-        {
-          name: 'Trạng thái hệ thống',
-          href: '/status',
-          icon: (
-            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-            </svg>
-          )
-        }
-      ]
+      name: 'Phân tích CV',
+      href: '/dashboard/resumes',
+    },
+    {
+      name: 'Tình huống & STAR',
+      href: '/dashboard/scenarios',
+    },
+    {
+      name: 'Gói cước',
+      href: '/dashboard/billing',
+    },
+    {
+      name: 'Trạng thái',
+      href: '/status',
     }
   ];
 
   return (
     <div className={styles.container}>
-      {/* Left Sidebar */}
-      <aside className={styles.leftSidebar}>
-        <div className={styles.logo}>
-          <div className={styles.logoIcon}></div>
-          Nexora Premium
-        </div>
-        
-        {menuItems.map((section, idx) => (
-          <div key={idx} className={styles.menuSection}>
-            <div className={styles.menuTitle}>{section.title}</div>
-            <ul className={styles.menuList}>
-              {section.items.map((item, i) => (
-                <li key={i}>
-                  <Link href={item.href} className={`${styles.menuItem} ${pathname === item.href ? styles.active : ''}`} style={{ textDecoration: 'none' }}>
-                    {item.icon}
-                    {item.name}
-                  </Link>
-                </li>
+      {/* Top Navigation (Header) */}
+      <nav className={styles.topNavigation}>
+        <div className={styles.navContent}>
+          {/* Logo */}
+          <div className={styles.logo}>
+            <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center' }}>
+              <Image src="/logo.png" alt="Nexora" width={112} height={28} style={{ objectFit: 'contain' }} priority />
+            </Link>
+            
+            {/* Center Menu */}
+            <div className={styles.menuContainer}>
+              {navItems.map((item, i) => (
+                <Link 
+                  key={i} 
+                  href={item.href} 
+                  className={`${styles.menuItem} ${pathname === item.href ? styles.active : ''}`}
+                >
+                  {item.name}
+                </Link>
               ))}
-            </ul>
+            </div>
           </div>
-        ))}
 
-        {/* Removed Admin panel from here since we moved it to AdminLayout */}
-
-        {/* User Profile */}
-        <div className={styles.userProfile} onClick={handleLogout} title="Click to logout">
-          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
-          <div className={styles.userInfo}>
-            <span className={styles.userName}>{userEmail.split('@')[0]}</span>
-            <span className={styles.userRole}>Đăng xuất</span>
+          {/* Right Section (User) */}
+          <div className={styles.rightSection}>
+            <div className={styles.userProfileWrapper}>
+              <div 
+                className={styles.userProfile} 
+                onClick={() => setDropdownOpen(!dropdownOpen)} 
+                title="Tài khoản"
+              >
+                <div className={styles.avatar}>
+                  {userEmail.charAt(0).toUpperCase()}
+                </div>
+              </div>
+              
+              {dropdownOpen && (
+                <div className={styles.dropdownMenu}>
+                  <div className={styles.dropdownHeader}>
+                    <div className={styles.dropdownEmail}>{userEmail}</div>
+                    <div className={styles.dropdownPlan}>Gói: {planCode}</div>
+                  </div>
+                  <div className={styles.dropdownDivider}></div>
+                  <button 
+                    className={styles.dropdownItem} 
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      router.push('/dashboard/billing');
+                    }}
+                  >
+                    Nâng cấp gói cước
+                  </button>
+                  <button 
+                    className={`${styles.dropdownItem} ${styles.dangerItem}`}
+                    onClick={handleLogout}
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </aside>
+      </nav>
 
       {/* Main Content Area */}
       <main className={styles.mainContent}>
-        {/* We can dynamically set the page title based on the active route if needed, 
-            but for now, we'll let each page handle its own header, or provide a generic one. */}
-        <header className={styles.header}>
-          <h1 className={styles.pageTitle}>Dashboard (Premium)</h1>
-          <div className={styles.topBar}>
-            <input type="text" aria-label="Search" placeholder="Tìm kiếm nhanh..." className={styles.searchBar} />
-            <button className={styles.actionButton}>Bắt đầu phỏng vấn</button>
+        <div className={styles.contentWrapper}>
+          <header className={styles.header}>
+            <h1 className={styles.pageTitle}>Dashboard 
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#ffffff', marginLeft: '0.75rem', background: planCode.toLowerCase() === 'free' ? '#94a3b8' : 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', padding: '0.3rem 0.75rem', borderRadius: '999px', verticalAlign: 'middle', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: planCode.toLowerCase() === 'free' ? 'none' : '0 4px 6px -1px rgba(139, 92, 246, 0.3)' }}>
+                {planCode}
+              </span>
+            </h1>
+            <button className={styles.actionButton} onClick={() => router.push('/dashboard/interviews')}>Bắt đầu phỏng vấn</button>
+          </header>
+          
+          {/* Page Content */}
+          <div className={styles.pageContent}>
+            {children}
           </div>
-        </header>
-        
-        {/* Page Content */}
-        <div className={styles.pageContent}>
-          {children}
         </div>
       </main>
     </div>

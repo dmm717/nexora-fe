@@ -1,23 +1,26 @@
 .container {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 0;
 }
 
 .header {
-  margin-bottom: 2.5rem;
+  margin-bottom: 3rem;
+  text-align: center;
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  color: #111827;
+  color: #1d1d1f;
   margin-bottom: 0.5rem;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
-  font-size: 1.125rem;
-  color: #4b5563;
+  font-size: 1.1rem;
+  color: #86868b;
+  font-weight: 400;
 }
 
 .formGrid {
@@ -34,17 +37,26 @@
 }
 
 .panel {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  background: #f0f3f8;
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 
+    12px 12px 24px rgba(166, 180, 200, 0.4),
+    -10px -10px 20px rgba(255, 255, 255, 0.9);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    14px 14px 28px rgba(166, 180, 200, 0.5),
+    -12px -12px 24px rgba(255, 255, 255, 1);
 }
 
 .panelTitle {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #111827;
+  color: #1d1d1f;
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
@@ -52,44 +64,50 @@
 
 .panelTitle svg {
   margin-right: 0.5rem;
-  color: #3b82f6;
+  color: #1f2937;
 }
 
 /* Drag and Drop Zone */
 .dropzone {
-  border: 2px dashed #d1d5db;
-  border-radius: 8px;
+  border: none;
+  border-radius: 24px;
   padding: 3rem 2rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background-color: #f9fafb;
+  background-color: #e8ebf0;
+  box-shadow: 
+    inset 6px 6px 12px rgba(166, 180, 200, 0.4),
+    inset -6px -6px 12px rgba(255, 255, 255, 0.8);
 }
 
 .dropzone:hover, .dropzoneActive {
-  border-color: #3b82f6;
-  background-color: #eff6ff;
+  background-color: #e2e6eb;
+  box-shadow: 
+    inset 8px 8px 16px rgba(166, 180, 200, 0.5),
+    inset -8px -8px 16px rgba(255, 255, 255, 1);
 }
 
 .uploadIcon {
-  color: #9ca3af;
+  color: #86868b;
   margin-bottom: 1rem;
   transition: color 0.2s ease;
 }
 
 .dropzone:hover .uploadIcon, .dropzoneActive .uploadIcon {
-  color: #3b82f6;
+  color: #1f2937;
 }
 
 .uploadText {
-  color: #4b5563;
-  font-size: 1rem;
+  color: #1d1d1f;
+  font-size: 1.05rem;
   margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
 .uploadHint {
-  color: #9ca3af;
-  font-size: 0.875rem;
+  color: #86868b;
+  font-size: 0.9rem;
 }
 
 .fileInput {
@@ -100,10 +118,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #f3f4f6;
+  background-color: #f5f5f7;
   padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .fileInfo {
@@ -113,14 +131,14 @@
 }
 
 .fileIcon {
-  color: #ef4444;
+  color: #ff3b30;
   margin-right: 1rem;
   flex-shrink: 0;
 }
 
 .fileName {
   font-weight: 500;
-  color: #374151;
+  color: #1d1d1f;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,24 +146,24 @@
 }
 
 .fileSize {
-  color: #6b7280;
-  font-size: 0.875rem;
+  color: #86868b;
+  font-size: 0.85rem;
   margin-top: 0.25rem;
 }
 
 .removeButton {
   background: none;
   border: none;
-  color: #9ca3af;
+  color: #86868b;
   cursor: pointer;
   padding: 0.5rem;
-  border-radius: 4px;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
 .removeButton:hover {
-  background-color: #e5e7eb;
-  color: #dc2626;
+  background-color: #e5e5ea;
+  color: #ff3b30;
 }
 
 /* JD Form */
@@ -155,27 +173,33 @@
 
 .label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  color: #374151;
-  margin-bottom: 0.5rem;
+  color: #1d1d1f;
+  margin-bottom: 0.75rem;
 }
 
 .input, .textarea {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  border: none;
+  border-radius: 16px;
   font-family: inherit;
   font-size: 1rem;
-  color: #111827;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  color: #1d1d1f;
+  background-color: #e8ebf0;
+  box-shadow: 
+    inset 4px 4px 8px rgba(166, 180, 200, 0.4),
+    inset -4px -4px 8px rgba(255, 255, 255, 0.8);
+  transition: box-shadow 0.3s ease;
 }
 
 .input:focus, .textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 
+    inset 6px 6px 12px rgba(166, 180, 200, 0.5),
+    inset -6px -6px 12px rgba(255, 255, 255, 1),
+    0 0 0 2px rgba(31, 41, 55, 0.2);
 }
 
 .textarea {
@@ -192,41 +216,55 @@
 }
 
 .analyzeButton {
-  background-color: #2563eb;
+  background: #1f2937;
   color: white;
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 700;
   padding: 1rem 3rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 250px;
+  box-shadow: 
+    10px 10px 20px rgba(31, 41, 55, 0.3),
+    inset -6px -8px 12px rgba(0, 0, 0, 0.5),
+    inset 6px 8px 12px rgba(75, 85, 99, 0.7);
 }
 
 .analyzeButton:hover:not(:disabled) {
-  background-color: #1d4ed8;
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    14px 14px 24px rgba(31, 41, 55, 0.35),
+    inset -6px -8px 12px rgba(0, 0, 0, 0.5),
+    inset 6px 8px 12px rgba(75, 85, 99, 0.8);
 }
 
 .analyzeButton:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(2px) scale(0.98);
+  box-shadow: 
+    4px 4px 10px rgba(31, 41, 55, 0.25),
+    inset -3px -4px 6px rgba(0, 0, 0, 0.6),
+    inset 3px 4px 6px rgba(75, 85, 99, 0.6);
 }
 
 .analyzeButton:disabled {
-  background-color: #93c5fd;
+  background-color: #d1d1d6;
+  color: #86868b;
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
 .spinner {
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  border-top: 3px solid white;
-  width: 20px;
-  height: 20px;
+  border-top: 2px solid white;
+  width: 18px;
+  height: 18px;
   animation: spin 1s linear infinite;
   margin-right: 0.75rem;
 }
@@ -239,8 +277,9 @@
 .errorMessage {
   background-color: #fee2e2;
   color: #dc2626;
-  padding: 1rem;
-  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
   margin-bottom: 2rem;
   width: 100%;
+  font-weight: 500;
 }

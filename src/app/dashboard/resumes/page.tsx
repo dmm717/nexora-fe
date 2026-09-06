@@ -1,13 +1,19 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './Resumes.module.css';
 import { cvAnalysisApi } from '@/services/cvAnalysisApi';
+import { useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
+
+const REPORT_LANGUAGE_INSTRUCTION = '\n\n(Yêu cầu: Vui lòng trả về báo cáo phân tích hoàn toàn bằng Tiếng Việt)';
 
 export default function ResumesPage() {
   const router = useRouter();
   
+  const { history, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory();
+  const hasResumed = useRef(false);
+
   // File state
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -16,11 +22,62 @@ export default function ResumesPage() {
   // JD state
   const [jdTitle, setJdTitle] = useState('');
   const [jdContent, setJdContent] = useState('');
-
+  
   // Submit state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>('');
+
+  const resumeAnalysis = React.useCallback(async (p: { resumeId: string, jobDescriptionId: string, jdTitle: string }) => {
+    setLoading(true);
+    setError(null);
+    setProgress('Đang phục hồi tiến trình phân tích (Vui lòng không tải lại trang)...');
+    
+    try {
+      let analysis = null;
+      let attempts = 0;
+      const maxAttempts = 15;
+      
+      while (attempts < maxAttempts) {
+        try {
+          analysis = await cvAnalysisApi.analyze({
+            resumeId: p.resumeId,
+            jobDescriptionId: p.jobDescriptionId
+          });
+          break;
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : '';
+          if (errMsg.toLowerCase().includes('chưa sẵn sàng') || errMsg.toLowerCase().includes('not ready')) {
+            attempts++;
+            if (attempts >= maxAttempts) {
+              throw new Error('Quá thời gian chờ xử lý CV. Vui lòng tải lại file mới.');
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (analysis) {
+        setPendingAnalysis(null);
+        addHistoryItem({ id: analysis.id, jdTitle: p.jdTitle });
+        setProgress('Hoàn tất! Đang chuyển hướng...');
+        router.push(`/dashboard/resume-analyses/${analysis.id}`);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra trong quá trình phục hồi phân tích.');
+      setLoading(false);
+      setPendingAnalysis(null);
+    }
+  }, [addHistoryItem, router, setPendingAnalysis]);
+
+  useEffect(() => {
+    if (pending && !hasResumed.current) {
+      hasResumed.current = true;
+      resumeAnalysis(pending);
+    }
+  }, [pending, resumeAnalysis]);
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -47,12 +104,19 @@ export default function ResumesPage() {
   };
 
   const handleFile = (f: File) => {
-    if (f.type !== 'application/pdf') {
-      setError('Vui lòng tải lên file định dạng PDF.');
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    const isDocxExt = f.name.toLowerCase().endsWith('.docx');
+    const isPdfExt = f.name.toLowerCase().endsWith('.pdf');
+    
+    if (!allowedTypes.includes(f.type) && !isDocxExt && !isPdfExt) {
+      setError('Vui lòng tải lên file định dạng PDF hoặc DOCX.');
       return;
     }
-    if (f.size > 5 * 1024 * 1024) {
-      setError('Dung lượng file không được vượt quá 5MB.');
+    if (f.size > 10 * 1024 * 1024) {
+      setError('Dung lượng file không được vượt quá 10MB.');
       return;
     }
     setError(null);
@@ -77,7 +141,6 @@ export default function ResumesPage() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Pre-sign & Upload
       setProgress('Đang chuẩn bị tải lên...');
       const presign = await cvAnalysisApi.presignUpload({
         fileName: file.name,
@@ -91,19 +154,20 @@ export default function ResumesPage() {
       setProgress('Đang lưu thông tin CV (chờ xử lý dữ liệu)...');
       const resume = await cvAnalysisApi.createResume(presign.token);
 
-      // 2. Create JD
       setProgress('Đang phân tích Mô tả công việc...');
       const jd = await cvAnalysisApi.createJobDescription({
         title: jdTitle,
-        content: jdContent
+        content: jdContent + REPORT_LANGUAGE_INSTRUCTION
       });
 
-      // 3. Analyze (with retry logic because Worker needs time to extract CV text)
+      // Lưu trạng thái pending vào localStorage
+      setPendingAnalysis({ resumeId: resume.id, jobDescriptionId: jd.id, jdTitle: jd.title });
+
       setProgress('AI đang phân tích độ phù hợp (Quá trình này có thể mất vài chục giây)...');
       
       let analysis = null;
       let attempts = 0;
-      const maxAttempts = 15; // 30 seconds max (15 * 2s)
+      const maxAttempts = 15;
       
       while (attempts < maxAttempts) {
         try {
@@ -111,10 +175,9 @@ export default function ResumesPage() {
             resumeId: resume.id,
             jobDescriptionId: jd.id
           });
-          break; // Success, exit loop
+          break;
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : '';
-          // Nếu lỗi là do CV chưa sẵn sàng, đợi 2s rồi thử lại
           if (errMsg.toLowerCase().includes('chưa sẵn sàng') || errMsg.toLowerCase().includes('not ready')) {
             attempts++;
             if (attempts >= maxAttempts) {
@@ -122,14 +185,14 @@ export default function ResumesPage() {
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
           } else {
-            // Lỗi khác thì ném ra ngoài luôn
             throw err;
           }
         }
       }
 
-      // 4. Redirect
       if (analysis) {
+        setPendingAnalysis(null);
+        addHistoryItem({ id: analysis.id, jdTitle: jd.title });
         setProgress('Hoàn tất! Đang chuyển hướng...');
         router.push(`/dashboard/resume-analyses/${analysis.id}`);
       }
@@ -137,6 +200,7 @@ export default function ResumesPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra trong quá trình phân tích.');
       setLoading(false);
+      setPendingAnalysis(null);
     }
   };
 
@@ -171,12 +235,12 @@ export default function ResumesPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               <p className={styles.uploadText}>Kéo thả file vào đây hoặc <strong>nhấn để chọn</strong></p>
-              <p className={styles.uploadHint}>Chỉ hỗ trợ file PDF (Tối đa 5MB)</p>
+              <p className={styles.uploadHint}>Hỗ trợ file PDF, DOCX (Tối đa 10MB)</p>
               <input 
                 type="file" 
                 ref={fileInputRef}
                 className={styles.fileInput}
-                accept=".pdf,application/pdf"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={onFileChange}
               />
             </div>
@@ -198,7 +262,7 @@ export default function ResumesPage() {
               </button>
             </div>
           )}
-        </div>
+          </div>
 
         {/* JD Panel */}
         <div className={styles.panel}>
@@ -248,6 +312,36 @@ export default function ResumesPage() {
           <p style={{ marginTop: '1rem', color: '#6b7280', fontSize: '0.875rem' }}>{progress}</p>
         )}
       </div>
+
+      {history.length > 0 && (
+        <div className={styles.panel} style={{ marginTop: '2rem' }}>
+          <h2 className={styles.panelTitle}>Lịch sử phân tích của bạn (Lưu trên thiết bị)</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+            {history.map(item => (
+              <div 
+                key={item.id} 
+                onClick={() => router.push(`/dashboard/resume-analyses/${item.id}`)}
+                style={{ 
+                  cursor: 'pointer', 
+                  padding: '1rem', 
+                  border: '1px solid #e5e7eb', 
+                  borderRadius: '0.5rem', 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  backgroundColor: '#f9fafb'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, color: '#111827' }}>{item.jdTitle}</div>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>{new Date(item.createdAt).toLocaleString('vi-VN')}</div>
+                </div>
+                <div style={{ color: '#2563eb', fontWeight: 500, fontSize: '0.875rem' }}>Xem kết quả &rarr;</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

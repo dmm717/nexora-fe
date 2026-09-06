@@ -5,11 +5,11 @@ export interface BillingSummaryResponse {
     id: string;
     planCode: string;
     startsAt: string;
-    endsAt: string;
-    limit: number;
+    endsAt: string | null;
+    limit: number | null;
     reserved: number;
     consumed: number;
-    available: number;
+    available: number | null;
   };
   orders: {
     id: string;

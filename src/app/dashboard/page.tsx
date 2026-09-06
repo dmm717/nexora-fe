@@ -81,7 +81,10 @@ export default function DashboardPage() {
           <div className={styles.statTitle}>Điểm trung bình</div>
           <div className={styles.statValue}>
             {totalReports > 0 ? (
-              <span className={getScoreClass(avgScore)}>{avgScore} / 100</span>
+              <>
+                <span className={getScoreClass(avgScore)}>{avgScore}</span>
+                <span style={{ fontSize: '1rem', fontWeight: 500, color: '#94a3b8', marginLeft: '4px' }}>/ 100</span>
+              </>
             ) : (
               <span style={{ color: '#9ca3af' }}>N/A</span>
             )}
@@ -90,7 +93,11 @@ export default function DashboardPage() {
         {data.billing?.entitlement && (
           <div className={styles.statCard}>
             <div className={styles.statTitle}>AI Credits (Còn lại)</div>
-            <div className={styles.statValue}>{data.billing.entitlement.available.toLocaleString('vi-VN')}</div>
+            <div className={styles.statValue} style={{ fontSize: data.billing.entitlement.available == null ? '1.25rem' : undefined }}>
+              {data.billing.entitlement.available != null
+                ? data.billing.entitlement.available.toLocaleString('vi-VN')
+                : 'Không giới hạn'}
+            </div>
           </div>
         )}
       </div>
@@ -104,28 +111,30 @@ export default function DashboardPage() {
           {data.interviews.length === 0 ? (
             <div className={styles.emptyState}>Chưa có bài phỏng vấn nào</div>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Vị trí</th>
-                  <th>Cập nhật</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.interviews.slice(0, 5).map(interview => (
-                  <tr key={interview.id}>
-                    <td style={{ fontWeight: 500 }}>{interview.role}</td>
-                    <td>{new Date(interview.updatedAt).toLocaleDateString('vi-VN')}</td>
-                    <td>
-                      <span className={`${styles.badge} ${getStatusBadgeClass(interview.status)}`}>
-                        {interview.status}
-                      </span>
-                    </td>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Vị trí</th>
+                    <th>Cập nhật</th>
+                    <th>Trạng thái</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.interviews.slice(0, 5).map(interview => (
+                    <tr key={interview.id}>
+                      <td style={{ fontWeight: 600 }}>{interview.role}</td>
+                      <td>{new Date(interview.updatedAt).toLocaleDateString('vi-VN')}</td>
+                      <td>
+                        <span className={`${styles.badge} ${getStatusBadgeClass(interview.status)}`}>
+                          {interview.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -137,28 +146,33 @@ export default function DashboardPage() {
           {data.reports.length === 0 ? (
             <div className={styles.emptyState}>Chưa có báo cáo nào</div>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Ngày tạo</th>
-                  <th>Điểm số</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.reports.slice(0, 5).map(report => (
-                  <tr key={report.id}>
-                    <td style={{ fontFamily: 'monospace', color: '#6b7280' }}>
-                      #{report.id.slice(0, 8)}
-                    </td>
-                    <td>{new Date(report.createdAt).toLocaleDateString('vi-VN')}</td>
-                    <td className={getScoreClass(report.overallScore)}>
-                      {report.overallScore} / 100
-                    </td>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Ngày tạo</th>
+                    <th>Điểm số</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.reports.slice(0, 5).map(report => (
+                    <tr key={report.id}>
+                      <td style={{ fontFamily: 'monospace', color: '#64748b' }}>
+                        #{report.id.slice(0, 8)}
+                      </td>
+                      <td>{new Date(report.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td>
+                        <span className={getScoreClass(report.overallScore)} style={{ fontWeight: 700 }}>
+                          {report.overallScore}
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginLeft: '4px' }}>/ 100</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

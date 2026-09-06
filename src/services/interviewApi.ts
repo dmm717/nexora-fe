@@ -16,12 +16,32 @@ export interface QuestionView {
   createdAt: string;
 }
 
+export interface StarEvaluationComponent {
+  score: number;
+  feedback: string;
+}
+
+export interface StarEvaluation {
+  applicable: boolean;
+  situation?: StarEvaluationComponent;
+  task?: StarEvaluationComponent;
+  action?: StarEvaluationComponent;
+  result?: StarEvaluationComponent;
+  missingElements?: string[];
+  coachingTips?: string[];
+}
+
 export interface AnswerView {
   id: string;
   questionId: string;
   content: string;
   durationSeconds?: number;
-  evaluation?: Record<string, unknown>;
+  evaluation?: {
+    score?: number;
+    feedback?: string;
+    star?: StarEvaluation;
+    [key: string]: unknown;
+  };
   createdAt: string;
 }
 
@@ -51,6 +71,13 @@ export interface AnswerResult {
   isComplete: boolean;
 }
 
+export interface StarSummary {
+  averageScore: number;
+  strongestComponent: string;
+  weakestComponent: string;
+  recurringIssues: string[];
+}
+
 export interface ReportView {
   id: string;
   interviewId: string;
@@ -60,6 +87,7 @@ export interface ReportView {
   gaps: Record<string, unknown>;
   actionPlan: Record<string, unknown>;
   disclaimer: string;
+  starSummary?: StarSummary;
   createdAt: string;
 }
 

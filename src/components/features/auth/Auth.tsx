@@ -19,7 +19,7 @@ export default function Auth() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode');
-  
+
   const [isLogin, setIsLogin] = useState(mode !== 'register');
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export default function Auth() {
   const formWrapperRef = useRef<HTMLFormElement>(null);
 
   const schema = isLogin ? loginSchema : registerSchema;
-  
+
   const {
     register,
     handleSubmit,
@@ -49,7 +49,7 @@ export default function Auth() {
   const toggleMode = (e: React.MouseEvent) => {
     e.preventDefault();
     const newIsLogin = !isLogin;
-    
+
     if (formWrapperRef.current) {
       const form = formWrapperRef.current;
 
@@ -64,7 +64,7 @@ export default function Auth() {
           setGlobalError(null);
           router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
           setIsLogin(newIsLogin);
-          
+
           // Wait for React to render the new state
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -88,7 +88,7 @@ export default function Auth() {
   useGSAP(() => {
     // Initial Elegant Reveal Animation
     if (cardRef.current) {
-      gsap.fromTo(cardRef.current, 
+      gsap.fromTo(cardRef.current,
         { opacity: 0, y: 30, filter: 'blur(10px)' },
         {
           opacity: 1,
@@ -148,11 +148,11 @@ export default function Auth() {
     <div className={styles.container} ref={containerRef}>
       <Link href="/" className={styles.backButton}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         Quay lại
       </Link>
-      
+
       <div className={styles.glassCard} ref={cardRef}>
         <h1 className={styles.brandName}>NEXORA</h1>
         <form ref={formWrapperRef} onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -164,50 +164,50 @@ export default function Auth() {
           {globalError && <div className={styles.globalError}>{globalError}</div>}
 
           {!isLogin && (
-            <Input 
+            <Input
               label="Họ và tên"
-              placeholder="Nguyễn Văn A" 
+              placeholder="Nguyễn Văn A"
               {...register('name')}
               error={(errors as FieldErrors<RegisterFormData>).name?.message}
               disabled={isSubmitting}
             />
           )}
 
-          <Input 
+          <Input
             label="Email"
             type="email"
-            placeholder="name@example.com" 
+            placeholder="name@example.com"
             {...register('email')}
             error={errors.email?.message}
             disabled={isSubmitting}
           />
 
           {isLogin ? (
-            <Input 
+            <Input
               label="Mật khẩu"
               type="password"
-              placeholder="••••••••" 
+              placeholder="••••••••"
               {...register('password')}
               error={errors.password?.message}
               disabled={isSubmitting}
             />
           ) : (
             <div className={styles.formRow}>
-              <div style={{flex: 1}}>
-                <Input 
+              <div style={{ flex: 1 }}>
+                <Input
                   label="Mật khẩu"
                   type="password"
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
                   {...register('password')}
                   error={errors.password?.message}
                   disabled={isSubmitting}
                 />
               </div>
-              <div style={{flex: 1}}>
-                <Input 
+              <div style={{ flex: 1 }}>
+                <Input
                   label="Xác nhận"
                   type="password"
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
                   {...register('confirmPassword')}
                   error={(errors as FieldErrors<RegisterFormData>).confirmPassword?.message}
                   disabled={isSubmitting}
@@ -235,7 +235,7 @@ export default function Auth() {
           <Button type="submit" isLoading={isSubmitting}>
             {isLogin ? 'Đăng nhập ngay' : 'Tạo tài khoản'}
           </Button>
-          
+
           <div className={styles.registerWrap}>
             {isLogin ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
             <button type="button" onClick={toggleMode} className={styles.registerLink} disabled={isSubmitting}>

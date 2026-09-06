@@ -172,15 +172,15 @@ const AccountSettings = () => {
             </div>
             <div>
               <div className={styles.infoLabel}>Ngày hết hạn</div>
-              <div className={styles.infoValue}>{new Date(user.billing.entitlement.endsAt).toLocaleDateString('vi-VN')}</div>
+              <div className={styles.infoValue}>{user.billing.entitlement.endsAt ? new Date(user.billing.entitlement.endsAt).toLocaleDateString('vi-VN') : 'Không thời hạn'}</div>
             </div>
             <div>
               <div className={styles.infoLabel}>Đã sử dụng</div>
-              <div className={styles.infoValue}>{user.billing.entitlement.consumed.toLocaleString('vi-VN')} / {user.billing.entitlement.limit.toLocaleString('vi-VN')} AI Credits</div>
+              <div className={styles.infoValue}>{user.billing.entitlement.consumed.toLocaleString('vi-VN')} / {user.billing.entitlement.limit != null ? user.billing.entitlement.limit.toLocaleString('vi-VN') : '∞'} AI Credits</div>
             </div>
             <div>
               <div className={styles.infoLabel}>Còn lại</div>
-              <div className={styles.infoValue}>{user.billing.entitlement.available.toLocaleString('vi-VN')} AI Credits</div>
+              <div className={styles.infoValue}>{user.billing.entitlement.available != null ? user.billing.entitlement.available.toLocaleString('vi-VN') : 'Không giới hạn'}</div>
             </div>
           </div>
         </div>

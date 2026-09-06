@@ -95,7 +95,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className={styles.container}>
       <aside className={styles.leftSidebar}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon} style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }}></div>
+          <div className={styles.logoIcon}></div>
           Nexora Admin
         </div>
         
@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ))}
 
         <div className={styles.userProfile} onClick={handleLogout} title="Click to logout">
-          <div className={styles.avatar} style={{ background: '#ef4444' }}>{userEmail.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{userEmail.split('@')[0]}</span>
             <span className={styles.userRole}>Đăng xuất</span>
@@ -128,10 +128,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className={styles.header}>
           <h1 className={styles.pageTitle}>Admin Panel</h1>
           <div className={styles.topBar}>
-            <span style={{color: '#ef4444', fontWeight: 'bold', fontSize: '14px', marginRight: '20px'}}>
+            <span style={{color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '14px', marginRight: '20px'}}>
               Khu vực quản trị
             </span>
-            <button className={styles.actionButton} style={{ background: '#ef4444' }}>Cài đặt hệ thống</button>
+            <button className={styles.actionButton}>Cài đặt hệ thống</button>
           </div>
         </header>
         

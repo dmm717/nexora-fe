@@ -1,15 +1,26 @@
 import { getAccessToken, setAccessToken, clearAccessToken } from '../store/authStore';
 import { translateErrorMessage } from '../utils/errorTranslator';
 
+export class ApiError extends Error {
+  code?: string;
+  requestId?: string;
+  
+  constructor(message: string, code?: string, requestId?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.requestId = requestId;
+  }
+}
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 /**
  * Thêm các header cần thiết:
  * - Authorization (Bearer) nếu có token
- * - Idempotency-Key (với các hàm POST)
  */
-const getHeaders = (isPost = false) => {
-  const headers: HeadersInit = {
+const getHeaders = () => {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
@@ -17,11 +28,6 @@ const getHeaders = (isPost = false) => {
   const token = getAccessToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  if (isPost) {
-    // Sử dụng randomUUID (native trong trình duyệt hiện đại)
-    headers['Idempotency-Key'] = crypto.randomUUID();
   }
 
   return headers;
@@ -69,10 +75,12 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
           failedQueue.push({ resolve, reject });
         });
         // Khi promise resolve, token đã được set trong authStore, retry request
-        const newHeaders = getHeaders(fetchParams.options.method === 'POST');
         const retryRes = await fetch(fetchParams.url, {
           ...fetchParams.options,
-          headers: newHeaders
+          headers: {
+            ...fetchParams.options.headers,
+            ...getHeaders()
+          }
         });
         if (retryRes.ok) {
           if (retryRes.status === 204) return null;
@@ -98,10 +106,12 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
             processQueue(null, newToken);
 
             // Retry lại request ban đầu với token mới
-            const newHeaders = getHeaders(fetchParams.options.method === 'POST');
             const retryRes = await fetch(fetchParams.url, {
               ...fetchParams.options,
-              headers: newHeaders
+              headers: {
+                ...fetchParams.options.headers,
+                ...getHeaders()
+              }
             });
             
             if (retryRes.ok) {
@@ -138,17 +148,18 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
   // Ném lỗi để UI xử lý (nếu không phải 401 hoặc đã thử retry mà vẫn lỗi nhưng không redirect)
   const errorData = await response.json().catch(() => ({}));
   const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-  throw new Error(translateErrorMessage(rawMessage));
+  throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
 };
 
 export const apiClient = {
   get: async (endpoint: string, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const { headers: customHeaders, ...restOptions } = customOptions || {};
     const options: RequestInit = {
       method: 'GET',
-      headers: { ...getHeaders(false), ...customOptions?.headers },
       credentials: 'include',
-      ...customOptions,
+      ...restOptions,
+      headers: { ...getHeaders(), ...customHeaders },
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
@@ -156,12 +167,19 @@ export const apiClient = {
 
   post: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const { headers: customHeaders, ...restOptions } = customOptions || {};
+    
+    const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
+    if (!headers['Idempotency-Key']) {
+      headers['Idempotency-Key'] = crypto.randomUUID();
+    }
+
     const options: RequestInit = {
       method: 'POST',
-      headers: { ...getHeaders(true), ...customOptions?.headers },
       body: body ? JSON.stringify(body) : undefined,
       credentials: 'include',
-      ...customOptions,
+      ...restOptions,
+      headers,
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
@@ -169,12 +187,19 @@ export const apiClient = {
 
   patch: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const { headers: customHeaders, ...restOptions } = customOptions || {};
+    
+    const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
+    if (!headers['Idempotency-Key']) {
+      headers['Idempotency-Key'] = crypto.randomUUID();
+    }
+
     const options: RequestInit = {
       method: 'PATCH',
-      headers: { ...getHeaders(true), ...customOptions?.headers },
       body: body ? JSON.stringify(body) : undefined,
       credentials: 'include',
-      ...customOptions,
+      ...restOptions,
+      headers,
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
@@ -182,11 +207,32 @@ export const apiClient = {
 
   delete: async (endpoint: string, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const { headers: customHeaders, ...restOptions } = customOptions || {};
     const options: RequestInit = {
       method: 'DELETE',
-      headers: { ...getHeaders(false), ...customOptions?.headers },
       credentials: 'include',
-      ...customOptions,
+      ...restOptions,
+      headers: { ...getHeaders(), ...customHeaders },
+    };
+    const response = await fetch(url, options);
+    return handleResponse(response, { url, options });
+  },
+
+  put: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
+    const url = `${BASE_URL}${endpoint}`;
+    const { headers: customHeaders, ...restOptions } = customOptions || {};
+    
+    const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
+    if (!headers['Idempotency-Key']) {
+      headers['Idempotency-Key'] = crypto.randomUUID();
+    }
+
+    const options: RequestInit = {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
+      ...restOptions,
+      headers,
     };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options });
