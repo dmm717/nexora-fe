@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import styles from '../Interviews.module.css';
 import { interviewApi } from '@/services/interviewApi';
 import { useInterview } from '@/hooks/queries/useInterviews';
@@ -9,6 +10,7 @@ import { useInterview } from '@/hooks/queries/useInterviews';
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   
   const [answerContent, setAnswerContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -79,8 +81,15 @@ export default function InterviewRoomPage() {
         await interviewApi.complete(id);
         router.push(`/dashboard/interviews/${id}/report`);
       } else {
-        // Fetch latest state to get next question
-        await refetch();
+        // Tối ưu hóa: Cập nhật cache trực tiếp từ kết quả trả về của API, tránh refetch thừa thãi
+        queryClient.setQueryData(['interview', id], (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            answers: [...oldData.answers, result.answer],
+            questions: result.nextQuestion ? [...oldData.questions, result.nextQuestion] : oldData.questions,
+          };
+        });
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Lỗi khi gửi câu trả lời');

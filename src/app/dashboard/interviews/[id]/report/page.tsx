@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './Report.module.css';
 import { useInterview, useInterviewReport } from '@/hooks/queries/useInterviews';
@@ -21,14 +21,17 @@ export default function InterviewReportPage() {
     return false;
   });
 
-  const error = queryError ? queryError.message : null;
+  const errorMsg = queryError?.message?.toLowerCase() || '';
+  const isGenerating = errorMsg.includes('not found') || errorMsg.includes('chưa có') || errorMsg.includes('không tìm thấy');
 
-  if (loading) {
+  if (loading || (isGenerating && !report)) {
     return (
       <div className={styles.container}>
         <div className={styles.panel} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <h2 className={styles.title}>Đang tải báo cáo...</h2>
-          <p style={{ color: '#000', marginTop: '1rem', fontWeight: 600, fontSize: '1.125rem' }}>AI đang tổng hợp và phân tích kết quả phỏng vấn của bạn.</p>
+          <p style={{ color: '#000', marginTop: '1rem', fontWeight: 600, fontSize: '1.125rem' }}>
+            AI đang tổng hợp và phân tích kết quả phỏng vấn của bạn. Quá trình này có thể mất đến 1 phút...
+          </p>
           <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: '40px', height: '40px', border: '4px solid #000', borderTop: '4px solid #4ade80', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           </div>
@@ -38,7 +41,9 @@ export default function InterviewReportPage() {
     );
   }
 
-  if (error || !report) return <div className={styles.container}><div className={styles.panel} style={{ color: 'red', fontWeight: 800 }}>{error}</div></div>;
+  const error = (queryError && !isGenerating) ? queryError.message : null;
+
+  if (error || !report) return <div className={styles.container}><div className={styles.panel} style={{ color: 'red', fontWeight: 800 }}>{error || 'Đã xảy ra lỗi không xác định'}</div></div>;
 
   const strengths = (report.strengths || []) as unknown as string[];
   const gaps = (report.gaps || []) as unknown as string[];
@@ -153,7 +158,7 @@ export default function InterviewReportPage() {
                 <tr key={idx}>
                   <td className={styles.criterion}>{item.criterion}</td>
                   <td style={{ textAlign: 'center' }}>
-                    <span className={styles.scorePill}>{item.score}</span>
+                    <span className={styles.scorePill}>{item.score}/100</span>
                   </td>
                   <td>{item.evidence}</td>
                 </tr>
@@ -195,28 +200,28 @@ export default function InterviewReportPage() {
                              {star.situation && (
                                <tr>
                                  <td className={styles.criterion}>Situation</td>
-                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.situation.score}</span></td>
+                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.situation.score}/100</span></td>
                                  <td>{star.situation.feedback}</td>
                                </tr>
                              )}
                              {star.task && (
                                <tr>
                                  <td className={styles.criterion}>Task</td>
-                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.task.score}</span></td>
+                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.task.score}/100</span></td>
                                  <td>{star.task.feedback}</td>
                                </tr>
                              )}
                              {star.action && (
                                <tr>
                                  <td className={styles.criterion}>Action</td>
-                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.action.score}</span></td>
+                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.action.score}/100</span></td>
                                  <td>{star.action.feedback}</td>
                                </tr>
                              )}
                              {star.result && (
                                <tr>
                                  <td className={styles.criterion}>Result</td>
-                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.result.score}</span></td>
+                                 <td style={{ textAlign: 'center' }}><span className={styles.scorePill}>{star.result.score}/100</span></td>
                                  <td>{star.result.feedback}</td>
                                </tr>
                              )}
