@@ -1,19 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #009CA6;
-  --color-primary-hover: #007a82;
-  --color-text-dark: #1A2B4C;
-  --color-text-gray: #64748B;
-  --color-bg-light: #F8F9FA;
+  --color-primary: #171717; /* Neutral 900 */
+  --color-primary-hover: #404040; /* Neutral 700 (Dark Gray) */
+  --color-text-dark: #3f3f46; /* Zinc 700 (Đen xám / Charcoal - Clearly not pure black) */
+  --color-text-gray: #71717a; /* Zinc 500 (Xám trung tính) */
+  --color-bg-light: #e4e4e7; /* Zinc 200 (Distinctly Light Gray, not white) */
+  --color-bg-gray: #d4d4d8; /* Zinc 300 (Mid-tone gray for hovers) */
   --color-white: #ffffff;
 
-  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.12);
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
 }
 
 @theme inline {
-  --color-background: var(--color-white);
+  --color-background: var(--color-bg-light); /* Apply light gray to whole page background */
   --color-foreground: var(--color-text-dark);
 }
 
@@ -34,7 +35,7 @@ html {
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-outfit), sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;

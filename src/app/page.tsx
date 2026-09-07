@@ -2,7 +2,6 @@
 
 import Header from '@/components/layouts/Header';
 import Hero from '@/components/features/home/Hero';
-import Stats from '@/components/features/home/Stats';
 import Services from '@/components/features/home/Services';
 import About from '@/components/features/home/About';
 import Pricing from '@/components/features/home/Pricing';
@@ -14,11 +13,10 @@ export default function Home() {
       <Header />
       <main>
         <Hero />
-        <Stats />
+        <TrustedBrands />
         <Services />
         <About />
         <Pricing />
-        <TrustedBrands />
       </main>
     </>
   );

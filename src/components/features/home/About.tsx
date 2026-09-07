@@ -1,72 +1,87 @@
-import React, { useEffect, useRef } from 'react';
+'use client';
+import React, { useRef, useEffect } from 'react';
 import styles from './About.module.css';
-import gsap from 'gsap';
+import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
+const panels = [
+  {
+    title: "REAL-TIME",
+    desc: "Nhận phản hồi ngay lập tức sau từng câu trả lời. Điều chỉnh nhịp độ và phong thái kịp thời.",
+    image: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=2069&auto=format&fit=crop"
+  },
+  {
+    title: "EMOTION AI",
+    desc: "Phân tích biểu cảm nét mặt qua camera. Tự tin chinh phục mọi ánh nhìn.",
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"
+  },
+  {
+    title: "STAR LOGIC",
+    desc: "Khuôn mẫu tư duy STAR được bóc tách chi tiết. Biến mọi câu chuyện thành lợi thế cạnh tranh.",
+    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070&auto=format&fit=crop"
+  }
+];
+
 const About = () => {
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (containerRef.current) {
-      gsap.fromTo(
-        (containerRef.current as HTMLElement).children,
-        { y: 50, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.8,
-          stagger: 0.2,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: "top 80%",
-          }
+    if (!containerRef.current || !trackRef.current) return;
+    
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
+    const ctx = gsap.context(() => {
+      const track = trackRef.current!;
+      const sections = gsap.utils.toArray<HTMLElement>(`.${styles.panel}`);
+      
+      // Calculate how far to scroll to reach the end of the track
+      // Adding a little extra space so the last panel aligns properly
+      const amountToScroll = track.scrollWidth - window.innerWidth;
+
+      gsap.to(sections, {
+        x: () => -amountToScroll,
+        ease: "none",
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top top",
+          end: () => `+=${amountToScroll}`,
+          pin: true,
+          scrub: 1,
+          invalidateOnRefresh: true, // Recalculates on resize
         }
-      );
-    }
+      });
+    }, containerRef);
+
+    return () => ctx.revert();
   }, []);
 
   return (
-    <section id="casestudy" className={styles.aboutSection}>
-      <div className={styles.container} ref={containerRef}>
-        <div className={styles.textContent}>
-          <span className={styles.tag}>Tại sao chọn chúng tôi?</span>
-          <h2 className={styles.title}>Nâng tầm kỹ năng mềm <br />với <span className={styles.highlight}>AI GPT-4o</span></h2>
-          <p className={styles.desc}>
-            Mô phỏng hoàn hảo môi trường phỏng vấn thực tế, đánh giá chi tiết cả về kiến thức chuyên môn lẫn biểu cảm khuôn mặt.
-          </p>
-          
-          <ul className={styles.checklist}>
-            <li>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-              <span>Phản hồi theo thời gian thực (Real-time Feedback)</span>
-            </li>
-            <li>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-              <span>Phân tích cảm xúc & Tốc độ nói (Tone Analysis)</span>
-            </li>
-            <li>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-              <span>Bám sát mô hình trả lời STAR chuẩn mực</span>
-            </li>
-          </ul>
-
-          <button className={styles.ctaButton}>Trải nghiệm ngay</button>
+    <section id="casestudy" className={styles.aboutSection} ref={containerRef}>
+      <div className={styles.track} ref={trackRef}>
+        <div className={styles.introPanel}>
+          <h2 className={styles.massiveText}>HOW IT<br/>WORKS.</h2>
         </div>
-
-        <div className={styles.imageContent}>
-          <div className={styles.imageWrapper}>
-             <div className={styles.placeholderImage}></div>
-             
-             <div className={styles.experienceBox}>
-               <h3>100+</h3>
-               <p>Kịch bản Ngành nghề</p>
-               <span>Hỗ trợ mọi lĩnh vực IT, Marketing, Sales...</span>
-             </div>
+        {panels.map((panel, i) => (
+          <div key={i} className={styles.panel}>
+            <div className={styles.imageBox}>
+              <div 
+                className={styles.bgImg} 
+                style={{ backgroundImage: `url('${panel.image}')` }} 
+              />
+            </div>
+            <div className={styles.textBox}>
+              <div className={styles.index}>[0{i+1}]</div>
+              <h3 className={styles.panelTitle}>{panel.title}</h3>
+              <p className={styles.panelDesc}>{panel.desc}</p>
+            </div>
           </div>
-        </div>
+        ))}
+        {/* Extra padding at the end so the last item isn't flush against the right edge */}
+        <div className={styles.endPadding}></div>
       </div>
     </section>
   );

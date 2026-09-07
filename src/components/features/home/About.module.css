@@ -1,155 +1,142 @@
 .aboutSection {
-  padding: 8rem 0;
-  background-color: var(--color-white);
+  background-color: var(--color-text-dark);
+  color: var(--color-white);
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+  /* Top border to separate from previous brutalist section */
+  border-top: 4px solid var(--color-text-dark);
 }
 
-.container {
-  max-width: 80rem; /* 1280px */
-  margin: 0 auto;
-  padding: 0 2rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4rem;
+.track {
+  display: flex;
+  height: 100%;
+  width: max-content;
   align-items: center;
+  padding: 0 4vw;
 }
 
-.textContent {
-  max-width: 31.25rem; /* 500px */
-}
-
-.tag {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.0625rem; /* 1px */
-  color: var(--color-primary);
-  margin-bottom: 1rem;
-}
-
-.title {
-  font-size: 2.5rem;
-  line-height: 1.2;
-  font-weight: 700;
-  color: var(--color-text-dark);
-  margin: 0 0 1.5rem 0;
-}
-
-.highlight {
-  color: var(--color-primary);
-}
-
-.desc {
-  color: var(--color-text-gray);
-  line-height: 1.6;
-  font-size: 1.05rem;
-  margin-bottom: 2rem;
-}
-
-.checklist {
-  margin-bottom: 2.5rem;
-}
-
-.checklist li {
+.introPanel {
+  width: 100vw;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  color: var(--color-text-dark);
-  font-weight: 500;
-  font-size: 0.95rem;
+  flex-shrink: 0;
 }
 
-.checklist svg {
-  color: var(--color-primary);
+.massiveText {
+  font-size: clamp(5rem, 15vw, 15rem);
+  font-weight: 800;
+  line-height: 0.85;
+  margin: 0;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--color-white);
+  text-transform: uppercase;
 }
 
-.ctaButton {
-  background-color: var(--color-primary);
-  color: var(--color-white);
-  padding: 0.8rem 2rem;
-  border-radius: 0.375rem; /* 6px */
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+.panel {
+  width: 80vw;
+  max-width: 1000px;
+  height: 70vh;
+  display: flex;
+  gap: 4rem;
+  flex-shrink: 0;
+  margin-right: 8rem;
+  align-items: stretch;
 }
 
-.ctaButton:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.imageContent {
+.imageBox {
+  flex: 1.5;
+  background-color: #262626;
   position: relative;
+  overflow: hidden;
 }
 
-.imageWrapper {
-  position: relative;
-  border-radius: 1.25rem; /* 20px */
-  overflow: visible; /* to allow floating box */
-}
-
-.placeholderImage {
-  width: 100%;
-  height: 31.25rem; /* 500px */
-  background: url('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop') no-repeat center center;
-  background-size: cover;
-  border-radius: 1.25rem; /* 20px */
-}
-
-.experienceBox {
+.bgImg {
   position: absolute;
-  bottom: -1.875rem; /* -30px */
-  right: -1.875rem; /* -30px */
-  background: var(--color-white);
-  padding: 2rem;
-  border-radius: 0.75rem; /* 12px */
-  box-shadow: 0 15px 40px rgba(0,0,0,0.1);
-  width: 17.5rem; /* 280px */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(100%);
 }
 
-.experienceBox h3 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--color-text-dark);
-  margin: 0 0 0.5rem 0;
+.textBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 2rem;
+}
+
+.index {
+  font-family: monospace;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: #737373;
+}
+
+.panelTitle {
+  font-size: clamp(2rem, 4vw, 4rem);
+  font-weight: 800;
+  margin: 0 0 1.5rem 0;
   line-height: 1;
 }
 
-.experienceBox p {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text-dark);
-  margin: 0 0 0.5rem 0;
+.panelDesc {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: #a3a3a3;
 }
 
-.experienceBox span {
-  font-size: 0.85rem;
-  color: var(--color-text-gray);
-  line-height: 1.4;
-  display: block;
+.endPadding {
+  width: 20vw;
+  flex-shrink: 0;
+}
+
+/* Reduced Motion Fallback */
+@media (prefers-reduced-motion: reduce) {
+  .aboutSection {
+    height: auto;
+    overflow: visible;
+  }
+  .track {
+    flex-direction: column;
+    width: 100%;
+    padding: 4rem 2rem;
+  }
+  .introPanel {
+    width: 100%;
+    margin-bottom: 4rem;
+  }
+  .panel {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 4rem;
+    height: auto;
+    flex-direction: column;
+  }
+  .imageBox {
+    height: 50vh;
+    margin-bottom: 2rem;
+  }
+  .massiveText {
+    -webkit-text-stroke: 1px var(--color-white);
+  }
 }
 
 @media (max-width: 1024px) {
-  .experienceBox {
-    bottom: -1rem;
-    right: 0;
+  .panel {
+    width: 90vw;
+    flex-direction: column;
   }
-}
-
-@media (max-width: 768px) {
-  .container {
-    grid-template-columns: 1fr;
-    gap: 3rem;
+  .imageBox {
+    flex: none;
+    height: 50%;
   }
-  .textContent {
-    max-width: 100%;
-  }
-  .experienceBox {
-    width: auto;
-    left: 2rem;
-    right: 2rem;
-    bottom: -2rem;
-    text-align: center;
+  .textBox {
+    padding-top: 2rem;
+    justify-content: flex-start;
   }
 }
