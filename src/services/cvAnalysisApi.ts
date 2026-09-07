@@ -43,6 +43,8 @@ export interface AnalysisView {
   resumeId: string;
   jobDescriptionId: string;
   status: string;
+  errorCode?: string;
+  errorMessage?: string;
   result?: {
     strengths?: string[];
     gaps?: string[];

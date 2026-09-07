@@ -4,16 +4,20 @@ import Image from 'next/image';
 import styles from './DashboardLayout.module.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { userApi } from '@/services/userApi';
+import { useCurrentUser } from '@/hooks/queries/useUser';
 import { authApi } from '@/services/authApi';
 import { getAvatarColor } from '@/utils/colorUtils';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState('User');
-  const [planCode, setPlanCode] = useState('Free');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  const { data: user } = useCurrentUser();
+  const userEmail = user?.email || 'User';
+  const planCode = user?.billing?.entitlement?.planCode 
+    ? user.billing.entitlement.planCode.charAt(0).toUpperCase() + user.billing.entitlement.planCode.slice(1).toLowerCase() 
+    : 'Free';
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -25,22 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-    userApi.getCurrentUser()
-      .then(user => {
-        if (isMounted) {
-          if (user.email) setUserEmail(user.email);
-          const currentPlan = user.billing?.entitlement?.planCode;
-          setPlanCode(currentPlan ? currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1).toLowerCase() : 'Free');
-        }
-      })
-      .catch(() => {
-        // Ignored, apiClient handles 401
-      });
-    
-    return () => { isMounted = false; };
-  }, [pathname]);
+
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -78,7 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Logo */}
           <div className={styles.logo}>
             <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center' }}>
-              <Image src="/logo.png" alt="Nexora" width={112} height={28} style={{ objectFit: 'contain' }} priority />
+              <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
             </Link>
             
             {/* Center Menu */}
@@ -97,6 +86,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Right Section (User) */}
           <div className={styles.rightSection}>
+            <button 
+              className={styles.actionButton} 
+              onClick={() => router.push('/dashboard/interviews/new')}
+            >
+              Bắt đầu phỏng vấn
+            </button>
+            
             <div className={styles.userProfileWrapper}>
               <div 
                 className={styles.userProfile} 

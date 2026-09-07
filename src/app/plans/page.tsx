@@ -1,27 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { usePlans } from '@/hooks/queries/useBilling';
 import styles from './PlansPage.module.css';
-import { billingApi, PlanView } from '@/services/billingApi';
 import Link from 'next/link';
 
 export default function PlansPage() {
-  const [plans, setPlans] = useState<PlanView[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        const data = await billingApi.getPlans();
-        setPlans(data);
-      } catch (error) {
-        console.error('Failed to fetch plans', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPlans();
-  }, []);
+  const { data: plans, isLoading: loading, error: queryError } = usePlans();
+  const error = queryError ? queryError.message || 'Lỗi khi tải danh sách gói.' : null;
 
   if (loading) {
     return (
@@ -46,7 +32,7 @@ export default function PlansPage() {
       </div>
 
       <div className={styles.plansGrid}>
-        {plans.map((plan) => (
+        {(plans || []).map((plan) => (
           <div key={plan.id} className={styles.planCard}>
             <div className={styles.planHeader}>
               <h2 className={styles.planName}>{plan.name}</h2>

@@ -1,31 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styles from './Analytics.module.css';
-import { progressApi, ProgressResponse } from '@/services/progressApi';
+import { useAnalytics } from '@/hooks/queries/useDashboard';
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<ProgressResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    progressApi.getProgressAnalytics()
-      .then(res => {
-        if (isMounted) {
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Lỗi khi tải dữ liệu tiến độ');
-          setLoading(false);
-        }
-      });
-    return () => { isMounted = false; };
-  }, []);
+  const { data, isLoading: loading, error: queryError } = useAnalytics();
+  const error = queryError ? queryError.message || 'Lỗi tải dữ liệu Analytics' : null;
 
   if (loading) {
     return <div className={styles.container}>Đang tải dữ liệu báo cáo tiến độ...</div>;

@@ -183,6 +183,25 @@
   transition: box-shadow 0.3s ease;
 }
 
+.textarea::-webkit-scrollbar {
+  width: 8px;
+}
+
+.textarea::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 1rem 0;
+}
+
+.textarea::-webkit-scrollbar-thumb {
+  background: #babbc0;
+  border-radius: 10px;
+  border: 2px solid #e8ebf0;
+}
+
+.textarea::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
 .textarea:focus {
   outline: none;
   box-shadow:

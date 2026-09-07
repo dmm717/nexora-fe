@@ -3,21 +3,25 @@
 import React, { useEffect, useState } from 'react';
 import styles from './Billing.module.css';
 import { billingApi, PlanView } from '@/services/billingApi';
-import { userApi } from '@/services/userApi';
+import { useBillingPlans } from '@/hooks/queries/useBilling';
+import { useCurrentUser } from '@/hooks/queries/useUser';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function BillingPage() {
-  const [plans, setPlans] = useState<PlanView[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [purchasingPlanId, setPurchasingPlanId] = useState<string | null>(null);
-  const [currentPlanCode, setCurrentPlanCode] = useState<string | null>(null);
+  
+  const { data: plans = [], isLoading: loadingPlans } = useBillingPlans();
+  const { data: user, isLoading: loadingUser } = useCurrentUser();
+  const queryClient = useQueryClient();
+
+  const loading = loadingPlans || loadingUser;
+  const currentPlanCode = user?.billing?.entitlement?.planCode || null;
 
   useEffect(() => {
     let isMounted = true;
     if (typeof window !== 'undefined') {
       const pendingOrderId = sessionStorage.getItem('pendingPaymentOrderId');
       if (pendingOrderId) {
-        // Clean URL if there are query params
         const searchParams = new URLSearchParams(window.location.search);
         if (searchParams.get('error') || searchParams.get('success')) {
           window.history.replaceState({}, document.title, window.location.pathname);
@@ -27,32 +31,27 @@ export default function BillingPage() {
           try {
             let statusRes = await billingApi.getOrderStatus(pendingOrderId);
             if (statusRes.status === 'pending') {
-              // Wait 2s and refresh
               await new Promise(r => setTimeout(r, 2000));
               statusRes = await billingApi.refreshOrderStatus(pendingOrderId);
             }
             if (statusRes.status === 'fulfilled') {
-              // Success
               sessionStorage.removeItem('pendingPaymentOrderId');
+              queryClient.invalidateQueries({ queryKey: ['currentUser'] });
             } else if (statusRes.status === 'failed') {
               sessionStorage.removeItem('pendingPaymentOrderId');
               if (isMounted) setError('Thanh toán thất bại hoặc đã bị hủy.');
             } else {
-              // Still pending or cancelled
               sessionStorage.removeItem('pendingPaymentOrderId');
               if (isMounted) setError('Thanh toán chưa được xác nhận hoàn tất.');
             }
           } catch {
             sessionStorage.removeItem('pendingPaymentOrderId');
             if (isMounted) setError('Lỗi khi kiểm tra trạng thái thanh toán.');
-          } finally {
-            fetchInitialData();
           }
         };
         
         checkStatus();
       } else {
-        // Normal error handling from URL
         const searchParams = new URLSearchParams(window.location.search);
         const errorParam = searchParams.get('error');
         if (errorParam === 'webhook_error') {
@@ -66,41 +65,17 @@ export default function BillingPage() {
         if (errorParam || searchParams.get('success')) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
-        fetchInitialData();
       }
     }
-
-    function fetchInitialData() {
-      Promise.all([billingApi.getPlans(), userApi.getCurrentUser()])
-        .then(([plansRes, userRes]) => {
-          if (isMounted) {
-            setPlans(plansRes);
-            setCurrentPlanCode(userRes.billing?.entitlement?.planCode || null);
-            setLoading(false);
-          }
-        })
-        .catch(err => {
-          if (isMounted) {
-            setError(err instanceof Error ? err.message : 'Không thể tải danh sách gói cước. Vui lòng thử lại sau.');
-            setLoading(false);
-          }
-        });
-    }
-
     return () => { isMounted = false; };
-  }, []);
+  }, [queryClient]);
 
-  const handleBuyPlan = async (planPriceId: string) => {
-    try {
-      setPurchasingPlanId(planPriceId);
-      setError(null);
-      const res = await billingApi.createCheckoutSession(planPriceId);
-      
+  const createCheckoutMutation = useMutation({
+    mutationFn: (planPriceId: string) => billingApi.createCheckoutSession(planPriceId),
+    onSuccess: (res) => {
       if (res.checkout) {
-        // Lưu orderId để kiểm tra trạng thái khi quay về
         sessionStorage.setItem('pendingPaymentOrderId', res.orderId);
         
-        // Tạo form ẩn và submit sang cổng thanh toán SePay
         const form = document.createElement('form');
         form.method = res.checkout.method;
         form.action = res.checkout.url;
@@ -118,12 +93,15 @@ export default function BillingPage() {
       } else {
         setError('Không nhận được thông tin thanh toán từ server.');
       }
-    } catch (err: unknown) {
+    },
+    onError: (err) => {
       setError(err instanceof Error ? err.message : 'Lỗi khi tạo phiên thanh toán.');
-    } finally {
-      // NOTE: Form submit will redirect the page, so finally might not complete, but it's safe.
-      setPurchasingPlanId(null);
     }
+  });
+
+  const handleBuyPlan = (planPriceId: string) => {
+    setError(null);
+    createCheckoutMutation.mutate(planPriceId);
   };
 
   const formatMoney = (amount: number, currency: string) => {
@@ -201,9 +179,9 @@ export default function BillingPage() {
                 <button
                   className={`${styles.buyButton} ${isCurrentPlan ? styles.btnSecondary : styles.btnPrimary}`}
                   onClick={() => handleBuyPlan(price.id)}
-                  disabled={purchasingPlanId !== null || isCurrentPlan}
+                  disabled={createCheckoutMutation.isPending || isCurrentPlan}
                 >
-                  {purchasingPlanId === price.id ? (
+                  {createCheckoutMutation.isPending && createCheckoutMutation.variables === price.id ? (
                     <><div className={`${styles.spinner} ${isCurrentPlan ? styles.spinnerDark : ''}`}></div> Đang xử lý...</>
                   ) : (
                     isCurrentPlan ? 'Gói hiện tại' : 'Mua ngay'

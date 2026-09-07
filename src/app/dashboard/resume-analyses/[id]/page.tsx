@@ -3,50 +3,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './Analysis.module.css';
-import { cvAnalysisApi, AnalysisView } from '@/services/cvAnalysisApi';
+import { useResumeAnalysis } from '@/hooks/queries/useResumes';
 
 export default function ResumeAnalysisDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
 
-  const [data, setData] = useState<AnalysisView | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading: queryLoading, error: queryError } = useResumeAnalysis(
+    id,
+    (query) => {
+      const currentData = query.state.data as any;
+      if (currentData && (currentData.status === 'completed' || currentData.status === 'failed')) {
+        return false;
+      }
+      return 2000;
+    }
+  );
 
-  useEffect(() => {
-    let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
-
-    const fetchAnalysis = () => {
-      if (!id) return;
-      cvAnalysisApi.getAnalysis(id)
-        .then(res => {
-          if (isMounted) {
-            setData(res);
-            if (res.status === 'completed' || res.status === 'failed') {
-              setLoading(false);
-            } else {
-              // Still processing, poll again in 2 seconds
-              timeoutId = setTimeout(fetchAnalysis, 2000);
-            }
-          }
-        })
-        .catch(err => {
-          if (isMounted) {
-            setError(err.message || 'Không thể tải kết quả phân tích.');
-            setLoading(false);
-          }
-        });
-    };
-
-    fetchAnalysis();
-
-    return () => {
-      isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [id]);
+  const error = queryError ? queryError.message || 'Không thể tải kết quả phân tích.' : null;
+  const loading = queryLoading;
 
   if (loading || (data && (data.status === 'pending' || data.status === 'processing'))) {
     return (
@@ -63,6 +39,19 @@ export default function ResumeAnalysisDetailsPage() {
           <button className={styles.backButton} onClick={() => router.back()}>&larr; Quay lại</button>
         </div>
         <div className={styles.errorMessage}>{error || 'Không tìm thấy dữ liệu'}</div>
+      </div>
+    );
+  }
+
+  if (data.status === 'failed') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <button className={styles.backButton} onClick={() => router.back()}>&larr; Quay lại</button>
+        </div>
+        <div className={styles.errorMessage}>
+          Quá trình phân tích thất bại. {data.errorCode ? `Mã lỗi: ${data.errorCode}` : 'Vui lòng thử lại sau.'}
+        </div>
       </div>
     );
   }

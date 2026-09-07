@@ -1,12 +1,13 @@
 'use client';
 import React, { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 import { FieldErrors } from 'react-hook-form';
 import styles from './Auth.module.css';
@@ -151,14 +152,16 @@ export default function Auth() {
       </Link>
 
       <div className={styles.glassCard} ref={cardRef}>
-        <h1 className={styles.brandName}>NEXORA</h1>
+        <div className={styles.brandLogo}>
+          <Image src="/logo.png" alt="Nexora" width={160} height={40} style={{ objectFit: 'contain' }} priority />
+        </div>
         <form ref={formWrapperRef} onSubmit={handleSubmit(onSubmit)} noValidate>
           <h2 className={styles.title}>{isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}</h2>
           <p className={styles.subtitle}>
             {isLogin ? 'Chào mừng bạn quay trở lại' : 'Bắt đầu hành trình nâng tầm sự nghiệp'}
           </p>
 
-          {globalError && <div className={styles.globalError}>{globalError}</div>}
+          {/* Inline error message removed, already handled by toast */}
 
           {!isLogin && (
             <Input

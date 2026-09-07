@@ -3,64 +3,25 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './Report.module.css';
-import { interviewApi, ReportView, InterviewView } from '@/services/interviewApi';
+import { useInterview, useInterviewReport } from '@/hooks/queries/useInterviews';
 import { useAutoTranslate } from '@/hooks/useAutoTranslate';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [report, setReport] = useState<ReportView | null>(null);
-  const [interview, setInterview] = useState<InterviewView | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   useAutoTranslate();
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    // Fetch interview details for Q&A history
-    interviewApi.getById(id).then(data => {
-      if (isMounted) setInterview(data);
-    }).catch(console.error);
+  const { data: interview } = useInterview(id);
+  const { data: report, isLoading: loading, error: queryError } = useInterviewReport(id, (query) => {
+    const errorMsg = query.state.error?.message?.toLowerCase() || '';
+    if (errorMsg.includes('not found') || errorMsg.includes('chưa có') || errorMsg.includes('không tìm thấy')) {
+      return 3000;
+    }
+    return false;
+  });
 
-    const fetchReport = async () => {
-      try {
-        const data = await interviewApi.getReport(id);
-        if (isMounted) {
-          setReport(data);
-          setLoading(false);
-        }
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message.toLowerCase() : '';
-        if (errorMsg.includes('not found') || errorMsg.includes('chưa có') || errorMsg.includes('không tìm thấy')) {
-          const interval = setInterval(async () => {
-            try {
-              const data = await interviewApi.getReport(id);
-              if (isMounted) {
-                setReport(data);
-                setLoading(false);
-              }
-              clearInterval(interval);
-            } catch {
-              // keep polling
-            }
-          }, 3000);
-          return () => clearInterval(interval);
-        } else {
-          if (isMounted) {
-            setError(err instanceof Error ? err.message : 'Lỗi tải báo cáo');
-            setLoading(false);
-          }
-        }
-      }
-    };
-    
-    fetchReport();
-    
-    return () => { isMounted = false; };
-  }, [id]);
+  const error = queryError ? queryError.message : null;
 
   if (loading) {
     return (

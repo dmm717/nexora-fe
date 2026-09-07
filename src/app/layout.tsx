@@ -12,15 +12,17 @@ export const metadata: Metadata = {
   description: "We deliver intelligent solutions that drive growth, empower businesses, and create lasting impact.",
 };
 
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { Toaster } from 'sonner';
+import ReactQueryProvider from '@/components/providers/ReactQueryProvider';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} antialiased`}>
       <body className="min-h-full flex flex-col">
-        {children}
-        <ToastContainer position="top-right" autoClose={3000} hideProgressBar theme="light" />
+        <ReactQueryProvider>
+          {children}
+          <Toaster position="bottom-right" richColors />
+        </ReactQueryProvider>
       </body>
     </html>
   );

@@ -3,15 +3,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from '../Interviews.module.css';
-import { interviewApi, InterviewView } from '@/services/interviewApi';
+import { interviewApi } from '@/services/interviewApi';
+import { useInterview } from '@/hooks/queries/useInterviews';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  
-  const [interview, setInterview] = useState<InterviewView | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
   const [answerContent, setAnswerContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -19,35 +16,15 @@ export default function InterviewRoomPage() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchInterview = async () => {
-    try {
-      const data = await interviewApi.getById(id);
-      setInterview(data);
-      setError(null);
-      return data;
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Lỗi tải bài phỏng vấn');
-      return null;
+  const { data: interview, isLoading: loading, error: queryError, refetch } = useInterview(id, (query) => {
+    const data = query.state.data as any;
+    if (data && (data.status === 'starting' || data.status === 'queued')) {
+      return 2000;
     }
-  };
+    return false;
+  });
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchInterview().then(data => {
-      setLoading(false);
-      // Start polling if status is starting or queued
-      if (data && (data.status === 'starting' || data.status === 'queued')) {
-        const interval = setInterval(async () => {
-          const latest = await fetchInterview();
-          if (latest && latest.status !== 'starting' && latest.status !== 'queued') {
-            clearInterval(interval);
-          }
-        }, 2000);
-        return () => clearInterval(interval);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  const error = queryError ? queryError.message : null;
 
   // Start timer when a question is active
   useEffect(() => {
@@ -77,7 +54,7 @@ export default function InterviewRoomPage() {
       await interviewApi.complete(id);
       router.push(`/dashboard/interviews/${id}/report`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Lỗi khi kết thúc bài thi');
+      alert(err instanceof Error ? err.message : 'Lỗi khi kết thúc bài thi');
       setSubmitting(false);
     }
   };
@@ -103,10 +80,10 @@ export default function InterviewRoomPage() {
         router.push(`/dashboard/interviews/${id}/report`);
       } else {
         // Fetch latest state to get next question
-        await fetchInterview();
+        await refetch();
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Lỗi khi gửi câu trả lời');
+      alert(err instanceof Error ? err.message : 'Lỗi khi gửi câu trả lời');
     } finally {
       setSubmitting(false);
     }

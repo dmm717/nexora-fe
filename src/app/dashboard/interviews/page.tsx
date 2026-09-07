@@ -4,23 +4,12 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './Interviews.module.css';
-import { dashboardApi, InterviewSummary } from '@/services/dashboardApi';
+import { useDashboardSummary } from '@/hooks/queries/useDashboard';
 
 export default function InterviewsIndexPage() {
-  const [interviews, setInterviews] = useState<InterviewSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  useEffect(() => {
-    dashboardApi.getDashboardSummary()
-      .then(res => {
-        setInterviews(res.interviews);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-  }, []);
+  const { data, isLoading: loading } = useDashboardSummary();
+  const interviews = data?.interviews || [];
 
   return (
     <div className={styles.container}>

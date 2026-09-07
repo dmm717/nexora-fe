@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import styles from './DashboardLayout.module.css'; // Reuse CSS
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { userApi } from '@/services/userApi';
 import { authApi } from '@/services/authApi';
@@ -96,8 +97,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className={styles.container}>
       <aside className={styles.leftSidebar}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}></div>
-          Nexora Admin
+          <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
         </div>
         
         {menuItems.map((section, idx) => (

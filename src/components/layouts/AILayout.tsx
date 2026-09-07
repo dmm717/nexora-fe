@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import styles from './AILayout.module.css';
+import Image from 'next/image';
 
 export default function AILayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,8 +10,7 @@ export default function AILayout({ children }: { children: React.ReactNode }) {
         {/* Left Sidebar */}
         <aside className={styles.leftSidebar}>
           <div className={styles.logo}>
-            <div className={styles.logoIcon}></div>
-            Nexora AI
+            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
           </div>
           
           <div className={styles.searchBox}>

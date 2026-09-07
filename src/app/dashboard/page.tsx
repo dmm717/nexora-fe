@@ -1,33 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import styles from './DashboardPage.module.css';
-import { dashboardApi, DashboardResponse } from '@/services/dashboardApi';
+import { useDashboardSummary } from '@/hooks/queries/useDashboard';
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-    dashboardApi.getDashboardSummary()
-      .then(res => {
-        if (isMounted) {
-          setData(res);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setError('Không thể tải dữ liệu Dashboard');
-          setLoading(false);
-        }
-      });
-    return () => { isMounted = false; };
-  }, []);
+  const { data, isLoading: loading, error: queryError } = useDashboardSummary();
+  const error = queryError ? 'Không thể tải dữ liệu Dashboard' : null;
 
   if (loading) {
     return <div className={styles.container}>Đang tải dữ liệu...</div>;

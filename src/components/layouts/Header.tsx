@@ -12,9 +12,10 @@ const Header = () => {
           <Image 
             src="/logo.png" 
             alt="NEXORA" 
-            width={150} 
+            width={128} 
             height={32} 
-            className={styles.logoImage} 
+            className={styles.logoImage}
+            style={{ objectFit: 'contain' }}
             priority
           />
         </div>

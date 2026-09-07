@@ -5,7 +5,8 @@ export interface ScenarioView {
   slug: string;
   title: string;
   summary: string;
-  categoryId: string;
+  categorySlug: string;
+  categoryName: string;
   difficulty: 'easy' | 'medium' | 'hard';
   competency: string;
   estimatedMinutes: number;
@@ -20,16 +21,29 @@ export interface ScenarioAttemptSubmitRequest {
   answer: string;
 }
 
+export interface ScenarioDimensionEvaluation {
+  criterion: string;
+  score: number;
+  evidence: string;
+  feedback: string;
+}
+
+export interface ScenarioEvaluationResult {
+  overallScore: number;
+  dimensions: ScenarioDimensionEvaluation[];
+  strengths: string[];
+  gaps: string[];
+  recommendedApproach: string[];
+  feedback: string;
+}
+
 export interface ScenarioAttemptResponse {
   id: string;
   scenarioId: string;
   scenarioTitle: string;
   status: 'active' | 'completed' | 'failed';
   answer?: string;
-  evaluation?: {
-    score?: number;
-    feedback?: string;
-  };
+  evaluation?: ScenarioEvaluationResult;
   errorCode?: string;
   createdAt: string;
   completedAt?: string;

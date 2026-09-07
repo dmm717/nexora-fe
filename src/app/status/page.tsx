@@ -4,42 +4,25 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import styles from './StatusPage.module.css';
-import { healthApi, HealthStatus, OperationStatus } from '@/services/healthApi';
+import { useHealthLiveness, useHealthReadiness, useHealthOperations } from '@/hooks/queries/useHealth';
 
 export default function SystemStatusPage() {
   const router = useRouter();
-  const [liveness, setLiveness] = useState<string>('Loading...');
-  const [readiness, setReadiness] = useState<HealthStatus | null>(null);
-  const [operations, setOperations] = useState<OperationStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: livenessRes, isLoading: livenessLoading, refetch: refetchLiveness } = useHealthLiveness();
+  const { data: readinessRes, isLoading: readinessLoading, refetch: refetchReadiness } = useHealthReadiness();
+  const { data: operationsRes, isLoading: operationsLoading, refetch: refetchOperations } = useHealthOperations();
 
-  const fetchStatus = async () => {
-    setLoading(true);
-    try {
-      const [liveRes, readyRes, opsRes] = await Promise.all([
-        healthApi.getLiveness(),
-        healthApi.getReadiness(),
-        healthApi.getOperations()
-      ]);
-      setLiveness(liveRes);
-      setReadiness(readyRes);
-      setOperations(opsRes);
-    } catch (error) {
-      console.error('Failed to fetch health status', error);
-      setLiveness('Offline');
-      setReadiness({ status: 'Offline' });
-      setOperations({ status: 'Offline' });
-    } finally {
-      setLoading(false);
-    }
+  const handleRefresh = () => {
+    refetchLiveness();
+    refetchReadiness();
+    refetchOperations();
   };
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 30000); // Auto refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
+  const loading = livenessLoading || readinessLoading || operationsLoading;
+  
+  const liveness = livenessRes || (livenessLoading ? 'Loading...' : 'Offline');
+  const readiness = readinessRes || (readinessLoading ? null : { status: 'Offline', totalDuration: '0ms', entries: {} });
+  const operations = operationsRes || (operationsLoading ? null : { status: 'Offline', totalDuration: '0ms', entries: {}, activeJobs: 0, failedJobs: 0, lastProcessed: 'N/A' });
 
   const getStatusClass = (status: string | undefined) => {
     if (!status) return styles.badgeUnknown;
@@ -92,7 +75,7 @@ export default function SystemStatusPage() {
         </div>
         <div className={styles.header}>
           <div className={styles.logo}>
-            <Image src="/logo.png" alt="Nexora" width={160} height={40} style={{ objectFit: 'contain' }} priority />
+            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
           </div>
           <h1 className={styles.title}>System Status</h1>
           <div className={`${styles.overallStatus} ${overall.className}`}>
@@ -181,7 +164,7 @@ export default function SystemStatusPage() {
           </div>
         </div>
 
-        <button onClick={fetchStatus} className={styles.refreshBtn} disabled={loading}>
+        <button onClick={handleRefresh} className={styles.refreshBtn} disabled={loading}>
           <svg className={loading ? styles.spinner : ''} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
             <path d="M21 3v5h-5" />

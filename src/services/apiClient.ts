@@ -15,6 +15,8 @@ export class ApiError extends Error {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
+
+
 /**
  * Thêm các header cần thiết:
  * - Authorization (Bearer) nếu có token

@@ -1,33 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styles from './Scenarios.module.css';
-import { scenarioApi, ScenarioView } from '@/services/scenarioApi';
+import { useScenarios } from '@/hooks/queries/useScenarios';
 import { useRouter } from 'next/navigation';
 
 export default function ScenariosPage() {
-  const [scenarios, setScenarios] = useState<ScenarioView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: scenarios = [], isLoading: loading, error: queryError } = useScenarios();
+  const error = queryError ? queryError.message || 'Lỗi khi tải danh sách tình huống' : null;
   const router = useRouter();
-
-  useEffect(() => {
-    let isMounted = true;
-    scenarioApi.getScenarios()
-      .then(res => {
-        if (isMounted) {
-          setScenarios(res);
-          setLoading(false);
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Lỗi khi tải danh sách tình huống');
-          setLoading(false);
-        }
-      });
-    return () => { isMounted = false; };
-  }, []);
 
   if (loading) {
     return <div className={styles.container}>Đang tải Thư viện Tình huống...</div>;

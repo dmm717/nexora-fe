@@ -2,9 +2,16 @@
 
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import styles from './StarBuilder.module.css';
-import { starBuilderApi, StarAttemptRequest, StarAttemptResponse } from '@/services/starBuilderApi';
+import { starBuilderApi, StarAttemptRequest, StarAttemptResponse, StarEvaluation } from '@/services/starBuilderApi';
 import { useSearchParams } from 'next/navigation';
-import { scenarioApi, ScenarioView } from '@/services/scenarioApi';
+import { scenarioApi, ScenarioView, ScenarioAttemptResponse, ScenarioEvaluationResult } from '@/services/scenarioApi';
+import { useScenarioDetails } from '@/hooks/queries/useScenarios';
+import { useStarAttempt } from '@/hooks/queries/useStarAttempts';
+import { useMutation } from '@tanstack/react-query';
+
+function isScenarioResult(result: StarAttemptResponse | ScenarioAttemptResponse): result is ScenarioAttemptResponse {
+  return 'scenarioId' in result;
+}
 
 function StarBuilderContent() {
   const searchParams = useSearchParams();
@@ -14,72 +21,65 @@ function StarBuilderContent() {
     question: '',
     answer: ''
   });
-  const [scenarioData, setScenarioData] = useState<ScenarioView | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<StarAttemptResponse | null>(null);
-  const isMounted = useRef(true);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+
+  const { data: scenarioData } = useScenarioDetails(scenarioSlug || '');
 
   useEffect(() => {
-    isMounted.current = true;
-    if (scenarioSlug) {
-      scenarioApi.getScenarioDetails(scenarioSlug)
-        .then(data => {
-          if (isMounted.current) {
-            setScenarioData(data);
-            setFormData(prev => ({ ...prev, question: data.content || data.summary || data.title }));
-          }
-        })
-        .catch(err => {
-          console.error('Lỗi tải tình huống:', err);
-        });
+    if (scenarioData) {
+      setFormData(prev => ({ ...prev, question: scenarioData.content || scenarioData.summary || scenarioData.title }));
     }
-    return () => { isMounted.current = false; };
-  }, [scenarioSlug]);
+  }, [scenarioData]);
+
+  const { data: rawResult, isLoading: attemptLoading, error: queryError } = useStarAttempt(
+    attemptId || '',
+    !!scenarioData,
+    (query) => {
+      const data = query.state.data as any;
+      if (data && (data.status === 'completed' || data.status === 'failed')) return false;
+      return 2000;
+    }
+  );
+  const result = rawResult as any;
+
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (scenarioData) {
+        const attempt = await scenarioApi.createAttempt({ scenarioId: scenarioData.id });
+        await scenarioApi.submitAttempt(attempt.id, { answer: formData.answer });
+        return attempt.id;
+      } else {
+        const response = await starBuilderApi.submitAttempt(formData);
+        return response.id;
+      }
+    },
+    onSuccess: (id) => {
+      setAttemptId(id);
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Lỗi khi gửi đánh giá.');
+    }
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const pollResult = async (attemptId: string) => {
-    if (!isMounted.current) return;
-    try {
-      const data = await starBuilderApi.getAttempt(attemptId);
-      if (!isMounted.current) return;
-
-      if (data.status === 'completed' || data.status === 'failed') {
-        setResult(data);
-        setLoading(false);
-      } else {
-        setTimeout(() => pollResult(attemptId), 2000);
-      }
-    } catch (err: unknown) {
-      if (!isMounted.current) return;
-      setError(err instanceof Error ? err.message : 'Lỗi khi kiểm tra kết quả.');
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.question || !formData.answer) {
       setError('Vui lòng điền đầy đủ Câu hỏi và Câu trả lời.');
       return;
     }
-
-    setLoading(true);
     setError(null);
-    setResult(null);
-
-    try {
-      const response = await starBuilderApi.submitAttempt(formData);
-      pollResult(response.id);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Lỗi khi gửi đánh giá.');
-      setLoading(false);
-    }
+    setAttemptId(null);
+    submitMutation.mutate();
   };
+
+  const loading = submitMutation.isPending || attemptLoading || (result && (result.status === 'pending' || result.status === 'processing'));
+  const displayError = error || (queryError ? 'Lỗi khi kiểm tra kết quả.' : null);
 
   const getScoreClass = (score: number) => {
     if (score >= 80) return styles.scoreExcellent;
@@ -115,13 +115,129 @@ function StarBuilderContent() {
     });
   };
 
+  const renderScenarioEvaluation = (evalData: ScenarioEvaluationResult) => (
+    <div className={styles.starBreakdown}>
+      <h4 className={styles.tipsTitle} style={{ marginTop: '0', marginBottom: '1rem' }}>Phân tích theo tiêu chí</h4>
+      {evalData.dimensions?.map((dim, idx) => (
+        <div key={idx} className={styles.breakdownItem}>
+          <div className={styles.breakdownHeader}>
+            <span className={styles.breakdownTitle}>{dim.criterion}</span>
+            <span className={`${styles.breakdownScore} ${getScoreClass(dim.score)}`}>{dim.score}/100</span>
+          </div>
+          <p className={styles.breakdownFeedback}>{dim.feedback}</p>
+        </div>
+      ))}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem' }}>
+        {evalData.strengths?.length > 0 && (
+          <div className={styles.tipsSection} style={{ marginTop: 0 }}>
+            <h4 className={styles.tipsTitle} style={{ color: '#166534' }}>👍 Điểm mạnh</h4>
+            <ul className={styles.tipsList}>
+              {evalData.strengths.map((str, idx) => (
+                <li key={idx}>{str}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {evalData.gaps?.length > 0 && (
+          <div className={styles.tipsSection} style={{ marginTop: 0 }}>
+            <h4 className={styles.tipsTitle} style={{ color: '#b91c1c' }}>⚠️ Cần cải thiện</h4>
+            <ul className={styles.tipsList}>
+              {evalData.gaps.map((gap, idx) => (
+                <li key={idx}>{gap}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      
+      {evalData.recommendedApproach?.length > 0 && (
+        <div className={styles.tipsSection}>
+          <h4 className={styles.tipsTitle} style={{ color: '#1e40af' }}>💡 Hướng tiếp cận đề xuất</h4>
+          <ul className={styles.tipsList}>
+            {evalData.recommendedApproach.map((rec, idx) => (
+              <li key={idx}>{rec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {evalData.feedback && (
+        <div className={styles.tipsSection}>
+          <h4 className={styles.tipsTitle}>📝 Nhận xét chung</h4>
+          <p style={{ fontSize: '0.95rem', lineHeight: '1.5' }}>{evalData.feedback}</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderGenericStarEvaluation = (evalData: StarEvaluation) => (
+    evalData.applicable ? (
+      <div className={styles.starBreakdown}>
+        {evalData.situation && (
+          <div className={styles.breakdownItem}>
+            <div className={styles.breakdownHeader}>
+              <span className={styles.breakdownTitle}>Situation</span>
+              <span className={`${styles.breakdownScore} ${getScoreClass(evalData.situation.score)}`}>{evalData.situation.score}/100</span>
+            </div>
+            <p className={styles.breakdownFeedback}>{evalData.situation.feedback}</p>
+          </div>
+        )}
+        {evalData.task && (
+          <div className={styles.breakdownItem}>
+            <div className={styles.breakdownHeader}>
+              <span className={styles.breakdownTitle}>Task</span>
+              <span className={`${styles.breakdownScore} ${getScoreClass(evalData.task.score)}`}>{evalData.task.score}/100</span>
+            </div>
+            <p className={styles.breakdownFeedback}>{evalData.task.feedback}</p>
+          </div>
+        )}
+        {evalData.action && (
+          <div className={styles.breakdownItem}>
+            <div className={styles.breakdownHeader}>
+              <span className={styles.breakdownTitle}>Action</span>
+              <span className={`${styles.breakdownScore} ${getScoreClass(evalData.action.score)}`}>{evalData.action.score}/100</span>
+            </div>
+            <p className={styles.breakdownFeedback}>{evalData.action.feedback}</p>
+          </div>
+        )}
+        {evalData.result && (
+          <div className={styles.breakdownItem}>
+            <div className={styles.breakdownHeader}>
+              <span className={styles.breakdownTitle}>Result</span>
+              <span className={`${styles.breakdownScore} ${getScoreClass(evalData.result.score)}`}>{evalData.result.score}/100</span>
+            </div>
+            <p className={styles.breakdownFeedback}>{evalData.result.feedback}</p>
+          </div>
+        )}
+
+        {evalData.coachingTips && evalData.coachingTips.length > 0 && (
+          <div className={styles.tipsSection}>
+            <h4 className={styles.tipsTitle}>💡 Lời khuyên cải thiện</h4>
+            <ul className={styles.tipsList}>
+              {evalData.coachingTips.map((tip, idx) => (
+                <li key={idx}>{tip}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    ) : (
+      <div className={styles.errorMessage} style={{ marginTop: '1rem' }}>
+        Câu trả lời không phù hợp với cấu trúc S-T-A-R hoặc không đủ thông tin để đánh giá.
+      </div>
+    )
+  );
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1 className={styles.title}>STAR Builder</h1>
-        <p className={styles.subtitle}>Luyện tập kỹ năng kể chuyện theo phương pháp S-T-A-R để nhận đánh giá chi tiết.</p>
+        <h1 className={styles.title}>S-T-A-R Builder</h1>
+        <p className={styles.subtitle}>Rèn luyện kỹ năng trả lời phỏng vấn theo phương pháp Situation - Task - Action - Result</p>
       </header>
 
+      {displayError && <div className={styles.errorMessage}>{displayError}</div>}
+      
       <div className={`${styles.contentWrapper} ${!(result || loading) ? styles.contentWrapperCentered : ''}`}>
         <div className={styles.formPanel}>
           <form onSubmit={handleSubmit} className={styles.form}>
@@ -215,61 +331,9 @@ function StarBuilderContent() {
                       </div>
                     </div>
 
-                    {result.evaluation?.applicable ? (
-                      <div className={styles.starBreakdown}>
-                        {result.evaluation.situation && (
-                          <div className={styles.breakdownItem}>
-                            <div className={styles.breakdownHeader}>
-                              <span className={styles.breakdownTitle}>Situation</span>
-                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.situation.score)}`}>{result.evaluation.situation.score}/100</span>
-                            </div>
-                            <p className={styles.breakdownFeedback}>{result.evaluation.situation.feedback}</p>
-                          </div>
-                        )}
-                        {result.evaluation.task && (
-                          <div className={styles.breakdownItem}>
-                            <div className={styles.breakdownHeader}>
-                              <span className={styles.breakdownTitle}>Task</span>
-                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.task.score)}`}>{result.evaluation.task.score}/100</span>
-                            </div>
-                            <p className={styles.breakdownFeedback}>{result.evaluation.task.feedback}</p>
-                          </div>
-                        )}
-                        {result.evaluation.action && (
-                          <div className={styles.breakdownItem}>
-                            <div className={styles.breakdownHeader}>
-                              <span className={styles.breakdownTitle}>Action</span>
-                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.action.score)}`}>{result.evaluation.action.score}/100</span>
-                            </div>
-                            <p className={styles.breakdownFeedback}>{result.evaluation.action.feedback}</p>
-                          </div>
-                        )}
-                        {result.evaluation.result && (
-                          <div className={styles.breakdownItem}>
-                            <div className={styles.breakdownHeader}>
-                              <span className={styles.breakdownTitle}>Result</span>
-                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.result.score)}`}>{result.evaluation.result.score}/100</span>
-                            </div>
-                            <p className={styles.breakdownFeedback}>{result.evaluation.result.feedback}</p>
-                          </div>
-                        )}
-
-                        {result.evaluation.coachingTips && result.evaluation.coachingTips.length > 0 && (
-                          <div className={styles.tipsSection}>
-                            <h4 className={styles.tipsTitle}>💡 Lời khuyên cải thiện</h4>
-                            <ul className={styles.tipsList}>
-                              {result.evaluation.coachingTips.map((tip, idx) => (
-                                <li key={idx}>{tip}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className={styles.errorMessage} style={{ marginTop: '1rem' }}>
-                        Câu trả lời không phù hợp với cấu trúc S-T-A-R hoặc không đủ thông tin để đánh giá.
-                      </div>
-                    )}
+                    {isScenarioResult(result)
+                      ? (result.evaluation ? renderScenarioEvaluation(result.evaluation as ScenarioEvaluationResult) : null)
+                      : (result.evaluation ? renderGenericStarEvaluation(result.evaluation as StarEvaluation) : null)}
                   </>
                 )}
               </div>
