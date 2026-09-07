@@ -1,7 +1,7 @@
 .container {
-  max-width: 1000px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 0;
+  padding: 0 3vw;
 }
 
 .header {
@@ -40,7 +40,7 @@
   background: #f0f3f8;
   border-radius: 24px;
   padding: 2.5rem;
-  box-shadow: 
+  box-shadow:
     12px 12px 24px rgba(166, 180, 200, 0.4),
     -10px -10px 20px rgba(255, 255, 255, 0.9);
   transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -48,7 +48,7 @@
 
 .panel:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     14px 14px 28px rgba(166, 180, 200, 0.5),
     -12px -12px 24px rgba(255, 255, 255, 1);
 }
@@ -76,14 +76,15 @@
   cursor: pointer;
   transition: all 0.2s ease;
   background-color: #e8ebf0;
-  box-shadow: 
+  box-shadow:
     inset 6px 6px 12px rgba(166, 180, 200, 0.4),
     inset -6px -6px 12px rgba(255, 255, 255, 0.8);
 }
 
-.dropzone:hover, .dropzoneActive {
+.dropzone:hover,
+.dropzoneActive {
   background-color: #e2e6eb;
-  box-shadow: 
+  box-shadow:
     inset 8px 8px 16px rgba(166, 180, 200, 0.5),
     inset -8px -8px 16px rgba(255, 255, 255, 1);
 }
@@ -94,7 +95,8 @@
   transition: color 0.2s ease;
 }
 
-.dropzone:hover .uploadIcon, .dropzoneActive .uploadIcon {
+.dropzone:hover .uploadIcon,
+.dropzoneActive .uploadIcon {
   color: #1f2937;
 }
 
@@ -179,7 +181,8 @@
   margin-bottom: 0.75rem;
 }
 
-.input, .textarea {
+.input,
+.textarea {
   width: 100%;
   padding: 1.25rem 1.5rem;
   border: none;
@@ -188,15 +191,16 @@
   font-size: 1rem;
   color: #1d1d1f;
   background-color: #e8ebf0;
-  box-shadow: 
+  box-shadow:
     inset 4px 4px 8px rgba(166, 180, 200, 0.4),
     inset -4px -4px 8px rgba(255, 255, 255, 0.8);
   transition: box-shadow 0.3s ease;
 }
 
-.input:focus, .textarea:focus {
+.input:focus,
+.textarea:focus {
   outline: none;
-  box-shadow: 
+  box-shadow:
     inset 6px 6px 12px rgba(166, 180, 200, 0.5),
     inset -6px -6px 12px rgba(255, 255, 255, 1),
     0 0 0 2px rgba(31, 41, 55, 0.2);
@@ -229,7 +233,7 @@
   align-items: center;
   justify-content: center;
   min-width: 250px;
-  box-shadow: 
+  box-shadow:
     10px 10px 20px rgba(31, 41, 55, 0.3),
     inset -6px -8px 12px rgba(0, 0, 0, 0.5),
     inset 6px 8px 12px rgba(75, 85, 99, 0.7);
@@ -237,7 +241,7 @@
 
 .analyzeButton:hover:not(:disabled) {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 
+  box-shadow:
     14px 14px 24px rgba(31, 41, 55, 0.35),
     inset -6px -8px 12px rgba(0, 0, 0, 0.5),
     inset 6px 8px 12px rgba(75, 85, 99, 0.8);
@@ -245,7 +249,7 @@
 
 .analyzeButton:active:not(:disabled) {
   transform: translateY(2px) scale(0.98);
-  box-shadow: 
+  box-shadow:
     4px 4px 10px rgba(31, 41, 55, 0.25),
     inset -3px -4px 6px rgba(0, 0, 0, 0.6),
     inset 3px 4px 6px rgba(75, 85, 99, 0.6);
@@ -270,8 +274,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .errorMessage {

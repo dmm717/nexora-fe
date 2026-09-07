@@ -1,5 +1,5 @@
 .container {
-  max-width: 1000px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 0;
 }
@@ -37,50 +37,52 @@
 
 .plansGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
   align-items: stretch;
 }
 
 .planCard {
-  background: #f0f3f8;
-  border-radius: 24px;
-  padding: 2.5rem 2rem;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 2.5rem 1.5rem;
   display: flex;
   flex-direction: column;
-  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow: hidden;
-  box-shadow: 
-    12px 12px 24px rgba(166, 180, 200, 0.4),
-    -10px -10px 20px rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .planCard:hover {
   transform: translateY(-4px) scale(1.01);
-  box-shadow: 
-    14px 14px 28px rgba(166, 180, 200, 0.5),
-    -12px -12px 24px rgba(255, 255, 255, 1);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.05),
+    0 4px 6px -2px rgba(0, 0, 0, 0.025);
 }
 
 .popularBadge {
   position: absolute;
   top: 1rem;
   right: -2rem;
-  background-color: #1f2937;
+  background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
   color: #ffffff;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   padding: 0.25rem 2.5rem;
   transform: rotate(45deg);
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
 }
 
 .planName {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #0f172a;
   margin-bottom: 0.5rem;
 }
 
@@ -91,23 +93,24 @@
 }
 
 .planPrice {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #0f172a;
   letter-spacing: -1px;
 }
 
 .planCurrency {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: #1d1d1f;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
   margin-left: 0.25rem;
 }
 
 .planDuration {
-  color: #86868b;
+  color: #94a3b8;
   margin-left: 0.5rem;
   font-weight: 500;
+  font-size: 0.9rem;
 }
 
 .featuresList {
@@ -121,14 +124,14 @@
   display: flex;
   align-items: flex-start;
   margin-bottom: 1rem;
-  color: #1d1d1f;
-  font-weight: 400;
-  font-size: 0.95rem;
+  color: #334155;
+  font-weight: 500;
+  font-size: 0.9rem;
   line-height: 1.5;
 }
 
 .featureIcon {
-  color: #1f2937;
+  color: #3b82f6;
   margin-right: 0.75rem;
   flex-shrink: 0;
   font-weight: bold;
@@ -141,8 +144,8 @@
 .buyButton {
   width: 100%;
   padding: 0.875rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   border-radius: 999px;
   border: none;
   cursor: pointer;
@@ -153,36 +156,29 @@
 }
 
 .btnPrimary {
-  background: #1f2937;
+  background: linear-gradient(135deg, #1f2937, #111827);
   color: #ffffff;
-  border: none;
-  font-weight: 700;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 
-    10px 10px 20px rgba(31, 41, 55, 0.3),
-    inset -6px -8px 12px rgba(0, 0, 0, 0.5),
-    inset 6px 8px 12px rgba(75, 85, 99, 0.7);
+  box-shadow:
+    0 10px 15px -3px rgba(31, 41, 55, 0.25),
+    0 4px 6px -2px rgba(31, 41, 55, 0.15);
 }
 
 .btnPrimary:hover:not(:disabled) {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: 
-    14px 14px 24px rgba(31, 41, 55, 0.35),
-    inset -6px -8px 12px rgba(0, 0, 0, 0.5),
-    inset 6px 8px 12px rgba(75, 85, 99, 0.8);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 20px 25px -5px rgba(31, 41, 55, 0.3),
+    0 10px 10px -5px rgba(31, 41, 55, 0.2);
 }
 
 .btnPrimary:active:not(:disabled) {
-  transform: translateY(2px) scale(0.98);
-  box-shadow: 
-    4px 4px 10px rgba(31, 41, 55, 0.25),
-    inset -3px -4px 6px rgba(0, 0, 0, 0.6),
-    inset 3px 4px 6px rgba(75, 85, 99, 0.6);
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    0 4px 6px -1px rgba(31, 41, 55, 0.25);
 }
 
 .btnPrimary:disabled {
-  background-color: #d1d1d6;
-  color: #86868b;
+  background: #cbd5e1;
+  color: #64748b;
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
@@ -213,6 +209,11 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }

@@ -1,5 +1,6 @@
 .container {
-  padding: 0; /* padding handled by layout */
+  padding: 0;
+  /* padding handled by layout */
 }
 
 .header {
@@ -31,8 +32,8 @@
   background-color: #ffffff;
   border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.05), 
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
     0 2px 4px -1px rgba(0, 0, 0, 0.03);
   border: 1px solid rgba(0, 0, 0, 0.04);
   display: flex;
@@ -43,8 +44,8 @@
 
 .statCard:hover {
   transform: translateY(-2px);
-  box-shadow: 
-    0 10px 15px -3px rgba(0, 0, 0, 0.05), 
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.05),
     0 4px 6px -2px rgba(0, 0, 0, 0.025);
 }
 
@@ -77,8 +78,8 @@
 
 .panel {
   background-color: #ffffff;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.05), 
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
     0 2px 4px -1px rgba(0, 0, 0, 0.03);
   border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.04);
@@ -139,6 +140,7 @@
 .table tr:last-child td {
   border-bottom: none;
 }
+
 .table tr:hover td {
   background-color: #f8fafc;
 }
@@ -172,7 +174,63 @@
   color: #dc2626;
 }
 
-.scoreExcellent { color: #34c759; font-weight: 600; }
-.scoreGood { color: #0071e3; font-weight: 600; }
-.scoreAverage { color: #ff9f0a; font-weight: 600; }
-.scorePoor { color: #ff3b30; font-weight: 600; }
+.scoreExcellent {
+  color: #34c759;
+  font-weight: 600;
+}
+
+.scoreGood {
+  color: #0071e3;
+  font-weight: 600;
+}
+
+.scoreAverage {
+  color: #ff9f0a;
+  font-weight: 600;
+}
+
+.scorePoor {
+  color: #ff3b30;
+  font-weight: 600;
+}
+
+/* Modal Styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modalContent {
+  background-color: #ffffff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.modalHeader {
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.modalBody {
+  padding: 2rem;
+  overflow-y: auto;
+}

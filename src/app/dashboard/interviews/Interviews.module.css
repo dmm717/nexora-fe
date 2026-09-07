@@ -1,6 +1,6 @@
 .container {
-  padding: 4rem 2rem;
-  max-width: 760px;
+  padding: 4rem 3vw;
+  max-width: 100%;
   margin: 0 auto;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #1d1d1f;
@@ -25,7 +25,7 @@
   padding: 2rem;
   margin-bottom: 2rem;
   border-radius: 24px;
-  box-shadow: 
+  box-shadow:
     12px 12px 24px rgba(166, 180, 200, 0.4),
     -10px -10px 20px rgba(255, 255, 255, 0.9);
 }
@@ -42,7 +42,8 @@
   margin-bottom: 1rem;
 }
 
-.select, .input {
+.select,
+.input {
   width: 100%;
   padding: 1.25rem 1.5rem;
   border: none;
@@ -50,15 +51,16 @@
   font-size: 1.1rem;
   color: #1d1d1f;
   background-color: #e8ebf0;
-  box-shadow: 
+  box-shadow:
     inset 4px 4px 8px rgba(166, 180, 200, 0.4),
     inset -4px -4px 8px rgba(255, 255, 255, 0.8);
   transition: box-shadow 0.3s ease;
 }
 
-.select:focus, .input:focus {
+.select:focus,
+.input:focus {
   outline: none;
-  box-shadow: 
+  box-shadow:
     inset 6px 6px 12px rgba(166, 180, 200, 0.5),
     inset -6px -6px 12px rgba(255, 255, 255, 1),
     0 0 0 2px rgba(31, 41, 55, 0.2);
@@ -81,7 +83,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 
+  box-shadow:
     10px 10px 20px rgba(31, 41, 55, 0.3),
     inset -6px -8px 12px rgba(0, 0, 0, 0.5),
     inset 6px 8px 12px rgba(75, 85, 99, 0.7);
@@ -89,7 +91,7 @@
 
 .btnPrimary:hover:not(:disabled) {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 
+  box-shadow:
     14px 14px 24px rgba(31, 41, 55, 0.35),
     inset -6px -8px 12px rgba(0, 0, 0, 0.5),
     inset 6px 8px 12px rgba(75, 85, 99, 0.8);
@@ -97,7 +99,7 @@
 
 .btnPrimary:active:not(:disabled) {
   transform: translateY(2px) scale(0.98);
-  box-shadow: 
+  box-shadow:
     4px 4px 10px rgba(31, 41, 55, 0.25),
     inset -3px -4px 6px rgba(0, 0, 0, 0.6),
     inset 3px 4px 6px rgba(75, 85, 99, 0.6);
@@ -121,7 +123,7 @@
   border: none;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 
+  box-shadow:
     8px 8px 16px rgba(166, 180, 200, 0.4),
     -8px -8px 16px rgba(255, 255, 255, 0.9);
 }
@@ -129,14 +131,14 @@
 .btnDanger:hover {
   transform: translateY(-2px);
   color: #ff3b30;
-  box-shadow: 
+  box-shadow:
     10px 10px 20px rgba(166, 180, 200, 0.5),
     -10px -10px 20px rgba(255, 255, 255, 1);
 }
 
 .btnDanger:active {
   transform: translateY(1px);
-  box-shadow: 
+  box-shadow:
     4px 4px 8px rgba(166, 180, 200, 0.3),
     -4px -4px 8px rgba(255, 255, 255, 0.7);
 }
@@ -175,7 +177,7 @@
   min-height: 220px;
   resize: vertical;
   line-height: 1.6;
-  box-shadow: 
+  box-shadow:
     inset 6px 6px 12px rgba(166, 180, 200, 0.4),
     inset -6px -6px 12px rgba(255, 255, 255, 0.8);
   transition: box-shadow 0.3s ease;
@@ -183,7 +185,7 @@
 
 .textarea:focus {
   outline: none;
-  box-shadow: 
+  box-shadow:
     inset 8px 8px 16px rgba(166, 180, 200, 0.5),
     inset -8px -8px 16px rgba(255, 255, 255, 1),
     0 0 0 2px rgba(31, 41, 55, 0.2);

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { userApi } from '@/services/userApi';
 import { authApi } from '@/services/authApi';
+import { getAvatarColor } from '@/utils/colorUtils';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -50,10 +51,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     {
       name: 'Dashboard',
       href: '/dashboard',
-    },
-    {
-      name: 'Luyện tập',
-      href: '/dashboard/interviews',
     },
     {
       name: 'Phân tích CV',
@@ -106,8 +103,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 onClick={() => setDropdownOpen(!dropdownOpen)} 
                 title="Tài khoản"
               >
-                <div className={styles.avatar}>
+                <div className={styles.avatar} style={{ position: 'relative', backgroundColor: getAvatarColor(userEmail) }}>
                   {userEmail.charAt(0).toUpperCase()}
+                  <span style={{ 
+                    position: 'absolute', 
+                    bottom: '-4px', 
+                    right: '-10px', 
+                    fontSize: '0.55rem', 
+                    fontWeight: 800, 
+                    color: '#ffffff', 
+                    background: planCode.toLowerCase() === 'free' ? '#94a3b8' : 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', 
+                    padding: '0.15rem 0.35rem', 
+                    borderRadius: '999px', 
+                    boxShadow: planCode.toLowerCase() === 'free' ? '0 1px 2px rgba(0,0,0,0.1)' : '0 2px 4px rgba(139, 92, 246, 0.4)',
+                    textTransform: 'uppercase',
+                    lineHeight: 1,
+                    border: '1.5px solid #ffffff'
+                  }}>
+                    {planCode}
+                  </span>
                 </div>
               </div>
               
@@ -115,7 +129,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className={styles.dropdownMenu}>
                   <div className={styles.dropdownHeader}>
                     <div className={styles.dropdownEmail}>{userEmail}</div>
-                    <div className={styles.dropdownPlan}>Gói: {planCode}</div>
+                    <div className={styles.dropdownPlan} style={{ display: 'flex', alignItems: 'center', marginTop: '0.35rem' }}>
+                      <span style={{ 
+                        fontSize: '0.65rem', 
+                        fontWeight: 800, 
+                        color: '#ffffff', 
+                        background: planCode.toLowerCase() === 'free' ? '#94a3b8' : 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', 
+                        padding: '0.2rem 0.5rem', 
+                        borderRadius: '999px', 
+                        boxShadow: planCode.toLowerCase() === 'free' ? '0 1px 2px rgba(0,0,0,0.1)' : '0 2px 4px rgba(139, 92, 246, 0.4)',
+                        textTransform: 'uppercase',
+                        lineHeight: 1
+                      }}>
+                        {planCode}
+                      </span>
+                    </div>
                   </div>
                   <div className={styles.dropdownDivider}></div>
                   <button 
@@ -143,14 +171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content Area */}
       <main className={styles.mainContent}>
         <div className={styles.contentWrapper}>
-          <header className={styles.header}>
-            <h1 className={styles.pageTitle}>Dashboard 
-              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#ffffff', marginLeft: '0.75rem', background: planCode.toLowerCase() === 'free' ? '#94a3b8' : 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', padding: '0.3rem 0.75rem', borderRadius: '999px', verticalAlign: 'middle', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: planCode.toLowerCase() === 'free' ? 'none' : '0 4px 6px -1px rgba(139, 92, 246, 0.3)' }}>
-                {planCode}
-              </span>
-            </h1>
-            <button className={styles.actionButton} onClick={() => router.push('/dashboard/interviews')}>Bắt đầu phỏng vấn</button>
-          </header>
+
           
           {/* Page Content */}
           <div className={styles.pageContent}>

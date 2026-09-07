@@ -2,15 +2,10 @@ import { apiClient } from './apiClient';
 
 export interface StarAttemptRequest {
   question: string;
-  situation: string;
-  task: string;
-  action: string;
-  result: string;
+  answer: string;
 }
 
-export interface StarAttemptResponse {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+export interface StarEvaluation {
   applicable: boolean;
   overallScore: number;
   situation?: { score: number; feedback: string };
@@ -22,12 +17,19 @@ export interface StarAttemptResponse {
   coachingTips?: string[];
 }
 
+export interface StarAttemptResponse {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  errorCode?: string;
+  evaluation?: StarEvaluation;
+}
+
 export const starBuilderApi = {
   submitAttempt: async (data: StarAttemptRequest) => {
     const idempotencyKey = crypto.randomUUID();
     const payload = {
       question: data.question,
-      answer: `Tình huống (Situation):\n${data.situation}\n\nNhiệm vụ (Task):\n${data.task}\n\nHành động (Action):\n${data.action}\n\nKết quả (Result):\n${data.result}`
+      answer: data.answer
     };
     const response = await apiClient.post('/star-attempts', payload, {
       headers: {

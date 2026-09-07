@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { userApi } from '@/services/userApi';
 import { authApi } from '@/services/authApi';
+import { getAvatarColor } from '@/utils/colorUtils';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -103,7 +104,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         ))}
 
         <div className={styles.userProfile} onClick={handleLogout} title="Click to logout">
-          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
+          <div className={styles.avatar} style={{ backgroundColor: getAvatarColor(userEmail) }}>{userEmail.charAt(0).toUpperCase()}</div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{userEmail.split('@')[0]}</span>
             <span className={styles.userRole}>Đăng xuất</span>

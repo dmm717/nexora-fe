@@ -1,7 +1,7 @@
 .container {
-  max-width: 1000px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 0;
+  padding: 0 3vw;
 }
 
 .header {
@@ -59,7 +59,7 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 2.5rem;
-  box-shadow: 
+  box-shadow:
     12px 12px 24px rgba(166, 180, 200, 0.4),
     -10px -10px 20px rgba(255, 255, 255, 0.9);
 }
@@ -99,10 +99,21 @@
   margin-top: 1rem;
 }
 
-.textExcellent { color: #34c759; }
-.textGood { color: #0071e3; }
-.textAverage { color: #ff9f0a; }
-.textPoor { color: #ff3b30; }
+.textExcellent {
+  color: #34c759;
+}
+
+.textGood {
+  color: #0071e3;
+}
+
+.textAverage {
+  color: #ff9f0a;
+}
+
+.textPoor {
+  color: #ff3b30;
+}
 
 /* Grid for Details */
 .detailsGrid {
@@ -121,7 +132,7 @@
   background: #f0f3f8;
   border-radius: 24px;
   padding: 2.5rem;
-  box-shadow: 
+  box-shadow:
     12px 12px 24px rgba(166, 180, 200, 0.4),
     -10px -10px 20px rgba(255, 255, 255, 0.9);
 }
@@ -136,17 +147,33 @@
   letter-spacing: -0.3px;
 }
 
-.panelTitle.strengths { color: #1d1d1f; }
-.panelTitle.weaknesses { color: #1d1d1f; }
-.panelTitle.recommendations { color: #1d1d1f; }
+.panelTitle.strengths {
+  color: #1d1d1f;
+}
+
+.panelTitle.weaknesses {
+  color: #1d1d1f;
+}
+
+.panelTitle.recommendations {
+  color: #1d1d1f;
+}
 
 .panelTitle svg {
   margin-right: 0.75rem;
 }
 
-.panelTitle.strengths svg { color: #34c759; }
-.panelTitle.weaknesses svg { color: #ff3b30; }
-.panelTitle.recommendations svg { color: #0071e3; }
+.panelTitle.strengths svg {
+  color: #34c759;
+}
+
+.panelTitle.weaknesses svg {
+  color: #ff3b30;
+}
+
+.panelTitle.recommendations svg {
+  color: #0071e3;
+}
 
 .list {
   list-style: none;
@@ -178,6 +205,14 @@
   margin-right: 1rem;
 }
 
-.strengths .listItem svg { color: #34c759; }
-.weaknesses .listItem svg { color: #ff3b30; }
-.recommendations .listItem svg { color: #0071e3; }
+.strengths .listItem svg {
+  color: #34c759;
+}
+
+.weaknesses .listItem svg {
+  color: #ff3b30;
+}
+
+.recommendations .listItem svg {
+  color: #0071e3;
+}

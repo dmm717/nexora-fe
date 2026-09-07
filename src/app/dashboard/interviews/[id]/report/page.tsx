@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './Report.module.css';
 import { interviewApi, ReportView, InterviewView } from '@/services/interviewApi';
+import { useAutoTranslate } from '@/hooks/useAutoTranslate';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +14,8 @@ export default function InterviewReportPage() {
   const [interview, setInterview] = useState<InterviewView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useAutoTranslate();
 
   useEffect(() => {
     let isMounted = true;
@@ -83,8 +86,9 @@ export default function InterviewReportPage() {
 
   return (
     <div className={styles.container}>
+      <div id="google_translate_element"></div>
       <div className={styles.header}>
-        <h1 className={styles.title}>Báo cáo Kết quả</h1>
+        <h1 className={styles.title}>Kết quả phỏng vấn</h1>
         <button className={styles.btnPrimary} onClick={() => router.push('/dashboard/interviews')}>
           Trở về Danh sách
         </button>

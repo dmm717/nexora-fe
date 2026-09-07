@@ -12,10 +12,7 @@ function StarBuilderContent() {
 
   const [formData, setFormData] = useState<StarAttemptRequest>({
     question: '',
-    situation: '',
-    task: '',
-    action: '',
-    result: ''
+    answer: ''
   });
   const [scenarioData, setScenarioData] = useState<ScenarioView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +47,7 @@ function StarBuilderContent() {
     try {
       const data = await starBuilderApi.getAttempt(attemptId);
       if (!isMounted.current) return;
-      
+
       if (data.status === 'completed' || data.status === 'failed') {
         setResult(data);
         setLoading(false);
@@ -66,11 +63,11 @@ function StarBuilderContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.question || !formData.situation || !formData.task || !formData.action || !formData.result) {
-      setError('Vui lòng điền đầy đủ Câu hỏi và các phần S, T, A, R.');
+    if (!formData.question || !formData.answer) {
+      setError('Vui lòng điền đầy đủ Câu hỏi và Câu trả lời.');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
     setResult(null);
@@ -91,6 +88,33 @@ function StarBuilderContent() {
     return styles.scorePoor;
   };
 
+  const renderScenarioContent = (text: string) => {
+    return text.split('\n').map((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed) return <br key={i} />;
+      if (trimmed.startsWith('## ')) {
+        return <h4 key={i} style={{ marginTop: '0.75rem', marginBottom: '0.5rem', color: '#1f2937', fontWeight: 600 }}>{trimmed.replace('## ', '')}</h4>;
+      }
+      if (trimmed.startsWith('# ')) {
+        return <h3 key={i} style={{ marginTop: '1rem', marginBottom: '0.5rem', color: '#1f2937', fontWeight: 700 }}>{trimmed.replace('# ', '')}</h3>;
+      }
+      if (trimmed.startsWith('- ')) {
+        return <li key={i} style={{ marginLeft: '1.5rem', marginBottom: '0.25rem' }}>{trimmed.replace('- ', '')}</li>;
+      }
+      // Simple bold parsing
+      const boldRegex = /\*\*(.*?)\*\*/g;
+      if (boldRegex.test(trimmed)) {
+        const parts = trimmed.split(boldRegex);
+        return (
+          <p key={i} style={{ marginBottom: '0.25rem' }}>
+            {parts.map((part, idx) => idx % 2 === 1 ? <strong key={idx} style={{ color: '#111827' }}>{part}</strong> : part)}
+          </p>
+        );
+      }
+      return <p key={i} style={{ marginBottom: '0.25rem' }}>{trimmed}</p>;
+    });
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -98,182 +122,160 @@ function StarBuilderContent() {
         <p className={styles.subtitle}>Luyện tập kỹ năng kể chuyện theo phương pháp S-T-A-R để nhận đánh giá chi tiết.</p>
       </header>
 
-      <div className={styles.contentWrapper}>
+      <div className={`${styles.contentWrapper} ${!(result || loading) ? styles.contentWrapperCentered : ''}`}>
         <div className={styles.formPanel}>
           <form onSubmit={handleSubmit} className={styles.form}>
-            
-            <div className={styles.formGroup} style={{ backgroundColor: 'var(--surface-color)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
-              <label className={styles.label} style={{ color: 'var(--primary-color)' }}>
-                Tình huống phỏng vấn (Question / Scenario)
-              </label>
-              {scenarioData && <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', marginTop: 0 }}>{scenarioData.title}</h3>}
-              <textarea 
-                name="question" 
-                value={formData.question} 
-                onChange={handleChange} 
-                className={styles.textarea}
-                placeholder="Nhập câu hỏi phỏng vấn bạn muốn trả lời..."
-                rows={3}
-                disabled={loading || !!scenarioData}
-                style={{ backgroundColor: scenarioData ? 'transparent' : undefined, border: scenarioData ? 'none' : undefined, padding: scenarioData ? 0 : undefined, resize: scenarioData ? 'none' : 'vertical' }}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.label}>
-                <span className={styles.letter}>S</span>ituation (Hoàn cảnh)
-              </label>
-              <textarea 
-                name="situation" 
-                value={formData.situation} 
-                onChange={handleChange} 
-                className={styles.textarea}
-                placeholder="Mô tả bối cảnh và hoàn cảnh bạn gặp phải..."
-                rows={3}
-                disabled={loading}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>
-                <span className={styles.letter}>T</span>ask (Nhiệm vụ)
-              </label>
-              <textarea 
-                name="task" 
-                value={formData.task} 
-                onChange={handleChange} 
-                className={styles.textarea}
-                placeholder="Nhiệm vụ hoặc mục tiêu bạn cần đạt được..."
-                rows={3}
-                disabled={loading}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>
-                <span className={styles.letter}>A</span>ction (Hành động)
-              </label>
-              <textarea 
-                name="action" 
-                value={formData.action} 
-                onChange={handleChange} 
-                className={styles.textarea}
-                placeholder="Bạn đã làm những gì? Chi tiết các bước bạn thực hiện..."
-                rows={4}
-                disabled={loading}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>
-                <span className={styles.letter}>R</span>esult (Kết quả)
-              </label>
-              <textarea 
-                name="result" 
-                value={formData.result} 
-                onChange={handleChange} 
-                className={styles.textarea}
-                placeholder="Kết quả cuối cùng là gì? Bạn học được gì? (Định lượng nếu có thể)..."
-                rows={3}
-                disabled={loading}
-              />
-            </div>
-
-            {error && <div className={styles.errorMessage}>{error}</div>}
-
-            <button type="submit" className={styles.btnSubmit} disabled={loading}>
-              {loading ? (
-                <><span className={styles.spinner}></span> Đang phân tích...</>
-              ) : (
-                'Nhận Đánh giá S-T-A-R'
-              )}
-            </button>
-          </form>
-        </div>
-
-        <div className={styles.resultPanel}>
-          {!result && !loading && (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>✨</div>
-              <h3>Sẵn sàng phân tích</h3>
-              <p>Điền câu chuyện của bạn vào form bên trái để AI đánh giá theo tiêu chuẩn S-T-A-R.</p>
-            </div>
-          )}
-
-          {loading && (
-             <div className={styles.emptyState}>
-               <div className={styles.spinnerLarge}></div>
-               <h3>Đang xử lý</h3>
-               <p>AI đang đọc và phân tích từng thành phần trong câu chuyện của bạn.</p>
-             </div>
-          )}
-
-          {result && (
-            <div className={styles.resultContent}>
-              <div className={styles.scoreHeader}>
-                <div className={styles.overallScore}>
-                  <div className={styles.scoreTitle}>Điểm Đánh giá</div>
-                  <div className={`${styles.scoreNumber} ${getScoreClass(result.overallScore)}`}>
-                    {result.overallScore}<span>/100</span>
+            <div className={styles.formSplitLayout}>
+              {/* Left Column: Scenario */}
+              <div className={styles.leftColumn}>
+                <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                  <label className={styles.label}>
+                    Tình huống phỏng vấn (Question / Scenario)
+                  </label>
+                  <div className={styles.scenarioCard} style={{ margin: 0, height: '380px', display: 'flex', flexDirection: 'column' }}>
+                    {scenarioData ? (
+                      <div className={styles.scenarioContent} style={{ display: 'flex', flexDirection: 'column', height: '100%', margin: 0 }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.75rem', color: '#111827' }}>{scenarioData.title}</h3>
+                        <div className={styles.scenarioBody} style={{ overflowY: 'auto', flexGrow: 1 }}>
+                          {renderScenarioContent(formData.question)}
+                        </div>
+                      </div>
+                    ) : (
+                      <textarea
+                        name="question"
+                        value={formData.question}
+                        onChange={handleChange}
+                        className={styles.textarea}
+                        placeholder="Nhập câu hỏi phỏng vấn bạn muốn trả lời..."
+                        style={{ height: '380px' }}
+                        disabled={loading}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
 
-              {result.applicable ? (
-                <div className={styles.starBreakdown}>
-                  {result.situation && (
-                    <div className={styles.breakdownItem}>
-                      <div className={styles.breakdownHeader}>
-                        <span className={styles.breakdownTitle}>Situation</span>
-                        <span className={`${styles.breakdownScore} ${getScoreClass(result.situation.score)}`}>{result.situation.score}/100</span>
-                      </div>
-                      <p className={styles.breakdownFeedback}>{result.situation.feedback}</p>
-                    </div>
-                  )}
-                  {result.task && (
-                    <div className={styles.breakdownItem}>
-                      <div className={styles.breakdownHeader}>
-                        <span className={styles.breakdownTitle}>Task</span>
-                        <span className={`${styles.breakdownScore} ${getScoreClass(result.task.score)}`}>{result.task.score}/100</span>
-                      </div>
-                      <p className={styles.breakdownFeedback}>{result.task.feedback}</p>
-                    </div>
-                  )}
-                  {result.action && (
-                    <div className={styles.breakdownItem}>
-                      <div className={styles.breakdownHeader}>
-                        <span className={styles.breakdownTitle}>Action</span>
-                        <span className={`${styles.breakdownScore} ${getScoreClass(result.action.score)}`}>{result.action.score}/100</span>
-                      </div>
-                      <p className={styles.breakdownFeedback}>{result.action.feedback}</p>
-                    </div>
-                  )}
-                  {result.result && (
-                    <div className={styles.breakdownItem}>
-                      <div className={styles.breakdownHeader}>
-                        <span className={styles.breakdownTitle}>Result</span>
-                        <span className={`${styles.breakdownScore} ${getScoreClass(result.result.score)}`}>{result.result.score}/100</span>
-                      </div>
-                      <p className={styles.breakdownFeedback}>{result.result.feedback}</p>
-                    </div>
-                  )}
-
-                  {result.coachingTips && result.coachingTips.length > 0 && (
-                    <div className={styles.tipsSection}>
-                      <h4 className={styles.tipsTitle}>💡 Lời khuyên cải thiện</h4>
-                      <ul className={styles.tipsList}>
-                        {result.coachingTips.map((tip, idx) => (
-                          <li key={idx}>{tip}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+              {/* Right Column: Answer */}
+              <div className={styles.rightColumn}>
+                <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                  <label className={styles.label}>
+                    Câu trả lời (Vui lòng áp dụng cấu trúc S-T-A-R)
+                  </label>
+                  <textarea
+                    name="answer"
+                    value={formData.answer}
+                    onChange={handleChange}
+                    className={styles.textarea}
+                    placeholder="Nhập câu trả lời chi tiết của bạn..."
+                    style={{ height: '380px' }}
+                    disabled={loading}
+                  />
                 </div>
-              ) : (
-                <div className={styles.errorMessage} style={{ marginTop: '1rem' }}>
-                  Câu trả lời không phù hợp với cấu trúc S-T-A-R hoặc không đủ thông tin để đánh giá.
-                </div>
-              )}
+              </div>
             </div>
-          )}
+
+            {error && <div className={styles.errorMessage} style={{ marginTop: '1.5rem' }}>{error}</div>}
+
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+              <button type="submit" className={styles.btnSubmit} disabled={loading} style={{ maxWidth: '400px' }}>
+                {loading ? (
+                  <><span className={styles.spinner}></span> Đang phân tích...</>
+                ) : (
+                  'Nhận Đánh giá S-T-A-R'
+                )}
+              </button>
+            </div>
+          </form>
         </div>
+
+        {(result || loading) && (
+          <div className={styles.resultPanel}>
+            {loading && (
+              <div className={styles.emptyState}>
+                <div className={styles.spinnerLarge}></div>
+                <h3>Đang xử lý</h3>
+                <p>AI đang đọc và phân tích từng thành phần trong câu chuyện của bạn.</p>
+              </div>
+            )}
+
+            {result && (
+              <div className={styles.resultContent}>
+                {result.status === 'failed' ? (
+                  <div className={styles.errorMessage} style={{ marginTop: '1rem' }}>
+                    Đã có lỗi xảy ra trong quá trình AI xử lý ({result.errorCode}). Vui lòng thử lại sau.
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.scoreHeader}>
+                      <div className={styles.overallScore}>
+                        <div className={styles.scoreTitle}>Điểm Đánh giá</div>
+                        <div className={`${styles.scoreNumber} ${getScoreClass(result.evaluation?.overallScore ?? 0)}`}>
+                          {result.evaluation?.overallScore ?? 0}<span>/100</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {result.evaluation?.applicable ? (
+                      <div className={styles.starBreakdown}>
+                        {result.evaluation.situation && (
+                          <div className={styles.breakdownItem}>
+                            <div className={styles.breakdownHeader}>
+                              <span className={styles.breakdownTitle}>Situation</span>
+                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.situation.score)}`}>{result.evaluation.situation.score}/100</span>
+                            </div>
+                            <p className={styles.breakdownFeedback}>{result.evaluation.situation.feedback}</p>
+                          </div>
+                        )}
+                        {result.evaluation.task && (
+                          <div className={styles.breakdownItem}>
+                            <div className={styles.breakdownHeader}>
+                              <span className={styles.breakdownTitle}>Task</span>
+                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.task.score)}`}>{result.evaluation.task.score}/100</span>
+                            </div>
+                            <p className={styles.breakdownFeedback}>{result.evaluation.task.feedback}</p>
+                          </div>
+                        )}
+                        {result.evaluation.action && (
+                          <div className={styles.breakdownItem}>
+                            <div className={styles.breakdownHeader}>
+                              <span className={styles.breakdownTitle}>Action</span>
+                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.action.score)}`}>{result.evaluation.action.score}/100</span>
+                            </div>
+                            <p className={styles.breakdownFeedback}>{result.evaluation.action.feedback}</p>
+                          </div>
+                        )}
+                        {result.evaluation.result && (
+                          <div className={styles.breakdownItem}>
+                            <div className={styles.breakdownHeader}>
+                              <span className={styles.breakdownTitle}>Result</span>
+                              <span className={`${styles.breakdownScore} ${getScoreClass(result.evaluation.result.score)}`}>{result.evaluation.result.score}/100</span>
+                            </div>
+                            <p className={styles.breakdownFeedback}>{result.evaluation.result.feedback}</p>
+                          </div>
+                        )}
+
+                        {result.evaluation.coachingTips && result.evaluation.coachingTips.length > 0 && (
+                          <div className={styles.tipsSection}>
+                            <h4 className={styles.tipsTitle}>💡 Lời khuyên cải thiện</h4>
+                            <ul className={styles.tipsList}>
+                              {result.evaluation.coachingTips.map((tip, idx) => (
+                                <li key={idx}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className={styles.errorMessage} style={{ marginTop: '1rem' }}>
+                        Câu trả lời không phù hợp với cấu trúc S-T-A-R hoặc không đủ thông tin để đánh giá.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

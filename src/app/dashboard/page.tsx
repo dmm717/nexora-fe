@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import styles from './DashboardPage.module.css';
 import { dashboardApi, DashboardResponse } from '@/services/dashboardApi';
 
@@ -8,6 +9,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -105,8 +107,14 @@ export default function DashboardPage() {
       <div className={styles.contentGrid}>
         {/* Interviews List */}
         <div className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Phỏng vấn gần đây</h2>
+          <div className={styles.panelHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 className={styles.panelTitle} style={{ margin: 0 }}>Phỏng vấn gần đây</h2>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, color: '#3b82f6' }}
+            >
+              Xem tất cả &rarr;
+            </button>
           </div>
           {data.interviews.length === 0 ? (
             <div className={styles.emptyState}>Chưa có bài phỏng vấn nào</div>
@@ -141,7 +149,7 @@ export default function DashboardPage() {
         {/* Reports List */}
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Báo cáo kết quả</h2>
+            <h2 className={styles.panelTitle}>Kết quả phỏng vấn</h2>
           </div>
           {data.reports.length === 0 ? (
             <div className={styles.emptyState}>Chưa có báo cáo nào</div>
@@ -176,6 +184,46 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {isModalOpen && data && (
+        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Lịch sử phỏng vấn</h2>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}
+              >
+                &times;
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              {data.interviews.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>Chưa có bài phỏng vấn nào.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {data.interviews.map(inv => (
+                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '1rem', color: '#111827' }}>{inv.role}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>{new Date(inv.updatedAt).toLocaleString('vi-VN')}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <span className={`${styles.badge} ${getStatusBadgeClass(inv.status)}`}>
+                          {inv.status}
+                        </span>
+                        <Link href={`/dashboard/interviews/${inv.id}`} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>
+                          Xem chi tiết &rarr;
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

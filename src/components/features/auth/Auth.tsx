@@ -65,16 +65,15 @@ export default function Auth() {
           router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
           setIsLogin(newIsLogin);
 
-          // Wait for React to render the new state
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              // Fade IN the new content
-              gsap.fromTo(form,
+          // Use a simple timeout to ensure React has flushed the DOM updates before animating in.
+          setTimeout(() => {
+            if (formWrapperRef.current) {
+              gsap.fromTo(formWrapperRef.current,
                 { opacity: 0, y: 10 },
-                { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+                { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' }
               );
-            });
-          });
+            }
+          }, 50);
         }
       });
     } else {
@@ -89,14 +88,13 @@ export default function Auth() {
     // Initial Elegant Reveal Animation
     if (cardRef.current) {
       gsap.fromTo(cardRef.current,
-        { opacity: 0, y: 30, filter: 'blur(10px)' },
+        { opacity: 0, y: 30 },
         {
           opacity: 1,
           y: 0,
-          filter: 'blur(0px)',
-          duration: 1,
+          duration: 0.8,
           ease: 'power3.out',
-          delay: 0.2
+          delay: 0.1
         }
       );
     }
@@ -106,11 +104,10 @@ export default function Auth() {
       gsap.from(elements, {
         y: 15,
         opacity: 0,
-        filter: 'blur(4px)',
-        duration: 0.6,
-        stagger: 0.08,
+        duration: 0.5,
+        stagger: 0.05,
         ease: 'power3.out',
-        delay: 0.5
+        delay: 0.3
       });
     }
   }, { scope: containerRef });

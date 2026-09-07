@@ -1,5 +1,5 @@
 .container {
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 2rem;
   font-family: 'Inter', sans-serif;
@@ -53,7 +53,7 @@
   border-radius: 24px;
   padding: 1.5rem;
   border: none;
-  box-shadow: 
+  box-shadow:
     12px 12px 24px rgba(166, 180, 200, 0.4),
     -10px -10px 20px rgba(255, 255, 255, 0.9);
   display: flex;
@@ -63,7 +63,7 @@
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 
+  box-shadow:
     14px 14px 28px rgba(166, 180, 200, 0.5),
     -12px -12px 24px rgba(255, 255, 255, 1);
 }
@@ -147,7 +147,7 @@
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 
+  box-shadow:
     8px 8px 16px rgba(31, 41, 55, 0.3),
     inset -4px -6px 10px rgba(0, 0, 0, 0.5),
     inset 4px 6px 10px rgba(75, 85, 99, 0.7);
@@ -155,7 +155,7 @@
 
 .btnAction:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 
+  box-shadow:
     10px 10px 20px rgba(31, 41, 55, 0.35),
     inset -4px -6px 10px rgba(0, 0, 0, 0.5),
     inset 4px 6px 10px rgba(75, 85, 99, 0.8);
@@ -163,7 +163,7 @@
 
 .btnAction:active {
   transform: translateY(1px) scale(0.98);
-  box-shadow: 
+  box-shadow:
     4px 4px 10px rgba(31, 41, 55, 0.25),
     inset -2px -3px 6px rgba(0, 0, 0, 0.6),
     inset 2px 3px 6px rgba(75, 85, 99, 0.6);
