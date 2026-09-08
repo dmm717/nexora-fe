@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { setAccessToken, clearAccessToken } from '../store/authStore';
+import { refreshSession } from './authSession';
 import { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth';
 
 export const authApi = {
@@ -16,6 +17,12 @@ export const authApi = {
     if (response && response.data && response.data.accessToken) {
       setAccessToken(response.data.accessToken);
     }
+    return response;
+  },
+
+  refresh: async () => {
+    const response = await refreshSession();
+    setAccessToken(response.data.accessToken);
     return response;
   },
 

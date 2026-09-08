@@ -1,5 +1,6 @@
 import { getAccessToken, setAccessToken, clearAccessToken } from '../store/authStore';
 import { translateErrorMessage } from '../utils/errorTranslator';
+import { refreshSession } from './authSession';
 
 export class ApiError extends Error {
   code?: string;
@@ -110,47 +111,38 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
       isRefreshing = true;
       let refreshSuccess = false;
       try {
-        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
-        });
+        const refreshResponse = await refreshSession();
+        const newToken = refreshResponse.data.accessToken;
 
-        if (refreshRes.ok) {
-          const payload = await refreshRes.json();
-          const newToken = payload.data?.accessToken;
-          if (newToken) {
-            setAccessToken(newToken);
-            processQueue(null, newToken);
-            refreshSuccess = true;
+        if (newToken) {
+          setAccessToken(newToken);
+          processQueue(null, newToken);
+          refreshSuccess = true;
 
-            // Retry lại request ban đầu với token mới
-            const retryRes = await fetch(fetchParams.url, {
-              ...fetchParams.options,
-              headers: {
-                ...fetchParams.options.headers,
-                ...getHeaders()
-              }
-            });
-            
-            if (retryRes.ok) {
-              if (retryRes.status === 204) return null;
-              return await retryRes.json();
+          // Retry lại request ban đầu với token mới
+          const retryRes = await fetch(fetchParams.url, {
+            ...fetchParams.options,
+            headers: {
+              ...fetchParams.options.headers,
+              ...getHeaders()
             }
-            
-            // Nếu retry vẫn lỗi (mà không phải 401), xử lý lỗi bên dưới
-            if (retryRes.status !== 401) {
-              const errorData = await retryRes.json().catch(() => ({}));
-              const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-              throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
-            }
-            
-            // Nếu retry bị 401, rơi xuống logic clear token
-          } else {
-            processQueue(new Error('No new token provided'));
+          });
+
+          if (retryRes.ok) {
+            if (retryRes.status === 204) return null;
+            return await retryRes.json();
           }
+
+          // Nếu retry vẫn lỗi (mà không phải 401), xử lý lỗi bên dưới
+          if (retryRes.status !== 401) {
+            const errorData = await retryRes.json().catch(() => ({}));
+            const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
+            throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
+          }
+
+          // Nếu retry bị 401, rơi xuống logic clear token
         } else {
-          processQueue(new Error('Refresh API returned error'));
+          processQueue(new Error('No new token provided'));
         }
       } catch (e) {
         console.error('Refresh token failed', e);
