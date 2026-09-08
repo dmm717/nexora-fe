@@ -7,6 +7,7 @@ import styles from './Resumes.module.css';
 import { useQuery } from '@tanstack/react-query';
 import { cvAnalysisApi } from '@/services/cvAnalysisApi';
 import { useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
+import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 
 const REPORT_LANGUAGE_INSTRUCTION = '\n\n(Yêu cầu: Vui lòng trả về báo cáo phân tích hoàn toàn bằng Tiếng Việt)';
 
@@ -136,6 +137,7 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
 
 export default function ResumesPage() {
   const router = useRouter();
+  const { authReady, isAuthenticated } = useAuth();
   
   const { history, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory();
   const hasResumed = useRef(false);
@@ -159,7 +161,7 @@ export default function ResumesPage() {
   const { data: resumeData } = useQuery({
     queryKey: ['resume', resumeId],
     queryFn: () => cvAnalysisApi.getResume(resumeId!),
-    enabled: !!resumeId,
+    enabled: authReady && isAuthenticated && !!resumeId,
     refetchInterval: (query) => {
       if (query.state.status === 'error') return false;
       const status = (query.state.data?.status || (query.state.data as any)?.Status || '').toLowerCase();
