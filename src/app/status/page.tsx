@@ -78,7 +78,7 @@ export default function SystemStatusPage() {
         </div>
         <div className={styles.header}>
           <div className={styles.logo}>
-            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
+            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
           </div>
           <h1 className={styles.title}>System Status</h1>
           <div className={`${styles.overallStatus} ${overall.className}`}>

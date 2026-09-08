@@ -10,6 +10,15 @@ export const useResumeAnalysis = (id: string, refetchInterval?: number | false |
     queryFn: () => cvAnalysisApi.getAnalysis(id),
     staleTime: 30000,
     enabled: authReady && isAuthenticated && !!id,
-    refetchInterval,
+    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query: any) => {
+      const data = query.state.data as any;
+      if (data) {
+        const status = (data.status || data.Status || '').toLowerCase();
+        if (status === 'completed' || status === 'failed') {
+          return false;
+        }
+      }
+      return 15000;
+    },
   });
 };

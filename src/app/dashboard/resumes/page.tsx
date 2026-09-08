@@ -165,7 +165,7 @@ export default function ResumesPage() {
     refetchInterval: (query) => {
       if (query.state.status === 'error') return false;
       const status = (query.state.data?.status || (query.state.data as any)?.Status || '').toLowerCase();
-      return (status === 'ready' || status === 'failed') ? false : 2000;
+      return (status === 'ready' || status === 'failed') ? false : 15000;
     }
   });
   
@@ -209,7 +209,7 @@ export default function ResumesPage() {
             if (attempts >= maxAttempts) {
               throw new Error('Quá thời gian chờ xử lý CV. Vui lòng tải lại file mới.');
             }
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 15000));
           } else {
             throw err;
           }

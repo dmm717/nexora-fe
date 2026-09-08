@@ -11,6 +11,15 @@ export const useStarAttempt = (id: string, isScenario: boolean, refetchInterval?
     queryFn: () => isScenario ? scenarioApi.getAttempt(id) as any : starBuilderApi.getAttempt(id) as any,
     staleTime: 0,
     enabled: authReady && isAuthenticated && !!id,
-    refetchInterval,
+    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query: any) => {
+      const data = query.state.data as any;
+      if (data) {
+        const status = (data.status || data.Status || '').toLowerCase();
+        if (status === 'completed' || status === 'failed' || status === 'abandoned') {
+          return false;
+        }
+      }
+      return 15000;
+    },
   });
 };

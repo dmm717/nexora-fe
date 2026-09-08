@@ -22,7 +22,7 @@ export default function InterviewRoomPage() {
   const { data: interview, isLoading: loading, error: queryError, refetch } = useInterview(id, (query) => {
     const data = query.state.data as any;
     if (data && (data.status === 'starting' || data.status === 'queued')) {
-      return 2000;
+      return 15000;
     }
     return false;
   });
