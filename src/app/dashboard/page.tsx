@@ -4,6 +4,22 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import styles from './DashboardPage.module.css';
 import { useDashboardSummary } from '@/hooks/queries/useDashboard';
+import { ClientDate } from '@/components/ui/ClientDate';
+
+const getStatusBadgeClass = (status: string) => {
+  const s = status.toLowerCase();
+  if (s === 'completed' || s === 'ready') return styles.badgeSuccess;
+  if (s === 'failed') return styles.badgeError;
+  if (s === 'queued' || s === 'processing') return styles.badgeWarning;
+  return styles.badgeInfo;
+};
+
+const getScoreClass = (score: number) => {
+  if (score >= 80) return styles.scoreExcellent;
+  if (score >= 65) return styles.scoreGood;
+  if (score >= 50) return styles.scoreAverage;
+  return styles.scorePoor;
+};
 
 export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,20 +44,7 @@ export default function DashboardPage() {
     ? Math.round(data.reports.reduce((acc, r) => acc + r.overallScore, 0) / totalReports)
     : 0;
 
-  const getStatusBadgeClass = (status: string) => {
-    const s = status.toLowerCase();
-    if (s === 'completed' || s === 'ready') return styles.badgeSuccess;
-    if (s === 'failed') return styles.badgeError;
-    if (s === 'queued' || s === 'processing') return styles.badgeWarning;
-    return styles.badgeInfo;
-  };
 
-  const getScoreClass = (score: number) => {
-    if (score >= 80) return styles.scoreExcellent;
-    if (score >= 65) return styles.scoreGood;
-    if (score >= 50) return styles.scoreAverage;
-    return styles.scorePoor;
-  };
 
   return (
     <div className={styles.container}>
@@ -113,7 +116,7 @@ export default function DashboardPage() {
                   {data.interviews.slice(0, 5).map(interview => (
                     <tr key={interview.id}>
                       <td style={{ fontWeight: 600 }}>{interview.role}</td>
-                      <td>{new Date(interview.updatedAt).toLocaleDateString('vi-VN')}</td>
+                      <td><ClientDate date={interview.updatedAt} format="date" /></td>
                       <td>
                         <span className={`${styles.badge} ${getStatusBadgeClass(interview.status)}`}>
                           {interview.status}
@@ -150,7 +153,7 @@ export default function DashboardPage() {
                       <td style={{ fontFamily: 'monospace', color: '#64748b' }}>
                         #{report.id.slice(0, 8)}
                       </td>
-                      <td>{new Date(report.createdAt).toLocaleDateString('vi-VN')}</td>
+                      <td><ClientDate date={report.createdAt} format="date" /></td>
                       <td>
                         <span className={getScoreClass(report.overallScore)} style={{ fontWeight: 700 }}>
                           {report.overallScore}
@@ -187,7 +190,7 @@ export default function DashboardPage() {
                     <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff' }}>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: '1rem', color: '#111827' }}>{inv.role}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>{new Date(inv.updatedAt).toLocaleString('vi-VN')}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={inv.updatedAt} /></div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <span className={`${styles.badge} ${getStatusBadgeClass(inv.status)}`}>

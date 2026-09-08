@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import styles from '../Interviews.module.css';
 import { interviewApi } from '@/services/interviewApi';
 import { useInterview } from '@/hooks/queries/useInterviews';
+import { formatTime } from '@/utils/formatters';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +33,7 @@ export default function InterviewRoomPage() {
   useEffect(() => {
     if (interview && (interview.status === 'active' || interview.status === 'ready')) {
       // Reset timer if we just loaded a new question
-      setTimeout(() => setSecondsElapsed(0), 0);
+      setSecondsElapsed(0);
       timerRef.current = setInterval(() => {
         setSecondsElapsed(prev => prev + 1);
       }, 1000);
@@ -40,6 +41,7 @@ export default function InterviewRoomPage() {
     
     // Redirect if completed
     if (interview?.status === 'completed') {
+      // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
       router.push(`/dashboard/interviews/${id}/report`);
     }
 
@@ -57,6 +59,7 @@ export default function InterviewRoomPage() {
       router.push(`/dashboard/interviews/${id}/report`);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Lỗi khi kết thúc bài thi');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -132,11 +135,7 @@ export default function InterviewRoomPage() {
   const answeredIds = new Set(interview.answers.map(a => a.questionId));
   const activeQuestion = interview.questions.find(q => !answeredIds.has(q.id));
 
-  const formatTime = (totalSeconds: number) => {
-    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const s = (totalSeconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+
 
   return (
     <div className={styles.container}>
@@ -167,8 +166,9 @@ export default function InterviewRoomPage() {
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.label}>Câu trả lời của bạn</label>
+              <label className={styles.label} htmlFor="answerContent">Câu trả lời của bạn</label>
               <textarea 
+                id="answerContent"
                 className={styles.textarea} 
                 placeholder="Nhập câu trả lời..."
                 value={answerContent}

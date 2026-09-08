@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import styles from './Report.module.css';
 import { useInterview, useInterviewReport } from '@/hooks/queries/useInterviews';
 import { useAutoTranslate } from '@/hooks/useAutoTranslate';
+import { ClientDate } from '@/components/ui/ClientDate';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -67,7 +68,7 @@ export default function InterviewReportPage() {
         </div>
         <p className={styles.disclaimer}>{report.disclaimer}</p>
         <div className={styles.timestamp}>
-          Tạo lúc: {new Date(report.createdAt).toLocaleString('vi-VN')}
+          Tạo lúc: <ClientDate date={report.createdAt} />
         </div>
       </div>
 
@@ -92,8 +93,8 @@ export default function InterviewReportPage() {
             <div style={{ marginTop: '1.5rem' }}>
               <div className={styles.infoLabel}>Vấn đề thường gặp:</div>
               <ul className={styles.list} style={{ marginTop: '0.5rem' }}>
-                {report.starSummary.recurringIssues.map((issue, idx) => (
-                  <li key={idx} className={styles.listItem} style={{ paddingBottom: '0.5rem', marginBottom: '0.5rem', borderBottom: 'none' }}>
+                {report.starSummary.recurringIssues.map((issue) => (
+                  <li key={issue} className={styles.listItem} style={{ paddingBottom: '0.5rem', marginBottom: '0.5rem', borderBottom: 'none' }}>
                     <div className={`${styles.listIcon} ${styles.iconDanger}`} style={{ width: 24, height: 24, fontSize: '0.8rem' }}>!</div>
                     <div className={styles.listContent}>{issue}</div>
                   </li>
@@ -108,8 +109,8 @@ export default function InterviewReportPage() {
         <div className={styles.panel}>
           <h2 className={styles.sectionTitle}>Điểm mạnh</h2>
           <ul className={styles.list}>
-            {strengths.map((item, idx) => (
-              <li key={idx} className={styles.listItem}>
+            {strengths.map((item) => (
+              <li key={item} className={styles.listItem}>
                 <div className={`${styles.listIcon} ${styles.iconSuccess}`}>✓</div>
                 <div className={styles.listContent}>{item}</div>
               </li>
@@ -120,8 +121,8 @@ export default function InterviewReportPage() {
         <div className={styles.panel}>
           <h2 className={styles.sectionTitle}>Cần cải thiện</h2>
           <ul className={styles.list}>
-            {gaps.map((item, idx) => (
-              <li key={idx} className={styles.listItem}>
+            {gaps.map((item) => (
+              <li key={item} className={styles.listItem}>
                 <div className={`${styles.listIcon} ${styles.iconDanger}`}>!</div>
                 <div className={styles.listContent}>{item}</div>
               </li>
@@ -134,7 +135,7 @@ export default function InterviewReportPage() {
         <h2 className={styles.sectionTitle}>Kế hoạch hành động</h2>
         <ul className={styles.list}>
           {actionPlan.map((item, idx) => (
-            <li key={idx} className={styles.listItem}>
+            <li key={item} className={styles.listItem}>
               <div className={`${styles.listIcon} ${styles.iconInfo}`}>{idx + 1}</div>
               <div className={styles.listContent}>{item}</div>
             </li>
@@ -154,8 +155,8 @@ export default function InterviewReportPage() {
               </tr>
             </thead>
             <tbody>
-              {rubric.map((item, idx) => (
-                <tr key={idx}>
+              {rubric.map((item) => (
+                <tr key={item.criterion}>
                   <td className={styles.criterion}>{item.criterion}</td>
                   <td style={{ textAlign: 'center' }}>
                     <span className={styles.scorePill}>{item.score}/100</span>
@@ -233,7 +234,7 @@ export default function InterviewReportPage() {
                          <div style={{ marginTop: '1rem' }}>
                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#16a34a', marginBottom: '0.5rem' }}>💡 Lời khuyên:</div>
                            <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#374151', fontSize: '0.95rem' }}>
-                             {star.coachingTips.map((tip, i) => <li key={i} style={{ marginBottom: '0.25rem' }}>{tip}</li>)}
+                             {star.coachingTips.map((tip) => <li key={tip.substring(0, 30)} style={{ marginBottom: '0.25rem' }}>{tip}</li>)}
                            </ul>
                          </div>
                        )}

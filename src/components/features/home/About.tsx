@@ -1,5 +1,6 @@
 'use client';
 import React, { useRef, useEffect } from 'react';
+import Image from 'next/image';
 import styles from './About.module.css';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -66,11 +67,14 @@ const About = () => {
           <h2 className={styles.massiveText}>HOW IT<br/>WORKS.</h2>
         </div>
         {panels.map((panel, i) => (
-          <div key={i} className={styles.panel}>
+          <div key={panel.title} className={styles.panel}>
             <div className={styles.imageBox}>
-              <div 
+              <Image 
+                src={panel.image}
+                alt={panel.title}
+                fill
+                sizes="(max-width: 1024px) 90vw, 50vw"
                 className={styles.bgImg} 
-                style={{ backgroundImage: `url('${panel.image}')` }} 
               />
             </div>
             <div className={styles.textBox}>

@@ -8,6 +8,29 @@ import { useCurrentUser } from '@/hooks/queries/useUser';
 import { authApi } from '@/services/authApi';
 import { getAvatarColor } from '@/utils/colorUtils';
 
+const navItems = [
+  {
+    name: 'Dashboard',
+    href: '/dashboard',
+  },
+  {
+    name: 'Phân tích CV',
+    href: '/dashboard/resumes',
+  },
+  {
+    name: 'Tình huống & STAR',
+    href: '/dashboard/scenarios',
+  },
+  {
+    name: 'Gói cước',
+    href: '/dashboard/billing',
+  },
+  {
+    name: 'Trạng thái',
+    href: '/status',
+  }
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -36,28 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/auth');
   };
 
-  const navItems = [
-    {
-      name: 'Dashboard',
-      href: '/dashboard',
-    },
-    {
-      name: 'Phân tích CV',
-      href: '/dashboard/resumes',
-    },
-    {
-      name: 'Tình huống & STAR',
-      href: '/dashboard/scenarios',
-    },
-    {
-      name: 'Gói cước',
-      href: '/dashboard/billing',
-    },
-    {
-      name: 'Trạng thái',
-      href: '/status',
-    }
-  ];
+
 
   return (
     <div className={styles.container}>
@@ -67,14 +69,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Logo */}
           <div className={styles.logo}>
             <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center' }}>
-              <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
+              <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
             </Link>
             
             {/* Center Menu */}
             <div className={styles.menuContainer}>
-              {navItems.map((item, i) => (
+              {navItems.map((item) => (
                 <Link 
-                  key={i} 
+                  key={item.href} 
                   href={item.href} 
                   className={`${styles.menuItem} ${pathname === item.href ? styles.active : ''}`}
                 >
@@ -98,6 +100,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className={styles.userProfile} 
                 onClick={() => setDropdownOpen(!dropdownOpen)} 
                 title="Tài khoản"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setDropdownOpen(!dropdownOpen);
+                  }
+                }}
               >
                 <div className={styles.avatar} style={{ position: 'relative', backgroundColor: getAvatarColor(userEmail) }}>
                   {userEmail.charAt(0).toUpperCase()}

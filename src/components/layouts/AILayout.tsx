@@ -10,7 +10,7 @@ export default function AILayout({ children }: { children: React.ReactNode }) {
         {/* Left Sidebar */}
         <aside className={styles.leftSidebar}>
           <div className={styles.logo}>
-            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
+            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
           </div>
           
           <div className={styles.searchBox}>

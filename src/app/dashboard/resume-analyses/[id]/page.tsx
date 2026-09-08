@@ -13,9 +13,15 @@ export default function ResumeAnalysisDetailsPage() {
   const { data, isLoading: queryLoading, error: queryError } = useResumeAnalysis(
     id,
     (query) => {
-      const currentData = query.state.data as any;
-      if (currentData && (currentData.status === 'completed' || currentData.status === 'failed')) {
+      if (query.state.status === 'error') {
         return false;
+      }
+      const currentData = query.state.data as any;
+      if (currentData) {
+        const status = (currentData.status || currentData.Status || '').toLowerCase();
+        if (status === 'completed' || status === 'failed') {
+          return false;
+        }
       }
       return 2000;
     }
@@ -24,7 +30,9 @@ export default function ResumeAnalysisDetailsPage() {
   const error = queryError ? queryError.message || 'Không thể tải kết quả phân tích.' : null;
   const loading = queryLoading;
 
-  if (loading || (data && (data.status === 'pending' || data.status === 'processing'))) {
+  const currentStatus = data ? ((data.status || (data as any).Status || '').toLowerCase()) : undefined;
+
+  if (loading || (currentStatus === 'queued' || currentStatus === 'pending' || currentStatus === 'processing')) {
     return (
       <div className={styles.container} style={{ textAlign: 'center', marginTop: '4rem' }}>
         <div style={{ color: '#6b7280', fontSize: '1.25rem' }}>AI đang phân tích độ phù hợp (Quá trình này có thể mất vài chục giây)...</div>
@@ -43,14 +51,15 @@ export default function ResumeAnalysisDetailsPage() {
     );
   }
 
-  if (data.status === 'failed') {
+  if (currentStatus === 'failed') {
+    const errorCode = data.errorCode || (data as any).ErrorCode;
     return (
       <div className={styles.container}>
         <div className={styles.header}>
           <button className={styles.backButton} onClick={() => router.back()}>&larr; Quay lại</button>
         </div>
         <div className={styles.errorMessage}>
-          Quá trình phân tích thất bại. {data.errorCode ? `Mã lỗi: ${data.errorCode}` : 'Vui lòng thử lại sau.'}
+          Quá trình phân tích thất bại. {errorCode ? `Mã lỗi: ${errorCode}` : 'Vui lòng thử lại sau.'}
         </div>
       </div>
     );
@@ -129,8 +138,8 @@ export default function ResumeAnalysisDetailsPage() {
             <p style={{ color: '#6b7280' }}>Không tìm thấy điểm mạnh nổi bật nào.</p>
           ) : (
             <ul className={`${styles.list} ${styles.strengths}`}>
-              {strengths.map((item: string, idx: number) => (
-                <li key={idx} className={styles.listItem}>
+              {strengths.map((item: string) => (
+                <li key={item} className={styles.listItem}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
@@ -153,8 +162,8 @@ export default function ResumeAnalysisDetailsPage() {
             <p style={{ color: '#6b7280' }}>Không tìm thấy điểm yếu đáng kể.</p>
           ) : (
             <ul className={`${styles.list} ${styles.weaknesses}`}>
-              {gaps.map((item: string, idx: number) => (
-                <li key={idx} className={styles.listItem}>
+              {gaps.map((item: string) => (
+                <li key={item} className={styles.listItem}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -177,8 +186,8 @@ export default function ResumeAnalysisDetailsPage() {
             <p style={{ color: '#6b7280' }}>Chưa có đề xuất nào.</p>
           ) : (
             <ul className={`${styles.list} ${styles.recommendations}`}>
-              {recommendations.map((item: string, idx: number) => (
-                <li key={idx} className={styles.listItem}>
+              {recommendations.map((item: string) => (
+                <li key={item} className={styles.listItem}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                   </svg>

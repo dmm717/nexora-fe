@@ -3,6 +3,14 @@
 import React from 'react';
 import styles from './Analytics.module.css';
 import { useAnalytics } from '@/hooks/queries/useDashboard';
+import { ClientDate } from '@/components/ui/ClientDate';
+
+const getScoreClass = (score: number) => {
+  if (score >= 80) return styles.scoreExcellent;
+  if (score >= 65) return styles.scoreGood;
+  if (score >= 50) return styles.scoreAverage;
+  return styles.scorePoor;
+};
 
 export default function AnalyticsPage() {
   const { data, isLoading: loading, error: queryError } = useAnalytics();
@@ -20,12 +28,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const getScoreClass = (score: number) => {
-    if (score >= 80) return styles.scoreExcellent;
-    if (score >= 65) return styles.scoreGood;
-    if (score >= 50) return styles.scoreAverage;
-    return styles.scorePoor;
-  };
+
 
   return (
     <div className={styles.container}>
@@ -109,12 +112,12 @@ export default function AnalyticsPage() {
           </div>
           {data.recentActivity && data.recentActivity.length > 0 ? (
             <ul className={styles.timeline}>
-              {data.recentActivity.map((activity, index) => (
-                <li key={index} className={styles.timelineItem}>
+              {data.recentActivity.map((activity) => (
+                <li key={`${activity.timestamp}-${activity.type}`} className={styles.timelineItem}>
                   <div className={styles.timelineDot}></div>
                   <div className={styles.timelineContent}>
                     <div className={styles.timelineType}>{activity.type}</div>
-                    <div className={styles.timelineTime}>{new Date(activity.timestamp).toLocaleString('vi-VN')}</div>
+                    <div className={styles.timelineTime}><ClientDate date={activity.timestamp} /></div>
                   </div>
                 </li>
               ))}

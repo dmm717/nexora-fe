@@ -17,7 +17,7 @@ import ReactQueryProvider from '@/components/providers/ReactQueryProvider';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} antialiased`}>
+    <html lang="vi" translate="no" className={`${outfit.variable} antialiased`}>
       <body className="min-h-full flex flex-col">
         <ReactQueryProvider>
           {children}

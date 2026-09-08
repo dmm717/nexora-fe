@@ -18,6 +18,10 @@ export const useAutoTranslate = () => {
         .skiptranslate > iframe.skiptranslate { display: none !important; visibility: hidden !important; }
         body { top: 0 !important; }
         font { background-color: transparent !important; box-shadow: none !important; }
+        /* Hide hover tooltip and highlight */
+        #goog-gt-tt { display: none !important; visibility: hidden !important; }
+        .goog-text-highlight { background-color: transparent !important; box-shadow: none !important; }
+        .VIpgJd-Zvi9od-ORHb-OEVmcd { display: none !important; }
       `;
       document.head.appendChild(style);
     }

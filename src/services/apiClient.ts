@@ -56,7 +56,6 @@ const processQueue = (error: Error | null, token: string | null = null) => {
  */
 const handleResponse = async (response: Response, fetchParams: { url: string; options: RequestInit }) => {
   if (response.ok) {
-    // Có thể API trả về 204 No Content => không cần parse JSON
     if (response.status === 204) return null;
     try {
       return await response.json();
@@ -76,28 +75,45 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
         await new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         });
-        // Khi promise resolve, token đã được set trong authStore, retry request
-        const retryRes = await fetch(fetchParams.url, {
-          ...fetchParams.options,
-          headers: {
-            ...fetchParams.options.headers,
-            ...getHeaders()
-          }
-        });
-        if (retryRes.ok) {
-          if (retryRes.status === 204) return null;
-          return await retryRes.json();
+      } catch (err) {
+        // Queue bị reject => Sẽ rơi xuống logic logout ở cuối
+        clearAccessToken();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/auth';
+          return new Promise(() => {});
         }
-      } catch {
-        // Queue bị reject => Sẽ chạy xuống logic clear token
+        throw err;
       }
+
+      // Khi promise resolve, token đã được set trong authStore, retry request
+      const retryRes = await fetch(fetchParams.url, {
+        ...fetchParams.options,
+        headers: {
+          ...fetchParams.options.headers,
+          ...getHeaders()
+        }
+      });
+      
+      if (retryRes.ok) {
+        if (retryRes.status === 204) return null;
+        return await retryRes.json();
+      }
+      
+      if (retryRes.status !== 401) {
+        const errorData = await retryRes.json().catch(() => ({}));
+        const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
+        throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
+      }
+      
+      // Nếu retry bị 401, rơi xuống dưới để logout
     } else {
       isRefreshing = true;
+      let refreshSuccess = false;
       try {
         const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include' // Bắt buộc để gửi cookie chứa refresh token lên server
+          credentials: 'include'
         });
 
         if (refreshRes.ok) {
@@ -106,6 +122,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
           if (newToken) {
             setAccessToken(newToken);
             processQueue(null, newToken);
+            refreshSuccess = true;
 
             // Retry lại request ban đầu với token mới
             const retryRes = await fetch(fetchParams.url, {
@@ -122,9 +139,13 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
             }
             
             // Nếu retry vẫn lỗi (mà không phải 401), xử lý lỗi bên dưới
-            const errorData = await retryRes.json().catch(() => ({}));
-            const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-            throw new Error(translateErrorMessage(rawMessage));
+            if (retryRes.status !== 401) {
+              const errorData = await retryRes.json().catch(() => ({}));
+              const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
+              throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
+            }
+            
+            // Nếu retry bị 401, rơi xuống logic clear token
           } else {
             processQueue(new Error('No new token provided'));
           }
@@ -133,7 +154,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
         }
       } catch (e) {
         console.error('Refresh token failed', e);
-        processQueue(e as Error);
+        if (!refreshSuccess) processQueue(e as Error);
       } finally {
         isRefreshing = false;
       }
@@ -144,10 +165,16 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = '/auth'; // Chuyển hướng về login
+      // Return a pending promise so we don't throw and crash the UI during redirect
+      return new Promise(() => {});
     }
+    
+    const errorData = await response.json().catch(() => ({}));
+    const rawMessage = errorData.error?.message || errorData.message || 'Bạn cần đăng nhập để tiếp tục.';
+    throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code || 'UNAUTHENTICATED', errorData.error?.requestId);
   }
 
-  // Ném lỗi để UI xử lý (nếu không phải 401 hoặc đã thử retry mà vẫn lỗi nhưng không redirect)
+  // Ném lỗi để UI xử lý (nếu không phải 401 hoặc isAuthEndpoint)
   const errorData = await response.json().catch(() => ({}));
   const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
   throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);

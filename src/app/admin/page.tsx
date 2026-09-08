@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from './Admin.module.css';
 import { useAdminDashboard } from '@/hooks/queries/useAdmin';
+import { formatCurrency } from '@/utils/formatters';
 
 export default function AdminPage() {
   const { data: stats, isLoading: loading, error: queryError } = useAdminDashboard();
@@ -37,7 +38,7 @@ export default function AdminPage() {
         <div style={{ flex: '1 1 200px', padding: '20px', border: '1px solid #e5e7eb', borderRadius: '10px', background: '#fff' }}>
           <h3 style={{ color: '#ef4444', marginBottom: '10px' }}>Doanh thu tháng này</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>
-            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.revenue)}
+            {formatCurrency(stats.revenue)}
           </p>
         </div>
       </div>

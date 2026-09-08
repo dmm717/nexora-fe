@@ -89,27 +89,27 @@ export const cvAnalysisApi = {
   },
 
   createResume: async (uploadToken: string): Promise<ResumeView> => {
-    const response = await apiClient.post('/resumes', { uploadToken }) as { data: ResumeView };
-    return response.data;
+    const response = await apiClient.post('/resumes', { uploadToken }) as Record<string, any>;
+    return response.data || response.Data;
   },
 
   getResume: async (id: string): Promise<ResumeView> => {
-    const response = await apiClient.get(`/resumes/${id}`) as { data: ResumeView };
-    return response.data;
+    const response = await apiClient.get(`/resumes/${id}`) as Record<string, any>;
+    return response.data || response.Data;
   },
 
   createJobDescription: async (data: CreateJdRequest): Promise<JdView> => {
-    const response = await apiClient.post('/job-descriptions', data) as { data: JdView };
-    return response.data;
+    const response = await apiClient.post('/job-descriptions', data) as Record<string, any>;
+    return response.data || response.Data;
   },
 
   analyze: async (data: CreateAnalysisRequest): Promise<AnalysisView> => {
-    const response = await apiClient.post('/resume-analyses', data) as { data: AnalysisView };
-    return response.data;
+    const response = await apiClient.post('/resume-analyses', data) as Record<string, any>;
+    return response.data || response.Data;
   },
 
   getAnalysis: async (id: string): Promise<AnalysisView> => {
-    const response = await apiClient.get(`/resume-analyses/${id}`) as { data: AnalysisView };
-    return response.data;
+    const response = await apiClient.get(`/resume-analyses/${id}`) as Record<string, any>;
+    return response.data || response.Data;
   }
 };

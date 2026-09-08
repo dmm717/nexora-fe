@@ -47,8 +47,9 @@ export default function NewInterviewPage() {
         
         <form onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
-            <label className={styles.label}>Vị trí ứng tuyển (Role)</label>
+            <label className={styles.label} htmlFor="role">Vị trí ứng tuyển (Role)</label>
             <input 
+              id="role"
               type="text" 
               className={styles.input} 
               placeholder="Vd: Frontend Developer, Product Manager..." 
@@ -59,8 +60,9 @@ export default function NewInterviewPage() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>Cấp bậc (Seniority)</label>
+            <label className={styles.label} htmlFor="seniority">Cấp bậc (Seniority)</label>
             <select 
+              id="seniority"
               className={styles.select}
               value={form.seniority}
               onChange={e => setForm({...form, seniority: e.target.value})}
@@ -76,8 +78,9 @@ export default function NewInterviewPage() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>Loại phỏng vấn (Type)</label>
+            <label className={styles.label} htmlFor="interviewType">Loại phỏng vấn (Type)</label>
             <select 
+              id="interviewType"
               className={styles.select}
               value={form.interviewType}
               onChange={e => setForm({...form, interviewType: e.target.value})}
@@ -91,8 +94,9 @@ export default function NewInterviewPage() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>Độ khó (Difficulty)</label>
+            <label className={styles.label} htmlFor="difficulty">Độ khó (Difficulty)</label>
             <select 
+              id="difficulty"
               className={styles.select}
               value={form.difficulty}
               onChange={e => setForm({...form, difficulty: e.target.value})}

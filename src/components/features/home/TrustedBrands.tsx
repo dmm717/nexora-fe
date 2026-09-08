@@ -17,7 +17,7 @@ const TrustedBrands = () => {
           <div className={styles.marqueeTrack}>
             {/* Duplicated for infinite effect */}
             {[...textItems, ...textItems, ...textItems].map((text, i) => (
-              <div key={i} className={styles.textItem}>
+              <div key={`${text}-${i}`} className={styles.textItem}>
                 {text}
                 <span className={styles.separator}>/</span>
               </div>

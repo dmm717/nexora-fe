@@ -58,7 +58,7 @@ const Services = () => {
         
         <div className={styles.listWrapper} ref={listRef}>
           {services.map((svc, i) => (
-            <div key={i} className={styles.row}>
+            <div key={svc.title} className={styles.row}>
               <div className={styles.index}>(0{i + 1})</div>
               <h3 className={styles.title}>{svc.title}</h3>
               <p className={styles.desc}>{svc.desc}</p>

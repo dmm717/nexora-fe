@@ -10,6 +10,7 @@ import { Button } from '../../ui/Button/Button';
 import { useForm as useHookForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { formatCurrency } from '../../../utils/formatters';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, 'Tên hiển thị phải có ít nhất 2 ký tự').max(120, 'Tên hiển thị quá dài')
@@ -209,7 +210,7 @@ const AccountSettings = () => {
                       <td>#{order.id.slice(-6).toUpperCase()}</td>
                       <td>{order.planCode}</td>
                       <td>
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: order.currency || 'VND' }).format(order.amountMinor)}
+                        {formatCurrency(order.amountMinor, order.currency || 'VND')}
                       </td>
                       <td>{new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td>

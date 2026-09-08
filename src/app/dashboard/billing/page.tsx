@@ -6,6 +6,13 @@ import { billingApi, PlanView } from '@/services/billingApi';
 import { useBillingPlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatCurrency } from '@/utils/formatters';
+
+const CheckIcon = () => (
+  <svg className={styles.featureIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
 
 export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +80,7 @@ export default function BillingPage() {
   const createCheckoutMutation = useMutation({
     mutationFn: (planPriceId: string) => billingApi.createCheckoutSession(planPriceId),
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['billingPlans'] });
       if (res.checkout) {
         sessionStorage.setItem('pendingPaymentOrderId', res.orderId);
         
@@ -104,15 +112,7 @@ export default function BillingPage() {
     createCheckoutMutation.mutate(planPriceId);
   };
 
-  const formatMoney = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency }).format(amount);
-  };
 
-  const CheckIcon = () => (
-    <svg className={styles.featureIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-    </svg>
-  );
 
   if (loading) {
     return (
@@ -150,7 +150,7 @@ export default function BillingPage() {
               <h2 className={styles.planName}>{plan.name}</h2>
               <div className={styles.planPriceContainer}>
                 <span className={styles.planPrice}>
-                  {isFree ? 'Miễn phí' : formatMoney(price.amountMinor, price.currency)}
+                  {isFree ? 'Miễn phí' : formatCurrency(price.amountMinor, price.currency)}
                 </span>
                 {!isFree && <span className={styles.planCurrency}>{price.currency}</span>}
                 {price.durationDays && <span className={styles.planDuration}>/ {price.durationDays} ngày</span>}

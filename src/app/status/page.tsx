@@ -6,6 +6,30 @@ import Image from 'next/image';
 import styles from './StatusPage.module.css';
 import { useHealthLiveness, useHealthReadiness, useHealthOperations } from '@/hooks/queries/useHealth';
 
+const getStatusClass = (status: string | undefined) => {
+  if (!status) return styles.badgeUnknown;
+  const s = status.toLowerCase();
+  if (s === 'healthy' || s === 'ok' || s === 'active') return styles.badgeHealthy;
+  if (s === 'degraded' || s === 'warning') return styles.badgeDegraded;
+  return styles.badgeOffline;
+};
+const getOverallStatus = (liveness: string, readinessStatus: string, operationsStatus: string) => {
+  const s1 = liveness.toLowerCase();
+  const s2 = readinessStatus.toLowerCase();
+  const s3 = operationsStatus.toLowerCase();
+
+  if (s1 === 'offline' || s2 === 'offline' || s2 === 'unhealthy' || s3 === 'offline') {
+    return { text: 'System Outage', className: styles.offline };
+  }
+  if (s2 === 'degraded' || s3 === 'degraded' || s3 === 'warning') {
+    return { text: 'Degraded Performance', className: styles.degraded };
+  }
+  if ((s1 === 'healthy' || s1 === 'ok') && s2 === 'healthy' && (s3 === 'healthy' || s3 === 'ok')) {
+    return { text: 'All Systems Operational', className: styles.healthy };
+  }
+  return { text: 'Checking Systems...', className: styles.degraded };
+};
+
 export default function SystemStatusPage() {
   const router = useRouter();
   const { data: livenessRes, isLoading: livenessLoading, refetch: refetchLiveness } = useHealthLiveness();
@@ -24,31 +48,6 @@ export default function SystemStatusPage() {
   const readiness = readinessRes || (readinessLoading ? null : { status: 'Offline', totalDuration: '0ms', entries: {} });
   const operations = operationsRes || (operationsLoading ? null : { status: 'Offline', totalDuration: '0ms', entries: {}, activeJobs: 0, failedJobs: 0, lastProcessed: 'N/A' });
 
-  const getStatusClass = (status: string | undefined) => {
-    if (!status) return styles.badgeUnknown;
-    const s = status.toLowerCase();
-    if (s === 'healthy' || s === 'ok' || s === 'active') return styles.badgeHealthy;
-    if (s === 'degraded' || s === 'warning') return styles.badgeDegraded;
-    return styles.badgeOffline;
-  };
-
-  const getOverallStatus = () => {
-    const s1 = liveness.toLowerCase();
-    const s2 = readiness?.status.toLowerCase() || 'unknown';
-    const s3 = operations?.status.toLowerCase() || 'unknown';
-
-    if (s1 === 'offline' || s2 === 'offline' || s2 === 'unhealthy' || s3 === 'offline') {
-      return { text: 'System Outage', className: styles.offline };
-    }
-    if (s2 === 'degraded' || s3 === 'degraded' || s3 === 'warning') {
-      return { text: 'Degraded Performance', className: styles.degraded };
-    }
-    if ((s1 === 'healthy' || s1 === 'ok') && s2 === 'healthy' && (s3 === 'healthy' || s3 === 'ok')) {
-      return { text: 'All Systems Operational', className: styles.healthy };
-    }
-    return { text: 'Checking Systems...', className: styles.degraded };
-  };
-
   if (loading && !readiness) {
     return (
       <div className={styles.container}>
@@ -60,7 +59,11 @@ export default function SystemStatusPage() {
     );
   }
 
-  const overall = getOverallStatus();
+  const overall = getOverallStatus(
+    liveness, 
+    readiness?.status || 'unknown', 
+    operations?.status || 'unknown'
+  );
 
   return (
     <div className={styles.container}>
@@ -75,7 +78,7 @@ export default function SystemStatusPage() {
         </div>
         <div className={styles.header}>
           <div className={styles.logo}>
-            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain' }} priority />
+            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
           </div>
           <h1 className={styles.title}>System Status</h1>
           <div className={`${styles.overallStatus} ${overall.className}`}>
