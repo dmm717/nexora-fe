@@ -7,8 +7,6 @@ import styles from '../Interviews.module.css';
 import { interviewApi, type InterviewView } from '@/services/interviewApi';
 import { useInterview } from '@/hooks/queries/useInterviews';
 import { formatTime } from '@/utils/formatters';
-import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
-import { readStatus } from '@/utils/queryPolling';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,13 +19,7 @@ export default function InterviewRoomPage() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: interview, isLoading: loading, error: queryError } = useInterview(id, (query) => {
-    const status = readStatus(query.state.data);
-    if (status === 'starting' || status === 'queued') {
-      return REALTIME_FALLBACK_POLL_MS;
-    }
-    return false;
-  });
+  const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
   const error = queryError ? queryError.message : null;
 

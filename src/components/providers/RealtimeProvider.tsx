@@ -107,6 +107,13 @@ function clearUserScopedQueries(queryClient: ReturnType<typeof useQueryClient>) 
   }
 }
 
+const INITIAL_RETRY_DELAYS_MS = [2000, 5000, 10000, 30000] as const;
+
+function getInitialRetryDelay(attempt: number): number {
+  const index = Math.min(attempt, INITIAL_RETRY_DELAYS_MS.length - 1);
+  return INITIAL_RETRY_DELAYS_MS[index];
+}
+
 export default function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, authReady } = useAuth();
   const queryClient = useQueryClient();
@@ -119,8 +126,35 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
     let disposed = false;
     let connection: signalR.HubConnection | null = null;
     let startPromise: Promise<void> | null = null;
+    let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let resolveRetryDelay: (() => void) | null = null;
+
+    const cancelPendingRetry = () => {
+      if (retryTimeoutId !== null) {
+        clearTimeout(retryTimeoutId);
+        retryTimeoutId = null;
+      }
+      if (resolveRetryDelay !== null) {
+        const resolve = resolveRetryDelay;
+        resolveRetryDelay = null;
+        resolve();
+      }
+    };
+
+    const waitForRetry = (delayMs: number): Promise<void> => {
+      if (disposed) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        resolveRetryDelay = resolve;
+        retryTimeoutId = setTimeout(() => {
+          retryTimeoutId = null;
+          resolveRetryDelay = null;
+          resolve();
+        }, delayMs);
+      });
+    };
 
     const stopConnection = async () => {
+      cancelPendingRetry();
       if (!connection) return;
 
       try {
@@ -131,10 +165,12 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
         if (connectionRef.current === connection) {
           connectionRef.current = null;
         }
+        connection = null;
       }
     };
 
     if (!authReady || !isAuthenticated) {
+      cancelPendingRetry();
       seenEventsRef.current.clear();
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset realtime state at the auth boundary
       setIsConnected(false);
@@ -149,6 +185,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
       return () => {
         disposed = true;
+        cancelPendingRetry();
       };
     }
 
@@ -165,97 +202,114 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
       void previousConnection.stop().catch(() => undefined);
     }
 
-    const setupConnection = async () => {
-      try {
-        if (disposed) return;
+    const connectWithRetry = async () => {
+      let retryAttempt = 0;
 
-        connection = new signalR.HubConnectionBuilder()
-          .withUrl(resolveHubUrl(), {
-            accessTokenFactory: async () => {
-              const currentToken = getAccessToken();
-              if (currentToken) return currentToken;
-
-              try {
-                const response = await refreshSession();
-                setAccessToken(response.data.accessToken);
-                return response.data.accessToken;
-              } catch {
-                return '';
-              }
-            },
-            withCredentials: true,
-          })
-          .withAutomaticReconnect()
-          .configureLogging(signalR.LogLevel.None)
-          .build();
-
-        connectionRef.current = connection;
-
-        connection.on('resourceChanged', (value: unknown) => {
+      while (!disposed) {
+        try {
           if (disposed) return;
-          const event = parseResourceChangedEvent(value);
-          if (!event) return;
 
-          const seenEvents = seenEventsRef.current;
-          if (seenEvents.has(event.eventId)) return;
+          connection = new signalR.HubConnectionBuilder()
+            .withUrl(resolveHubUrl(), {
+              accessTokenFactory: async () => {
+                const currentToken = getAccessToken();
+                if (currentToken) return currentToken;
 
-          seenEvents.add(event.eventId);
-          if (seenEvents.size > MAX_SEEN_EVENTS) {
-            const oldestEventId = seenEvents.values().next().value;
-            if (typeof oldestEventId === 'string') {
-              seenEvents.delete(oldestEventId);
-            }
+                try {
+                  const response = await refreshSession();
+                  setAccessToken(response.data.accessToken);
+                  return response.data.accessToken;
+                } catch {
+                  return '';
+                }
+              },
+              withCredentials: true,
+            })
+            .withAutomaticReconnect()
+            .configureLogging(signalR.LogLevel.None)
+            .build();
+
+          if (disposed) {
+            void connection.stop().catch(() => undefined);
+            connection = null;
+            return;
           }
 
-          invalidateQueries(queryClient, getQueryKeysForEvent(event));
-        });
+          connectionRef.current = connection;
 
-        connection.onreconnecting(() => {
-          if (disposed) return;
-          setIsConnected(false);
-        });
+          connection.on('resourceChanged', (value: unknown) => {
+            if (disposed) return;
+            const event = parseResourceChangedEvent(value);
+            if (!event) return;
 
-        connection.onreconnected(() => {
-          if (disposed) return;
+            const seenEvents = seenEventsRef.current;
+            if (seenEvents.has(event.eventId)) return;
+
+            seenEvents.add(event.eventId);
+            if (seenEvents.size > MAX_SEEN_EVENTS) {
+              const oldestEventId = seenEvents.values().next().value;
+              if (typeof oldestEventId === 'string') {
+                seenEvents.delete(oldestEventId);
+              }
+            }
+
+            invalidateQueries(queryClient, getQueryKeysForEvent(event));
+          });
+
+          connection.onreconnecting(() => {
+            if (disposed) return;
+            setIsConnected(false);
+          });
+
+          connection.onreconnected(() => {
+            if (disposed) return;
+            setIsConnected(true);
+            setError(null);
+            invalidateQueries(queryClient, [...RECOVERY_QUERY_PREFIXES]);
+          });
+
+          connection.onclose((closeError) => {
+            if (disposed) return;
+            setIsConnected(false);
+            if (closeError) setError(closeError);
+          });
+
+          if (disposed) {
+            await stopConnection();
+            return;
+          }
+
+          startPromise = connection.start();
+          await startPromise;
+
+          if (disposed) {
+            await stopConnection();
+            return;
+          }
+
           setIsConnected(true);
           setError(null);
-          invalidateQueries(queryClient, [...RECOVERY_QUERY_PREFIXES]);
-        });
-
-        connection.onclose((closeError) => {
+          return;
+        } catch (caughtError: unknown) {
           if (disposed) return;
+
+          await stopConnection();
           setIsConnected(false);
-          if (closeError) setError(closeError);
-        });
+          setError(caughtError instanceof Error ? caughtError : new Error('Realtime connection failed'));
 
-        if (disposed) {
-          await stopConnection();
-          return;
+          if (disposed) return;
+
+          const delay = getInitialRetryDelay(retryAttempt++);
+          await waitForRetry(delay);
         }
-
-        startPromise = connection.start();
-        await startPromise;
-
-        if (disposed) {
-          await stopConnection();
-          return;
-        }
-
-        setIsConnected(true);
-        setError(null);
-      } catch (caughtError: unknown) {
-        if (disposed) return;
-
-        await stopConnection();
-        setIsConnected(false);
-        setError(caughtError instanceof Error ? caughtError : new Error('Realtime connection failed'));
       }
     };
 
-    void setupConnection();
+    void connectWithRetry();
 
     return () => {
       disposed = true;
+      cancelPendingRetry();
       setIsConnected(false);
 
       if (startPromise) {
