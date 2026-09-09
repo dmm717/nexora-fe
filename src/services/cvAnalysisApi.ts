@@ -1,5 +1,4 @@
-import { apiClient } from './apiClient';
-import { getAccessToken } from '../store/authStore';
+import { ApiError, apiClient } from './apiClient';
 
 export interface PresignRequest {
   fileName: string;
@@ -55,61 +54,161 @@ export interface AnalysisView {
   updatedAt: string;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
+const PDF_MIME = 'application/pdf';
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+type RequestOptions = Pick<RequestInit, 'signal'>;
+type ApiEnvelope<T> = { data?: T; Data?: T };
+
+function responseData<T>(response: unknown): T {
+  if (response && typeof response === 'object') {
+    const envelope = response as ApiEnvelope<T>;
+    const value = envelope.data ?? envelope.Data;
+    if (value !== undefined) return value;
+  }
+  throw new ApiError('Máy chủ trả về dữ liệu không hợp lệ.', 'API_RESPONSE_INVALID');
+}
+
+/** Resolve the MIME from the extension only when the browser omitted File.type. */
+export function getUploadContentType(file: Pick<File, 'name' | 'type'>): string | null {
+  const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+  const declaredType = file.type.trim().toLowerCase();
+  const extensionType = extension === '.pdf' ? PDF_MIME : extension === '.docx' ? DOCX_MIME : null;
+  if (!extensionType) return null;
+  if (!declaredType) return extensionType;
+  return declaredType === extensionType ? extensionType : null;
+}
+
+/** Resolve both absolute provider URLs and API-relative upload URLs safely. */
+export function resolveUploadUrl(uploadUrl: string, baseUrl = API_BASE_URL): string {
+  const value = uploadUrl.trim();
+  if (!value) throw new ApiError('Địa chỉ upload không hợp lệ.', 'UPLOAD_URL_INVALID');
+
+  try {
+    if (/^[a-z][a-z\d+.-]*:/i.test(value)) {
+      const absolute = new URL(value);
+      if (absolute.protocol !== 'http:' && absolute.protocol !== 'https:') {
+        throw new Error('Upload URL scheme is not supported.');
+      }
+      return absolute.toString();
+    }
+    const base = new URL(baseUrl);
+    if (base.protocol !== 'http:' && base.protocol !== 'https:') {
+      throw new Error('API base URL scheme is not supported.');
+    }
+    if (value.startsWith('/')) return new URL(value, base.origin).toString();
+    const apiPath = base.pathname.replace(/\/+$/, '');
+    if (value === apiPath.replace(/^\//, '') || value.startsWith(`${apiPath.replace(/^\//, '')}/`)) {
+      return new URL(`/${value}`, base.origin).toString();
+    }
+    return new URL(value, `${base.toString().replace(/\/?$/, '/')}`).toString();
+  } catch {
+    throw new ApiError('Địa chỉ upload không hợp lệ.', 'UPLOAD_URL_INVALID');
+  }
+}
+
+function uploadErrorMessage(status: number): string {
+  if (status === 404) return 'Upload intent không còn hợp lệ. Vui lòng chọn lại file.';
+  if (status === 409) return 'File đã được upload hoặc upload intent đã được sử dụng.';
+  if (status === 413) return 'Dung lượng file vượt quá giới hạn cho phép.';
+  return 'Không thể tải file CV lên máy chủ.';
+}
+
+async function throwUploadError(response: Response): Promise<never> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = undefined;
+  }
+
+  const envelope = payload && typeof payload === 'object' ? payload as Record<string, unknown> : undefined;
+  const nested = envelope?.error && typeof envelope.error === 'object'
+    ? envelope.error as Record<string, unknown>
+    : undefined;
+  const code = typeof nested?.code === 'string'
+    ? nested.code
+    : typeof envelope?.code === 'string'
+      ? envelope.code
+      : `UPLOAD_HTTP_${response.status}`;
+  const message = typeof nested?.message === 'string'
+    ? nested.message
+    : typeof envelope?.message === 'string'
+      ? envelope.message
+      : uploadErrorMessage(response.status);
+  const requestId = typeof nested?.requestId === 'string'
+    ? nested.requestId
+    : typeof envelope?.requestId === 'string'
+      ? envelope.requestId
+      : undefined;
+  throw new ApiError(message, code, requestId);
+}
+
 export const cvAnalysisApi = {
-  presignUpload: async (data: PresignRequest): Promise<PresignResponse> => {
-    const response = await apiClient.post('/uploads/presign', data) as { data: PresignResponse };
-    return response.data;
+  presignUpload: async (data: PresignRequest, options?: RequestOptions): Promise<PresignResponse> => {
+    const response = await apiClient.post('/uploads/presign', data, options);
+    return responseData<PresignResponse>(response);
   },
 
-  uploadFile: async (uploadUrl: string, file: File): Promise<void> => {
-    // Determine if the URL is relative (starts with /api) or absolute.
-    const url = uploadUrl.startsWith('/')
-      ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1'}${uploadUrl.replace('/api/v1', '')}`
-      : uploadUrl;
-
-    const token = getAccessToken();
-    const headers: HeadersInit = {
-      'Content-Type': file.type,
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+  uploadFile: async (
+    uploadUrl: string,
+    file: File,
+    options?: RequestOptions & { expectedSize?: number; contentType?: string },
+  ): Promise<void> => {
+    const contentType = options?.contentType?.trim().toLowerCase() || getUploadContentType(file);
+    if (!contentType) {
+      throw new ApiError('Chỉ chấp nhận file PDF hoặc DOCX với MIME tương ứng.', 'UPLOAD_TYPE_UNSUPPORTED');
     }
+    const expectedSize = options?.expectedSize ?? file.size;
+    if (file.size !== expectedSize) {
+      throw new ApiError('Kích thước file không khớp với upload intent.', 'UPLOAD_SIZE_MISMATCH');
+    }
+
+    const url = resolveUploadUrl(uploadUrl);
+    const headers: HeadersInit = {
+      'Content-Type': contentType,
+    };
 
     const res = await fetch(url, {
       method: 'PUT',
       headers,
       body: file,
-      credentials: 'omit' // Do not send cookies for S3 upload, but we send if it's our own BE. Our BE might need auth.
+      credentials: 'omit',
+      signal: options?.signal,
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Upload failed: ${res.statusText} - ${errText}`);
-    }
+    if (!res.ok) await throwUploadError(res);
   },
 
-  createResume: async (uploadToken: string): Promise<ResumeView> => {
-    const response = await apiClient.post('/resumes', { uploadToken }) as Record<string, any>;
-    return response.data || response.Data;
+  createResume: async (uploadToken: string, options?: RequestOptions): Promise<ResumeView> => {
+    const response = await apiClient.post('/resumes', { uploadToken }, options);
+    return responseData<ResumeView>(response);
   },
 
-  getResume: async (id: string): Promise<ResumeView> => {
-    const response = await apiClient.get(`/resumes/${id}`) as Record<string, any>;
-    return response.data || response.Data;
+  getResume: async (id: string, options?: RequestOptions): Promise<ResumeView> => {
+    const response = await apiClient.get(`/resumes/${id}`, options);
+    return responseData<ResumeView>(response);
   },
 
-  createJobDescription: async (data: CreateJdRequest): Promise<JdView> => {
-    const response = await apiClient.post('/job-descriptions', data) as Record<string, any>;
-    return response.data || response.Data;
+  createJobDescription: async (data: CreateJdRequest, idempotencyKey?: string, options?: RequestOptions): Promise<JdView> => {
+    const response = await apiClient.post('/job-descriptions', data, {
+      ...options,
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+    });
+    return responseData<JdView>(response);
   },
 
-  analyze: async (data: CreateAnalysisRequest): Promise<AnalysisView> => {
-    const response = await apiClient.post('/resume-analyses', data) as Record<string, any>;
-    return response.data || response.Data;
+  analyze: async (data: CreateAnalysisRequest, idempotencyKey?: string, options?: RequestOptions): Promise<AnalysisView> => {
+    const response = await apiClient.post('/resume-analyses', data, {
+      ...options,
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+    });
+    return responseData<AnalysisView>(response);
   },
 
-  getAnalysis: async (id: string): Promise<AnalysisView> => {
-    const response = await apiClient.get(`/resume-analyses/${id}`) as Record<string, any>;
-    return response.data || response.Data;
+  getAnalysis: async (id: string, options?: RequestOptions): Promise<AnalysisView> => {
+    const response = await apiClient.get(`/resume-analyses/${id}`, options);
+    return responseData<AnalysisView>(response);
   }
 };

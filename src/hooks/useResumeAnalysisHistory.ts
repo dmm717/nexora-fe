@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface AnalysisHistoryItem {
   id: string;
@@ -7,62 +7,78 @@ export interface AnalysisHistoryItem {
 }
 
 export interface PendingAnalysis {
+  userId: string;
+  idempotencyKey: string;
   resumeId: string;
-  jobDescriptionId: string;
+  jobDescriptionId: string | null;
+  analysisId: string | null;
   jdTitle: string;
+  jdContent: string;
   timestamp: string;
 }
 
-const HISTORY_KEY = 'nexora_resume_analysis_history_v1';
-const PENDING_KEY = 'nexora_resume_analysis_pending_v1';
+type PendingAnalysisInput = Omit<PendingAnalysis, 'timestamp'> | PendingAnalysis;
 
-export function useResumeAnalysisHistory() {
+const HISTORY_KEY_PREFIX = 'nexora_resume_analysis_history_v2';
+const PENDING_KEY_PREFIX = 'nexora_resume_analysis_pending_v2';
+
+function storageKey(prefix: string, userId: string): string {
+  return `${prefix}:${encodeURIComponent(userId)}`;
+}
+
+function isPendingAnalysis(value: unknown): value is PendingAnalysis {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.userId === 'string'
+    && typeof item.idempotencyKey === 'string'
+    && typeof item.resumeId === 'string'
+    && (typeof item.jobDescriptionId === 'string' || item.jobDescriptionId === null)
+    && (typeof item.analysisId === 'string' || item.analysisId === null)
+    && typeof item.jdTitle === 'string'
+    && typeof item.jdContent === 'string'
+    && typeof item.timestamp === 'string';
+}
+
+export function useResumeAnalysisHistory(userId?: string) {
   const [history, setHistory] = useState<AnalysisHistoryItem[]>([]);
   const [pending, setPending] = useState<PendingAnalysis | null>(null);
+  const historyKey = userId ? storageKey(HISTORY_KEY_PREFIX, userId) : null;
+  const pendingKey = userId ? storageKey(PENDING_KEY_PREFIX, userId) : null;
+  const skipHistoryPersistence = useRef(false);
 
   useEffect(() => {
-    // Load from local storage on mount
+    // Scope changes reset the in-memory cache before loading the new user's data.
+    skipHistoryPersistence.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHistory([]);
+    setPending(null);
+    if (!userId || !historyKey || !pendingKey) return;
+
     try {
-      let storedHistory = localStorage.getItem(HISTORY_KEY);
-      // Migration from old key
-      if (!storedHistory) {
-        const oldHistory = localStorage.getItem('nexora_resume_analysis_history');
-        if (oldHistory) {
-          storedHistory = oldHistory;
-          localStorage.setItem(HISTORY_KEY, oldHistory);
-          localStorage.removeItem('nexora_resume_analysis_history');
-        }
-      }
-
+      const storedHistory = localStorage.getItem(historyKey);
       if (storedHistory) {
-        setHistory(JSON.parse(storedHistory));
+        const parsed = JSON.parse(storedHistory) as unknown;
+        if (Array.isArray(parsed)) setHistory(parsed as AnalysisHistoryItem[]);
       }
 
-      let storedPending = localStorage.getItem(PENDING_KEY);
-      // Migration from old key
-      if (!storedPending) {
-        const oldPending = localStorage.getItem('nexora_resume_analysis_pending');
-        if (oldPending) {
-          storedPending = oldPending;
-          localStorage.setItem(PENDING_KEY, oldPending);
-          localStorage.removeItem('nexora_resume_analysis_pending');
-        }
+      const storedPending = localStorage.getItem(pendingKey);
+      if (!storedPending) return;
+      const parsedPending = JSON.parse(storedPending) as unknown;
+      if (!isPendingAnalysis(parsedPending) || parsedPending.userId !== userId) {
+        localStorage.removeItem(pendingKey);
+        return;
       }
 
-      if (storedPending) {
-        const parsedPending = JSON.parse(storedPending) as PendingAnalysis;
-        // Optionally, check if it's too old (e.g., > 1 hour) and discard
-        const ageInMs = new Date().getTime() - new Date(parsedPending.timestamp).getTime();
-        if (ageInMs < 60 * 60 * 1000) {
-          setPending(parsedPending);
-        } else {
-          localStorage.removeItem(PENDING_KEY);
-        }
+      const ageInMs = Date.now() - new Date(parsedPending.timestamp).getTime();
+      if (Number.isFinite(ageInMs) && ageInMs >= 0 && ageInMs < 60 * 60 * 1000) {
+        setPending(parsedPending);
+      } else {
+        localStorage.removeItem(pendingKey);
       }
-    } catch (e) {
-      console.error('Failed to load resume analysis history', e);
+    } catch (error) {
+      console.error('Failed to load resume analysis history', error);
     }
-  }, []);
+  }, [historyKey, pendingKey, userId]);
 
   const addHistoryItem = useCallback((item: Omit<AnalysisHistoryItem, 'createdAt'>) => {
     const newItem: AnalysisHistoryItem = { ...item, createdAt: new Date().toISOString() };
@@ -73,40 +89,49 @@ export function useResumeAnalysisHistory() {
   }, []);
 
   useEffect(() => {
-    if (history.length > 0) {
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-      } catch (e) {
-        console.error('Failed to save history', e);
-      }
+    if (!historyKey) return;
+    if (skipHistoryPersistence.current) {
+      skipHistoryPersistence.current = false;
+      return;
     }
-  }, [history]);
+    try {
+      localStorage.setItem(historyKey, JSON.stringify(history));
+    } catch (error) {
+      console.error('Failed to save history', error);
+    }
+  }, [history, historyKey]);
 
-  const setPendingAnalysis = useCallback((item: Omit<PendingAnalysis, 'timestamp'> | null) => {
+  const setPendingAnalysis = useCallback((item: PendingAnalysisInput | null) => {
+    if (!pendingKey || !userId) return;
     if (!item) {
       setPending(null);
-      localStorage.removeItem(PENDING_KEY);
-    } else {
-      const newItem: PendingAnalysis = { ...item, timestamp: new Date().toISOString() };
-      setPending(newItem);
-      try {
-        localStorage.setItem(PENDING_KEY, JSON.stringify(newItem));
-      } catch (e) {
-        console.error('Failed to save pending analysis', e);
-      }
+      localStorage.removeItem(pendingKey);
+      return;
     }
-  }, []);
+    if (item.userId !== userId) return;
+
+    const newItem: PendingAnalysis = {
+      ...item,
+      timestamp: 'timestamp' in item ? item.timestamp : new Date().toISOString(),
+    };
+    setPending(newItem);
+    try {
+      localStorage.setItem(pendingKey, JSON.stringify(newItem));
+    } catch (error) {
+      console.error('Failed to save pending analysis', error);
+    }
+  }, [pendingKey, userId]);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
-    localStorage.removeItem(HISTORY_KEY);
-  }, []);
+    if (historyKey) localStorage.removeItem(historyKey);
+  }, [historyKey]);
 
   return {
     history,
     pending,
     addHistoryItem,
     setPendingAnalysis,
-    clearHistory
+    clearHistory,
   };
 }
