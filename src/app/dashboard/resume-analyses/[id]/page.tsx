@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from './Analysis.module.css';
 import { useResumeAnalysis } from '@/hooks/queries/useResumes';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
+import { readStatus } from '@/utils/queryPolling';
 
 export default function ResumeAnalysisDetailsPage() {
   const params = useParams();
@@ -16,21 +18,18 @@ export default function ResumeAnalysisDetailsPage() {
       if (query.state.status === 'error') {
         return false;
       }
-      const currentData = query.state.data as any;
-      if (currentData) {
-        const status = (currentData.status || currentData.Status || '').toLowerCase();
-        if (status === 'completed' || status === 'failed') {
-          return false;
-        }
+      const status = readStatus(query.state.data);
+      if (status === 'completed' || status === 'failed') {
+        return false;
       }
-      return 15000;
+      return REALTIME_FALLBACK_POLL_MS;
     }
   );
 
   const error = queryError ? queryError.message || 'Không thể tải kết quả phân tích.' : null;
   const loading = queryLoading;
 
-  const currentStatus = data ? ((data.status || (data as any).Status || '').toLowerCase()) : undefined;
+  const currentStatus = readStatus(data);
 
   if (loading || (currentStatus === 'queued' || currentStatus === 'pending' || currentStatus === 'processing')) {
     return (
@@ -52,7 +51,7 @@ export default function ResumeAnalysisDetailsPage() {
   }
 
   if (currentStatus === 'failed') {
-    const errorCode = data.errorCode || (data as any).ErrorCode;
+    const errorCode = data.errorCode || (data as unknown as Record<string, unknown>).ErrorCode;
     return (
       <div className={styles.container}>
         <div className={styles.header}>

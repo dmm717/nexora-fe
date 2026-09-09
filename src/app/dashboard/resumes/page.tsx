@@ -15,9 +15,10 @@ import {
 import { AnalysisHistoryItem, useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { useCurrentUser } from '@/hooks/queries/useUser';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
+import { readStatus } from '@/utils/queryPolling';
 
 const REPORT_LANGUAGE_INSTRUCTION = '\n\n(Yêu cầu: Vui lòng trả về báo cáo phân tích hoàn toàn bằng Tiếng Việt)';
-const REALTIME_FALLBACK_POLL_MS = 15_000;
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
@@ -227,12 +228,12 @@ export default function ResumesPage() {
     enabled: authReady && isAuthenticated && !!resumeId,
     refetchInterval: (query) => {
       if (query.state.status === 'error') return false;
-      const status = (query.state.data?.status || (query.state.data as any)?.Status || '').toLowerCase();
+      const status = readStatus(query.state.data);
       return (status === 'ready' || status === 'failed') ? false : REALTIME_FALLBACK_POLL_MS;
     }
   });
 
-  const resumeStatus = resumeData?.status?.toLowerCase() ?? '';
+  const resumeStatus = readStatus(resumeData);
   const isResumeReady = resumeStatus === 'ready';
 
   // JD state

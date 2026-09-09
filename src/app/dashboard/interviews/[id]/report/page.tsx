@@ -6,6 +6,10 @@ import styles from './Report.module.css';
 import { useInterview, useInterviewReport } from '@/hooks/queries/useInterviews';
 import { useAutoTranslate } from '@/hooks/useAutoTranslate';
 import { ClientDate } from '@/components/ui/ClientDate';
+import { ApiError } from '@/services/apiClient';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
+
+const isReportNotReady = (error: unknown) => error instanceof ApiError && error.code === 'NOT_FOUND';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,15 +19,10 @@ export default function InterviewReportPage() {
 
   const { data: interview } = useInterview(id);
   const { data: report, isLoading: loading, error: queryError } = useInterviewReport(id, (query) => {
-    const errorMsg = query.state.error?.message?.toLowerCase() || '';
-    if (errorMsg.includes('not found') || errorMsg.includes('chưa có') || errorMsg.includes('không tìm thấy')) {
-      return 15000;
-    }
-    return false;
+    return isReportNotReady(query.state.error) ? REALTIME_FALLBACK_POLL_MS : false;
   });
 
-  const errorMsg = queryError?.message?.toLowerCase() || '';
-  const isGenerating = errorMsg.includes('not found') || errorMsg.includes('chưa có') || errorMsg.includes('không tìm thấy');
+  const isGenerating = isReportNotReady(queryError);
 
   if (loading || (isGenerating && !report)) {
     return (

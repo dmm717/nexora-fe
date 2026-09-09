@@ -9,6 +9,8 @@ import { scenarioApi, ScenarioView, ScenarioAttemptResponse, ScenarioEvaluationR
 import { useScenarioDetails } from '@/hooks/queries/useScenarios';
 import { useStarAttempt } from '@/hooks/queries/useStarAttempts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
+import { readStatus } from '@/utils/queryPolling';
 
 const getScoreClass = (score: number) => {
   if (score >= 80) return styles.scoreExcellent;
@@ -187,9 +189,9 @@ function StarBuilderContent() {
     attemptId || '',
     !!scenarioData,
     (query) => {
-      const data = query.state.data as any;
-      if (data && (data.status === 'completed' || data.status === 'failed')) return false;
-      return 15000;
+      const status = readStatus(query.state.data);
+      if (status === 'completed' || status === 'failed' || status === 'abandoned') return false;
+      return REALTIME_FALLBACK_POLL_MS;
     }
   );
   const result = rawResult as any;

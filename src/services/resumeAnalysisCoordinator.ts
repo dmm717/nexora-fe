@@ -1,5 +1,6 @@
 import { ApiError } from './apiClient';
 import { AnalysisView, cvAnalysisApi } from './cvAnalysisApi';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 
 export type ResumeAnalysisStage = 'creating-jd' | 'analyzing' | 'recovering';
 
@@ -31,6 +32,7 @@ export function createResumeAnalysisOperation(input: Omit<ResumeAnalysisOperatio
 const inFlight = new Map<string, Promise<AnalysisView>>();
 const MAX_TRANSPORT_RETRIES = 3;
 const MAX_READY_RETRIES = 15;
+const RESUME_READY_RETRY_MS = REALTIME_FALLBACK_POLL_MS;
 
 function operationKey(operation: ResumeAnalysisOperation): string {
   return `${operation.userId}:${operation.idempotencyKey}`;
@@ -94,7 +96,9 @@ async function createAnalysisWithRetry(
         throw error;
       }
       readyAttempt += 1;
-      await wait(2000, signal);
+      // This is a bounded, idempotent readiness retry—not a status polling loop.
+      // Keep it slow because resume status is refreshed primarily through SignalR.
+      await wait(RESUME_READY_RETRY_MS, signal);
     }
   }
 }

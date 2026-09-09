@@ -5,7 +5,7 @@ import * as signalR from '@microsoft/signalr';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useAuth } from './AuthBootstrapProvider';
 import { refreshSession } from '@/services/authSession';
-import { getAccessToken } from '@/store/authStore';
+import { getAccessToken, setAccessToken } from '@/store/authStore';
 
 export interface RealtimeState {
   isConnected: boolean;
@@ -38,18 +38,33 @@ const RECOVERY_QUERY_PREFIXES: readonly QueryKey[] = [
   ['interviewReport'],
 ];
 
-function isResourceChangedEvent(value: unknown): value is RealtimeEvent {
-  if (!value || typeof value !== 'object') return false;
+function parseResourceChangedEvent(value: unknown): RealtimeEvent | null {
+  if (!value || typeof value !== 'object') return null;
 
-  const event = value as Partial<RealtimeEvent>;
-  return typeof event.eventId === 'string'
-    && event.eventId.length > 0
-    && typeof event.resourceType === 'string'
-    && event.resourceType.length > 0
-    && typeof event.resourceId === 'string'
-    && event.resourceId.length > 0
-    && typeof event.status === 'string'
-    && typeof event.occurredAt === 'string';
+  const raw = value as Record<string, unknown>;
+  const eventId = raw.eventId ?? raw.EventId;
+  const resourceType = raw.resourceType ?? raw.ResourceType;
+  const resourceId = raw.resourceId ?? raw.ResourceId;
+  const status = raw.status ?? raw.Status;
+  const occurredAt = raw.occurredAt ?? raw.OccurredAt;
+
+  if (
+    typeof eventId === 'string' && eventId.length > 0
+    && typeof resourceType === 'string' && resourceType.length > 0
+    && typeof resourceId === 'string' && resourceId.length > 0
+    && typeof status === 'string'
+    && typeof occurredAt === 'string'
+  ) {
+    return {
+      eventId,
+      resourceType,
+      resourceId,
+      status,
+      occurredAt,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -57,13 +72,16 @@ function isResourceChangedEvent(value: unknown): value is RealtimeEvent {
  * Events are notifications, so the query functions still fetch the final API state.
  */
 function getQueryKeysForEvent(event: RealtimeEvent): QueryKey[] {
-  switch (event.resourceType) {
+  const resourceType = event.resourceType.toLowerCase();
+  const status = event.status.toLowerCase();
+
+  switch (resourceType) {
     case 'resume':
       return [['resume', event.resourceId]];
-    case 'resumeAnalysis':
+    case 'resumeanalysis':
       return [['resumeAnalysis', event.resourceId]];
     case 'interview':
-      return event.status.toLowerCase() === 'completed'
+      return status === 'completed'
         ? [['interview', event.resourceId], ['interviewReport', event.resourceId]]
         : [['interview', event.resourceId]];
     default:
@@ -118,6 +136,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
     if (!authReady || !isAuthenticated) {
       seenEventsRef.current.clear();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset realtime state at the auth boundary
       setIsConnected(false);
       setError(null);
       clearUserScopedQueries(queryClient);
@@ -158,6 +177,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
               try {
                 const response = await refreshSession();
+                setAccessToken(response.data.accessToken);
                 return response.data.accessToken;
               } catch {
                 return '';
@@ -172,12 +192,14 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
         connectionRef.current = connection;
 
         connection.on('resourceChanged', (value: unknown) => {
-          if (disposed || !isResourceChangedEvent(value)) return;
+          if (disposed) return;
+          const event = parseResourceChangedEvent(value);
+          if (!event) return;
 
           const seenEvents = seenEventsRef.current;
-          if (seenEvents.has(value.eventId)) return;
+          if (seenEvents.has(event.eventId)) return;
 
-          seenEvents.add(value.eventId);
+          seenEvents.add(event.eventId);
           if (seenEvents.size > MAX_SEEN_EVENTS) {
             const oldestEventId = seenEvents.values().next().value;
             if (typeof oldestEventId === 'string') {
@@ -185,7 +207,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
             }
           }
 
-          invalidateQueries(queryClient, getQueryKeysForEvent(value));
+          invalidateQueries(queryClient, getQueryKeysForEvent(event));
         });
 
         connection.onreconnecting(() => {
@@ -224,6 +246,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
       } catch (caughtError: unknown) {
         if (disposed) return;
 
+        await stopConnection();
         setIsConnected(false);
         setError(caughtError instanceof Error ? caughtError : new Error('Realtime connection failed'));
       }
