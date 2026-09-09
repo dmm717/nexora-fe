@@ -6,6 +6,7 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useAuth } from './AuthBootstrapProvider';
 import { refreshSession } from '@/services/authSession';
 import { getAccessToken, setAccessToken } from '@/store/authStore';
+import { getRealtimeInvalidationKeys } from '@/utils/scenarioHelpers';
 
 export interface RealtimeState {
   isConnected: boolean;
@@ -79,6 +80,9 @@ function getQueryKeysForEvent(event: RealtimeEvent): QueryKey[] {
   const resourceType = event.resourceType.toLowerCase();
   const status = event.status.toLowerCase();
 
+  const scenarioKeys = getRealtimeInvalidationKeys(event.resourceType, event.resourceId);
+  if (scenarioKeys.length > 0) return scenarioKeys;
+
   switch (resourceType) {
     case 'resume':
       return [['resume', event.resourceId]];
@@ -88,14 +92,6 @@ function getQueryKeysForEvent(event: RealtimeEvent): QueryKey[] {
       return status === 'completed'
         ? [['interview', event.resourceId], ['interviewReport', event.resourceId]]
         : [['interview', event.resourceId]];
-    case 'scenarioattempt':
-      return [
-        ['scenarioAttempt', event.resourceId],
-        ['scenarioHistory'],
-        ['scenarioProgress'],
-      ];
-    case 'starattempt':
-      return [['starAttempt', event.resourceId]];
     default:
       return [];
   }

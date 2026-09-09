@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import styles from './ScenarioAcademy.module.css';
+import { getHistoryScoreDelta } from '@/utils/scenarioHelpers';
 import type { ScenarioAttemptHistory } from '@/types/scenario';
 
 interface ScenarioHistoryViewProps {
@@ -16,6 +17,16 @@ export function ScenarioHistoryView({
   onSelectAttempt,
 }: ScenarioHistoryViewProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const attempts = history?.attempts;
+
+  // Identify the baseline attempt (lowest attemptNumber with non-null score)
+  const firstScoredAttemptId = useMemo(() => {
+    if (!attempts) return null;
+    const scored = [...attempts]
+      .filter((a) => a.overallScore !== null && a.overallScore !== undefined)
+      .sort((a, b) => a.attemptNumber - b.attemptNumber);
+    return scored.length > 0 ? scored[0].id : null;
+  }, [attempts]);
 
   if (!history || !history.attempts || history.attempts.length === 0) {
     return null;
@@ -42,8 +53,8 @@ export function ScenarioHistoryView({
 
   return (
     <section className={styles.historyCard} aria-label="Lịch sử luyện tập">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h3 className={styles.panelTitle} style={{ margin: 0 }}>
+      <div className={styles.historyHeader}>
+        <h3 className={`${styles.panelTitle} ${styles.historyHeaderTitle}`}>
           <svg
             width="18"
             height="18"
@@ -61,7 +72,7 @@ export function ScenarioHistoryView({
           Lịch sử thử sức ({history.attempts.length} lần)
         </h3>
 
-        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8125rem' }}>
+        <div className={styles.historySummary}>
           {history.latestScore !== null && (
             <span>
               Điểm gần nhất: <strong>{history.latestScore}/100</strong>
@@ -69,7 +80,7 @@ export function ScenarioHistoryView({
           )}
           {history.bestScore !== null && (
             <span>
-              Kỷ lục: <strong style={{ color: 'var(--sa-accent)' }}>{history.bestScore}/100</strong>
+              Kỷ lục: <strong className={styles.historyBestScore}>{history.bestScore}/100</strong>
             </span>
           )}
         </div>
@@ -80,24 +91,28 @@ export function ScenarioHistoryView({
           const isSelected = activeAttemptId === item.id;
           const isExpanded = expandedId === item.id;
 
+          const deltaInfo = getHistoryScoreDelta(
+            item.scoreDelta,
+            item.overallScore,
+            item.id === firstScoredAttemptId
+          );
+
           let deltaNode: React.ReactNode = null;
-          if (item.scoreDelta !== null && item.scoreDelta !== undefined) {
-            if (item.scoreDelta > 0) {
-              deltaNode = (
-                <span className={styles.scoreDeltaPositive} title="Tiến bộ so với lần trước">
-                  +{item.scoreDelta}
-                </span>
-              );
-            } else if (item.scoreDelta < 0) {
-              deltaNode = (
-                <span className={styles.scoreDeltaNegative} title="Giảm so với lần trước">
-                  {item.scoreDelta}
-                </span>
-              );
-            } else {
-              deltaNode = <span className={styles.scoreBaseline}>±0</span>;
-            }
-          } else if (item.attemptNumber === 1 && item.overallScore !== null) {
+          if (deltaInfo.type === 'positive') {
+            deltaNode = (
+              <span className={styles.scoreDeltaPositive} title="Tiến bộ so với lần trước">
+                {deltaInfo.text}
+              </span>
+            );
+          } else if (deltaInfo.type === 'negative') {
+            deltaNode = (
+              <span className={styles.scoreDeltaNegative} title="Giảm so với lần trước">
+                {deltaInfo.text}
+              </span>
+            );
+          } else if (deltaInfo.type === 'neutral') {
+            deltaNode = <span className={styles.scoreBaseline}>±0</span>;
+          } else if (deltaInfo.type === 'baseline') {
             deltaNode = <span className={styles.scoreBaseline}>Khởi điểm</span>;
           }
 
@@ -115,37 +130,32 @@ export function ScenarioHistoryView({
           return (
             <div
               key={item.id}
-              className={styles.historyItemRow}
-              style={
-                isSelected
-                  ? { borderColor: 'var(--sa-accent)', backgroundColor: 'var(--sa-accent-bg)' }
-                  : undefined
-              }
+              className={`${styles.historyItemRow} ${isSelected ? styles.historyItemRowSelected : ''}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+              <div className={styles.historyItemPrimary}>
                 <span className={styles.historyNumber}>
                   #{item.attemptNumber}
                 </span>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--sa-text-subtle)' }}>
+                <div className={styles.historyItemMeta}>
+                  <span className={styles.historyItemDate}>
                     {formatTime(item.createdAt)}
                   </span>
                   {item.status !== 'completed' && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--sa-amber-text)' }}>
+                    <span className={styles.historyItemStatus}>
                       {statusLabel}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className={styles.historyItemActions}>
                 {item.overallScore !== null ? (
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--sa-text-main)' }}>
+                  <span className={styles.historyScore}>
                     {item.overallScore}/100
                   </span>
                 ) : (
-                  <span style={{ fontSize: '0.8125rem', color: 'var(--sa-text-subtle)' }}>--</span>
+                  <span className={styles.historyScoreEmpty}>--</span>
                 )}
 
                 {deltaNode}
@@ -153,10 +163,9 @@ export function ScenarioHistoryView({
                 {item.answer && (
                   <button
                     type="button"
-                    className={styles.btnClearFilters}
                     onClick={() => toggleExpand(item.id)}
                     aria-label={isExpanded ? 'Ẩn câu trả lời' : 'Xem lại câu trả lời'}
-                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                    className={`${styles.btnClearFilters} ${styles.historyActionButton}`}
                   >
                     {isExpanded ? 'Thu gọn' : 'Xem bài làm'}
                   </button>
@@ -165,9 +174,8 @@ export function ScenarioHistoryView({
                 {onSelectAttempt && item.status === 'completed' && !isSelected && (
                   <button
                     type="button"
-                    className={styles.btnSecondaryAction}
+                    className={`${styles.btnSecondaryAction} ${styles.historyReportButton}`}
                     onClick={() => onSelectAttempt(item.id)}
-                    style={{ padding: '0.25rem 0.625rem', fontSize: '0.75rem' }}
                   >
                     Xem báo cáo
                   </button>
@@ -175,21 +183,8 @@ export function ScenarioHistoryView({
               </div>
 
               {isExpanded && item.answer && (
-                <div
-                  style={{
-                    width: '100%',
-                    marginTop: '0.75rem',
-                    padding: '0.75rem',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid var(--sa-border-subtle)',
-                    borderRadius: 'var(--sa-radius-sm)',
-                    fontSize: '0.875rem',
-                    color: 'var(--sa-text-main)',
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.6,
-                  }}
-                >
-                  <p style={{ margin: '0 0 0.25rem 0', fontWeight: 600, fontSize: '0.75rem', color: 'var(--sa-text-subtle)' }}>
+                <div className={styles.answerHistoryQuote}>
+                  <p className={styles.historyAnswerLabel}>
                     CÂU TRẢ LỜI ĐÃ NỘP:
                   </p>
                   {item.answer}

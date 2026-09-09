@@ -33,7 +33,7 @@ export function ScenarioEvaluationView({
             <small>/100</small>
           </div>
           <div>
-            <h3 style={{ margin: '0 0 0.375rem 0', fontSize: '1.25rem', fontWeight: 700 }}>
+            <h3 className={styles.evaluationScoreTitle}>
               Đánh giá tổng quan
             </h3>
             <p className={styles.scoreFeedbackText}>
@@ -50,14 +50,13 @@ export function ScenarioEvaluationView({
         {onRetry && (
           <button
             type="button"
-            className={styles.btnSecondaryAction}
+            className={`${styles.btnSecondaryAction} ${styles.evaluationRetryButton}`}
             onClick={onRetry}
             disabled={isRetrying}
-            style={{ alignSelf: 'center', whiteSpace: 'nowrap' }}
           >
             {isRetrying ? (
               <>
-                <span className={styles.spinnerLarge} style={{ width: '1rem', height: '1rem', borderWidth: '2px' }} />
+                <span className={`${styles.spinnerLarge} ${styles.compactSpinner}`} />
                 <span>Đang tạo lượt mới...</span>
               </>
             ) : (
@@ -86,7 +85,7 @@ export function ScenarioEvaluationView({
       {/* Dimensions Breakdown */}
       {evaluation.dimensions && evaluation.dimensions.length > 0 && (
         <section aria-label="Phân tích theo tiêu chí">
-          <h4 style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 1rem 0', color: 'var(--sa-text-main)' }}>
+          <h4 className={styles.evaluationHeading}>
             Phân tích theo tiêu chí
           </h4>
           <div className={styles.dimensionGrid}>
@@ -117,7 +116,7 @@ export function ScenarioEvaluationView({
         {/* Strengths */}
         {evaluation.strengths && evaluation.strengths.length > 0 && (
           <div className={styles.strengthsCard}>
-            <div className={styles.cardSectionHeader} style={{ color: 'var(--sa-emerald-text)' }}>
+            <div className={`${styles.cardSectionHeader} ${styles.cardSectionHeaderEmerald}`}>
               <svg
                 width="18"
                 height="18"
@@ -147,7 +146,7 @@ export function ScenarioEvaluationView({
         {/* Gaps */}
         {evaluation.gaps && evaluation.gaps.length > 0 && (
           <div className={styles.gapsCard}>
-            <div className={styles.cardSectionHeader} style={{ color: 'var(--sa-amber-text)' }}>
+            <div className={`${styles.cardSectionHeader} ${styles.cardSectionHeaderAmber}`}>
               <svg
                 width="18"
                 height="18"
@@ -179,12 +178,8 @@ export function ScenarioEvaluationView({
 
       {/* Recommended Approach */}
       {evaluation.recommendedApproach && evaluation.recommendedApproach.length > 0 && (
-        <section
-          className={styles.panelCard}
-          style={{ borderLeft: '4px solid var(--sa-accent)' }}
-          aria-label="Hướng tiếp cận đề xuất"
-        >
-          <div className={styles.cardSectionHeader} style={{ color: 'var(--sa-accent)' }}>
+        <section className={`${styles.panelCard} ${styles.recommendationPanel}`} aria-label="Hướng tiếp cận đề xuất">
+          <div className={`${styles.cardSectionHeader} ${styles.cardSectionHeaderAccent}`}>
             <svg
               width="18"
               height="18"
@@ -210,14 +205,7 @@ export function ScenarioEvaluationView({
           <ul className={styles.bulletList}>
             {evaluation.recommendedApproach.map((step, idx) => (
               <li key={`step-${idx}`} className={styles.bulletItem}>
-                <span
-                  style={{
-                    color: 'var(--sa-accent)',
-                    fontWeight: 700,
-                    marginRight: '0.25rem',
-                    flexShrink: 0,
-                  }}
-                >
+                <span className={styles.recommendationStepNumber}>
                   {idx + 1}.
                 </span>
                 <span>{step}</span>

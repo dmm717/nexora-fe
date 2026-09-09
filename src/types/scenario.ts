@@ -47,18 +47,18 @@ export interface ScenarioAttempt {
   scenarioId: string;
   scenarioTitle: string;
   status: ScenarioAttemptStatus;
-  answer?: string;
-  evaluation?: ScenarioEvaluation;
-  errorCode?: string;
+  answer: string | null;
+  evaluation: ScenarioEvaluation | null;
+  errorCode: string | null;
   createdAt: string;
-  completedAt?: string;
+  completedAt: string | null;
 }
 
 export interface ScenarioAttemptHistoryItem {
   id: string;
   attemptNumber: number;
   status: ScenarioAttemptStatus;
-  answer: string;
+  answer: string | null;
   overallScore: number | null;
   previousScore: number | null;
   scoreDelta: number | null;
@@ -115,7 +115,7 @@ export interface ScenarioDifficultyProgress {
 }
 
 export interface ScenarioProgress {
-  recommendedDifficulty: string;
+  recommendedDifficulty: ScenarioDifficulty;
   attemptCount: number;
   completedAttempts: number;
   averageScore: number | null;

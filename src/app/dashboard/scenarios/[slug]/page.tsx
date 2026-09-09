@@ -9,10 +9,17 @@ import {
   ScenarioPracticeSkeleton,
 } from '@/components/features/scenarios';
 import { useScenarioDetails } from '@/hooks/queries/useScenarios';
+import { ApiError } from '@/services/apiClient';
 
 export default function ScenarioPracticePage() {
   const { slug } = useParams<{ slug: string }>();
-  const { data: scenario, isLoading, error: queryError } = useScenarioDetails(slug);
+  const {
+    data: scenario,
+    isLoading,
+    error: queryError,
+    refetch,
+    isFetching,
+  } = useScenarioDetails(slug);
 
   if (isLoading) {
     return (
@@ -23,9 +30,13 @@ export default function ScenarioPracticePage() {
   }
 
   if (queryError || !scenario) {
+    const notFound =
+      queryError instanceof ApiError &&
+      (queryError.code === 'SCENARIO_NOT_FOUND' || queryError.code === 'SCENARIO_NOT_PUBLISHED');
+
     return (
       <main className={styles.practiceContainer}>
-        <div className={styles.emptyStateContainer} role="alert">
+        <div className={styles.emptyStateContainer} role="alert" aria-live="assertive">
           <div className={styles.emptyIconWrapper}>
             <svg
               width="24"
@@ -43,10 +54,24 @@ export default function ScenarioPracticePage() {
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           </div>
-          <h2 className={styles.emptyTitle}>Không tìm thấy tình huống</h2>
+          <h2 className={styles.emptyTitle}>
+            {notFound ? 'Không tìm thấy tình huống' : 'Không thể tải tình huống'}
+          </h2>
           <p className={styles.emptyDescription}>
-            Tình huống bạn đang truy cập có thể đã được gỡ bỏ hoặc đường dẫn không chính xác.
+            {notFound
+              ? 'Tình huống bạn đang truy cập có thể đã được gỡ bỏ hoặc đường dẫn không chính xác.'
+              : 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại; nếu lỗi tiếp tục, hãy cung cấp mã yêu cầu cho đội hỗ trợ.'}
           </p>
+          {!notFound && (
+            <button
+              type="button"
+              className={styles.btnSecondaryAction}
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              {isFetching ? 'Đang thử lại...' : 'Thử tải lại'}
+            </button>
+          )}
           <Link href="/dashboard/scenarios" className={styles.btnSecondaryAction}>
             <svg
               width="14"

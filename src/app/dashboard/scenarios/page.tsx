@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import styles from '@/components/features/scenarios/ScenarioAcademy.module.css';
 import {
   ScenarioProgressOverview,
@@ -13,15 +13,52 @@ import {
   useScenarioProgress,
 } from '@/hooks/queries/useScenarios';
 import type { ScenarioFilterParams } from '@/types/scenario';
+import { calculatePagination, SCENARIO_PAGE_SIZE } from '@/utils/scenarioHelpers';
+
+const PAGE_SIZE = SCENARIO_PAGE_SIZE;
 
 export default function ScenarioAcademyPage() {
   const [filters, setFilters] = useState<ScenarioFilterParams>({});
+  const [page, setPage] = useState<number>(1);
 
-  const { data: progressData } = useScenarioProgress();
+  const queryParams = useMemo<ScenarioFilterParams>(() => {
+    return {
+      ...filters,
+      page,
+      pageSize: PAGE_SIZE,
+    };
+  }, [filters, page]);
+
+  const {
+    data: progressData,
+    isLoading: progressLoading,
+    isError: progressError,
+    refetch: refetchProgress,
+  } = useScenarioProgress();
   const { data: categories = [] } = useScenarioCategories();
-  const { data: scenarioPage, isLoading: scenariosLoading } = useScenarios(filters);
+  const {
+    data: scenarioPage,
+    isLoading: scenariosLoading,
+    error: scenariosError,
+    refetch: refetchScenarios,
+  } = useScenarios(queryParams);
 
   const scenarios = useMemo(() => scenarioPage?.items || [], [scenarioPage?.items]);
+  const totalScenarios = scenarioPage?.total ?? 0;
+
+  const pagination = useMemo(
+    () => calculatePagination(totalScenarios, page, PAGE_SIZE),
+    [totalScenarios, page]
+  );
+
+  // When filters change: always reset page to 1
+  const handleFilterChange = useCallback((updated: ScenarioFilterParams) => {
+    const nextFilters = { ...updated };
+    delete nextFilters.page;
+    delete nextFilters.pageSize;
+    setFilters(nextFilters);
+    setPage(1);
+  }, []);
 
   // Extract unique competencies from progress or current scenarios for filter options
   const competencyOptions = useMemo(() => {
@@ -44,19 +81,26 @@ export default function ScenarioAcademyPage() {
     filters.search
   );
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setFilters({});
-  };
+    setPage(1);
+  }, []);
 
-  const handleSelectRecommendedDifficulty = (recommended: string) => {
-    setFilters((prev) => ({ ...prev, difficulty: recommended, page: 1 }));
-  };
+  const handleSelectRecommendedDifficulty = useCallback((recommended: string) => {
+    setFilters((prev) => ({ ...prev, difficulty: recommended }));
+    setPage(1);
+  }, []);
 
   return (
     <main className={styles.academyRoot}>
       {/* Progress & Coaching Hero */}
       <ScenarioProgressOverview
         progress={progressData}
+        isLoading={progressLoading}
+        isError={progressError}
+        onRetry={() => {
+          void refetchProgress();
+        }}
         onSelectRecommendedDifficulty={handleSelectRecommendedDifficulty}
       />
 
@@ -64,7 +108,7 @@ export default function ScenarioAcademyPage() {
       <ScenarioFilters
         categories={categories}
         filters={filters}
-        onFilterChange={setFilters}
+        onFilterChange={handleFilterChange}
         availableCompetencies={competencyOptions}
       />
 
@@ -72,8 +116,14 @@ export default function ScenarioAcademyPage() {
       <ScenarioGrid
         scenarios={scenarios}
         isLoading={scenariosLoading}
+        error={scenariosError}
+        onRetry={() => {
+          void refetchScenarios();
+        }}
         hasFilters={hasFilters}
         onResetFilters={handleResetFilters}
+        pagination={pagination}
+        onPageChange={setPage}
       />
     </main>
   );

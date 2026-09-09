@@ -12,7 +12,11 @@ import {
 } from '@/hooks/queries/useScenarios';
 import { ScenarioEvaluationView } from './ScenarioEvaluationView';
 import { ScenarioHistoryView } from './ScenarioHistoryView';
-import { generateIdempotencyKey } from '@/services/scenarioApi';
+import {
+  generateIdempotencyKey,
+  getScenarioErrorMessage,
+  parseMarkdownBlocks,
+} from '@/utils/scenarioHelpers';
 import type { ScenarioDetail } from '@/types/scenario';
 
 interface ScenarioPracticeProps {
@@ -20,67 +24,58 @@ interface ScenarioPracticeProps {
 }
 
 const FormattedScenarioContent = ({ text }: { text: string }) => {
+  const blocks = useMemo(() => parseMarkdownBlocks(text), [text]);
+
   return (
     <>
-      {text.split('\n').map((line, i) => {
-        const trimmed = line.trim();
-        const lineKey = `line-${i}`;
-        if (!trimmed) return <br key={lineKey} />;
-        if (trimmed.startsWith('## ')) {
-          return (
-            <h4
-              key={lineKey}
-              style={{
-                marginTop: '1.25rem',
-                marginBottom: '0.5rem',
-                color: 'var(--sa-text-main)',
-                fontWeight: 700,
-                fontSize: '1rem',
-              }}
-            >
-              {trimmed.replace('## ', '')}
-            </h4>
-          );
-        }
-        if (trimmed.startsWith('# ')) {
+      {blocks.map((block, blockIndex) => {
+        if (block.type === 'h3') {
           return (
             <h3
-              key={lineKey}
-              style={{
-                marginTop: '1.5rem',
-                marginBottom: '0.5rem',
-                color: 'var(--sa-text-main)',
-                fontWeight: 800,
-                fontSize: '1.125rem',
-              }}
+              key={`h3-${blockIndex}`}
+              className={styles.scenarioContentHeading}
             >
-              {trimmed.replace('# ', '')}
+              {block.content}
             </h3>
           );
         }
-        if (trimmed.startsWith('- ')) {
+        if (block.type === 'h4') {
           return (
-            <li
-              key={lineKey}
-              style={{
-                marginLeft: '1.25rem',
-                marginBottom: '0.375rem',
-                color: 'var(--sa-text-main)',
-              }}
+            <h4
+              key={`h4-${blockIndex}`}
+              className={styles.scenarioContentHeading}
             >
-              {trimmed.replace('- ', '')}
-            </li>
+              {block.content}
+            </h4>
+          );
+        }
+        if (block.type === 'list') {
+          return (
+            <ul
+              key={`ul-${blockIndex}`}
+              className={styles.scenarioContentList}
+            >
+              {block.items.map((item, itemIdx) => (
+                <li
+                  key={`li-${blockIndex}-${itemIdx}`}
+                  className={styles.scenarioContentListItem}
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
           );
         }
 
+        // Paragraph with bold support
         const boldRegex = /\*\*(.*?)\*\*/g;
-        if (boldRegex.test(trimmed)) {
-          const parts = trimmed.split(boldRegex);
+        if (boldRegex.test(block.content)) {
+          const parts = block.content.split(boldRegex);
           return (
-            <p key={lineKey} style={{ marginBottom: '0.5rem', lineHeight: '1.6' }}>
+            <p key={`p-${blockIndex}`} className={styles.scenarioContentParagraph}>
               {parts.map((part, idx) =>
                 idx % 2 === 1 ? (
-                  <strong key={`bold-${idx}`} style={{ color: 'var(--sa-text-main)' }}>
+                  <strong key={`bold-${idx}`} className={styles.scenarioContentHeading}>
                     {part}
                   </strong>
                 ) : (
@@ -90,9 +85,10 @@ const FormattedScenarioContent = ({ text }: { text: string }) => {
             </p>
           );
         }
+
         return (
-          <p key={lineKey} style={{ marginBottom: '0.5rem', lineHeight: '1.6' }}>
-            {trimmed}
+          <p key={`p-${blockIndex}`} className={styles.scenarioContentParagraph}>
+            {block.content}
           </p>
         );
       })}
@@ -109,8 +105,16 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
   const createIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
   const submitIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
   const retryIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
+  const createInFlightRef = useRef(false);
+  const submitInFlightRef = useRef(false);
+  const retryInFlightRef = useRef(false);
 
-  const { data: history, isLoading: historyLoading } = useScenarioAttemptHistory(scenario.slug);
+  const {
+    data: history,
+    isLoading: historyLoading,
+    error: historyError,
+    refetch: refetchHistory,
+  } = useScenarioAttemptHistory(scenario.slug);
 
   // Derive active attempt ID without setState in effect
   const activeAttemptId = useMemo(() => {
@@ -122,9 +126,12 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     return inProgress ? inProgress.id : history.attempts[0].id;
   }, [selectedAttemptId, history]);
 
-  const { data: currentAttempt, isLoading: attemptLoading } = useScenarioAttempt(
-    activeAttemptId || ''
-  );
+  const {
+    data: currentAttempt,
+    isLoading: attemptLoading,
+    error: attemptQueryError,
+    refetch: refetchAttempt,
+  } = useScenarioAttempt(activeAttemptId || '');
 
   const createAttemptMutation = useCreateScenarioAttempt();
   const submitAttemptMutation = useSubmitScenarioAttempt();
@@ -132,6 +139,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
 
   // Answer text is either user typed value or stored draft answer
   const answerText = userAnswerText !== null ? userAnswerText : currentAttempt?.answer || '';
+  const attemptStatus = currentAttempt?.status;
 
   const diff = (scenario.difficulty || 'easy').toLowerCase();
   const diffLabel = diff === 'hard' ? 'Khó' : diff === 'medium' ? 'Vừa' : 'Dễ';
@@ -144,6 +152,8 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
 
   // Handler: Start a fresh attempt
   const handleStartAttempt = async () => {
+    if (createInFlightRef.current) return;
+    createInFlightRef.current = true;
     setErrorMessage(null);
     try {
       const attempt = await createAttemptMutation.mutateAsync({
@@ -152,19 +162,25 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
       });
       // Reset idempotency key for future requests
       createIdempotencyKeyRef.current = generateIdempotencyKey();
+      // A new attempt is a new logical submit operation.
+      submitIdempotencyKeyRef.current = generateIdempotencyKey();
       setSelectedAttemptId(attempt.id);
       setUserAnswerText(attempt.answer || '');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể khởi tạo lượt luyện tập.';
+      const msg = getScenarioErrorMessage(err, 'Không thể khởi tạo lượt luyện tập.');
       setErrorMessage(msg);
+    } finally {
+      createInFlightRef.current = false;
     }
   };
 
   // Handler: Submit answer
   const handleSubmit = async () => {
-    if (!activeAttemptId) return;
+    if (!activeAttemptId || attemptStatus !== 'draft' || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     if (!answerText.trim()) {
       setErrorMessage('Vui lòng nhập câu trả lời trước khi gửi đánh giá.');
+      submitInFlightRef.current = false;
       return;
     }
 
@@ -178,29 +194,37 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
       // Reset submit idempotency key on success
       submitIdempotencyKeyRef.current = generateIdempotencyKey();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Lỗi khi gửi bài đánh giá.';
+      const msg = getScenarioErrorMessage(err, 'Lỗi khi gửi bài đánh giá.');
       setErrorMessage(msg);
+    } finally {
+      submitInFlightRef.current = false;
     }
   };
 
-  // Handler: Retry / New attempt for this scenario
+  // Handler: Retry / New attempt for this scenario (recovers failed attempts by creating a fresh draft)
   const handleRetry = async () => {
+    if (retryInFlightRef.current) return;
+    retryInFlightRef.current = true;
     setErrorMessage(null);
+    const draftContent = answerText || currentAttempt?.answer || '';
     try {
       const attempt = await retryMutation.mutateAsync({
         scenarioId: scenario.id,
         idempotencyKey: retryIdempotencyKeyRef.current,
       });
       retryIdempotencyKeyRef.current = generateIdempotencyKey();
+      // The replacement draft must not reuse a key from a previous attempt.
+      submitIdempotencyKeyRef.current = generateIdempotencyKey();
       setSelectedAttemptId(attempt.id);
-      setUserAnswerText('');
+      // Retain previous answer so user can refine and submit
+      setUserAnswerText(attempt.answer || draftContent);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể tạo lượt thử mới.';
+      const msg = getScenarioErrorMessage(err, 'Không thể tạo lượt thử mới.');
       setErrorMessage(msg);
+    } finally {
+      retryInFlightRef.current = false;
     }
   };
-
-  const attemptStatus = currentAttempt?.status;
 
   return (
     <div className={styles.practiceContainer}>
@@ -266,21 +290,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
 
       {/* Error alert if any */}
       {errorMessage && (
-        <div
-          role="alert"
-          style={{
-            backgroundColor: 'var(--sa-rose-bg)',
-            border: '1px solid var(--sa-rose-border)',
-            color: 'var(--sa-rose-text)',
-            borderRadius: 'var(--sa-radius-md)',
-            padding: '0.875rem 1.25rem',
-            marginBottom: '1.5rem',
-            fontSize: '0.875rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}
-        >
+        <div className={styles.practiceErrorAlert} role="alert" aria-live="assertive">
           <svg
             width="16"
             height="16"
@@ -329,21 +339,10 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
             <FormattedScenarioContent text={scenario.content || scenario.summary} />
           </div>
 
-          <div
-            style={{
-              marginTop: '1.5rem',
-              padding: '1rem',
-              backgroundColor: '#f8fafc',
-              border: '1px solid var(--sa-border-subtle)',
-              borderRadius: 'var(--sa-radius-md)',
-              fontSize: '0.8125rem',
-              color: 'var(--sa-text-muted)',
-              lineHeight: 1.5,
-            }}
-          >
-            <strong style={{ color: 'var(--sa-text-main)', display: 'block', marginBottom: '0.25rem' }}>
+          <div className={styles.guidelinesBox}>
+            <span className={styles.guidelinesTitle}>
               💡 Gợi ý cấu trúc trả lời hiệu quả:
-            </strong>
+            </span>
             1. <strong>Phân tích vấn đề:</strong> Xác định rủi ro cốt lõi, người liên quan chính.
             <br />
             2. <strong>Hành động cụ thể:</strong> Các bước xử lý ngay lập tức và giải pháp dài hạn.
@@ -354,21 +353,34 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
 
         {/* Right Column: Interactive Practice / Evaluation */}
         <section className={styles.panelCard} aria-label="Khu vực làm bài và đánh giá">
-          {!activeAttemptId && !historyLoading && (
-            <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
-              <div
-                style={{
-                  width: '3.5rem',
-                  height: '3.5rem',
-                  borderRadius: '9999px',
-                  backgroundColor: 'var(--sa-accent-bg)',
-                  color: 'var(--sa-accent)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1rem',
-                }}
+          {historyLoading && (
+            <div className={styles.practiceLoadingState} aria-live="polite">
+              <div className={`${styles.spinnerLarge} ${styles.practiceLoadingSpinner}`} />
+              <p className={styles.practiceLoadingMessage}>Đang tải lịch sử bài làm...</p>
+            </div>
+          )}
+
+          {!historyLoading && historyError && (
+            <div className={styles.practiceErrorAlert} role="alert" aria-live="assertive">
+              <span>
+                {getScenarioErrorMessage(
+                  historyError,
+                  'Không thể tải lịch sử bài làm. Vui lòng thử lại trước khi bắt đầu lượt mới.'
+                )}
+              </span>
+              <button
+                type="button"
+                className={`${styles.btnSecondaryAction} ${styles.contentWidthAuto}`}
+                onClick={() => void refetchHistory()}
               >
+                Thử tải lại
+              </button>
+            </div>
+          )}
+
+          {!activeAttemptId && !historyLoading && !historyError && (
+            <div className={styles.promptStartHero}>
+              <div className={styles.promptStartIconWrap}>
                 <svg
                   width="24"
                   height="24"
@@ -383,26 +395,17 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>
+              <h3 className={styles.promptStartTitle}>
                 Sẵn sàng thử sức với tình huống này?
               </h3>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  color: 'var(--sa-text-muted)',
-                  maxWidth: '380px',
-                  margin: '0 auto 1.5rem',
-                  lineHeight: 1.5,
-                }}
-              >
+              <p className={styles.promptStartDescription}>
                 Khởi tạo một lượt luyện tập mới để nhận phản hồi chuyên sâu và đo lường tiến bộ kỹ năng.
               </p>
               <button
                 type="button"
-                className={styles.btnPracticeAction}
+                className={`${styles.btnPracticeAction} ${styles.promptStartButton}`}
                 onClick={handleStartAttempt}
                 disabled={createAttemptMutation.isPending}
-                style={{ maxWidth: '240px', margin: '0 auto' }}
               >
                 {createAttemptMutation.isPending ? 'Đang khởi tạo...' : 'Bắt đầu làm bài'}
               </button>
@@ -410,15 +413,33 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
           )}
 
           {activeAttemptId && attemptLoading && (
-            <div style={{ padding: '3rem 1rem', textAlign: 'center' }}>
-              <div className={styles.spinnerLarge} style={{ margin: '0 auto 1rem' }} />
-              <p style={{ fontSize: '0.875rem', color: 'var(--sa-text-muted)' }}>
+            <div className={styles.practiceLoadingState} aria-live="polite">
+              <div className={`${styles.spinnerLarge} ${styles.practiceLoadingSpinner}`} />
+              <p className={styles.practiceLoadingMessage}>
                 Đang tải dữ liệu bài làm...
               </p>
             </div>
           )}
 
-          {activeAttemptId && !attemptLoading && (
+          {activeAttemptId && !attemptLoading && attemptQueryError && (
+            <div className={styles.practiceErrorAlert} role="alert" aria-live="assertive">
+              <span>
+                {getScenarioErrorMessage(
+                  attemptQueryError,
+                  'Không thể tải lượt luyện tập. Vui lòng thử lại.'
+                )}
+              </span>
+              <button
+                type="button"
+                className={`${styles.btnSecondaryAction} ${styles.contentWidthAuto}`}
+                onClick={() => void refetchAttempt()}
+              >
+                Thử tải lại
+              </button>
+            </div>
+          )}
+
+          {activeAttemptId && !attemptLoading && !attemptQueryError && currentAttempt && (
             <>
               {/* State 1: DRAFT */}
               {attemptStatus === 'draft' && (
@@ -458,18 +479,16 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                     <span>
                       Độ dài:{' '}
                       <strong
-                        style={{
-                          color:
-                            answerText.length >= 50
-                              ? 'var(--sa-text-main)'
-                              : 'var(--sa-amber-text)',
-                        }}
+                        className={
+                          answerText.length >= 50
+                            ? styles.answerLengthValid
+                            : styles.answerLengthShort
+                        }
                       >
                         {answerText.length} ký tự
                       </strong>
                       {answerText.length < 50 && ' (khuyến nghị tối thiểu 50 ký tự)'}
                     </span>
-                    <span>Tự động lưu trạng thái nháp</span>
                   </div>
 
                   <button
@@ -480,10 +499,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                   >
                     {submitAttemptMutation.isPending ? (
                       <>
-                        <span
-                          className={styles.spinnerLarge}
-                          style={{ width: '1rem', height: '1rem', borderWidth: '2px' }}
-                        />
+                        <span className={`${styles.spinnerLarge} ${styles.compactSpinner}`} />
                         <span>Đang gửi bài...</span>
                       </>
                     ) : (
@@ -514,20 +530,12 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                 <div className={styles.asyncStatusBanner} aria-live="polite">
                   <div className={styles.spinnerLarge} />
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>
+                    <h3 className={styles.statusHeading}>
                       {attemptStatus === 'queued'
                         ? 'Đang chờ xử lý trong hàng đợi...'
                         : 'AI đang phân tích câu trả lời của bạn...'}
                     </h3>
-                    <p
-                      style={{
-                        fontSize: '0.875rem',
-                        color: 'var(--sa-text-muted)',
-                        maxWidth: '420px',
-                        margin: '0 auto',
-                        lineHeight: 1.5,
-                      }}
-                    >
+                    <p className={styles.statusDescription}>
                       Hệ thống đang đối chiếu câu trả lời với tiêu chí năng lực chuyên môn, ghi nhận
                       bằng chứng thực tế và tổng hợp điểm số. Kết quả sẽ tự động cập nhật ngay khi
                       hoàn tất.
@@ -547,25 +555,10 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                 </div>
               )}
 
-              {/* State 4: FAILED */}
+              {/* State 4: FAILED (Recovery via new draft attempt only) */}
               {attemptStatus === 'failed' && (
-                <div
-                  className={styles.asyncStatusBanner}
-                  style={{ borderColor: 'var(--sa-rose-border)' }}
-                  role="alert"
-                >
-                  <div
-                    style={{
-                      width: '3rem',
-                      height: '3rem',
-                      borderRadius: '9999px',
-                      backgroundColor: 'var(--sa-rose-bg)',
-                      color: 'var(--sa-rose-text)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
+                <div className={`${styles.asyncStatusBanner} ${styles.failedStatusBanner}`} role="alert">
+                  <div className={styles.failedStatusIconWrap}>
                     <svg
                       width="24"
                       height="24"
@@ -583,29 +576,20 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                     </svg>
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>
+                    <h3 className={styles.failedStatusTitle}>
                       Đánh giá chưa thành công
                     </h3>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--sa-text-muted)', margin: '0 0 1rem 0' }}>
-                      Mã lỗi: {currentAttempt?.errorCode || 'UNKNOWN_ERROR'}. Bạn có thể thử lại để tiếp tục.
+                    <p className={styles.failedStatusMessage}>
+                      Mã lỗi: {currentAttempt?.errorCode || 'UNKNOWN_ERROR'}. Lượt làm bài này đã kết thúc. Bạn có thể khởi tạo lượt mới để tiếp tục.
                     </p>
-                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                    <div className={styles.statusActions}>
                       <button
                         type="button"
-                        className={styles.btnSecondaryAction}
-                        onClick={handleSubmit}
-                        disabled={submitAttemptMutation.isPending}
-                      >
-                        Thử gửi lại
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.btnPracticeAction}
+                        className={`${styles.btnPracticeAction} ${styles.contentWidthAuto}`}
                         onClick={handleRetry}
                         disabled={retryMutation.isPending}
-                        style={{ width: 'auto' }}
                       >
-                        Bắt đầu lượt mới
+                        {retryMutation.isPending ? 'Đang khởi tạo...' : 'Bắt đầu lượt mới'}
                       </button>
                     </div>
                   </div>
@@ -618,7 +602,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
 
       {/* History view */}
       {history && history.attempts.length > 0 && (
-        <div style={{ marginTop: '2rem' }}>
+        <div className={styles.practiceHistorySection}>
           <ScenarioHistoryView
             history={history}
             activeAttemptId={activeAttemptId || undefined}

@@ -1,5 +1,5 @@
 /* Scenario Academy - Modern Career Coaching Design Tokens */
-.academyRoot {
+:where(.academyRoot, .practiceContainer) {
   --sa-bg: #f8fafc;
   --sa-surface: #ffffff;
   --sa-border: #e2e8f0;
@@ -30,7 +30,9 @@
   --sa-radius-md: 12px;
   --sa-radius-lg: 16px;
   --sa-radius-full: 9999px;
+}
 
+.academyRoot {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
@@ -1079,6 +1081,11 @@
   font-size: 0.875rem;
 }
 
+.historyItemRowSelected {
+  border-color: var(--sa-accent);
+  background-color: var(--sa-accent-bg);
+}
+
 .historyNumber {
   font-weight: 700;
   color: var(--sa-text-main);
@@ -1137,5 +1144,512 @@
 @keyframes saSpin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* =========================================================================
+   PAGINATION CONTROLS
+   ========================================================================= */
+.paginationContainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--sa-border-subtle);
+}
+
+.paginationBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2.375rem;
+  padding: 0 0.875rem;
+  background-color: var(--sa-surface);
+  border: 1px solid var(--sa-border);
+  border-radius: var(--sa-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sa-text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.paginationBtn:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.paginationBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paginationBtn:focus-visible,
+.paginationPageNum:focus-visible {
+  outline: 2px solid var(--sa-border-focus);
+  outline-offset: 2px;
+}
+
+.paginationInfo {
+  font-size: 0.875rem;
+  color: var(--sa-text-muted);
+  padding: 0 0.5rem;
+  font-weight: 500;
+}
+
+.paginationTotal {
+  margin-left: 0.375rem;
+  opacity: 0.8;
+}
+
+.paginationPageNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.375rem;
+  height: 2.375rem;
+  padding: 0 0.5rem;
+  border-radius: var(--sa-radius-sm);
+  border: 1px solid var(--sa-border);
+  background-color: var(--sa-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sa-text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.paginationPageNum:hover:not(:disabled) {
+  background-color: #f1f5f9;
+}
+
+.paginationPageNumActive {
+  background-color: var(--sa-primary);
+  border-color: var(--sa-primary);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.paginationPageNumActive:hover {
+  background-color: var(--sa-primary-hover);
+  color: #ffffff;
+}
+
+/* =========================================================================
+   CATALOGUE ERROR STATE
+   ========================================================================= */
+.catalogueErrorContainer {
+  grid-column: 1 / -1;
+  background: var(--sa-surface);
+  border: 1px solid var(--sa-rose-border);
+  border-radius: var(--sa-radius-lg);
+  padding: 3rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.catalogueErrorIcon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--sa-radius-full);
+  background-color: var(--sa-rose-bg);
+  color: var(--sa-rose-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+/* =========================================================================
+   WORKBENCH & REPORT UI HELPERS
+   ========================================================================= */
+.guidelinesBox {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid var(--sa-border-subtle);
+  border-radius: var(--sa-radius-md);
+  font-size: 0.8125rem;
+  color: var(--sa-text-muted);
+  line-height: 1.5;
+}
+
+.guidelinesTitle {
+  color: var(--sa-text-main);
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.promptStartHero {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.promptStartIconWrap {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background-color: var(--sa-accent-bg);
+  color: var(--sa-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+
+.failedStatusIconWrap {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  background-color: var(--sa-rose-bg);
+  color: var(--sa-rose-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.answerHistoryQuote {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #ffffff;
+  border: 1px solid var(--sa-border-subtle);
+  border-radius: var(--sa-radius-sm);
+  font-size: 0.875rem;
+  color: var(--sa-text-main);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.practiceErrorAlert {
+  background-color: var(--sa-rose-bg);
+  border: 1px solid var(--sa-rose-border);
+  color: var(--sa-rose-text);
+  border-radius: var(--sa-radius-md);
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progressErrorContainer {
+  background: var(--sa-surface);
+  border: 1px solid var(--sa-amber-border);
+  border-radius: var(--sa-radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  box-shadow: var(--sa-shadow-sm);
+}
+
+.progressErrorTitle {
+  margin: 0 0 0.5rem;
+  color: var(--sa-text-main);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.progressErrorDescription {
+  margin: 0 auto 1rem;
+  max-width: 32rem;
+  color: var(--sa-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.trackSummaryFull {
+  width: 100%;
+}
+
+.scenarioContentHeading {
+  color: var(--sa-text-main);
+  font-weight: 700;
+}
+
+.scenarioContentList {
+  padding-left: 1.25rem;
+  list-style-type: disc;
+  margin-bottom: 0.75rem;
+}
+
+.scenarioContentListItem {
+  margin-bottom: 0.375rem;
+  color: var(--sa-text-main);
+}
+
+.scenarioContentParagraph {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.promptStartTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.promptStartDescription {
+  max-width: 380px;
+  margin: 0 auto 1.5rem;
+  color: var(--sa-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.promptStartButton {
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+.practiceLoadingState {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.compactSpinner {
+  width: 1rem;
+  height: 1rem;
+  border-width: 2px;
+}
+
+.practiceLoadingSpinner {
+  margin: 0 auto 1rem;
+}
+
+.practiceLoadingMessage {
+  margin: 0;
+  color: var(--sa-text-muted);
+  font-size: 0.875rem;
+}
+
+.statusHeading {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.statusDescription {
+  max-width: 420px;
+  margin: 0 auto;
+  color: var(--sa-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.failedStatusBanner {
+  border-color: var(--sa-rose-border);
+}
+
+.failedStatusTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.failedStatusMessage {
+  margin: 0 0 1rem;
+  color: var(--sa-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.statusActions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.contentWidthAuto {
+  width: auto;
+}
+
+.practiceHistorySection {
+  margin-top: 2rem;
+}
+
+.evaluationScoreTitle {
+  margin: 0 0 0.375rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.evaluationRetryButton {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.evaluationHeading {
+  margin: 0 0 1rem;
+  color: var(--sa-text-main);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.cardSectionHeaderEmerald {
+  color: var(--sa-emerald-text);
+}
+
+.cardSectionHeaderAmber {
+  color: var(--sa-amber-text);
+}
+
+.cardSectionHeaderAccent {
+  color: var(--sa-accent);
+}
+
+.recommendationPanel {
+  border-left: 4px solid var(--sa-accent);
+}
+
+.recommendationStepNumber {
+  flex-shrink: 0;
+  margin-right: 0.25rem;
+  color: var(--sa-accent);
+  font-weight: 700;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.historyHeaderTitle {
+  margin: 0;
+}
+
+.historySummary {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8125rem;
+}
+
+.historyBestScore {
+  color: var(--sa-accent);
+}
+
+.historyItemPrimary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.historyItemMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.historyItemDate {
+  overflow-wrap: anywhere;
+  color: var(--sa-text-subtle);
+  font-size: 0.75rem;
+}
+
+.historyItemStatus {
+  color: var(--sa-amber-text);
+  font-size: 0.75rem;
+}
+
+.historyItemActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.historyScore {
+  color: var(--sa-text-main);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.historyScoreEmpty {
+  color: var(--sa-text-subtle);
+  font-size: 0.8125rem;
+}
+
+.historyActionButton {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.historyReportButton {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+}
+
+.historyAnswerLabel {
+  margin: 0 0 0.25rem;
+  color: var(--sa-text-subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.answerLengthValid {
+  color: var(--sa-text-main);
+}
+
+.answerLengthShort {
+  color: var(--sa-amber-text);
+}
+
+@media (max-width: 639px) {
+  .historyItemRow {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .historyItemPrimary,
+  .historyItemActions {
+    width: 100%;
+  }
+
+  .historySummary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .paginationContainer {
+    justify-content: space-between;
+  }
+
+  .paginationInfo {
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardItem,
+  .btnSecondaryAction,
+  .btnPracticeAction,
+  .paginationBtn,
+  .paginationPageNum {
+    transition: none;
+  }
+
+  .spinnerLarge {
+    animation: none;
   }
 }

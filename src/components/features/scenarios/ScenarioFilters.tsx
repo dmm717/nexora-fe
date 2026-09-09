@@ -18,6 +18,12 @@ export function ScenarioFilters({
 }: ScenarioFiltersProps) {
   const [searchInput, setSearchInput] = useState(filters.search || '');
 
+  // Keep the local input in sync when another control clears or restores filters.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize controlled filter state after external reset
+    setSearchInput(filters.search || '');
+  }, [filters.search]);
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -47,7 +53,7 @@ export function ScenarioFilters({
   };
 
   return (
-    <div className={styles.filterToolbar} role="search" aria-label="Bộ lọc tình huống">
+    <search className={styles.filterToolbar} aria-label="Bộ lọc tình huống">
       {/* Category Horizontal Chips */}
       <div className={styles.categoryChipsBar} role="tablist" aria-label="Chọn lĩnh vực tình huống">
         <button
@@ -152,6 +158,6 @@ export function ScenarioFilters({
           )}
         </div>
       </div>
-    </div>
+    </search>
   );
 }

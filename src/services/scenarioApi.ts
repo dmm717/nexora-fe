@@ -11,6 +11,7 @@ import type {
   ScenarioEvaluation,
   ScenarioDimensionEvaluation,
 } from '@/types/scenario';
+import { generateIdempotencyKey } from '@/utils/scenarioHelpers';
 
 // Re-export types for backward compatibility
 export type {
@@ -39,12 +40,7 @@ export interface ScenarioAttemptSubmitRequest {
   answer: string;
 }
 
-export const generateIdempotencyKey = (): string => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-};
+export { generateIdempotencyKey } from '@/utils/scenarioHelpers';
 
 export const scenarioApi = {
   getCategories: async (): Promise<ScenarioCategory[]> => {
