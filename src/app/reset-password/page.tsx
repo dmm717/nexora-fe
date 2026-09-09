@@ -49,7 +49,7 @@ function ResetPasswordContent() {
       toast.success('Mật khẩu đã được đặt lại thành công.');
     } catch (err: unknown) {
       const apiErr = err as { code?: string; message?: string };
-      if (apiErr?.code === 'INVALID_PASSWORD_RESET' || apiErr?.message?.includes('hết hạn') || apiErr?.message?.includes('không hợp lệ')) {
+      if (apiErr?.code === 'PASSWORD_RESET_INVALID' || apiErr?.message?.includes('hết hạn') || apiErr?.message?.includes('không hợp lệ')) {
         setIsTokenInvalid(true);
         setTokenErrorMessage('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
       } else {
