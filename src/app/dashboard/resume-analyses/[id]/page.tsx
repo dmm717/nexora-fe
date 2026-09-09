@@ -23,7 +23,7 @@ export default function ResumeAnalysisDetailsPage() {
           return false;
         }
       }
-      return 2000;
+      return 15000;
     }
   );
 

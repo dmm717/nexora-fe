@@ -2,6 +2,7 @@
 import React from 'react';
 import styles from './AILayout.module.css';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function AILayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,9 +10,9 @@ export default function AILayout({ children }: { children: React.ReactNode }) {
       <div className={styles.container}>
         {/* Left Sidebar */}
         <aside className={styles.leftSidebar}>
-          <div className={styles.logo}>
-            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
-          </div>
+          <Link href="/dashboard" className={styles.logoLink}>
+            <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
+          </Link>
           
           <div className={styles.searchBox}>
             🔍 Search

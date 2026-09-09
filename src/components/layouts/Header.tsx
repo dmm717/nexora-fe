@@ -15,7 +15,7 @@ const Header = () => {
             width={128} 
             height={32} 
             className={styles.logoImage}
-            style={{ objectFit: 'contain' }}
+            style={{ width: 'auto', height: '32px' }}
             priority
           />
         </div>

@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Logo */}
           <div className={styles.logo}>
             <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center' }}>
-              <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
+              <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
             </Link>
             
             {/* Center Menu */}

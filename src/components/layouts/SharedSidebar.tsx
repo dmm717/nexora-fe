@@ -25,9 +25,9 @@ interface SharedSidebarProps {
 
 export const SharedSidebar = ({ pathname, userEmail, handleLogout, menuItems, isCustomStyle }: SharedSidebarProps) => (
   <aside className={styles.leftSidebar}>
-    <div className={styles.logo}>
-      <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ objectFit: 'contain', height: 'auto' }} priority />
-    </div>
+      <Link href="/dashboard" className={styles.logo}>
+        <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
+      </Link>
     
     {menuItems.map((section) => (
       <div key={section.title} className={styles.menuSection}>

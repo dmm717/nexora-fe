@@ -9,7 +9,13 @@ export const useInterview = (id: string, refetchInterval?: number | false | ((qu
     queryKey: ['interview', id],
     queryFn: () => interviewApi.getById(id),
     enabled: authReady && isAuthenticated && !!id,
-    refetchInterval,
+    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query: any) => {
+      const data = query.state.data as any;
+      if (data && (data.status === 'completed' || data.status === 'failed' || data.status === 'abandoned')) {
+        return false;
+      }
+      return 15000;
+    },
   });
 };
 
@@ -21,6 +27,9 @@ export const useInterviewReport = (id: string, refetchInterval?: number | false 
     queryFn: () => interviewApi.getReport(id),
     staleTime: 30000,
     enabled: authReady && isAuthenticated && !!id,
-    refetchInterval,
+    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query: any) => {
+      if (query.state.data) return false;
+      return 15000;
+    },
   });
 };

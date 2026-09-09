@@ -189,7 +189,7 @@ function StarBuilderContent() {
     (query) => {
       const data = query.state.data as any;
       if (data && (data.status === 'completed' || data.status === 'failed')) return false;
-      return 2000;
+      return 15000;
     }
   );
   const result = rawResult as any;

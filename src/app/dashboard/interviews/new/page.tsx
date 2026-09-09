@@ -9,7 +9,7 @@ export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [form, setForm] = useState<StartInterviewCommand>({
     role: '',
     seniority: 'Junior',
@@ -23,7 +23,7 @@ export default function NewInterviewPage() {
       setError('Vui lòng nhập vị trí ứng tuyển');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -39,33 +39,33 @@ export default function NewInterviewPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Bắt đầu Phỏng vấn mới</h1>
-        <button className={styles.btnDanger} style={{backgroundColor: '#6b7280'}} onClick={() => router.back()}>Hủy</button>
+        <button className={styles.btnDanger} style={{ backgroundColor: '#6b7280' }} onClick={() => router.back()}>Hủy</button>
       </div>
 
       <div className={styles.panel}>
         {error && <div style={{ color: '#dc2626', marginBottom: '1rem', padding: '1rem', backgroundColor: '#fee2e2', borderRadius: '8px' }}>{error}</div>}
-        
+
         <form onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="role">Vị trí ứng tuyển (Role)</label>
-            <input 
+            <input
               id="role"
-              type="text" 
-              className={styles.input} 
-              placeholder="Vd: Frontend Developer, Product Manager..." 
+              type="text"
+              className={styles.input}
+              placeholder="Vd: Frontend Developer, Product Manager..."
               value={form.role}
-              onChange={e => setForm({...form, role: e.target.value})}
+              onChange={e => setForm({ ...form, role: e.target.value })}
               disabled={loading}
             />
           </div>
 
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="seniority">Cấp bậc (Seniority)</label>
-            <select 
+            <select
               id="seniority"
               className={styles.select}
               value={form.seniority}
-              onChange={e => setForm({...form, seniority: e.target.value})}
+              onChange={e => setForm({ ...form, seniority: e.target.value })}
               disabled={loading}
             >
               <option value="Intern">Intern / Thực tập sinh</option>
@@ -79,11 +79,11 @@ export default function NewInterviewPage() {
 
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="interviewType">Loại phỏng vấn (Type)</label>
-            <select 
+            <select
               id="interviewType"
               className={styles.select}
               value={form.interviewType}
-              onChange={e => setForm({...form, interviewType: e.target.value})}
+              onChange={e => setForm({ ...form, interviewType: e.target.value })}
               disabled={loading}
             >
               <option value="Technical">Technical (Kỹ thuật chuyên môn)</option>
@@ -95,11 +95,11 @@ export default function NewInterviewPage() {
 
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="difficulty">Độ khó (Difficulty)</label>
-            <select 
+            <select
               id="difficulty"
               className={styles.select}
               value={form.difficulty}
-              onChange={e => setForm({...form, difficulty: e.target.value})}
+              onChange={e => setForm({ ...form, difficulty: e.target.value })}
               disabled={loading}
             >
               <option value="Easy">Dễ (Easy)</option>

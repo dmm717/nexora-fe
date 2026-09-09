@@ -17,7 +17,7 @@ export default function InterviewReportPage() {
   const { data: report, isLoading: loading, error: queryError } = useInterviewReport(id, (query) => {
     const errorMsg = query.state.error?.message?.toLowerCase() || '';
     if (errorMsg.includes('not found') || errorMsg.includes('chưa có') || errorMsg.includes('không tìm thấy')) {
-      return 3000;
+      return 15000;
     }
     return false;
   });

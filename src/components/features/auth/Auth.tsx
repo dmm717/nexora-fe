@@ -148,7 +148,7 @@ export default function Auth() {
 
       <div className={styles.glassCard} ref={cardRef}>
         <div className={styles.brandLogo}>
-          <Image src="/logo.png" alt="Nexora" width={160} height={40} style={{ objectFit: 'contain', height: 'auto' }} priority />
+          <Image src="/logo.png" alt="Nexora" width={160} height={40} style={{ width: 'auto', height: '40px' }} priority />
         </div>
         <form ref={formWrapperRef} onSubmit={handleSubmit(onSubmit)} noValidate>
           <h2 className={styles.title}>{isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}</h2>
