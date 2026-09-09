@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import styles from '../Interviews.module.css';
-import { interviewApi } from '@/services/interviewApi';
+import { interviewApi, type InterviewView } from '@/services/interviewApi';
 import { useInterview } from '@/hooks/queries/useInterviews';
 import { formatTime } from '@/utils/formatters';
 
@@ -19,13 +19,7 @@ export default function InterviewRoomPage() {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: interview, isLoading: loading, error: queryError, refetch } = useInterview(id, (query) => {
-    const data = query.state.data as any;
-    if (data && (data.status === 'starting' || data.status === 'queued')) {
-      return 15000;
-    }
-    return false;
-  });
+  const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
   const error = queryError ? queryError.message : null;
 
@@ -33,6 +27,7 @@ export default function InterviewRoomPage() {
   useEffect(() => {
     if (interview && (interview.status === 'active' || interview.status === 'ready')) {
       // Reset timer if we just loaded a new question
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSecondsElapsed(0);
       timerRef.current = setInterval(() => {
         setSecondsElapsed(prev => prev + 1);
@@ -41,7 +36,6 @@ export default function InterviewRoomPage() {
     
     // Redirect if completed
     if (interview?.status === 'completed') {
-      // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
       router.push(`/dashboard/interviews/${id}/report`);
     }
 
@@ -85,7 +79,7 @@ export default function InterviewRoomPage() {
         router.push(`/dashboard/interviews/${id}/report`);
       } else {
         // Tối ưu hóa: Cập nhật cache trực tiếp từ kết quả trả về của API, tránh refetch thừa thãi
-        queryClient.setQueryData(['interview', id], (oldData: any) => {
+        queryClient.setQueryData(['interview', id], (oldData: InterviewView | undefined) => {
           if (!oldData) return oldData;
           return {
             ...oldData,

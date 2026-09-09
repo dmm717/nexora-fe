@@ -1,25 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { interviewApi } from '@/services/interviewApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
+import { readStatus, type RealtimeFallbackInterval } from '@/utils/queryPolling';
+import { ApiError } from '@/services/apiClient';
 
-export const useInterview = (id: string, refetchInterval?: number | false | ((query: any) => number | false | undefined)) => {
+export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInterval) => {
   const { authReady, isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: ['interview', id],
     queryFn: () => interviewApi.getById(id),
     enabled: authReady && isAuthenticated && !!id,
-    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query: any) => {
-      const data = query.state.data as any;
-      if (data && (data.status === 'completed' || data.status === 'failed' || data.status === 'abandoned')) {
+    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query) => {
+      const status = readStatus(query.state.data);
+      if (status === 'active' || status === 'ready' || status === 'completed' || status === 'failed' || status === 'abandoned') {
         return false;
       }
-      return 15000;
+      return REALTIME_FALLBACK_POLL_MS;
     },
   });
 };
 
-export const useInterviewReport = (id: string, refetchInterval?: number | false | ((query: any) => number | false | undefined)) => {
+export const useInterviewReport = (id: string, refetchInterval?: RealtimeFallbackInterval) => {
   const { authReady, isAuthenticated } = useAuth();
 
   return useQuery({
@@ -27,9 +30,15 @@ export const useInterviewReport = (id: string, refetchInterval?: number | false 
     queryFn: () => interviewApi.getReport(id),
     staleTime: 30000,
     enabled: authReady && isAuthenticated && !!id,
-    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query: any) => {
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    refetchInterval: refetchInterval !== undefined ? refetchInterval : (query) => {
       if (query.state.data) return false;
-      return 15000;
+      return REALTIME_FALLBACK_POLL_MS;
     },
   });
 };

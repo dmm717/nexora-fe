@@ -5,32 +5,52 @@ import { useRouter } from 'next/navigation';
 import { ClientDate } from '@/components/ui/ClientDate';
 import styles from './Resumes.module.css';
 import { useQuery } from '@tanstack/react-query';
-import { cvAnalysisApi } from '@/services/cvAnalysisApi';
-import { useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
+import { ApiError } from '@/services/apiClient';
+import { cvAnalysisApi, getUploadContentType } from '@/services/cvAnalysisApi';
+import {
+  createResumeAnalysisOperation,
+  ResumeAnalysisOperation,
+  runResumeAnalysisOperation,
+} from '@/services/resumeAnalysisCoordinator';
+import { AnalysisHistoryItem, useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { useCurrentUser } from '@/hooks/queries/useUser';
+import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
+import { readStatus } from '@/utils/queryPolling';
 
 const REPORT_LANGUAGE_INSTRUCTION = '\n\n(Yêu cầu: Vui lòng trả về báo cáo phân tích hoàn toàn bằng Tiếng Việt)';
 
-const ResumeHistoryList = ({ history }: { history: any[] }) => {
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function safeErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    return error.requestId ? `${error.message} (Mã yêu cầu: ${error.requestId})` : error.message;
+  }
+  return fallback;
+}
+
+const ResumeHistoryList = ({ history }: { history: AnalysisHistoryItem[] }) => {
   const router = useRouter();
   return (
     <div className={styles.panel} style={{ marginTop: '2rem' }}>
       <h2 className={styles.panelTitle}>Lịch sử phân tích của bạn (Lưu trên thiết bị)</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
         {history.map(item => (
-          <div 
-            key={item.id} 
+          <div
+            key={item.id}
             onClick={() => router.push(`/dashboard/resume-analyses/${item.id}`)}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/dashboard/resume-analyses/${item.id}`); } }}
-            style={{ 
-              cursor: 'pointer', 
-              padding: '1rem', 
-              border: '1px solid #e5e7eb', 
-              borderRadius: '0.5rem', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            style={{
+              cursor: 'pointer',
+              padding: '1rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               backgroundColor: '#f9fafb'
             }}
@@ -47,7 +67,31 @@ const ResumeHistoryList = ({ history }: { history: any[] }) => {
   );
 };
 
-const ResumeUploadPanel = ({ file, isDragging, onDragOver, onDragLeave, onDrop, fileInputRef, onFileChange, handleRemoveFile }: any) => (
+interface ResumeUploadPanelProps {
+  file: File | null;
+  isDragging: boolean;
+  onDragOver: (event: React.DragEvent) => void;
+  onDragLeave: (event: React.DragEvent) => void;
+  onDrop: (event: React.DragEvent) => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleRemoveFile: () => void;
+  onRetry?: () => void;
+  retryDisabled: boolean;
+}
+
+const ResumeUploadPanel = ({
+  file,
+  isDragging,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  fileInputRef,
+  onFileChange,
+  handleRemoveFile,
+  onRetry,
+  retryDisabled,
+}: ResumeUploadPanelProps) => (
   <div className={styles.panel}>
     <h2 className={styles.panelTitle}>
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
@@ -57,7 +101,7 @@ const ResumeUploadPanel = ({ file, isDragging, onDragOver, onDragLeave, onDrop, 
     </h2>
 
     {!file ? (
-      <label 
+      <label
         className={`${styles.dropzone} ${isDragging ? styles.dropzoneActive : ''}`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -69,9 +113,9 @@ const ResumeUploadPanel = ({ file, isDragging, onDragOver, onDragLeave, onDrop, 
         </svg>
         <p className={styles.uploadText}>Kéo thả file vào đây hoặc <strong>nhấn để chọn</strong></p>
         <p className={styles.uploadHint}>Hỗ trợ file PDF, DOCX (Tối đa 10MB)</p>
-        <input 
+        <input
           id="cvFile"
-          type="file" 
+          type="file"
           ref={fileInputRef}
           className={styles.fileInput}
           accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -89,6 +133,9 @@ const ResumeUploadPanel = ({ file, isDragging, onDragOver, onDragLeave, onDrop, 
             <div className={styles.fileSize}>{(file.size / 1024 / 1024).toFixed(2)} MB</div>
           </div>
         </div>
+        {onRetry && !retryDisabled && (
+          <button type="button" onClick={onRetry}>Thử tải lại</button>
+        )}
         <button className={styles.removeButton} onClick={handleRemoveFile} title="Xóa file">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -99,7 +146,15 @@ const ResumeUploadPanel = ({ file, isDragging, onDragOver, onDragLeave, onDrop, 
   </div>
 );
 
-const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loading }: any) => (
+interface JobDescriptionPanelProps {
+  jdTitle: string;
+  setJdTitle: React.Dispatch<React.SetStateAction<string>>;
+  jdContent: string;
+  setJdContent: React.Dispatch<React.SetStateAction<string>>;
+  loading: boolean;
+}
+
+const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loading }: JobDescriptionPanelProps) => (
   <div className={styles.panel}>
     <h2 className={styles.panelTitle}>
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
@@ -107,12 +162,12 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
       </svg>
       2. Mô tả công việc (JD)
     </h2>
-    
+
     <div className={styles.formGroup}>
       <label className={styles.label} htmlFor="jdTitle">Chức danh (Title)</label>
-      <input 
+      <input
         id="jdTitle"
-        type="text" 
+        type="text"
         className={styles.input}
         placeholder="VD: Senior Frontend Developer (React)"
         value={jdTitle}
@@ -123,7 +178,7 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
 
     <div className={styles.formGroup}>
       <label className={styles.label} htmlFor="jdContent">Nội dung chi tiết</label>
-      <textarea 
+      <textarea
         id="jdContent"
         className={styles.textarea}
         placeholder="Dán toàn bộ nội dung yêu cầu công việc, kỹ năng, kinh nghiệm vào đây..."
@@ -138,15 +193,24 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
 export default function ResumesPage() {
   const router = useRouter();
   const { authReady, isAuthenticated } = useAuth();
-  
-  const { history, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory();
+  const { data: currentUser } = useCurrentUser();
+
+  const { history, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory(currentUser?.id);
   const hasResumed = useRef(false);
   const isMounted = useRef(true);
+  const uploadGeneration = useRef(0);
+  const uploadAbortController = useRef<AbortController | null>(null);
+  const analysisAbortController = useRef<AbortController | null>(null);
+  const activeAnalysisKey = useRef<string | null>(null);
+  const completedUpload = useRef<{ file: File; token: string; contentType: string; size: number } | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
+      uploadGeneration.current += 1;
+      uploadAbortController.current?.abort();
+      analysisAbortController.current?.abort();
     };
   }, []);
 
@@ -160,81 +224,68 @@ export default function ResumesPage() {
   // Resume status polling
   const { data: resumeData } = useQuery({
     queryKey: ['resume', resumeId],
-    queryFn: () => cvAnalysisApi.getResume(resumeId!),
+    queryFn: ({ signal }) => cvAnalysisApi.getResume(resumeId!, { signal }),
     enabled: authReady && isAuthenticated && !!resumeId,
     refetchInterval: (query) => {
       if (query.state.status === 'error') return false;
-      const status = (query.state.data?.status || (query.state.data as any)?.Status || '').toLowerCase();
-      return (status === 'ready' || status === 'failed') ? false : 15000;
+      const status = readStatus(query.state.data);
+      return (status === 'ready' || status === 'failed') ? false : REALTIME_FALLBACK_POLL_MS;
     }
   });
-  
-  const resumeStatus = resumeData ? ((resumeData.status || (resumeData as any).Status || '').toLowerCase()) : '';
+
+  const resumeStatus = readStatus(resumeData);
   const isResumeReady = resumeStatus === 'ready';
 
   // JD state
   const [jdTitle, setJdTitle] = useState('');
   const [jdContent, setJdContent] = useState('');
-  
+
   // Submit state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string>('');
+  const [stage, setStage] = useState<'idle' | 'uploading' | 'processing' | 'ready' | 'analyzing'>('idle');
 
-  const resumeAnalysis = React.useCallback(async (p: { resumeId: string, jobDescriptionId: string, jdTitle: string }) => {
-    setLoading(true);
-    setError(null);
-    setProgress('Đang phục hồi tiến trình phân tích (Vui lòng không tải lại trang)...');
-    
-    try {
-      let analysis = null;
-      let attempts = 0;
-      const maxAttempts = 15;
-      
-      while (attempts < maxAttempts) {
-        if (!isMounted.current) {
-          // Ngưng loop nếu người dùng đã rời khỏi trang (unmount)
-          break;
-        }
-        try {
-          analysis = await cvAnalysisApi.analyze({
-            resumeId: p.resumeId,
-            jobDescriptionId: p.jobDescriptionId
-          });
-          break;
-        } catch (err: unknown) {
-          const errMsg = err instanceof Error ? err.message : '';
-          if (errMsg.toLowerCase().includes('chưa sẵn sàng') || errMsg.toLowerCase().includes('not ready')) {
-            attempts++;
-            if (attempts >= maxAttempts) {
-              throw new Error('Quá thời gian chờ xử lý CV. Vui lòng tải lại file mới.');
-            }
-            await new Promise(resolve => setTimeout(resolve, 15000));
-          } else {
-            throw err;
-          }
-        }
-      }
-
-      if (analysis) {
-        setPendingAnalysis(null);
-        addHistoryItem({ id: analysis.id, jdTitle: p.jdTitle });
-        setProgress('Hoàn tất! Đang chuyển hướng...');
-        router.push(`/dashboard/resume-analyses/${analysis.id}`);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra trong quá trình phục hồi phân tích.');
-      setLoading(false);
-      setPendingAnalysis(null);
-    }
+  const finishAnalysis = React.useCallback((operation: ResumeAnalysisOperation, analysis: { id: string }) => {
+    if (!isMounted.current) return;
+    setPendingAnalysis(null);
+    addHistoryItem({ id: analysis.id, jdTitle: operation.jdTitle });
+    setStage('ready');
+    router.push(`/dashboard/resume-analyses/${analysis.id}`);
   }, [addHistoryItem, router, setPendingAnalysis]);
 
+  const startAnalysis = React.useCallback((operation: ResumeAnalysisOperation) => {
+    if (activeAnalysisKey.current && activeAnalysisKey.current !== operation.idempotencyKey) return;
+    activeAnalysisKey.current = operation.idempotencyKey;
+    setLoading(true);
+    setError(null);
+    setStage('analyzing');
+    const controller = new AbortController();
+    analysisAbortController.current = controller;
+    void runResumeAnalysisOperation(operation, {
+      signal: controller.signal,
+      save: setPendingAnalysis,
+      onStage: () => setStage('analyzing'),
+    }).then(analysis => {
+      activeAnalysisKey.current = null;
+      finishAnalysis(operation, analysis);
+    }).catch((err: unknown) => {
+      activeAnalysisKey.current = null;
+      if (!isMounted.current || isAbortError(err)) return;
+      setError(safeErrorMessage(err, 'Có lỗi xảy ra trong quá trình phân tích.'));
+    }).finally(() => {
+      if (isMounted.current) setLoading(false);
+    });
+  }, [finishAnalysis, setPendingAnalysis]);
+
   useEffect(() => {
-    if (pending && !hasResumed.current) {
-      hasResumed.current = true;
-      resumeAnalysis(pending);
-    }
-  }, [pending, resumeAnalysis]);
+    if (!authReady || !isAuthenticated || !currentUser?.id || !pending || pending.userId !== currentUser.id || hasResumed.current) return;
+    hasResumed.current = true;
+    startAnalysis(pending);
+  }, [authReady, currentUser?.id, isAuthenticated, pending, startAnalysis]);
+
+  useEffect(() => {
+    if (!pending) hasResumed.current = false;
+  }, [pending]);
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -260,54 +311,118 @@ export default function ResumesPage() {
     }
   };
 
-  const handleFile = async (f: File) => {
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    const isDocxExt = f.name.toLowerCase().endsWith('.docx');
-    const isPdfExt = f.name.toLowerCase().endsWith('.pdf');
-    
-    if (!allowedTypes.includes(f.type) && !isDocxExt && !isPdfExt) {
-      setError('Vui lòng tải lên file định dạng PDF hoặc DOCX.');
+  const handleFile = async (fileSnapshot: File) => {
+    const contentType = getUploadContentType(fileSnapshot);
+    if (!contentType) {
+      setError('Vui lòng tải lên file PDF hoặc DOCX với MIME tương ứng.');
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
+    if (fileSnapshot.size === 0) {
+      setError('File CV không được để trống.');
+      return;
+    }
+    if (fileSnapshot.size > 10 * 1024 * 1024) {
       setError('Dung lượng file không được vượt quá 10MB.');
       return;
     }
+
+    const reusableUpload = completedUpload.current?.file === fileSnapshot
+      && completedUpload.current.size === fileSnapshot.size
+      && completedUpload.current.contentType === contentType
+      ? completedUpload.current
+      : null;
+    if (!reusableUpload) completedUpload.current = null;
+
+    uploadAbortController.current?.abort();
+    uploadGeneration.current += 1;
+    const generation = uploadGeneration.current;
+    const controller = new AbortController();
+    uploadAbortController.current = controller;
+    analysisAbortController.current?.abort();
+    analysisAbortController.current = null;
+    activeAnalysisKey.current = null;
+    hasResumed.current = false;
+    setPendingAnalysis(null);
     setError(null);
-    setFile(f);
+    setFile(fileSnapshot);
     setResumeId(null);
-    
+    setStage(reusableUpload ? 'processing' : 'uploading');
     setIsUploading(true);
-    setProgress('Đang tải file lên...');
+
+    const isCurrent = () => isMounted.current && generation === uploadGeneration.current;
     try {
-      const presign = await cvAnalysisApi.presignUpload({
-        fileName: f.name,
-        contentType: f.type,
-        size: f.size
-      });
-      await cvAnalysisApi.uploadFile(presign.uploadUrl, f);
-      setProgress('Đang xử lý thông tin CV...');
-      const resume = await cvAnalysisApi.createResume(presign.token);
+      let uploadToken = reusableUpload?.token;
+      if (!uploadToken) {
+        const presign = await cvAnalysisApi.presignUpload({
+          fileName: fileSnapshot.name,
+          contentType,
+          size: fileSnapshot.size,
+        }, { signal: controller.signal });
+        if (!isCurrent()) return;
+
+        await cvAnalysisApi.uploadFile(presign.uploadUrl, fileSnapshot, {
+          signal: controller.signal,
+          expectedSize: fileSnapshot.size,
+          contentType,
+        });
+        if (!isCurrent()) return;
+
+        // Preserve the completed PUT capability while POST /resumes is in flight.
+        // A lost POST response must replay completion with this token, not presign/PUT again.
+        completedUpload.current = {
+          file: fileSnapshot,
+          token: presign.token,
+          contentType,
+          size: fileSnapshot.size,
+        };
+        uploadToken = presign.token;
+      }
+
+      setStage('processing');
+      const resume = await cvAnalysisApi.createResume(uploadToken, { signal: controller.signal });
+      if (!isCurrent()) return;
+      completedUpload.current = null;
       setResumeId(resume.id);
-      setProgress('');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Tải file thất bại');
-      setFile(null);
+      if (!isCurrent() || isAbortError(err)) return;
+      setError(safeErrorMessage(err, 'Tải file thất bại.'));
+      // A completed PUT can be finalized safely with the same token. If the
+      // in-memory intent was lost or expired, discard it so the next retry
+      // obtains a fresh presign instead of replaying a known-invalid token.
+      if (err instanceof ApiError && (err.code === 'UPLOAD_NOT_FOUND' || err.code === 'UPLOAD_INTENT_INVALID')) {
+        completedUpload.current = null;
+      }
+      // Keep the exact File snapshot so a retry can reuse the same bytes.
+      setResumeId(null);
+      setStage('idle');
     } finally {
-      setIsUploading(false);
+      if (isCurrent()) setIsUploading(false);
     }
   };
 
   const handleRemoveFile = () => {
+    uploadGeneration.current += 1;
+    uploadAbortController.current?.abort();
+    uploadAbortController.current = null;
+    analysisAbortController.current?.abort();
+    analysisAbortController.current = null;
+    activeAnalysisKey.current = null;
+    hasResumed.current = false;
+    setPendingAnalysis(null);
+    completedUpload.current = null;
     setFile(null);
     setResumeId(null);
+    setIsUploading(false);
+    setStage('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
+    if (activeAnalysisKey.current) return;
+    if (!currentUser?.id) {
+      setError('Phiên đăng nhập chưa sẵn sàng. Vui lòng thử lại sau giây lát.');
+      return;
+    }
     if (!file || !isResumeReady || !resumeId) {
       setError('Vui lòng tải lên CV và chờ xử lý xong.');
       return;
@@ -317,36 +432,37 @@ export default function ResumesPage() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    try {
-      setProgress('Đang phân tích Mô tả công việc...');
-      const jd = await cvAnalysisApi.createJobDescription({
-        title: jdTitle,
-        content: jdContent + REPORT_LANGUAGE_INSTRUCTION
-      });
-
-      setPendingAnalysis({ resumeId, jobDescriptionId: jd.id, jdTitle: jd.title });
-      setProgress('AI đang phân tích độ phù hợp (Quá trình này có thể mất vài chục giây)...');
-      
-      const analysis = await cvAnalysisApi.analyze({
-        resumeId,
-        jobDescriptionId: jd.id
-      });
-
-      if (analysis) {
-        setPendingAnalysis(null);
-        addHistoryItem({ id: analysis.id, jdTitle: jd.title });
-        setProgress('Hoàn tất! Đang chuyển hướng...');
-        router.push(`/dashboard/resume-analyses/${analysis.id}`);
-      }
-
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra trong quá trình phân tích.');
-      setLoading(false);
-      setPendingAnalysis(null);
-    }
+    const persistedContent = `${jdContent.trim()}${REPORT_LANGUAGE_INSTRUCTION}`;
+    const existingOperation = pending
+      && pending.userId === currentUser?.id
+      && pending.resumeId === resumeId
+      && pending.jdTitle === jdTitle.trim()
+      && pending.jdContent === persistedContent
+      ? pending
+      : null;
+    const operation = existingOperation ?? createResumeAnalysisOperation({
+      userId: currentUser.id,
+      resumeId,
+      jobDescriptionId: null,
+      analysisId: null,
+      jdTitle: jdTitle.trim(),
+      jdContent: persistedContent,
+    });
+    hasResumed.current = true;
+    setPendingAnalysis(operation);
+    startAnalysis(operation);
   };
+
+  const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
+  const stageMessage = visibleStage === 'uploading'
+    ? 'Đang tải file CV lên...'
+    : visibleStage === 'processing'
+      ? 'Đang xử lý CV...'
+      : visibleStage === 'ready'
+        ? 'CV đã sẵn sàng.'
+        : visibleStage === 'analyzing'
+          ? 'AI đang phân tích độ phù hợp...'
+          : '';
 
   return (
     <div className={styles.container}>
@@ -358,7 +474,7 @@ export default function ResumesPage() {
       {error && <div className={styles.errorMessage}>{error}</div>}
 
       <div className={styles.formGrid}>
-        <ResumeUploadPanel 
+        <ResumeUploadPanel
           file={file}
           isDragging={isDragging}
           onDragOver={onDragOver}
@@ -367,9 +483,11 @@ export default function ResumesPage() {
           fileInputRef={fileInputRef}
           onFileChange={onFileChange}
           handleRemoveFile={handleRemoveFile}
+          onRetry={file && !resumeId ? () => void handleFile(file) : undefined}
+          retryDisabled={isUploading || !!resumeId}
         />
 
-        <JobDescriptionPanel 
+        <JobDescriptionPanel
           jdTitle={jdTitle}
           setJdTitle={setJdTitle}
           jdContent={jdContent}
@@ -379,8 +497,8 @@ export default function ResumesPage() {
       </div>
 
       <div className={styles.actionArea}>
-        <button 
-          className={styles.analyzeButton} 
+        <button
+          className={styles.analyzeButton}
           onClick={handleAnalyze}
           disabled={loading || isUploading || !file || !jdTitle.trim() || !jdContent.trim() || (!!file && !isResumeReady)}
         >
@@ -394,8 +512,8 @@ export default function ResumesPage() {
             'Phân tích độ phù hợp'
           )}
         </button>
-        {loading && progress && (
-          <p style={{ marginTop: '1rem', color: '#6b7280', fontSize: '0.875rem' }}>{progress}</p>
+        {stageMessage && (
+          <p style={{ marginTop: '1rem', color: '#6b7280', fontSize: '0.875rem' }} aria-live="polite">{stageMessage}</p>
         )}
       </div>
 
