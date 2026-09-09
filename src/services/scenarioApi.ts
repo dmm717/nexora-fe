@@ -1,17 +1,35 @@
 import { apiClient } from './apiClient';
+import type {
+  ScenarioCategory,
+  ScenarioCard,
+  ScenarioDetail,
+  ScenarioAttempt,
+  ScenarioAttemptHistory,
+  ScenarioProgress,
+  ScenarioFilterParams,
+  ScenarioPageResponse,
+  ScenarioEvaluation,
+  ScenarioDimensionEvaluation,
+} from '@/types/scenario';
 
-export interface ScenarioView {
-  id: string;
-  slug: string;
-  title: string;
-  summary: string;
-  categorySlug: string;
-  categoryName: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  competency: string;
-  estimatedMinutes: number;
-  content?: string; // Only returned when fetching details
-}
+// Re-export types for backward compatibility
+export type {
+  ScenarioCategory,
+  ScenarioCard,
+  ScenarioDetail,
+  ScenarioAttempt,
+  ScenarioAttemptHistory,
+  ScenarioProgress,
+  ScenarioFilterParams,
+  ScenarioPageResponse,
+  ScenarioEvaluation,
+  ScenarioDimensionEvaluation,
+};
+
+// Backward compatibility aliases
+export type ScenarioView = ScenarioDetail;
+export type ScenarioAttemptResponse = ScenarioAttempt;
+export type ScenarioEvaluationResult = ScenarioEvaluation;
 
 export interface ScenarioAttemptCreateRequest {
   scenarioId: string;
@@ -21,72 +39,112 @@ export interface ScenarioAttemptSubmitRequest {
   answer: string;
 }
 
-export interface ScenarioDimensionEvaluation {
-  criterion: string;
-  score: number;
-  evidence: string;
-  feedback: string;
-}
-
-export interface ScenarioEvaluationResult {
-  overallScore: number;
-  dimensions: ScenarioDimensionEvaluation[];
-  strengths: string[];
-  gaps: string[];
-  recommendedApproach: string[];
-  feedback: string;
-}
-
-export interface ScenarioAttemptResponse {
-  id: string;
-  scenarioId: string;
-  scenarioTitle: string;
-  status: 'active' | 'completed' | 'failed';
-  answer?: string;
-  evaluation?: ScenarioEvaluationResult;
-  errorCode?: string;
-  createdAt: string;
-  completedAt?: string;
-}
+export const generateIdempotencyKey = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+};
 
 export const scenarioApi = {
-  getScenarios: async () => {
-    const response = await apiClient.get('/scenarios') as { data: { items?: ScenarioView[] } | ScenarioView[] };
-    return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+  getCategories: async (): Promise<ScenarioCategory[]> => {
+    const response = (await apiClient.get('/scenarios/categories')) as {
+      data: ScenarioCategory[];
+    };
+    return response.data || [];
   },
-  
-  getScenarioDetails: async (idOrSlug: string) => {
-    const response = await apiClient.get(`/scenarios/${idOrSlug}`) as { data: ScenarioView };
-    return response.data;
+
+  getScenarios: async (params?: ScenarioFilterParams): Promise<ScenarioPageResponse> => {
+    const query = new URLSearchParams();
+    if (params?.category) query.set('category', params.category);
+    if (params?.difficulty) query.set('difficulty', params.difficulty);
+    if (params?.competency) query.set('competency', params.competency);
+    if (params?.search) query.set('search', params.search);
+    if (params?.page) query.set('page', params.page.toString());
+    if (params?.pageSize) query.set('pageSize', params.pageSize.toString());
+
+    const qs = query.toString();
+    const endpoint = qs ? `/scenarios?${qs}` : '/scenarios';
+    const response = (await apiClient.get(endpoint)) as {
+      data: ScenarioPageResponse | ScenarioCard[];
+    };
+
+    if (Array.isArray(response.data)) {
+      return { total: response.data.length, items: response.data };
+    }
+    return response.data || { total: 0, items: [] };
   },
-  
-  createAttempt: async (data: ScenarioAttemptCreateRequest) => {
-    const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
-    const response = await apiClient.post('/scenario-attempts', data, {
-      headers: {
-        'Idempotency-Key': idempotencyKey
-      }
-    }) as { data: ScenarioAttemptResponse };
+
+  getScenarioDetails: async (idOrSlug: string): Promise<ScenarioDetail> => {
+    const response = (await apiClient.get(`/scenarios/${idOrSlug}`)) as {
+      data: ScenarioDetail;
+    };
     return response.data;
   },
 
-  submitAttempt: async (id: string, data: ScenarioAttemptSubmitRequest) => {
-    const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
-    const response = await apiClient.post(`/scenario-attempts/${id}/submit`, data, {
-      headers: {
-        'Idempotency-Key': idempotencyKey
-      }
-    }) as { data: ScenarioAttemptResponse };
+  createAttempt: async (
+    scenarioIdOrRequest: string | ScenarioAttemptCreateRequest,
+    idempotencyKey?: string
+  ): Promise<ScenarioAttempt> => {
+    const scenarioId =
+      typeof scenarioIdOrRequest === 'string'
+        ? scenarioIdOrRequest
+        : scenarioIdOrRequest.scenarioId;
+    const key = idempotencyKey || generateIdempotencyKey();
+    const response = (await apiClient.post(
+      '/scenario-attempts',
+      { scenarioId },
+      { headers: { 'Idempotency-Key': key } }
+    )) as { data: ScenarioAttempt };
     return response.data;
   },
 
-  getAttempts: async () => {
-    const response = await apiClient.get('/scenario-attempts') as { data: ScenarioAttemptResponse[] };
+  submitAttempt: async (
+    attemptId: string,
+    answerOrRequest: string | ScenarioAttemptSubmitRequest,
+    idempotencyKey?: string
+  ): Promise<ScenarioAttempt> => {
+    const answer =
+      typeof answerOrRequest === 'string'
+        ? answerOrRequest
+        : answerOrRequest.answer;
+    const key = idempotencyKey || generateIdempotencyKey();
+    const response = (await apiClient.post(
+      `/scenario-attempts/${attemptId}/submit`,
+      { answer },
+      { headers: { 'Idempotency-Key': key } }
+    )) as { data: ScenarioAttempt };
     return response.data;
   },
 
-  getAttempt: async (id: string) => {
-    const response = await apiClient.get(`/scenario-attempts/${id}`) as { data: ScenarioAttemptResponse };
+  getAttempt: async (id: string): Promise<ScenarioAttempt> => {
+    const response = (await apiClient.get(`/scenario-attempts/${id}`)) as {
+      data: ScenarioAttempt;
+    };
     return response.data;
-  }
+  },
+
+  getAttemptHistory: async (idOrSlug: string): Promise<ScenarioAttemptHistory> => {
+    const response = (await apiClient.get(`/scenarios/${idOrSlug}/attempts`)) as {
+      data: ScenarioAttemptHistory;
+    };
+    return response.data;
+  },
+
+  retryScenario: async (scenarioId: string, idempotencyKey?: string): Promise<ScenarioAttempt> => {
+    const key = idempotencyKey || generateIdempotencyKey();
+    const response = (await apiClient.post(
+      `/scenarios/${scenarioId}/retry`,
+      {},
+      { headers: { 'Idempotency-Key': key } }
+    )) as { data: ScenarioAttempt };
+    return response.data;
+  },
+
+  getProgress: async (): Promise<ScenarioProgress> => {
+    const response = (await apiClient.get('/scenarios/progress')) as {
+      data: ScenarioProgress;
+    };
+    return response.data;
+  },
 };

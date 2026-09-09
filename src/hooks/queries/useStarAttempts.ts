@@ -15,7 +15,7 @@ export const useStarAttempt = (id: string, isScenario: boolean, refetchInterval?
     ),
     staleTime: 0,
     enabled: authReady && isAuthenticated && !!id,
-    // The backend does not currently emit ResourceChanged events for STAR or scenario attempts.
+    // Realtime notifications are primary via SignalR resourceChanged; polling provides safety-net fallback.
     refetchInterval: refetchInterval !== undefined ? refetchInterval : (query) => {
       const status = readStatus(query.state.data);
       if (status === 'completed' || status === 'failed' || status === 'abandoned') {

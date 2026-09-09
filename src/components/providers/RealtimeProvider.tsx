@@ -36,6 +36,10 @@ const RECOVERY_QUERY_PREFIXES: readonly QueryKey[] = [
   ['resumeAnalysis'],
   ['interview'],
   ['interviewReport'],
+  ['scenarioAttempt'],
+  ['scenarioHistory'],
+  ['scenarioProgress'],
+  ['starAttempt'],
 ];
 
 function parseResourceChangedEvent(value: unknown): RealtimeEvent | null {
@@ -84,6 +88,14 @@ function getQueryKeysForEvent(event: RealtimeEvent): QueryKey[] {
       return status === 'completed'
         ? [['interview', event.resourceId], ['interviewReport', event.resourceId]]
         : [['interview', event.resourceId]];
+    case 'scenarioattempt':
+      return [
+        ['scenarioAttempt', event.resourceId],
+        ['scenarioHistory'],
+        ['scenarioProgress'],
+      ];
+    case 'starattempt':
+      return [['starAttempt', event.resourceId]];
     default:
       return [];
   }

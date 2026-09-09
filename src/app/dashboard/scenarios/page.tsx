@@ -1,57 +1,80 @@
 'use client';
 
-import React from 'react';
-import styles from './Scenarios.module.css';
-import { useScenarios } from '@/hooks/queries/useScenarios';
-import { useRouter } from 'next/navigation';
+import React, { useState, useMemo } from 'react';
+import styles from '@/components/features/scenarios/ScenarioAcademy.module.css';
+import {
+  ScenarioProgressOverview,
+  ScenarioFilters,
+  ScenarioGrid,
+} from '@/components/features/scenarios';
+import {
+  useScenarios,
+  useScenarioCategories,
+  useScenarioProgress,
+} from '@/hooks/queries/useScenarios';
+import type { ScenarioFilterParams } from '@/types/scenario';
 
-export default function ScenariosPage() {
-  const { data: scenarios = [], isLoading: loading, error: queryError } = useScenarios();
-  const error = queryError ? queryError.message || 'Lỗi khi tải danh sách tình huống' : null;
-  const router = useRouter();
+export default function ScenarioAcademyPage() {
+  const [filters, setFilters] = useState<ScenarioFilterParams>({});
 
-  if (loading) {
-    return <div className={styles.container}>Đang tải Thư viện Tình huống...</div>;
-  }
+  const { data: progressData } = useScenarioProgress();
+  const { data: categories = [] } = useScenarioCategories();
+  const { data: scenarioPage, isLoading: scenariosLoading } = useScenarios(filters);
 
-  if (error) {
-    return <div className={styles.container}><div className={styles.emptyState}>{error}</div></div>;
-  }
+  const scenarios = useMemo(() => scenarioPage?.items || [], [scenarioPage?.items]);
+
+  // Extract unique competencies from progress or current scenarios for filter options
+  const competencyOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (progressData?.competencies) {
+      progressData.competencies.forEach((c) => {
+        if (c.competency) set.add(c.competency);
+      });
+    }
+    scenarios.forEach((s) => {
+      if (s.competency) set.add(s.competency);
+    });
+    return Array.from(set).sort();
+  }, [progressData, scenarios]);
+
+  const hasFilters = Boolean(
+    filters.category ||
+    filters.difficulty ||
+    filters.competency ||
+    filters.search
+  );
+
+  const handleResetFilters = () => {
+    setFilters({});
+  };
+
+  const handleSelectRecommendedDifficulty = (recommended: string) => {
+    setFilters((prev) => ({ ...prev, difficulty: recommended, page: 1 }));
+  };
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Thư viện Tình huống (Scenario Library)</h1>
-        <p className={styles.subtitle}>Chọn một tình huống thực tế để thực hành kỹ năng S-T-A-R của bạn.</p>
-      </header>
+    <main className={styles.academyRoot}>
+      {/* Progress & Coaching Hero */}
+      <ScenarioProgressOverview
+        progress={progressData}
+        onSelectRecommendedDifficulty={handleSelectRecommendedDifficulty}
+      />
 
-      {scenarios.length === 0 ? (
-        <div className={styles.emptyState}>Hiện tại chưa có tình huống nào được xuất bản.</div>
-      ) : (
-        <div className={styles.grid}>
-          {scenarios.map(scenario => (
-            <div key={scenario.id} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <span className={`${styles.badge} ${styles['badge-' + scenario.difficulty]}`}>
-                  {scenario.difficulty === 'easy' ? 'Dễ' : scenario.difficulty === 'medium' ? 'Vừa' : 'Khó'}
-                </span>
-                <span className={styles.competency}>{scenario.competency}</span>
-              </div>
-              <h2 className={styles.cardTitle}>{scenario.title}</h2>
-              <p className={styles.cardSummary}>{scenario.summary}</p>
-              <div className={styles.cardFooter}>
-                <span className={styles.timeInfo}>⏱ {scenario.estimatedMinutes} phút</span>
-                <button 
-                  className={styles.btnAction}
-                  onClick={() => router.push(`/dashboard/star-builder?scenario=${scenario.slug}`)}
-                >
-                  Thực hành S-T-A-R
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      {/* Filter Toolbar */}
+      <ScenarioFilters
+        categories={categories}
+        filters={filters}
+        onFilterChange={setFilters}
+        availableCompetencies={competencyOptions}
+      />
+
+      {/* Grid of Scenarios */}
+      <ScenarioGrid
+        scenarios={scenarios}
+        isLoading={scenariosLoading}
+        hasFilters={hasFilters}
+        onResetFilters={handleResetFilters}
+      />
+    </main>
   );
 }
