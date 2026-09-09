@@ -7,7 +7,7 @@ export const translateErrorMessage = (englishMessage: string): string => {
   if (lowerMsg.includes('email field is required')) return 'Email là bắt buộc.';
   if (lowerMsg.includes('not a valid e-mail address')) return 'Định dạng email không hợp lệ.';
   if (lowerMsg.includes('password field is required')) return 'Mật khẩu là bắt buộc.';
-  if (lowerMsg.includes('minimum length of \'10\'')) return 'Mật khẩu phải có ít nhất 10 ký tự.';
+  if (lowerMsg.includes('minimum length of \'8\'') || lowerMsg.includes('minimum length of \'10\'')) return 'Mật khẩu phải có ít nhất 8 ký tự.';
   if (lowerMsg.includes('maximum length of \'128\'')) return 'Mật khẩu không được vượt quá 128 ký tự.';
   if (lowerMsg.includes('displayname field is required')) return 'Tên hiển thị là bắt buộc.';
   if (lowerMsg.includes('maximum length of \'120\'')) return 'Tên hiển thị không được vượt quá 120 ký tự.';

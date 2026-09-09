@@ -163,3 +163,110 @@
     padding: 0.4rem 0.8rem;
   }
 }
+
+.helperText {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: -0.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.noticeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(0, 156, 166, 0.1);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.iconWrapperSuccess {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.iconWrapperError {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.noticeText {
+  font-size: 0.95rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.noticeEmail {
+  font-weight: 700;
+  color: #111827;
+}
+
+.warningBanner {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: #92400e;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  line-height: 1.4;
+}
+
+.bannerAction {
+  color: var(--color-primary);
+  font-weight: 600;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+  font-size: 0.85rem;
+}
+
+.bannerAction:hover {
+  opacity: 0.8;
+}
+
+.secondaryButton {
+  width: 100%;
+  padding: clamp(0.7rem, calc(0.6rem + 0.8vh), 0.9rem);
+  background-color: transparent;
+  color: #374151;
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  border-radius: clamp(0.375rem, calc(0.2rem + 0.5vw), 0.5rem);
+  font-size: clamp(0.9rem, calc(0.85rem + 0.2vw), 1rem);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background-color: rgba(243, 244, 246, 0.8);
+  border-color: #9ca3af;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

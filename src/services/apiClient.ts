@@ -65,9 +65,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     }
   }
 
-  const isAuthEndpoint = fetchParams.url.includes('/auth/login') || 
-                         fetchParams.url.includes('/auth/register') || 
-                         fetchParams.url.includes('/auth/refresh');
+  const isAuthEndpoint = fetchParams.url.includes('/auth/');
 
   if (response.status === 401 && !isAuthEndpoint) {
     if (isRefreshing) {
