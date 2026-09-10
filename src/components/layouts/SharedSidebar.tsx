@@ -20,10 +20,9 @@ interface SharedSidebarProps {
   userEmail: string;
   handleLogout: () => void;
   menuItems: MenuSection[];
-  isCustomStyle?: boolean;
 }
 
-export const SharedSidebar = ({ pathname, userEmail, handleLogout, menuItems, isCustomStyle }: SharedSidebarProps) => (
+export const SharedSidebar = ({ pathname, userEmail, handleLogout, menuItems }: SharedSidebarProps) => (
   <aside className={styles.leftSidebar}>
       <Link href="/dashboard" className={styles.logo}>
         <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />

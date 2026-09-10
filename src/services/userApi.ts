@@ -10,6 +10,17 @@ export interface BillingSummaryResponse {
     reserved: number;
     consumed: number;
     available: number | null;
+    features: {
+      code: string;
+      name: string;
+      enabled: boolean;
+      limit: number | null;
+      reserved: number;
+      consumed: number;
+      adjustment: number;
+      available: number | null;
+      unlimited: boolean;
+    }[];
   };
   orders: {
     id: string;
@@ -31,6 +42,11 @@ export interface UserResponse {
 
 export interface UpdateProfileRequest {
   displayName: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword?: string;
+  newPassword: string;
 }
 
 export interface DeletionRequestView {
@@ -64,5 +80,9 @@ export const userApi = {
   requestDeletion: async (): Promise<DeletionRequestView> => {
     const response = await apiClient.post('/me/deletion-requests');
     return response.data;
+  },
+
+  changePassword: async (data: ChangePasswordRequest): Promise<void> => {
+    await apiClient.post('/me/password', data);
   }
 };

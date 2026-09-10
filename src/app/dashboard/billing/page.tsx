@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import styles from './Billing.module.css';
-import { billingApi, PlanView } from '@/services/billingApi';
+import { billingApi } from '@/services/billingApi';
 import { useBillingPlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

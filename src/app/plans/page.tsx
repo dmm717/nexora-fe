@@ -6,8 +6,7 @@ import styles from './PlansPage.module.css';
 import Link from 'next/link';
 
 export default function PlansPage() {
-  const { data: plans, isLoading: loading, error: queryError } = usePlans();
-  const error = queryError ? queryError.message || 'Lỗi khi tải danh sách gói.' : null;
+  const { data: plans, isLoading: loading } = usePlans();
 
   if (loading) {
     return (

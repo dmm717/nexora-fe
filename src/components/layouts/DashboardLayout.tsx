@@ -14,6 +14,10 @@ const navItems = [
     href: '/dashboard',
   },
   {
+    name: 'Mục tiêu nghề nghiệp',
+    href: '/dashboard/career-goals',
+  },
+  {
     name: 'Phân tích CV',
     href: '/dashboard/resumes',
   },
@@ -152,6 +156,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                   </div>
                   <div className={styles.dropdownDivider}></div>
+                  <button 
+                    className={styles.dropdownItem} 
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      router.push('/dashboard/account');
+                    }}
+                  >
+                    Cài đặt tài khoản
+                  </button>
                   <button 
                     className={styles.dropdownItem} 
                     onClick={() => {

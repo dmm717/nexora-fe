@@ -1,11 +1,11 @@
 /* eslint-disable react-doctor/no-array-index-as-key */
 'use client';
 
-import React, { useState, useRef, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import styles from './StarBuilder.module.css';
 import { starBuilderApi, StarAttemptRequest, StarAttemptResponse, StarEvaluation } from '@/services/starBuilderApi';
 import { useSearchParams } from 'next/navigation';
-import { scenarioApi, ScenarioView, ScenarioAttemptResponse, ScenarioEvaluationResult } from '@/services/scenarioApi';
+import { scenarioApi, ScenarioAttemptResponse, ScenarioEvaluationResult } from '@/services/scenarioApi';
 import { useScenarioDetails } from '@/hooks/queries/useScenarios';
 import { useStarAttempt } from '@/hooks/queries/useStarAttempts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

@@ -18,6 +18,54 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
+const passwordSchema = z.object({
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(6, 'Mật khẩu mới phải có ít nhất 6 ký tự'),
+  confirmPassword: z.string()
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Mật khẩu xác nhận không khớp",
+  path: ["confirmPassword"]
+});
+
+type PasswordFormValues = z.infer<typeof passwordSchema>;
+
+const PasswordForm = () => {
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useHookForm<PasswordFormValues>({
+    resolver: zodResolver(passwordSchema)
+  });
+
+  const onSubmit = async (data: PasswordFormValues) => {
+    try {
+      setError(null);
+      setSuccess(null);
+      await userApi.changePassword({ currentPassword: data.currentPassword, newPassword: data.newPassword });
+      setSuccess('Đổi mật khẩu thành công!');
+      reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Lỗi khi đổi mật khẩu');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      {error && <div className={styles.errorMessage}>{error}</div>}
+      {success && <div className={styles.successMessage}>{success}</div>}
+      <div className={styles.formGroup}>
+        <Input type="password" label="Mật khẩu hiện tại (nếu có)" {...register('currentPassword')} error={errors.currentPassword?.message} />
+      </div>
+      <div className={styles.formGroup}>
+        <Input type="password" label="Mật khẩu mới" {...register('newPassword')} error={errors.newPassword?.message} />
+      </div>
+      <div className={styles.formGroup}>
+        <Input type="password" label="Xác nhận mật khẩu mới" {...register('confirmPassword')} error={errors.confirmPassword?.message} />
+      </div>
+      <Button type="submit" isLoading={isSubmitting}>Đổi mật khẩu</Button>
+    </form>
+  );
+};
+
 const AccountSettings = () => {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -266,6 +314,14 @@ const AccountSettings = () => {
         </div>
       </div>
       
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Đổi mật khẩu</h3>
+        <p className={styles.infoLabel} style={{marginBottom: '1rem'}}>
+          Nếu bạn đăng nhập bằng Google, hãy để trống ô Mật khẩu hiện tại để thiết lập mật khẩu mới.
+        </p>
+        <PasswordForm />
+      </div>
+
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Bảo mật</h3>
         <p className={styles.infoLabel} style={{marginBottom: '1rem'}}>

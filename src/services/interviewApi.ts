@@ -12,22 +12,29 @@ export interface StartInterviewCommand {
 export interface QuestionView {
   id: string;
   sequence: number;
+  kind?: string;
+  topic?: string;
+  parentQuestionId?: string;
   content: string;
   createdAt: string;
 }
 
 export interface StarEvaluationComponent {
   score: number;
+  detected?: boolean;
+  evidence?: string;
   feedback: string;
 }
 
 export interface StarEvaluation {
   applicable: boolean;
+  overallScore?: number;
   situation?: StarEvaluationComponent;
   task?: StarEvaluationComponent;
   action?: StarEvaluationComponent;
   result?: StarEvaluationComponent;
   missingElements?: string[];
+  strengths?: string[];
   coachingTips?: string[];
 }
 
@@ -37,12 +44,26 @@ export interface AnswerView {
   content: string;
   durationSeconds?: number;
   evaluation?: {
-    score?: number;
+    scores?: Array<{
+      criterion: string;
+      score: number;
+      evidence?: string;
+    }>;
     feedback?: string;
+    scoreScale?: string;
     star?: StarEvaluation;
+    strengths?: string[];
+    improvements?: string[];
+    improvedAnswer?: string;
     [key: string]: unknown;
   };
   createdAt: string;
+}
+
+export interface InterviewContinuationView {
+  state: 'in_progress' | 'upgrade_required' | 'max_questions_reached';
+  canFinishNow: boolean;
+  canUpgradeAndContinue: boolean;
 }
 
 export interface InterviewView {
@@ -55,6 +76,7 @@ export interface InterviewView {
   version: number;
   questions: QuestionView[];
   answers: AnswerView[];
+  continuation?: InterviewContinuationView;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,13 +91,17 @@ export interface AnswerResult {
   answer: AnswerView;
   nextQuestion?: QuestionView;
   isComplete: boolean;
+  continuation?: InterviewContinuationView;
 }
 
 export interface StarSummary {
+  applicableAnswers?: number;
   averageScore: number;
+  componentAverages?: Record<string, number>;
   strongestComponent: string;
   weakestComponent: string;
   recurringIssues: string[];
+  coachingPriorities?: string[];
 }
 
 export interface ReportView {
@@ -129,6 +155,15 @@ export const interviewApi = {
 
   complete: async (id: string) => {
     const response = await apiClient.post(`/interviews/${id}/complete`, {}, {
+      headers: {
+        'Idempotency-Key': generateIdempotencyKey()
+      }
+    }) as { data: InterviewView };
+    return response.data;
+  },
+
+  continue: async (id: string) => {
+    const response = await apiClient.post(`/interviews/${id}/continue`, {}, {
       headers: {
         'Idempotency-Key': generateIdempotencyKey()
       }

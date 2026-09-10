@@ -1,24 +1,82 @@
 import { apiClient } from './apiClient';
 
-export interface AdminDashboardResponse {
-  totalUsers: number;
-  activeUsers: number;
-  totalInterviews: number;
-  revenue: number;
-  quotaUsage: Record<string, number>;
+// --- Types ---
+export interface AdminPlanFeatureView {
+  featureDefinitionId: string;
+  code: string;
+  name: string;
+  enabled: boolean;
+  limit?: number;
+  unlimited: boolean;
 }
 
-// --- Types ---
-export interface AdminPlanView { id: string; code: string; name: string; [key: string]: unknown; }
-export interface AdminScenarioCategoryView { id: string; name: string; [key: string]: unknown; }
-export interface AdminScenarioView { id: string; title: string; [key: string]: unknown; }
-export interface AdminUserView { id: string; email: string; [key: string]: unknown; }
+export interface AdminPlanPriceView {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  durationDays?: number;
+  interviewQuota?: number;
+  isActive: boolean;
+  features: AdminPlanFeatureView[];
+}
+
+export interface AdminPlanView {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  badge?: string;
+  isHighlighted: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  prices: AdminPlanPriceView[];
+}
+
+export interface AdminScenarioCategoryView { 
+  id: string; 
+  slug: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface AdminScenarioView {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  categoryId: string;
+  difficulty: string;
+  competency: string;
+  estimatedMinutes: number;
+  content: string;
+  status: string;
+  createdAt: string;
+  publishedAt?: string;
+}
+
+export interface AdminUserView {
+  id: string;
+  email: string;
+  displayName?: string;
+  roles: string[];
+  active: boolean;
+  createdAt: string;
+  currentPlanCode?: string;
+  entitlementStatus?: string;
+  entitlementStartsAt?: string;
+  entitlementEndsAt?: string;
+}
+
+export interface AdminUserPageResponse {
+  lastId?: string;
+  users: AdminUserView[];
+}
+
+export interface AdminRoleView { name: string; }
 
 export const adminApi = {
-  getDashboard: async () => {
-    const response = await apiClient.get('/admin/dashboard') as { data: AdminDashboardResponse };
-    return response.data;
-  },
 
   // --- Plans Management ---
   getPlans: async () => {
@@ -94,7 +152,7 @@ export const adminApi = {
 
   // --- Users Management ---
   getUsers: async () => {
-    const response = await apiClient.get('/admin/users') as { data: AdminUserView[] };
+    const response = await apiClient.get('/admin/users') as { data: AdminUserPageResponse };
     return response.data;
   },
   getUserDetails: async (userId: string) => {
@@ -107,6 +165,20 @@ export const adminApi = {
   },
   adjustFeatures: async (userId: string, data: Record<string, unknown>) => {
     const response = await apiClient.post(`/admin/users/${userId}/feature-adjustments`, data) as { data: unknown };
+    return response.data;
+  },
+  updateUserRoles: async (userId: string, roles: string[]) => {
+    const response = await apiClient.put(`/admin/users/${userId}/roles`, { roles }) as { data: AdminUserView };
+    return response.data;
+  },
+  updateUserStatus: async (userId: string, status: string) => {
+    const response = await apiClient.put(`/admin/users/${userId}/status`, { status }) as { data: AdminUserView };
+    return response.data;
+  },
+
+  // --- Roles Management ---
+  getRoles: async () => {
+    const response = await apiClient.get('/admin/roles') as { data: AdminRoleView[] };
     return response.data;
   }
 };

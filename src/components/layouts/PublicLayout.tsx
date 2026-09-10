@@ -2,11 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import styles from './DashboardLayout.module.css'; // Reuse CSS
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { userApi } from '@/services/userApi';
 import { authApi } from '@/services/authApi';
-import { getAvatarColor } from '@/utils/colorUtils';
 import { SharedSidebar } from './SharedSidebar';
 
 const menuItems = [

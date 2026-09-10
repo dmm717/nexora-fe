@@ -143,4 +143,11 @@ export const scenarioApi = {
     };
     return response.data;
   },
+
+  listAttempts: async (): Promise<ScenarioAttempt[]> => {
+    const response = (await apiClient.get('/scenario-attempts')) as {
+      data: ScenarioAttempt[];
+    };
+    return response.data;
+  },
 };
