@@ -4,7 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import styles from './NextPracticeRecommendationCard.module.css';
 import { useNextRecommendation } from '@/hooks/queries/useNextRecommendation';
-import { getRecommendationDeepLink } from '@/services/recommendationsApi';
+import {
+  getRecommendationDeepLink,
+  type NextPracticeRecommendationResponse,
+} from '@/services/recommendationsApi';
 import { LearningPathValues } from '@/services/learningPathContract';
 import { ApiError } from '@/services/apiClient';
 
@@ -56,9 +59,25 @@ function getActivityActionLabel(activityType: string): string {
   }
 }
 
-export default function NextPracticeRecommendationCard() {
-  const { data: recommendation, isLoading, error, refetch, isFetching } =
-    useNextRecommendation();
+interface NextPracticeRecommendationCardProps {
+  /** Optional pre-loaded recommendation (e.g. from B13 Progress Dashboard) */
+  recommendation?: NextPracticeRecommendationResponse | null;
+  /** When true, indicates parent is loading data */
+  isLoading?: boolean;
+}
+
+export default function NextPracticeRecommendationCard({
+  recommendation: initialRecommendation,
+  isLoading: initialLoading,
+}: NextPracticeRecommendationCardProps = {}) {
+  const hasOverride = initialRecommendation !== undefined;
+  const query = useNextRecommendation();
+
+  const isLoading = hasOverride ? Boolean(initialLoading) : query.isLoading;
+  const recommendation = hasOverride ? initialRecommendation : query.data;
+  const error = hasOverride ? null : query.error;
+  const refetch = query.refetch;
+  const isFetching = query.isFetching;
 
   if (isLoading) {
     return (

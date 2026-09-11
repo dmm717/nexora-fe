@@ -7,6 +7,7 @@ import {
 } from '@/services/careerGoalsApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
+import { PROGRESS_DASHBOARD_QUERY_KEY } from './useProgressDashboard';
 
 export const CAREER_GOALS_QUERY_KEY = ['careerGoals'] as const;
 
@@ -32,6 +33,7 @@ export const useCreateCareerGoal = () => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
@@ -45,6 +47,7 @@ export const useUpdateCareerGoal = () => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
@@ -59,6 +62,7 @@ export const useArchiveCareerGoal = () => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
@@ -73,6 +77,7 @@ export const useReactivateCareerGoal = () => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
