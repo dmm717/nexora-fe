@@ -45,3 +45,27 @@
 - Hardened pending record validation: required nonblank trimmed inputs (`jdTitle`/`jdContent` for job_targeted, `industry`/`targetRole`/`seniority` for field_benchmark); safely pruned malformed records.
 - Refactored pure contract logic into importable `src/services/cvAnalysisContract.ts`; rewrote `tests/cvAnalysisProductionContract.test.mjs` to test real production functions directly; eliminated fictional local quota boolean test.
 - Validation: `npm test` 23 passed, `npx tsc --noEmit` 0 errors, touched files ESLint 0 errors/0 warnings, `npm run build` passed, `git diff --check` clean.
+
+## 2026-09-11 - Interview Production Integration (A6 + A7 + A8 + A9)
+
+- Branch: `feat/interview-production-integration`
+- Baseline: `277bc1c50df752cf0d7a1e4de4f7805fa905c4e6` (merge commit of PR #4 on `origin/main`)
+- Backend SHA verified against: `2a8638cff554eea6be7cd8b35001732e656695a9` (`qbao0111/nexora-backend:main`)
+- Scope:
+  - A6 interview contract v1: aligned TypeScript models and API client with backend `PracticeContracts.cs` and `InterviewsController.cs`. Integrated canonical lifecycle `draft → starting → active → completing → completed` (plus `failed`/`abandoned`). Added explicit idempotency key support (`idempotencyKey?: string`) across all mutating interview endpoints (`start`, `submitAnswer`, `continue`, `complete`, `retryReport`) with stable intent preservation. Added server-truth question derivation (`getCurrentQuestion`, `getAnsweredQuestions`).
+  - A7 free Q1–Q3 + same-session paid continuation: handled backend `InterviewContinuationView` (`in_progress`, `upgrade_required`, `max_questions_reached`). Guaranteed `shouldAutoComplete` returns `false` when `upgrade_required` even if `nextQuestion` is null. Implemented dual-action UX at `upgrade_required`: Finish Now (`complete()`) vs Upgrade & Continue (`continue()`) with plan-neutral copy ("Nâng cấp gói để tiếp tục"). Ensured continuation preserves the same interview session without resetting or creating new sessions.
+  - A8 per-answer coaching: rendered structured STAR scorecards (Situation, Task, Action, Result, missing elements, strengths, coaching tips) when `star.applicable === true`, and generic coaching (strengths, improvements, improved answer with escaped quotes, feedback) when `star.applicable === false`. Maintained backend-owned `0-100` score scale. Defensive helpers guarantee non-crashing UI for partial/missing evaluation fields.
+  - A9 production report + report recovery/retry: added `interviewApi.retryReport` (`POST /interviews/${id}/report/retry`). Reconciled `INTERVIEW_REPORT_PROCESSING` and `completing` 404s with bounded fallback polling. Rendered failure banner with "Thử tạo lại báo cáo" CTA on `INTERVIEW_REPORT_FAILED` (409) with stable idempotency without consuming extra interview quota. Rendered full production report data (`overallScore`, `rubric`, `strengths`, `gaps`, `actionPlan`, `starSummary`, `questionReviews`, `sample` partial evaluation banner).
+- Out of scope:
+  - A10 voice/browser microphone STT explicitly excluded.
+  - Backend repository untouched.
+- Test coverage added:
+  - `tests/interviewProductionContract.test.mjs`: 14 contract and regression tests exercising real production helpers covering `in_progress`, `upgrade_required`, `shouldAutoComplete`, `canFinishNow`, `canUpgradeAndContinue`, same-session continue, server question selection, STAR vs generic presentation, `0-100` score scale, report 404 pending filter, report retry API contract, deterministic error classification, defensive evaluation normalization, and idempotency key reuse.
+- Validation:
+  - `npm test`: 37 passed (14 new interview contract tests + 12 CV contract tests + 11 scenario tests).
+  - `npx tsc --noEmit`: passed with 0 errors.
+  - Touched files ESLint: 0 errors, 0 warnings on interview files (1 pre-existing warning in `apiClient.ts`).
+  - `npm run build`: compiled successfully with Turbopack, all 33 static/dynamic routes generated.
+  - `git diff --check`: clean (0 errors).
+- Commit: `feat(interview): integrate production interview and report flow`
+- Blockers: none. Backend untouched. PR created against `main` without merging.

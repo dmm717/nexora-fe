@@ -27,7 +27,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 
+  box-shadow:
     10px 10px 20px rgba(31, 41, 55, 0.3),
     inset -6px -8px 12px rgba(0, 0, 0, 0.5),
     inset 6px 8px 12px rgba(75, 85, 99, 0.7);
@@ -35,7 +35,7 @@
 
 .btnPrimary:hover {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 
+  box-shadow:
     14px 14px 24px rgba(31, 41, 55, 0.35),
     inset -6px -8px 12px rgba(0, 0, 0, 0.5),
     inset 6px 8px 12px rgba(75, 85, 99, 0.8);
@@ -43,7 +43,7 @@
 
 .btnPrimary:active {
   transform: translateY(2px) scale(0.98);
-  box-shadow: 
+  box-shadow:
     4px 4px 10px rgba(31, 41, 55, 0.25),
     inset -3px -4px 6px rgba(0, 0, 0, 0.6),
     inset 3px 4px 6px rgba(75, 85, 99, 0.6);
@@ -51,7 +51,7 @@
 
 .panel {
   background-color: #f0f3f8;
-  box-shadow: 
+  box-shadow:
     12px 12px 24px rgba(166, 180, 200, 0.4),
     -10px -10px 20px rgba(255, 255, 255, 0.9);
   padding: 2rem;
@@ -248,4 +248,79 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: #1d1d1f;
+}
+
+.retryCard {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.retryTitle {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 0.75rem;
+}
+
+.retryDescription {
+  color: #7f1d1d;
+  font-size: 1rem;
+  max-width: 540px;
+  margin: 0 auto 1.5rem auto;
+  line-height: 1.5;
+}
+
+.retryMeta {
+  font-size: 0.85rem;
+  color: #b91c1c;
+  margin-top: 1rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.partialBanner {
+  background-color: #fffbeb;
+  border: 1px solid #fef3c7;
+  color: #92400e;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.questionReviewCard {
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background-color: #ffffff;
+  margin-bottom: 1.5rem;
+}
+
+.questionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.questionText {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 1.05rem;
+}
+
+.answerText {
+  color: #475569;
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  white-space: pre-wrap;
+  line-height: 1.6;
 }
