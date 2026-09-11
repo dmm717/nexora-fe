@@ -3,6 +3,7 @@ import { learningPathApi } from '@/services/learningPathApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { SKILL_PROFILE_QUERY_KEY } from './useSkillProfile';
 import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
+import { PROGRESS_DASHBOARD_QUERY_KEY } from './useProgressDashboard';
 
 export const LEARNING_PATH_QUERY_KEY = ['learningPath'] as const;
 
@@ -41,6 +42,7 @@ export const useGenerateLearningPath = () => {
       queryClient.setQueryData(LEARNING_PATH_QUERY_KEY, data);
       void queryClient.invalidateQueries({ queryKey: LEARNING_PATH_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
@@ -54,6 +56,7 @@ export const useRefreshLearningPath = () => {
       queryClient.setQueryData(LEARNING_PATH_QUERY_KEY, data);
       void queryClient.invalidateQueries({ queryKey: LEARNING_PATH_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
@@ -68,6 +71,7 @@ export const useCompleteLearningPathActivity = () => {
       void queryClient.invalidateQueries({ queryKey: LEARNING_PATH_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: SKILL_PROFILE_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },
   });
 };
