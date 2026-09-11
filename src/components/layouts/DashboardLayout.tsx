@@ -18,6 +18,14 @@ const navItems = [
     href: '/dashboard/career-goals',
   },
   {
+    name: 'Hồ sơ kỹ năng',
+    href: '/dashboard/skill-profile',
+  },
+  {
+    name: 'Lộ trình học',
+    href: '/dashboard/learning-path',
+  },
+  {
     name: 'Phân tích CV',
     href: '/dashboard/resumes',
   },
