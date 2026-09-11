@@ -1,4 +1,17 @@
 import { ApiError, apiClient } from './apiClient';
+import type {
+  ResumeAnalysisMode,
+  CreateJobTargetedAnalysisRequest,
+  CreateFieldBenchmarkAnalysisRequest,
+  CreateAnalysisRequest,
+} from './cvAnalysisContract';
+
+export type {
+  ResumeAnalysisMode,
+  CreateJobTargetedAnalysisRequest,
+  CreateFieldBenchmarkAnalysisRequest,
+  CreateAnalysisRequest,
+};
 
 export interface PresignRequest {
   fileName: string;
@@ -14,10 +27,15 @@ export interface PresignResponse {
 
 export interface ResumeView {
   id: string;
-  uploadToken: string;
-  originalFileName: string;
+  fileName: string;
+  contentType: string;
+  size: number;
   status: string;
   createdAt: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  uploadToken?: string;
+  originalFileName?: string;
 }
 
 export interface CreateJdRequest {
@@ -32,26 +50,80 @@ export interface JdView {
   createdAt: string;
 }
 
-export interface CreateAnalysisRequest {
-  resumeId: string;
-  jobDescriptionId: string;
+export interface JobTargetedBreakdown {
+  technicalSkillMatch: number;
+  experienceRelevance: number;
+  impactEvidence: number;
+  clarity: number;
+  structure: number;
+}
+
+export interface JobTargetedAnalysisResult {
+  mode: 'job_targeted';
+  matchScore: number;
+  summary: string;
+  matchedKeywordsOrSkills: string[];
+  missingKeywordsOrSkills: string[];
+  strengths: string[];
+  gaps: string[];
+  recommendations: string[];
+  sectionFeedback: string[];
+  breakdown: JobTargetedBreakdown;
+}
+
+export interface FieldBenchmarkBreakdown {
+  technicalFoundation: number;
+  projectEvidence: number;
+  experiencePresentation: number;
+  impactAchievements: number;
+  clarity: number;
+  roleAlignment: number;
+}
+
+export interface FieldBenchmarkAnalysisResult {
+  mode: 'field_benchmark';
+  readinessScore: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  recommendations: string[];
+  sectionFeedback: string[];
+  breakdown: FieldBenchmarkBreakdown;
+}
+
+export type ResumeAnalysisResult =
+  | JobTargetedAnalysisResult
+  | FieldBenchmarkAnalysisResult;
+
+export interface ResumeAnalysisContextView {
+  mode: string;
+  industry?: string | null;
+  targetRole?: string | null;
+  seniority?: string | null;
 }
 
 export interface AnalysisView {
   id: string;
-  resumeId: string;
-  jobDescriptionId: string;
   status: string;
-  errorCode?: string;
-  errorMessage?: string;
-  result?: {
-    strengths?: string[];
-    gaps?: string[];
-    recommendations?: string[];
-    matchScore?: number;
-  };
+  result?: ResumeAnalysisResult | Record<string, unknown> | null;
   createdAt: string;
-  updatedAt: string;
+  completedAt?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  mode?: ResumeAnalysisMode | string | null;
+  context?: ResumeAnalysisContextView | null;
+  resumeVersion?: number;
+  jobDescriptionVersion?: number | null;
+  modelVersion?: string | null;
+  promptVersion?: string | null;
+  schemaVersion?: string | null;
+  rubricVersion?: string | null;
+  profileModelVersion?: string | null;
+  profilePromptVersion?: string | null;
+  profileSchemaVersion?: string | null;
+  resumeId?: string;
+  jobDescriptionId?: string;
+  updatedAt?: string;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';

@@ -1,19 +1,21 @@
 import { ApiError } from './apiClient';
 import { AnalysisView, cvAnalysisApi } from './cvAnalysisApi';
+import {
+  ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
+  buildCreateAnalysisRequest,
+  isDeterministicAnalysisError,
+} from './cvAnalysisContract';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 
 export type ResumeAnalysisStage = 'creating-jd' | 'analyzing' | 'recovering';
 
-export interface ResumeAnalysisOperation {
-  userId: string;
-  idempotencyKey: string;
-  resumeId: string;
-  jobDescriptionId: string | null;
-  analysisId: string | null;
-  jdTitle: string;
-  jdContent: string;
-  timestamp: string;
-}
+export type {
+  ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
+};
 
 export interface ResumeAnalysisCoordinatorOptions {
   signal?: AbortSignal;
@@ -21,11 +23,26 @@ export interface ResumeAnalysisCoordinatorOptions {
   onStage?: (stage: ResumeAnalysisStage) => void;
 }
 
-export function createResumeAnalysisOperation(input: Omit<ResumeAnalysisOperation, 'idempotencyKey' | 'timestamp'>): ResumeAnalysisOperation {
-  return {
-    ...input,
+export function createResumeAnalysisOperation(
+  input:
+    | Omit<JobTargetedAnalysisOperation, 'idempotencyKey' | 'timestamp'>
+    | Omit<FieldBenchmarkAnalysisOperation, 'idempotencyKey' | 'timestamp'>,
+): ResumeAnalysisOperation {
+  const common = {
     idempotencyKey: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     timestamp: new Date().toISOString(),
+  };
+
+  if (input.mode === 'field_benchmark') {
+    return {
+      ...input,
+      ...common,
+    };
+  }
+
+  return {
+    ...input,
+    ...common,
   };
 }
 
@@ -70,6 +87,7 @@ async function withTransportRetry<T>(
       return await action();
     } catch (error) {
       throwIfAborted(signal);
+      if (isDeterministicAnalysisError(error)) throw error;
       if (attempt >= MAX_TRANSPORT_RETRIES || !isTransportFailure(error)) throw error;
       await wait(250 * attempt, signal);
     }
@@ -83,9 +101,11 @@ async function createAnalysisWithRetry(
   let readyAttempt = 0;
   while (true) {
     try {
+      const requestData = buildCreateAnalysisRequest(operation);
+
       return await withTransportRetry(
         () => cvAnalysisApi.analyze(
-          { resumeId: operation.resumeId, jobDescriptionId: operation.jobDescriptionId! },
+          requestData,
           operation.idempotencyKey,
           { signal },
         ),
@@ -119,18 +139,21 @@ async function execute(
   }
 
   let operation = initialOperation;
-  if (!operation.jobDescriptionId) {
-    onStage?.('creating-jd');
-    const jobDescription = await withTransportRetry(
-      () => cvAnalysisApi.createJobDescription(
-        { title: operation.jdTitle, content: operation.jdContent },
-        operation.idempotencyKey,
-        { signal },
-      ),
-      signal,
-    );
-    operation = { ...operation, jobDescriptionId: jobDescription.id };
-    save(operation);
+  if (operation.mode === 'job_targeted') {
+    const jobTargeted = operation;
+    if (!jobTargeted.jobDescriptionId) {
+      onStage?.('creating-jd');
+      const jobDescription = await withTransportRetry(
+        () => cvAnalysisApi.createJobDescription(
+          { title: jobTargeted.jdTitle, content: jobTargeted.jdContent },
+          jobTargeted.idempotencyKey,
+          { signal },
+        ),
+        signal,
+      );
+      operation = { ...jobTargeted, jobDescriptionId: jobDescription.id };
+      save(operation);
+    }
   }
 
   onStage?.('analyzing');
