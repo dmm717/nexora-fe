@@ -13,9 +13,12 @@ import {
 import { ScenarioEvaluationView } from './ScenarioEvaluationView';
 import { ScenarioHistoryView } from './ScenarioHistoryView';
 import {
-  generateIdempotencyKey,
+  getOrCreateScenarioCreateIntent,
+  getOrCreateScenarioSubmitIntent,
   getScenarioErrorMessage,
   parseMarkdownBlocks,
+  type ScenarioCreateIntent,
+  type ScenarioSubmitIntent,
 } from '@/utils/scenarioHelpers';
 import type { ScenarioDetail } from '@/types/scenario';
 
@@ -101,10 +104,10 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
   const [userAnswerText, setUserAnswerText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Stable idempotency keys for client retry resilience
-  const createIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
-  const submitIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
-  const retryIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
+  // Stable idempotency intents for client retry resilience
+  const createIntentRef = useRef<ScenarioCreateIntent | null>(null);
+  const submitIntentRef = useRef<ScenarioSubmitIntent | null>(null);
+  const retryIntentRef = useRef<ScenarioCreateIntent | null>(null);
   const createInFlightRef = useRef(false);
   const submitInFlightRef = useRef(false);
   const retryInFlightRef = useRef(false);
@@ -156,14 +159,16 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     createInFlightRef.current = true;
     setErrorMessage(null);
     try {
+      const intent = getOrCreateScenarioCreateIntent(createIntentRef.current, scenario.id);
+      createIntentRef.current = intent;
       const attempt = await createAttemptMutation.mutateAsync({
-        scenarioId: scenario.id,
-        idempotencyKey: createIdempotencyKeyRef.current,
+        scenarioId: intent.payload.scenarioId,
+        idempotencyKey: intent.key,
       });
-      // Reset idempotency key for future requests
-      createIdempotencyKeyRef.current = generateIdempotencyKey();
-      // A new attempt is a new logical submit operation.
-      submitIdempotencyKeyRef.current = generateIdempotencyKey();
+      // Clear create intent on confirmed success
+      createIntentRef.current = null;
+      // Fresh attempt starts with clean submit intent
+      submitIntentRef.current = null;
       setSelectedAttemptId(attempt.id);
       setUserAnswerText(attempt.answer || '');
     } catch (err: unknown) {
@@ -186,13 +191,19 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
 
     setErrorMessage(null);
     try {
-      await submitAttemptMutation.mutateAsync({
+      const intent = getOrCreateScenarioSubmitIntent(submitIntentRef.current, {
         attemptId: activeAttemptId,
-        answer: answerText.trim(),
-        idempotencyKey: submitIdempotencyKeyRef.current,
+        answer: answerText,
       });
-      // Reset submit idempotency key on success
-      submitIdempotencyKeyRef.current = generateIdempotencyKey();
+      submitIntentRef.current = intent;
+
+      await submitAttemptMutation.mutateAsync({
+        attemptId: intent.payload.attemptId,
+        answer: intent.payload.answer,
+        idempotencyKey: intent.key,
+      });
+      // Clear submit intent on confirmed success
+      submitIntentRef.current = null;
     } catch (err: unknown) {
       const msg = getScenarioErrorMessage(err, 'Lỗi khi gửi bài đánh giá.');
       setErrorMessage(msg);
@@ -208,13 +219,14 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     setErrorMessage(null);
     const draftContent = answerText || currentAttempt?.answer || '';
     try {
+      const intent = getOrCreateScenarioCreateIntent(retryIntentRef.current, scenario.id);
+      retryIntentRef.current = intent;
       const attempt = await retryMutation.mutateAsync({
-        scenarioId: scenario.id,
-        idempotencyKey: retryIdempotencyKeyRef.current,
+        scenarioId: intent.payload.scenarioId,
+        idempotencyKey: intent.key,
       });
-      retryIdempotencyKeyRef.current = generateIdempotencyKey();
-      // The replacement draft must not reuse a key from a previous attempt.
-      submitIdempotencyKeyRef.current = generateIdempotencyKey();
+      retryIntentRef.current = null;
+      submitIntentRef.current = null;
       setSelectedAttemptId(attempt.id);
       // Retain previous answer so user can refine and submit
       setUserAnswerText(attempt.answer || draftContent);

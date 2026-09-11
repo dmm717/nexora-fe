@@ -1,10 +1,18 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useRef, useEffect } from 'react';
 import styles from './StarBuilder.module.css';
 import { starBuilderApi, StarAttemptRequest, StarAttemptResponse } from '@/services/starBuilderApi';
 import { useSearchParams } from 'next/navigation';
 import { scenarioApi, ScenarioAttemptResponse, ScenarioEvaluationResult } from '@/services/scenarioApi';
+import {
+  getOrCreateStarAttemptIntent,
+  getOrCreateScenarioCreateIntent,
+  getOrCreateScenarioSubmitIntent,
+  type StarAttemptIntent,
+  type ScenarioCreateIntent,
+  type ScenarioSubmitIntent,
+} from '@/utils/scenarioHelpers';
 import { useScenarioDetails } from '@/hooks/queries/useScenarios';
 import { useStarAttempt } from '@/hooks/queries/useStarAttempts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -214,6 +222,20 @@ function StarBuilderContent() {
 
   const { data: scenarioData } = useScenarioDetails(scenarioSlug || '');
 
+  // Stable intent refs across renders and retries
+  const starIntentRef = useRef<StarAttemptIntent | null>(null);
+  const scenarioCreateIntentRef = useRef<ScenarioCreateIntent | null>(null);
+  const activeScenarioAttemptIdRef = useRef<string | null>(null);
+  const scenarioSubmitIntentRef = useRef<ScenarioSubmitIntent | null>(null);
+
+  // Reset intent state if scenario changes
+  const currentScenarioId = scenarioData?.id || null;
+  useEffect(() => {
+    activeScenarioAttemptIdRef.current = null;
+    scenarioCreateIntentRef.current = null;
+    scenarioSubmitIntentRef.current = null;
+  }, [currentScenarioId]);
+
   // Scenario question is server-owned when a scenario is open; the free STAR
   // builder uses the user-typed question. Derive instead of mutating form state
   // in an effect.
@@ -236,21 +258,69 @@ function StarBuilderContent() {
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (scenarioData) {
-        const attempt = await scenarioApi.createAttempt({ scenarioId: scenarioData.id });
-        await scenarioApi.submitAttempt(attempt.id, { answer: formData.answer });
-        return attempt.id;
+        let currentAttemptId = activeScenarioAttemptIdRef.current;
+        if (!currentAttemptId) {
+          const createIntent = getOrCreateScenarioCreateIntent(
+            scenarioCreateIntentRef.current,
+            scenarioData.id
+          );
+          scenarioCreateIntentRef.current = createIntent;
+          const attempt = await scenarioApi.createAttempt(
+            { scenarioId: createIntent.payload.scenarioId },
+            createIntent.key
+          );
+          // Persist attempt ID immediately before calling submitAttempt
+          currentAttemptId = attempt.id;
+          activeScenarioAttemptIdRef.current = currentAttemptId;
+          scenarioCreateIntentRef.current = null;
+        }
+
+        const submitIntent = getOrCreateScenarioSubmitIntent(
+          scenarioSubmitIntentRef.current,
+          {
+            attemptId: currentAttemptId,
+            answer: formData.answer,
+          }
+        );
+        scenarioSubmitIntentRef.current = submitIntent;
+
+        await scenarioApi.submitAttempt(
+          submitIntent.payload.attemptId,
+          { answer: submitIntent.payload.answer },
+          submitIntent.key
+        );
+        scenarioSubmitIntentRef.current = null;
+        return currentAttemptId;
       } else {
-        const response = await starBuilderApi.submitAttempt({
-          question: effectiveQuestion,
-          answer: formData.answer,
-        });
+        const starIntent = getOrCreateStarAttemptIntent(
+          starIntentRef.current,
+          {
+            question: effectiveQuestion,
+            answer: formData.answer,
+          }
+        );
+        starIntentRef.current = starIntent;
+
+        const response = await starBuilderApi.submitAttempt(
+          starIntent.payload,
+          starIntent.key
+        );
+        starIntentRef.current = null;
         return response.id;
       }
     },
     onSuccess: (id) => {
       setAttemptId(id);
+      if (scenarioData) {
+        activeScenarioAttemptIdRef.current = null;
+        queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', id] });
+        queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
+        queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['starAttempt', id] });
+        queryClient.invalidateQueries({ queryKey: ['starAttempts'] });
+      }
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['starAttempts'] });
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Lỗi khi gửi đánh giá.');

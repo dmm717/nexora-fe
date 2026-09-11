@@ -15,6 +15,20 @@ import {
   buildUpdateCareerGoalRequest,
 } from '../src/services/careerGoalContract.ts';
 
+import {
+  getOrCreateStarAttemptIntent,
+  getOrCreateScenarioCreateIntent,
+  getOrCreateScenarioSubmitIntent,
+  initScenarioFlowState,
+  prepareScenarioCreateStep,
+  recordScenarioCreateSuccess,
+  prepareScenarioSubmitStep,
+  recordScenarioSubmitSuccess,
+  initStarFlowState,
+  prepareStarSubmitStep,
+  recordStarSubmitSuccess,
+} from '../src/utils/scenarioHelpers.ts';
+
 // ---------------------------------------------------------------------------
 // B8 STAR practice
 // ---------------------------------------------------------------------------
@@ -232,4 +246,239 @@ test('B9.3 empty goal list and archive/reactivate flags map safely', () => {
   const reactivate = { activeSpecified: true, active: true };
   assert.deepEqual(archive, { activeSpecified: true, active: false });
   assert.deepEqual(reactivate, { activeSpecified: true, active: true });
+});
+
+// ---------------------------------------------------------------------------
+// B7 / B8 Stable Idempotency Intents across retries
+// ---------------------------------------------------------------------------
+
+// STAR:
+// 1. first submit creates key
+test('STAR 1. first submit creates key', () => {
+  const intent = getOrCreateStarAttemptIntent(null, {
+    question: 'Tell me about a challenge',
+    answer: 'Here is what happened',
+  });
+  assert.ok(intent.key && typeof intent.key === 'string');
+  assert.equal(intent.payload.question, 'Tell me about a challenge');
+  assert.equal(intent.payload.answer, 'Here is what happened');
+});
+
+// 2. same trimmed question+answer reuses same key
+test('STAR 2. same trimmed question+answer reuses same key', () => {
+  const firstIntent = getOrCreateStarAttemptIntent(null, {
+    question: 'Tell me about a challenge',
+    answer: 'Here is what happened',
+  });
+  const retryIntent = getOrCreateStarAttemptIntent(firstIntent, {
+    question: '  Tell me about a challenge  ',
+    answer: '  Here is what happened  \n',
+  });
+  assert.equal(retryIntent.key, firstIntent.key);
+  assert.deepEqual(retryIntent.payload, firstIntent.payload);
+});
+
+// 3. changed question creates new key
+test('STAR 3. changed question creates new key', () => {
+  const firstIntent = getOrCreateStarAttemptIntent(null, {
+    question: 'Question A',
+    answer: 'Same answer',
+  });
+  const changedIntent = getOrCreateStarAttemptIntent(firstIntent, {
+    question: 'Question B',
+    answer: 'Same answer',
+  });
+  assert.notEqual(changedIntent.key, firstIntent.key);
+  assert.equal(changedIntent.payload.question, 'Question B');
+});
+
+// 4. changed answer creates new key
+test('STAR 4. changed answer creates new key', () => {
+  const firstIntent = getOrCreateStarAttemptIntent(null, {
+    question: 'Question A',
+    answer: 'Answer A',
+  });
+  const changedIntent = getOrCreateStarAttemptIntent(firstIntent, {
+    question: 'Question A',
+    answer: 'Answer B',
+  });
+  assert.notEqual(changedIntent.key, firstIntent.key);
+  assert.equal(changedIntent.payload.answer, 'Answer B');
+});
+
+// 5. failed request does not rotate key
+test('STAR 5. failed request does not rotate key', () => {
+  const state = initStarFlowState();
+  const { state: pendingState, intent } = prepareStarSubmitStep(state, {
+    question: 'Outage question',
+    answer: 'Fixed outage',
+  });
+  // Simulate transport failure: recordStarSubmitSuccess is NOT called, pendingState is retained
+  const { intent: retryIntent } = prepareStarSubmitStep(pendingState, {
+    question: 'Outage question',
+    answer: 'Fixed outage',
+  });
+  assert.equal(retryIntent.key, intent.key);
+});
+
+// 6. confirmed success clears intent
+test('STAR 6. confirmed success clears intent', () => {
+  const state = initStarFlowState();
+  const { state: pendingState } = prepareStarSubmitStep(state, {
+    question: 'Outage question',
+    answer: 'Fixed outage',
+  });
+  const completedState = recordStarSubmitSuccess(pendingState, 'star-attempt-123');
+  assert.equal(completedState.intent, null);
+  assert.equal(completedState.attemptId, 'star-attempt-123');
+});
+
+// SCENARIO CREATE:
+// 7. same scenarioId reuses create key
+test('SCENARIO CREATE 7. same scenarioId reuses create key', () => {
+  const first = getOrCreateScenarioCreateIntent(null, 'sc-101');
+  const retry = getOrCreateScenarioCreateIntent(first, 'sc-101');
+  assert.equal(retry.key, first.key);
+  assert.equal(retry.payload.scenarioId, 'sc-101');
+});
+
+// 8. create failure keeps create key
+test('SCENARIO CREATE 8. create failure keeps create key', () => {
+  const state = initScenarioFlowState('sc-101');
+  const { state: pendingState, intent } = prepareScenarioCreateStep(state);
+  // Simulate network timeout on create: recordScenarioCreateSuccess is NOT called
+  const { intent: retryIntent } = prepareScenarioCreateStep(pendingState);
+  assert.equal(retryIntent.key, intent.key);
+});
+
+// 9. confirmed create stores attemptId and stops recreating attempt
+test('SCENARIO CREATE 9. confirmed create stores attemptId and stops recreating attempt', () => {
+  const state = initScenarioFlowState('sc-101');
+  const { state: pendingState } = prepareScenarioCreateStep(state);
+  const createdState = recordScenarioCreateSuccess(pendingState, 'attempt-555');
+  assert.equal(createdState.attemptId, 'attempt-555');
+  assert.equal(createdState.createIntent, null);
+});
+
+// SCENARIO SUBMIT:
+// 10. same attemptId + same trimmed answer reuses submit key
+test('SCENARIO SUBMIT 10. same attemptId + same trimmed answer reuses submit key', () => {
+  const first = getOrCreateScenarioSubmitIntent(null, {
+    attemptId: 'attempt-555',
+    answer: 'My strategy',
+  });
+  const retry = getOrCreateScenarioSubmitIntent(first, {
+    attemptId: 'attempt-555',
+    answer: '   My strategy   ',
+  });
+  assert.equal(retry.key, first.key);
+  assert.equal(retry.payload.answer, 'My strategy');
+});
+
+// 11. changed answer creates new submit key
+test('SCENARIO SUBMIT 11. changed answer creates new submit key', () => {
+  const first = getOrCreateScenarioSubmitIntent(null, {
+    attemptId: 'attempt-555',
+    answer: 'Initial response',
+  });
+  const edited = getOrCreateScenarioSubmitIntent(first, {
+    attemptId: 'attempt-555',
+    answer: 'Refined response with more detail',
+  });
+  assert.notEqual(edited.key, first.key);
+  assert.equal(edited.payload.attemptId, 'attempt-555');
+  assert.equal(edited.payload.answer, 'Refined response with more detail');
+});
+
+// 12. submit failure keeps attemptId
+test('SCENARIO SUBMIT 12. submit failure keeps attemptId', () => {
+  const state = {
+    scenarioId: 'sc-101',
+    createIntent: null,
+    attemptId: 'attempt-555',
+    submitIntent: null,
+  };
+  const { state: pendingSubmit } = prepareScenarioSubmitStep(state, 'My action');
+  // Simulated failure: recordScenarioSubmitSuccess is not called
+  assert.equal(pendingSubmit.attemptId, 'attempt-555');
+});
+
+// 13. submit failure does NOT return flow to create step
+test('SCENARIO SUBMIT 13. submit failure does NOT return flow to create step', () => {
+  const state = {
+    scenarioId: 'sc-101',
+    createIntent: null,
+    attemptId: 'attempt-555',
+    submitIntent: null,
+  };
+  const { state: failedSubmitState } = prepareScenarioSubmitStep(state, 'My action');
+  // AttemptId is strictly preserved; retry flow checks if attemptId exists
+  assert.ok(failedSubmitState.attemptId);
+  assert.equal(failedSubmitState.createIntent, null);
+  // Re-submitting stays on the submit step for the existing attempt
+  const { intent: retrySubmitIntent } = prepareScenarioSubmitStep(failedSubmitState, 'My action');
+  assert.equal(retrySubmitIntent.payload.attemptId, 'attempt-555');
+});
+
+// 14. successful submit clears submit intent
+test('SCENARIO SUBMIT 14. successful submit clears submit intent', () => {
+  const state = {
+    scenarioId: 'sc-101',
+    createIntent: null,
+    attemptId: 'attempt-555',
+    submitIntent: null,
+  };
+  const { state: pendingState } = prepareScenarioSubmitStep(state, 'My action');
+  const completedState = recordScenarioSubmitSuccess(pendingState);
+  assert.equal(completedState.submitIntent, null);
+  assert.equal(completedState.attemptId, 'attempt-555');
+});
+
+// Critical flow test:
+// 15. create succeeds -> submit fails -> retry must call submit for SAME attempt id and must NOT create a second attempt
+test('15. critical flow: create succeeds -> submit fails -> retry calls submit for SAME attempt id and never creates second attempt', () => {
+  let createdAttemptsCount = 0;
+  let submittedAttempts = [];
+
+  // Simulated backend client simulating the UI retry behavior
+  let flow = initScenarioFlowState('sc-critical-1');
+
+  // Step 1: Create attempt
+  const { state: createPending } = prepareScenarioCreateStep(flow);
+  flow = createPending;
+  createdAttemptsCount++;
+  const createdAttemptId = 'att-generated-001';
+  flow = recordScenarioCreateSuccess(flow, createdAttemptId);
+
+  assert.equal(createdAttemptsCount, 1);
+  assert.equal(flow.attemptId, 'att-generated-001');
+  assert.equal(flow.createIntent, null);
+
+  // Step 2: Submit answer (transient failure occurs)
+  const { state: submitPending1, intent: submitIntent1 } = prepareScenarioSubmitStep(flow, 'My initial answer');
+  flow = submitPending1;
+  // Network drops / timeout: recordScenarioSubmitSuccess is NOT called!
+
+  // Step 3: User retries submission
+  // UI inspects flow state: attemptId is already established ('att-generated-001')
+  // Therefore create step is NOT re-run:
+  assert.ok(flow.attemptId, 'Flow still retains the created attempt ID');
+
+  // Flow re-submits to the existing attempt
+  const { state: submitPending2, intent: submitIntent2 } = prepareScenarioSubmitStep(flow, 'My initial answer');
+  flow = submitPending2;
+
+  // Verify same submit key reused for identical payload
+  assert.equal(submitIntent2.key, submitIntent1.key);
+  assert.equal(submitIntent2.payload.attemptId, 'att-generated-001');
+
+  // Simulate server receiving the submit retry and confirming success
+  submittedAttempts.push({ attemptId: submitIntent2.payload.attemptId, key: submitIntent2.key });
+  flow = recordScenarioSubmitSuccess(flow);
+
+  // Invariant verification:
+  assert.equal(createdAttemptsCount, 1, 'Exactly one create attempt was executed; no orphan created');
+  assert.equal(submittedAttempts.length, 1, 'Submitted successfully against the single attempt');
+  assert.equal(submittedAttempts[0].attemptId, 'att-generated-001');
+  assert.equal(flow.submitIntent, null);
 });

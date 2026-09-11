@@ -1,5 +1,17 @@
 import { apiClient } from './apiClient';
-import { generateIdempotencyKey } from '@/utils/scenarioHelpers';
+import {
+  generateIdempotencyKey,
+  getOrCreateStarAttemptIntent,
+  type CanonicalStarPayload,
+  type StarAttemptIntent,
+} from '@/utils/scenarioHelpers';
+
+export {
+  generateIdempotencyKey,
+  getOrCreateStarAttemptIntent,
+  type CanonicalStarPayload,
+  type StarAttemptIntent,
+};
 import {
   normalizeStarPracticeEvaluation,
   type NormalizedStarEvaluation,

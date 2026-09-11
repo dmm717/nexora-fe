@@ -9,6 +9,190 @@ export function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Stable Idempotency Intents (B7 / B8 retry resilience)
+// ---------------------------------------------------------------------------
+
+export interface CanonicalStarPayload {
+  question: string;
+  answer: string;
+}
+
+export interface StarAttemptIntent {
+  key: string;
+  payload: CanonicalStarPayload;
+}
+
+export function getOrCreateStarAttemptIntent(
+  previous: StarAttemptIntent | null | undefined,
+  candidate: { question: string; answer: string }
+): StarAttemptIntent {
+  const question = candidate.question.trim();
+  const answer = candidate.answer.trim();
+  if (
+    previous &&
+    previous.payload.question === question &&
+    previous.payload.answer === answer
+  ) {
+    return previous;
+  }
+  return {
+    key: generateIdempotencyKey(),
+    payload: { question, answer },
+  };
+}
+
+export interface CanonicalScenarioCreatePayload {
+  scenarioId: string;
+}
+
+export interface ScenarioCreateIntent {
+  key: string;
+  payload: CanonicalScenarioCreatePayload;
+}
+
+export function getOrCreateScenarioCreateIntent(
+  previous: ScenarioCreateIntent | null | undefined,
+  scenarioId: string
+): ScenarioCreateIntent {
+  if (previous && previous.payload.scenarioId === scenarioId) {
+    return previous;
+  }
+  return {
+    key: generateIdempotencyKey(),
+    payload: { scenarioId },
+  };
+}
+
+export interface CanonicalScenarioSubmitPayload {
+  attemptId: string;
+  answer: string;
+}
+
+export interface ScenarioSubmitIntent {
+  key: string;
+  payload: CanonicalScenarioSubmitPayload;
+}
+
+export function getOrCreateScenarioSubmitIntent(
+  previous: ScenarioSubmitIntent | null | undefined,
+  candidate: { attemptId: string; answer: string }
+): ScenarioSubmitIntent {
+  const answer = candidate.answer.trim();
+  if (
+    previous &&
+    previous.payload.attemptId === candidate.attemptId &&
+    previous.payload.answer === answer
+  ) {
+    return previous;
+  }
+  return {
+    key: generateIdempotencyKey(),
+    payload: { attemptId: candidate.attemptId, answer },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pure State-Transition Helpers for Attempt Workflows
+// ---------------------------------------------------------------------------
+
+export interface ScenarioAttemptFlowState {
+  scenarioId: string;
+  createIntent: ScenarioCreateIntent | null;
+  attemptId: string | null;
+  submitIntent: ScenarioSubmitIntent | null;
+}
+
+export function initScenarioFlowState(scenarioId: string): ScenarioAttemptFlowState {
+  return {
+    scenarioId,
+    createIntent: null,
+    attemptId: null,
+    submitIntent: null,
+  };
+}
+
+export function prepareScenarioCreateStep(
+  state: ScenarioAttemptFlowState
+): { state: ScenarioAttemptFlowState; intent: ScenarioCreateIntent } {
+  const intent = getOrCreateScenarioCreateIntent(state.createIntent, state.scenarioId);
+  return {
+    state: { ...state, createIntent: intent },
+    intent,
+  };
+}
+
+export function recordScenarioCreateSuccess(
+  state: ScenarioAttemptFlowState,
+  attemptId: string
+): ScenarioAttemptFlowState {
+  return {
+    ...state,
+    createIntent: null,
+    attemptId,
+  };
+}
+
+export function prepareScenarioSubmitStep(
+  state: ScenarioAttemptFlowState,
+  rawAnswer: string
+): { state: ScenarioAttemptFlowState; intent: ScenarioSubmitIntent } {
+  if (!state.attemptId) {
+    throw new Error('Cannot submit scenario without an attempt ID');
+  }
+  const intent = getOrCreateScenarioSubmitIntent(state.submitIntent, {
+    attemptId: state.attemptId,
+    answer: rawAnswer,
+  });
+  return {
+    state: { ...state, submitIntent: intent },
+    intent,
+  };
+}
+
+export function recordScenarioSubmitSuccess(
+  state: ScenarioAttemptFlowState
+): ScenarioAttemptFlowState {
+  return {
+    ...state,
+    submitIntent: null,
+  };
+}
+
+export interface StarFlowState {
+  intent: StarAttemptIntent | null;
+  attemptId: string | null;
+}
+
+export function initStarFlowState(): StarFlowState {
+  return {
+    intent: null,
+    attemptId: null,
+  };
+}
+
+export function prepareStarSubmitStep(
+  state: StarFlowState,
+  payload: { question: string; answer: string }
+): { state: StarFlowState; intent: StarAttemptIntent } {
+  const intent = getOrCreateStarAttemptIntent(state.intent, payload);
+  return {
+    state: { ...state, intent },
+    intent,
+  };
+}
+
+export function recordStarSubmitSuccess(
+  state: StarFlowState,
+  attemptId: string
+): StarFlowState {
+  return {
+    intent: null,
+    attemptId,
+  };
+}
+
+
 export const SCENARIO_PAGE_SIZE = 20;
 export const SCENARIO_MAX_PAGE_SIZE = 50;
 

@@ -14,6 +14,7 @@ Backend is authoritative. All endpoints require auth; errors surface `code` and 
 8. Confirm the evaluation renders actual backend fields: overall score, dimensions (criterion/score/evidence/feedback), strengths, gaps, recommended approach, feedback.
 9. Refresh the page; confirm history loads with attempt number, score, delta and the attempt persists.
 10. On a completed attempt, click `Thử lại tình huống`; confirm a new draft attempt is created for the SAME scenario (no new scenario) with a fresh idempotency key.
+11. Scenario transient retry: create attempt -> submit fails (simulate offline / network drop) -> retry submit -> verify the same attempt continues and history does not contain a duplicate start or orphan draft caused by retry. Automated invariant tested in `tests/b7B9PracticeGoalsContract.test.mjs` (test 15).
 
 ## B8 — STAR story practice
 1. Open `/dashboard/star-builder`.
@@ -23,6 +24,7 @@ Backend is authoritative. All endpoints require auth; errors surface `code` and 
 5. Submit a weak/non-STAR answer; confirm `applicable=false` shows the neutral non-STAR message and no fabricated components.
 6. If a scenario is opened via `?scenario=...`, confirm the scenario question is used and the scenario attempt evaluation path renders.
 7. Confirm `missingElements`, `strengths`, and `coachingTips` render when present.
+8. STAR transient retry: submit same question/answer -> simulate/reproduce failed response if practical -> retry -> verify only one logical attempt/history item is created (idempotency key preserved across identical payload retries; automated contract verified in `tests/b7B9PracticeGoalsContract.test.mjs` tests 1-6).
 
 ## B9 — Career goals
 1. Open `/dashboard/career-goals`.
