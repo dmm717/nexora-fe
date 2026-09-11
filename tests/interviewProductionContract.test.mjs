@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   SCORE_SCALE,
-  MINIMUM_REPORT_ANSWERS,
-  FREE_QUESTION_LIMIT,
   DETERMINISTIC_ERROR_CODES,
   canFinishInterview,
+  canSubmitInterviewAnswer,
   canUpgradeAndContinue,
   isUpgradeRequired,
   isMaxQuestionsReached,
@@ -31,9 +30,12 @@ import {
   isSameStartPayload,
   getOrCreateAnswerIntent,
   isSameAnswerPayload,
+  shouldRunAnswerTimer,
+  createReportPollingAttemptTracker,
   getReportPollingDecision,
   REPORT_POLL_INTERVAL_MS,
   REPORT_POLL_MAX_ATTEMPTS,
+  normalizeReportView,
 } from '../src/services/interviewContract.ts';
 
 // 1. continuation in_progress
@@ -49,14 +51,14 @@ test('1. continuation in_progress semantics', () => {
   assert.equal(canUpgradeAndContinue(continuation), false);
 
   // With 1 answer, canFinishNow is false
-  assert.equal(canFinishInterview(continuation, 1), false);
+  assert.equal(canFinishInterview(continuation), false);
 
   // When canFinishNow becomes true (e.g. after 2 answers)
   const continuationEligible = {
     ...continuation,
     canFinishNow: true,
   };
-  assert.equal(canFinishInterview(continuationEligible, 2), true);
+  assert.equal(canFinishInterview(continuationEligible), true);
   assert.equal(canUpgradeAndContinue(continuationEligible), false);
 });
 
@@ -70,7 +72,7 @@ test('2. Q3 upgrade_required semantics for free limit cap', () => {
 
   assert.equal(isUpgradeRequired(continuation), true);
   assert.equal(isMaxQuestionsReached(continuation), false);
-  assert.equal(canFinishInterview(continuation, FREE_QUESTION_LIMIT), true);
+  assert.equal(canFinishInterview(continuation), true);
   assert.equal(canUpgradeAndContinue(continuation), true);
 });
 
@@ -615,22 +617,188 @@ test('20. interviewApi request builders produce exact canonical URLs, methods, a
   assert.equal(retryReq.headers['Idempotency-Key'], customKey);
 });
 
-// 21. Active lifecycle gating logic (active only; draft, completed, failed, unknown fail closed)
-test('21. interview answering is gated strictly to status === "active" with an unanswered question', () => {
+// 21. Active lifecycle gating logic (active only; all other states fail closed)
+test('21. interview answering uses the production helper and fails closed for every non-active state', () => {
   const activeQuestion = { id: 'q-1', sequence: 1, content: 'Q1', createdAt: '' };
 
-  const canAnswerHelper = (status, q, upgradeRequired) => {
-    return status === 'active' && Boolean(q) && !upgradeRequired;
-  };
+  assert.equal(canSubmitInterviewAnswer({ status: 'active', hasQuestion: true, upgradeRequired: false }), true);
+  assert.equal(canSubmitInterviewAnswer({ status: 'active', hasQuestion: true, upgradeRequired: true }), false); // upgrade required blocks answering
+  assert.equal(canSubmitInterviewAnswer({ status: 'active', hasQuestion: false, upgradeRequired: false }), false); // no active question blocks answering
 
-  assert.equal(canAnswerHelper('active', activeQuestion, false), true);
-  assert.equal(canAnswerHelper('active', activeQuestion, true), false); // upgrade required blocks answering
-  assert.equal(canAnswerHelper('active', null, false), false); // no active question blocks answering
-  assert.equal(canAnswerHelper('draft', activeQuestion, false), false);
-  assert.equal(canAnswerHelper('starting', activeQuestion, false), false);
-  assert.equal(canAnswerHelper('completing', activeQuestion, false), false);
-  assert.equal(canAnswerHelper('completed', activeQuestion, false), false);
-  assert.equal(canAnswerHelper('failed', activeQuestion, false), false);
-  assert.equal(canAnswerHelper('abandoned', activeQuestion, false), false);
-  assert.equal(canAnswerHelper('unknown_status', activeQuestion, false), false);
+  for (const status of ['draft', 'starting', 'completing', 'completed', 'failed', 'abandoned', 'unknown_status']) {
+    assert.equal(
+      canSubmitInterviewAnswer({ status, hasQuestion: Boolean(activeQuestion), upgradeRequired: false }),
+      false,
+      `${status} must fail closed`
+    );
+  }
+});
+
+// 22. Production fallback polling counter and cycle reset
+test('22. report fallback polling uses a real bounded counter and resets for a new cycle', () => {
+  const tracker = createReportPollingAttemptTracker();
+  const processingError = { code: 'INTERVIEW_REPORT_PROCESSING', status: 409 };
+
+  tracker.ensureCycle('interview-1');
+  assert.equal(tracker.getAttemptCount(), 0, 'a processing cycle starts at attempt 0');
+
+  for (let attempt = 0; attempt < REPORT_POLL_MAX_ATTEMPTS; attempt += 1) {
+    const decision = getReportPollingDecision({
+      error: processingError,
+      fallbackAttemptCount: tracker.getAttemptCount(),
+    });
+    assert.equal(decision.shouldPoll, true);
+
+    // Repeated interval evaluations only schedule one actual fallback request.
+    tracker.scheduleFallbackPoll();
+    tracker.scheduleFallbackPoll();
+    assert.equal(tracker.consumeScheduledPoll(), true);
+    assert.equal(tracker.consumeScheduledPoll(), false);
+    assert.equal(tracker.recordFallbackPoll(), attempt + 1);
+  }
+
+  assert.equal(tracker.getAttemptCount(), REPORT_POLL_MAX_ATTEMPTS);
+  assert.equal(
+    getReportPollingDecision({
+      error: processingError,
+      fallbackAttemptCount: tracker.getAttemptCount(),
+    }).reason,
+    'bound_exhausted'
+  );
+
+  // A successful report ends the old cycle; an explicit retry starts at zero again.
+  tracker.reset();
+  assert.equal(tracker.getAttemptCount(), 0);
+  tracker.ensureCycle('interview-1');
+  tracker.scheduleFallbackPoll();
+  assert.equal(tracker.consumeScheduledPoll(), true);
+  tracker.recordFallbackPoll();
+  assert.equal(tracker.getAttemptCount(), 1);
+  tracker.reset();
+  assert.equal(tracker.getAttemptCount(), 0, 'new report retry cycle is unbounded from attempt 0');
+
+  // Changing interview id also resets the production tracker.
+  tracker.recordFallbackPoll();
+  tracker.ensureCycle('interview-2');
+  assert.equal(tracker.getAttemptCount(), 0);
+});
+
+// 23. Pending/terminal report state matrix
+test('23. report fallback polling only runs for genuinely pending states', () => {
+  const processingError = { code: 'INTERVIEW_REPORT_PROCESSING', status: 409 };
+  const failedError = { code: 'INTERVIEW_REPORT_FAILED', status: 409 };
+  const unavailableError = { code: 'INTERVIEW_REPORT_UNAVAILABLE', status: 409 };
+  const notFoundError = { code: 'NOT_FOUND', status: 404 };
+
+  assert.equal(getReportPollingDecision({ error: processingError, fallbackAttemptCount: 0 }).shouldPoll, true);
+  assert.equal(getReportPollingDecision({ error: failedError, fallbackAttemptCount: 0 }).shouldPoll, false);
+  assert.equal(getReportPollingDecision({ error: unavailableError, fallbackAttemptCount: 0 }).shouldPoll, false);
+  assert.equal(
+    getReportPollingDecision({ interviewStatus: 'completing', error: notFoundError, fallbackAttemptCount: 0 }).shouldPoll,
+    true
+  );
+  assert.equal(
+    getReportPollingDecision({ interviewStatus: 'completed', error: notFoundError, fallbackAttemptCount: 0 }).shouldPoll,
+    false
+  );
+  assert.equal(
+    getReportPollingDecision({ interviewStatus: 'unknown', error: notFoundError, fallbackAttemptCount: 0 }).shouldPoll,
+    false
+  );
+});
+
+// 24. Timer recovery after a failed answer submission
+test('24. failed answer submission resumes the visible timer without changing the frozen retry intent', () => {
+  assert.equal(
+    shouldRunAnswerTimer({
+      status: 'active',
+      hasQuestion: true,
+      canSubmitAnswer: true,
+      submitting: false,
+    }),
+    true,
+    'the timer runs while the answer is active'
+  );
+  assert.equal(
+    shouldRunAnswerTimer({
+      status: 'active',
+      hasQuestion: true,
+      canSubmitAnswer: true,
+      submitting: true,
+    }),
+    false,
+    'the timer pauses while submitting'
+  );
+  assert.equal(
+    shouldRunAnswerTimer({
+      status: 'active',
+      hasQuestion: true,
+      canSubmitAnswer: true,
+      submitting: false,
+    }),
+    true,
+    'the timer resumes after a failed submission'
+  );
+
+  const firstIntent = getOrCreateAnswerIntent(null, {
+    questionId: 'q-1',
+    content: 'Initial answer',
+    durationSeconds: 35,
+  });
+  const sameAnswerRetry = getOrCreateAnswerIntent(firstIntent, {
+    questionId: 'q-1',
+    content: '  Initial answer  ',
+    durationSeconds: 50,
+  });
+  const firstRequest = buildSubmitAnswerRequest('interview-1', firstIntent.payload, firstIntent.key);
+  const sameRetryRequest = buildSubmitAnswerRequest('interview-1', sameAnswerRetry.payload, sameAnswerRetry.key);
+
+  assert.equal(sameAnswerRetry.key, firstIntent.key);
+  assert.equal(sameAnswerRetry.payload.durationSeconds, 35);
+  assert.deepEqual(sameRetryRequest.data, firstRequest.data);
+  assert.equal(sameRetryRequest.headers['Idempotency-Key'], firstRequest.headers['Idempotency-Key']);
+
+  const editedAnswer = getOrCreateAnswerIntent(firstIntent, {
+    questionId: 'q-1',
+    content: 'Edited answer',
+    durationSeconds: 50,
+  });
+  assert.notEqual(editedAnswer.key, firstIntent.key);
+  assert.equal(editedAnswer.payload.durationSeconds, 50);
+});
+
+// 25. Report normalization at the API boundary
+test('25. normalizeReportView returns typed collections and safely empties malformed fields', () => {
+  const normalized = normalizeReportView({
+    id: 'report-1',
+    interviewId: 'interview-1',
+    overallScore: 86,
+    rubric: [
+      { criterion: 'Clarity', score: 90, evidence: 'Clear answer' },
+      { criterion: 'Invalid', score: 'not-a-number', evidence: 'Ignore me' },
+    ],
+    strengths: ['Clear structure', 42],
+    gaps: ['Missing metric'],
+    actionPlan: ['Add measurable outcomes'],
+    disclaimer: 'AI-generated',
+    createdAt: '2026-09-11T00:00:00Z',
+  });
+
+  assert.deepEqual(normalized.rubric, [
+    { criterion: 'Clarity', score: 90, evidence: 'Clear answer' },
+  ]);
+  assert.deepEqual(normalized.strengths, ['Clear structure']);
+  assert.deepEqual(normalized.gaps, ['Missing metric']);
+  assert.deepEqual(normalized.actionPlan, ['Add measurable outcomes']);
+
+  const malformed = normalizeReportView({
+    rubric: { Clarity: 90 },
+    strengths: { value: 'not-an-array' },
+    gaps: null,
+    actionPlan: 123,
+  });
+  assert.deepEqual(malformed.rubric, []);
+  assert.deepEqual(malformed.strengths, []);
+  assert.deepEqual(malformed.gaps, []);
+  assert.deepEqual(malformed.actionPlan, []);
 });

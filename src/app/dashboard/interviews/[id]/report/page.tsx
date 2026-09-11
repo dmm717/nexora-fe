@@ -16,7 +16,6 @@ import {
   safeAnswerEvaluation,
   generateIdempotencyKey,
   SCORE_SCALE,
-  type RubricScore,
 } from '@/services/interviewContract';
 
 export default function InterviewReportPage() {
@@ -27,6 +26,7 @@ export default function InterviewReportPage() {
   useAutoTranslate();
 
   const [retrying, setRetrying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [retryError, setRetryError] = useState<{ message: string; requestId?: string } | null>(null);
 
   // Stable idempotency key for report retry intent
@@ -37,6 +37,8 @@ export default function InterviewReportPage() {
     data: report,
     isLoading: loading,
     error: queryError,
+    reportPollingBoundExhausted,
+    resetReportPollingAttempts,
   } = useInterviewReport(id, interview?.status);
 
   const isProcessing =
@@ -50,6 +52,7 @@ export default function InterviewReportPage() {
     setRetryError(null);
     try {
       await interviewApi.retryReport(id, retryKeyRef.current);
+      resetReportPollingAttempts();
       // Invalidate queries to trigger fresh polling
       await queryClient.invalidateQueries({ queryKey: ['interview', id] });
       await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
@@ -64,6 +67,47 @@ export default function InterviewReportPage() {
       setRetrying(false);
     }
   };
+
+  const handleRefreshReportState = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (reportPollingBoundExhausted && !report) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Báo cáo phỏng vấn</h1>
+          <button className={styles.btnPrimary} onClick={() => router.push('/dashboard/interviews')}>
+            Trở về Danh sách
+          </button>
+        </div>
+
+        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+          <h2 className={styles.title}>Báo cáo vẫn đang được xử lý lâu hơn dự kiến.</h2>
+          <p style={{ color: '#64748b', marginTop: '1rem' }}>
+            Bạn có thể thử làm mới trạng thái sau ít phút.
+          </p>
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className={styles.btnPrimary} onClick={handleRefreshReportState} disabled={refreshing}>
+              {refreshing ? 'Đang làm mới...' : 'Làm mới trạng thái báo cáo'}
+            </button>
+            <button
+              className={styles.btnSecondary}
+              onClick={() => router.push('/dashboard/interviews')}
+            >
+              Quay lại danh sách
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // State: Report is actively generating
   if (loading || (isProcessing && !report)) {
@@ -170,12 +214,7 @@ export default function InterviewReportPage() {
     );
   }
 
-  // Safe cast / normalization of report arrays
-  const strengths = Array.isArray(report.strengths) ? (report.strengths as string[]) : [];
-  const gaps = Array.isArray(report.gaps) ? (report.gaps as string[]) : [];
-  const actionPlan = Array.isArray(report.actionPlan) ? (report.actionPlan as string[]) : [];
-  const rubric = Array.isArray(report.rubric) ? (report.rubric as RubricScore[]) : [];
-  const questionReviews = report.questionReviews;
+  const { strengths, gaps, actionPlan, rubric, questionReviews } = report;
 
   return (
     <div className={styles.container}>
@@ -843,7 +882,7 @@ export default function InterviewReportPage() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {evalData.scores.map((r: RubricScore, rIdx: number) => (
+                                {evalData.scores.map((r, rIdx: number) => (
                                   <tr key={rIdx}>
                                     <td className={styles.criterion}>{r.criterion}</td>
                                     <td style={{ textAlign: 'center' }}>

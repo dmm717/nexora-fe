@@ -25,17 +25,12 @@ export type QuestionTopic =
   | 'scenario';
 
 export const SCORE_SCALE = '0-100';
-export const MINIMUM_REPORT_ANSWERS = 2;
-export const FREE_QUESTION_LIMIT = 3;
 
 export const DETERMINISTIC_ERROR_CODES = [
-  'FEATURE_QUOTA_EXCEEDED',
-  'FEATURE_NOT_AVAILABLE',
   'ANSWER_ALREADY_EXISTS',
   'CONCURRENT_SUBMISSION',
   'INTERVIEW_REPORT_FAILED',
   'INTERVIEW_REPORT_UNAVAILABLE',
-  'INVALID_STATE',
   'VALIDATION_ERROR',
   'INVALID_INTERVIEW_STATE',
   'INTERVIEW_UPGRADE_REQUIRED',
@@ -177,10 +172,10 @@ export interface ReportView {
   id: string;
   interviewId: string;
   overallScore: number;
-  rubric: RubricScore[] | Record<string, unknown>;
-  strengths: string[] | Record<string, unknown>;
-  gaps: string[] | Record<string, unknown>;
-  actionPlan: string[] | Record<string, unknown>;
+  rubric: RubricScore[];
+  strengths: string[];
+  gaps: string[];
+  actionPlan: string[];
   disclaimer: string;
   createdAt: string;
   starSummary?: StarReportSummary | null;
@@ -195,6 +190,197 @@ export interface ContractErrorLike {
   message?: string;
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): UnknownRecord | null =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as UnknownRecord
+    : null;
+
+const asString = (value: unknown, fallback = '') =>
+  typeof value === 'string' ? value : fallback;
+
+const asNumber = (value: unknown, fallback = 0) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+const normalizeStringCollection = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+const normalizeRubricCollection = (value: unknown): RubricScore[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    if (
+      !record ||
+      typeof record.criterion !== 'string' ||
+      typeof record.score !== 'number' ||
+      !Number.isFinite(record.score) ||
+      typeof record.evidence !== 'string'
+    ) {
+      return [];
+    }
+
+    return [{
+      criterion: record.criterion,
+      score: record.score,
+      evidence: record.evidence,
+    }];
+  });
+};
+
+const normalizeStarEvaluationComponent = (
+  value: unknown
+): StarEvaluationComponent | null => {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  return {
+    score: asNumber(record.score),
+    ...(typeof record.detected === 'boolean' ? { detected: record.detected } : {}),
+    ...(typeof record.evidence === 'string' ? { evidence: record.evidence } : {}),
+    feedback: asString(record.feedback),
+  };
+};
+
+const normalizeStarEvaluation = (value: unknown): StarEvaluation | null => {
+  const record = asRecord(value);
+  if (!record || typeof record.applicable !== 'boolean') return null;
+
+  return {
+    applicable: record.applicable,
+    overallScore: typeof record.overallScore === 'number' ? record.overallScore : null,
+    situation: normalizeStarEvaluationComponent(record.situation),
+    task: normalizeStarEvaluationComponent(record.task),
+    action: normalizeStarEvaluationComponent(record.action),
+    result: normalizeStarEvaluationComponent(record.result),
+    missingElements: normalizeStringCollection(record.missingElements),
+    strengths: normalizeStringCollection(record.strengths),
+    coachingTips: normalizeStringCollection(record.coachingTips),
+    ...(typeof record.scoreScale === 'string' ? { scoreScale: record.scoreScale } : {}),
+  };
+};
+
+const normalizeStarSummary = (value: unknown): StarReportSummary | null => {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const rawComponentAverages = asRecord(record.componentAverages);
+  const componentAverages = rawComponentAverages
+    ? Object.fromEntries(
+        Object.entries(rawComponentAverages).flatMap(([key, item]) =>
+          typeof item === 'number' && Number.isFinite(item) ? [[key, item]] : []
+        )
+      ) as StarReportSummary['componentAverages']
+    : undefined;
+
+  return {
+    applicableAnswers: asNumber(record.applicableAnswers),
+    averageScore: asNumber(record.averageScore),
+    ...(componentAverages ? { componentAverages } : {}),
+    strongestComponent: asString(record.strongestComponent),
+    weakestComponent: asString(record.weakestComponent),
+    recurringIssues: normalizeStringCollection(record.recurringIssues),
+    coachingPriorities: normalizeStringCollection(record.coachingPriorities),
+  };
+};
+
+const normalizeQuestionReviews = (value: unknown): InterviewQuestionReviewView[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    if (
+      !record ||
+      typeof record.questionId !== 'string' ||
+      typeof record.sequence !== 'number' ||
+      !Number.isFinite(record.sequence) ||
+      typeof record.kind !== 'string' ||
+      typeof record.topic !== 'string' ||
+      typeof record.question !== 'string' ||
+      typeof record.answer !== 'string' ||
+      typeof record.feedback !== 'string'
+    ) {
+      return [];
+    }
+
+    return [{
+      questionId: record.questionId,
+      sequence: record.sequence,
+      kind: record.kind,
+      topic: record.topic,
+      parentQuestionId: typeof record.parentQuestionId === 'string' ? record.parentQuestionId : null,
+      question: record.question,
+      answer: record.answer,
+      rubric: normalizeRubricCollection(record.rubric),
+      feedback: record.feedback,
+      star: normalizeStarEvaluation(record.star),
+      strengths: normalizeStringCollection(record.strengths),
+      improvements: normalizeStringCollection(record.improvements),
+      suggestedImprovedAnswer:
+        typeof record.suggestedImprovedAnswer === 'string' ? record.suggestedImprovedAnswer : null,
+    }];
+  });
+};
+
+const normalizeSuggestedImprovedAnswers = (value: unknown): SuggestedImprovedAnswerView[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    if (
+      !record ||
+      typeof record.questionId !== 'string' ||
+      typeof record.sequence !== 'number' ||
+      !Number.isFinite(record.sequence) ||
+      typeof record.answer !== 'string'
+    ) {
+      return [];
+    }
+
+    return [{
+      questionId: record.questionId,
+      sequence: record.sequence,
+      answer: record.answer,
+    }];
+  });
+};
+
+const normalizeReportSample = (value: unknown): ReportSampleView | null => {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  return {
+    answeredQuestions: asNumber(record.answeredQuestions),
+    issuedQuestions: asNumber(record.issuedQuestions),
+    isPartial: record.isPartial === true,
+  };
+};
+
+/**
+ * Normalizes the untrusted report wire response once at the API boundary.
+ * Collection fields always become stable typed arrays; malformed values fail safely to [].
+ */
+export function normalizeReportView(raw: unknown): ReportView {
+  const record = asRecord(raw) || {};
+
+  return {
+    id: asString(record.id),
+    interviewId: asString(record.interviewId),
+    overallScore: asNumber(record.overallScore),
+    rubric: normalizeRubricCollection(record.rubric),
+    strengths: normalizeStringCollection(record.strengths),
+    gaps: normalizeStringCollection(record.gaps),
+    actionPlan: normalizeStringCollection(record.actionPlan),
+    disclaimer: asString(record.disclaimer),
+    createdAt: asString(record.createdAt),
+    starSummary: normalizeStarSummary(record.starSummary),
+    questionReviews: normalizeQuestionReviews(record.questionReviews),
+    suggestedImprovedAnswers: normalizeSuggestedImprovedAnswers(record.suggestedImprovedAnswers),
+    sample: normalizeReportSample(record.sample),
+  };
+}
+
 /**
  * Determines whether the user can finish the interview session now.
  * Server-authoritative: strictly respects continuation.canFinishNow.
@@ -203,10 +389,41 @@ export interface ContractErrorLike {
 export function canFinishInterview(
   continuation?: InterviewContinuationView | null
 ): boolean {
-  if (continuation?.canFinishNow !== undefined) {
-    return Boolean(continuation.canFinishNow);
-  }
-  return false;
+  return continuation?.canFinishNow === true;
+}
+
+/**
+ * Determines whether an official answer may be exposed or submitted.
+ * Unknown and non-active lifecycle states fail closed.
+ */
+export function canSubmitInterviewAnswer(params: {
+  status?: string;
+  hasQuestion: boolean;
+  upgradeRequired: boolean;
+}): boolean {
+  return (
+    params.status === 'active' &&
+    params.hasQuestion === true &&
+    params.upgradeRequired === false
+  );
+}
+
+/**
+ * Keeps the answer timer running only while the current answer is genuinely answerable.
+ * A failed submission sets submitting back to false, which deterministically resumes it.
+ */
+export function shouldRunAnswerTimer(params: {
+  status?: string;
+  hasQuestion: boolean;
+  canSubmitAnswer: boolean;
+  submitting: boolean;
+}): boolean {
+  return (
+    params.status === 'active' &&
+    params.hasQuestion === true &&
+    params.canSubmitAnswer === true &&
+    params.submitting === false
+  );
 }
 
 /**
@@ -659,6 +876,54 @@ export function getOrCreateAnswerIntent(
 
 export const REPORT_POLL_INTERVAL_MS = 15_000;
 export const REPORT_POLL_MAX_ATTEMPTS = 8; // 8 * 15s = 120s (2 minutes)
+
+export interface ReportPollingAttemptTracker {
+  ensureCycle(cycleKey: string): void;
+  getAttemptCount(): number;
+  scheduleFallbackPoll(): void;
+  consumeScheduledPoll(): boolean;
+  recordFallbackPoll(): number;
+  reset(): void;
+}
+
+/**
+ * Tracks real fallback poll executions independently from React Query internals.
+ * Scheduling is idempotent so repeated refetchInterval evaluations do not inflate the count.
+ */
+export function createReportPollingAttemptTracker(): ReportPollingAttemptTracker {
+  let cycleKey: string | null = null;
+  let attemptCount = 0;
+  let pollScheduled = false;
+
+  const reset = () => {
+    attemptCount = 0;
+    pollScheduled = false;
+  };
+
+  return {
+    ensureCycle(nextCycleKey: string) {
+      if (cycleKey === nextCycleKey) return;
+      cycleKey = nextCycleKey;
+      reset();
+    },
+    getAttemptCount() {
+      return attemptCount;
+    },
+    scheduleFallbackPoll() {
+      pollScheduled = true;
+    },
+    consumeScheduledPoll() {
+      if (!pollScheduled) return false;
+      pollScheduled = false;
+      return true;
+    },
+    recordFallbackPoll() {
+      attemptCount += 1;
+      return attemptCount;
+    },
+    reset,
+  };
+}
 
 export interface ReportPollingDecisionParams {
   interviewStatus?: string;

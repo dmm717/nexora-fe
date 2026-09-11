@@ -69,3 +69,23 @@
   - `git diff --check`: clean (0 errors).
 - Commit: `feat(interview): integrate production interview and report flow`
 - Blockers: none. Backend untouched. PR created against `main` without merging.
+
+### Final Corrective Pass (PR #5)
+
+- Corrective source HEAD re-verified: `44c420a403568c3d3974ab3905b0d199a9017e20` (`feat/interview-production-integration`).
+- FE main re-verified: `277bc1c50df752cf0d7a1e4de4f7805fa905c4e6` (`origin/main`).
+- Backend main re-verified at newer commit: `e25d4022955ad4a097632926ab725044c829cde0` (`qbao0111/nexora-backend:main`); interview lifecycle, continuation, report shape, and canonical error codes were checked against the current source.
+- Scope: focused final correction only; backend, A10 voice/STT, and unrelated CV/scenario/auth work were untouched.
+- Blocker 1 fixed: replaced React Query `dataUpdateCount` with a production fallback polling tracker. Actual fallback requests increment once per scheduled cycle, polling remains pending-only, the 8-attempt/15-second bound is enforced, retry cycles and successful reports reset the tracker, and exhaustion has explicit truthful UX with manual refresh/list actions.
+- Blocker 2 fixed: added production `canSubmitInterviewAnswer()` and used it for answer UI rendering, textarea/button disabled state, and submit guard. Draft, starting, active, completing, completed, failed, abandoned, and unknown lifecycle states now fail closed or show truthful panels.
+- Blocker 3 fixed: all complete actions and auto-complete paths require server-authoritative `canFinishInterview(continuation)`. The answer timer pauses during submission, resumes after a failed submission, and preserves frozen duration/key for unchanged retries while edited answers use the newer elapsed duration.
+- Cleanup 1 fixed: this final corrective subsection records current HEAD/base, backend verification, validation evidence, Vercel status, and remaining limitation truthfully.
+- Cleanup 2 fixed: narrowed `ReportView` collections to typed arrays and added production `normalizeReportView()` at the API boundary; malformed collection values safely normalize to `[]`.
+- Contract cleanup: removed unused client authorization constants (`MINIMUM_REPORT_ANSWERS`, `FREE_QUESTION_LIMIT`) and stale interview error aliases (`INVALID_STATE`, feature quota aliases) from the interview contract.
+- Tests: `npm test` passed 48/48 (25 interview, 12 CV, 11 scenario tests). Interview coverage includes production answer/lifecycle eligibility, server-authoritative finish gating, bounded pending-only polling/cycle reset, timer recovery/idempotency, and report normalization.
+- TypeScript: `npx tsc --noEmit` passed with 0 errors.
+- ESLint: targeted interview validation passed with 0 errors and 0 warnings across the required interview pages, hook, API/contract files, and test file.
+- Build: `npm run build` passed with Turbopack; all 33 routes generated.
+- Diff check: `git diff --check` passed with no whitespace errors.
+- Vercel status: Vercel pending; exact-head hosted deployment was not independently verified in this pass.
+- Remaining blockers/limitations: no known local blockers; Vercel exact-head status remains pending. PR #5 must remain open for independent review and must not be merged by this pass.

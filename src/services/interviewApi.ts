@@ -5,6 +5,7 @@ import {
   buildContinueInterviewRequest,
   buildCompleteInterviewRequest,
   buildRetryReportRequest,
+  normalizeReportView,
   type InterviewView,
   type AnswerResult,
   type ReportView,
@@ -78,7 +79,7 @@ export const interviewApi = {
   },
 
   getReport: async (id: string): Promise<ReportView> => {
-    const response = (await apiClient.get(`/interviews/${id}/report`)) as { data: ReportView };
-    return response.data;
+    const response = (await apiClient.get(`/interviews/${id}/report`)) as { data: unknown };
+    return normalizeReportView(response.data);
   },
 };

@@ -11,6 +11,7 @@ import {
   getCurrentQuestion,
   getAnsweredQuestions,
   canFinishInterview,
+  canSubmitInterviewAnswer,
   canUpgradeAndContinue,
   isUpgradeRequired,
   shouldAutoComplete,
@@ -20,6 +21,7 @@ import {
   generateIdempotencyKey,
   getOrCreateAnswerIntent,
   type AnswerIntent,
+  shouldRunAnswerTimer,
   SCORE_SCALE,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
@@ -59,14 +61,24 @@ export default function InterviewRoomPage() {
   const upgradeRequired = isUpgradeRequired(continuation);
   const canUpgrade = canUpgradeAndContinue(continuation);
 
-  // Active lifecycle gating: only 'active' sessions with an unanswered question and no upgrade block permit answering
-  const canAnswer = interview?.status === 'active' && Boolean(activeQuestion) && !upgradeRequired;
+  // Active lifecycle gating: only the production helper decides whether official answer controls are allowed.
+  const canAnswer = canSubmitInterviewAnswer({
+    status: interview?.status,
+    hasQuestion: Boolean(activeQuestion),
+    upgradeRequired,
+  });
   const hasActiveQuestion = Boolean(activeQuestion);
   const activeQuestionId = activeQuestion?.id;
 
-  // Start timer when an active question is displayed
+  // Keep the timer running only while the current answer is genuinely answerable.
+  // When a submission fails, submitting returns to false and this effect resumes it.
   useEffect(() => {
-    if (interview?.status === 'active' && hasActiveQuestion) {
+    if (shouldRunAnswerTimer({
+      status: interview?.status,
+      hasQuestion: hasActiveQuestion,
+      canSubmitAnswer: canAnswer,
+      submitting,
+    })) {
       timerRef.current = setInterval(() => {
         setSecondsElapsed((prev) => prev + 1);
       }, 1000);
@@ -82,7 +94,7 @@ export default function InterviewRoomPage() {
         timerRef.current = null;
       }
     };
-  }, [interview?.status, hasActiveQuestion, id, router]);
+  }, [interview?.status, hasActiveQuestion, canAnswer, submitting, id, router]);
 
   // Reset timer on active question change
   useEffect(() => {
@@ -91,7 +103,7 @@ export default function InterviewRoomPage() {
   }, [activeQuestionId]);
 
   const handleComplete = async () => {
-    if (completing || submitting) return;
+    if (!canFinish || completing || submitting) return;
     if (answeredPairs.length > 0 && !window.confirm('Bạn có chắc chắn muốn kết thúc buổi phỏng vấn và xuất báo cáo?')) {
       return;
     }
@@ -167,7 +179,11 @@ export default function InterviewRoomPage() {
       setSecondsElapsed(0);
 
       // Check auto-completion: nextQuestion=null with upgrade_required must NOT auto-complete
-      if (shouldAutoComplete(result.isComplete, result.continuation, result.nextQuestion)) {
+      const resultContinuation = result.continuation ?? continuation;
+      if (
+        shouldAutoComplete(result.isComplete, resultContinuation, result.nextQuestion) &&
+        canFinishInterview(resultContinuation)
+      ) {
         await interviewApi.complete(id, completeKeyRef.current);
         router.push(`/dashboard/interviews/${id}/report`);
       } else {
@@ -283,6 +299,63 @@ export default function InterviewRoomPage() {
           </h2>
           <p style={{ color: '#6b7280', marginTop: '1rem' }}>
             Phiên phỏng vấn này không còn hoạt động. Bạn có thể quay lại danh sách phỏng vấn để xem các lựa chọn hiện có.
+          </p>
+          <div style={{ marginTop: '2rem' }}>
+            <Link href="/dashboard/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
+              Trở về Danh sách phỏng vấn
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (interview.status === 'completed') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+          <h2 className={styles.title}>Buổi phỏng vấn đã hoàn thành</h2>
+          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
+            Bài phỏng vấn đã kết thúc. Bạn có thể xem báo cáo đánh giá chi tiết.
+          </p>
+          <div style={{ marginTop: '2rem' }}>
+            <button
+              className={styles.btnPrimary}
+              onClick={() => router.push(`/dashboard/interviews/${id}/report`)}
+            >
+              Xem báo cáo &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (interview.status === 'draft') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+          <h2 className={styles.title}>Buổi phỏng vấn chưa sẵn sàng.</h2>
+          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
+            Vui lòng quay lại danh sách và thử mở lại sau ít phút.
+          </p>
+          <div style={{ marginTop: '2rem' }}>
+            <Link href="/dashboard/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
+              Trở về Danh sách phỏng vấn
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (interview.status !== 'active') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+          <h2 className={styles.title}>Trạng thái buổi phỏng vấn chưa được hỗ trợ.</h2>
+          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
+            Vui lòng tải lại hoặc quay lại danh sách phỏng vấn.
           </p>
           <div style={{ marginTop: '2rem' }}>
             <Link href="/dashboard/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
@@ -710,7 +783,7 @@ export default function InterviewRoomPage() {
               </button>
             </div>
           </div>
-        ) : activeQuestion ? (
+        ) : canAnswer && activeQuestion ? (
           <>
             <div className={styles.questionBox}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -737,7 +810,7 @@ export default function InterviewRoomPage() {
                 placeholder="Nhập câu trả lời chi tiết của bạn tại đây..."
                 value={answerContent}
                 onChange={(e) => setAnswerContent(e.target.value)}
-                disabled={submitting}
+                disabled={!canAnswer || submitting}
               />
             </div>
 
@@ -745,7 +818,7 @@ export default function InterviewRoomPage() {
               <button
                 className={styles.btnPrimary}
                 onClick={handleSubmitAnswer}
-                disabled={submitting || !answerContent.trim()}
+                disabled={!canAnswer || submitting || !answerContent.trim()}
               >
                 {submitting ? 'Đang gửi...' : 'Gửi câu trả lời'}
               </button>
@@ -762,7 +835,7 @@ export default function InterviewRoomPage() {
             <button
               className={styles.btnPrimary}
               onClick={handleComplete}
-              disabled={completing || submitting}
+              disabled={completing || submitting || !canFinish}
             >
               {completing ? 'Đang xuất báo cáo...' : 'Nộp bài & Xem báo cáo'}
             </button>
