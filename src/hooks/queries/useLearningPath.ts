@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { learningPathApi } from '@/services/learningPathApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { SKILL_PROFILE_QUERY_KEY } from './useSkillProfile';
+import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
 
 export const LEARNING_PATH_QUERY_KEY = ['learningPath'] as const;
 
@@ -39,6 +40,7 @@ export const useGenerateLearningPath = () => {
     onSuccess: (data) => {
       queryClient.setQueryData(LEARNING_PATH_QUERY_KEY, data);
       void queryClient.invalidateQueries({ queryKey: LEARNING_PATH_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };
@@ -51,6 +53,7 @@ export const useRefreshLearningPath = () => {
     onSuccess: (data) => {
       queryClient.setQueryData(LEARNING_PATH_QUERY_KEY, data);
       void queryClient.invalidateQueries({ queryKey: LEARNING_PATH_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };
@@ -64,6 +67,7 @@ export const useCompleteLearningPathActivity = () => {
       queryClient.setQueryData(LEARNING_PATH_QUERY_KEY, data);
       void queryClient.invalidateQueries({ queryKey: LEARNING_PATH_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: SKILL_PROFILE_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };
