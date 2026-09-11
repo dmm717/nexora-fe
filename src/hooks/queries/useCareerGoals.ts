@@ -6,6 +6,7 @@ import {
   type UpdateCareerGoalRequest,
 } from '@/services/careerGoalsApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
 
 export const CAREER_GOALS_QUERY_KEY = ['careerGoals'] as const;
 
@@ -30,6 +31,7 @@ export const useCreateCareerGoal = () => {
       careerGoalsApi.create(buildCreateCareerGoalRequest(values)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };
@@ -42,6 +44,7 @@ export const useUpdateCareerGoal = () => {
       careerGoalsApi.update(id, request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };
@@ -55,6 +58,7 @@ export const useArchiveCareerGoal = () => {
       careerGoalsApi.update(id, { activeSpecified: true, active: false }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };
@@ -68,6 +72,7 @@ export const useReactivateCareerGoal = () => {
       careerGoalsApi.update(id, { activeSpecified: true, active: true }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
     },
   });
 };

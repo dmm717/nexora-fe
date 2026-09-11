@@ -5,6 +5,7 @@ import Link from 'next/link';
 import styles from './DashboardPage.module.css';
 import { useDashboardSummary } from '@/hooks/queries/useDashboard';
 import { ClientDate } from '@/components/ui/ClientDate';
+import NextPracticeRecommendationCard from '@/components/features/recommendations/NextPracticeRecommendationCard';
 
 const getStatusBadgeClass = (status: string) => {
   const s = status.toLowerCase();
@@ -87,6 +88,8 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      <NextPracticeRecommendationCard />
 
       <div className={styles.contentGrid}>
         {/* Interviews List */}

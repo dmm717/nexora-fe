@@ -15,6 +15,7 @@ import {
   type LearningPathActivityResponse,
 } from '@/services/learningPathApi';
 import { ApiError } from '@/services/apiClient';
+import NextPracticeRecommendationCard from '@/components/features/recommendations/NextPracticeRecommendationCard';
 
 function getActivityTypeBadgeClass(type: string): string {
   switch (type) {
@@ -227,6 +228,8 @@ export default function LearningPathView() {
 
       {path && (
         <>
+          <NextPracticeRecommendationCard />
+
           <div className={styles.progressCard}>
             <div className={styles.progressHeader}>
               <span className={styles.progressTitle}>Tiến độ hoàn thành lộ trình</span>
