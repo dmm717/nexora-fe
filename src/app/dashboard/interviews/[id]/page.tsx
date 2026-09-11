@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
@@ -28,6 +28,12 @@ import {
   SCORE_SCALE,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import {
+  mergeFinalTranscript,
+  SPEECH_LANGUAGE_OPTIONS,
+  SPEECH_UNSUPPORTED_MESSAGE,
+} from '@/hooks/speechRecognitionContract';
 import { formatTime } from '@/utils/formatters';
 import { ApiError } from '@/services/apiClient';
 
@@ -56,6 +62,13 @@ export default function InterviewRoomPage() {
 
   const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
+  // A10 temporary voice input: browser speech -> editable transcript -> normal answer submit.
+  // Only finalized segments are merged into the editable textarea; interim text stays a preview.
+  const handleFinalSpeechSegment = useCallback((segment: string) => {
+    setAnswerContent((prev) => mergeFinalTranscript(prev, segment));
+  }, []);
+  const speech = useSpeechRecognition({ onFinalSegment: handleFinalSpeechSegment });
+
   // Derive questions and active status from server-owned data
   const answeredPairs = getAnsweredQuestions(interview?.questions, interview?.answers);
   const activeQuestion = getCurrentQuestion(interview?.questions, interview?.answers);
@@ -72,6 +85,15 @@ export default function InterviewRoomPage() {
   });
   const hasActiveQuestion = Boolean(activeQuestion);
   const activeQuestionId = activeQuestion?.id;
+
+  // Stop listening when leaving the answerable state or while submitting.
+  useEffect(() => {
+    if (!speech.supported) return;
+    if (!canAnswer || submitting) {
+      speech.stop();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAnswer, submitting, speech.supported]);
 
   // Keep the timer running only while the current answer is genuinely answerable.
   // When a submission fails, submitting returns to false and this effect resumes it.
@@ -99,10 +121,12 @@ export default function InterviewRoomPage() {
     };
   }, [interview?.status, hasActiveQuestion, canAnswer, submitting, id, router]);
 
-  // Reset timer on active question change
+  // Reset timer and speech preview on active question change
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSecondsElapsed(0);
+    speech.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeQuestionId]);
 
   const handleComplete = async () => {
@@ -185,10 +209,11 @@ export default function InterviewRoomPage() {
         oldData ? applyAnswerResultToInterview(oldData, result) : oldData
       );
 
-      // Submission succeeded: clear pending intent, input, and timer
+      // Submission succeeded: clear pending intent, input, timer, and speech state
       pendingAnswerIntentRef.current = null;
       setAnswerContent('');
       setSecondsElapsed(0);
+      speech.reset();
 
       // Check auto-completion: nextQuestion=null with upgrade_required must NOT auto-complete
       const resultContinuation = result.continuation ?? continuation;
@@ -818,6 +843,85 @@ export default function InterviewRoomPage() {
                 onChange={(e) => setAnswerContent(e.target.value)}
                 disabled={!canAnswer || submitting}
               />
+            </div>
+
+            {/* A10 temporary voice input (browser Web Speech API) */}
+            <div
+              style={{
+                marginTop: '0.75rem',
+                marginBottom: '0.75rem',
+                padding: '0.75rem',
+                border: '1px dashed #cbd5e1',
+                borderRadius: '8px',
+                background: '#f8fafc',
+              }}
+            >
+              {speech.supported ? (
+                <>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {speech.listening ? (
+                      <button
+                        type="button"
+                        className={styles.btnDanger}
+                        onClick={speech.stop}
+                        disabled={submitting}
+                      >
+                        ⏹ Dừng ghi âm
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={speech.start}
+                        disabled={!canAnswer || submitting}
+                      >
+                        🎤 Bắt đầu nói
+                      </button>
+                    )}
+
+                    <label htmlFor="speechLanguage" style={{ fontSize: '0.9rem', color: '#475569' }}>
+                      Ngôn ngữ:
+                    </label>
+                    <select
+                      id="speechLanguage"
+                      className={styles.select}
+                      value={speech.language}
+                      onChange={(e) =>
+                        speech.setLanguage(e.target.value === 'en-US' ? 'en-US' : 'vi-VN')
+                      }
+                      disabled={submitting}
+                    >
+                      {SPEECH_LANGUAGE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    {speech.listening && (
+                      <span style={{ color: '#2563eb', fontWeight: 600 }}>● Đang nghe...</span>
+                    )}
+                  </div>
+
+                  {speech.preview && (
+                    <div style={{ marginTop: '0.5rem', color: '#475569', fontSize: '0.9rem' }}>
+                      <strong>Bản nháp giọng nói:</strong> {speech.preview}
+                    </div>
+                  )}
+
+                  {speech.error && (
+                    <div style={{ marginTop: '0.5rem', color: '#dc2626', fontSize: '0.9rem', fontWeight: 500 }}>
+                      {speech.error.message}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '0.5rem', color: '#94a3b8', fontSize: '0.8rem' }}>
+                    Nhập giọng nói chỉ tạo bản nháp có thể chỉnh sửa. Nội dung gửi đi là văn bản cuối cùng trong ô trả lời — không có âm thanh nào được gửi.
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{SPEECH_UNSUPPORTED_MESSAGE}</div>
+              )}
             </div>
 
             <div className={styles.buttonGroup}>
