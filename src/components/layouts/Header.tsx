@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { gsap } from 'gsap';
+import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 
 const Header = () => {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
+  const { authReady, isAuthenticated } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -61,19 +63,33 @@ const Header = () => {
           ))}
         </nav>
 
-        <div className="flex items-center gap-4 header-anim">
-          <Link 
-            href="/auth" 
-            className="hidden md:block text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors"
-          >
-            Đăng nhập
-          </Link>
-          <Link 
-            href="/auth?mode=register" 
-            className="text-sm font-medium px-5 py-2.5 rounded-full bg-gray-900 text-white hover:bg-purple-600 transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
-          >
-            Đăng ký
-          </Link>
+        <div className="flex items-center gap-4 header-anim" style={{ minHeight: '40px' }}>
+          {!authReady ? (
+            // Neutral placeholder during bootstrap to eliminate visible logged-out -> logged-in flicker
+            <div className="w-32 h-9 rounded-full bg-gray-100/70 animate-pulse" aria-hidden="true" />
+          ) : isAuthenticated ? (
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium px-5 py-2.5 rounded-full bg-purple-600 text-white hover:bg-purple-700 transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
+            >
+              Vào Dashboard →
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/auth"
+                className="hidden md:block text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                href="/auth?mode=register"
+                className="text-sm font-medium px-5 py-2.5 rounded-full bg-gray-900 text-white hover:bg-purple-600 transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
+              >
+                Đăng ký
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
