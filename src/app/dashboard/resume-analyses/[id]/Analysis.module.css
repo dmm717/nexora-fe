@@ -216,3 +216,133 @@
 .recommendations .listItem svg {
   color: #0071e3;
 }
+
+/* Mode Context Card */
+.contextCard {
+  background: #e8ebf0;
+  border-radius: 16px;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 2.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  box-shadow:
+    inset 4px 4px 8px rgba(166, 180, 200, 0.35),
+    inset -4px -4px 8px rgba(255, 255, 255, 0.8);
+}
+
+.contextItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.contextLabel {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.contextValue {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Summary text */
+.summaryText {
+  color: #374151;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Breakdown Grid */
+.breakdownGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .breakdownGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.breakdownItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.breakdownHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.breakdownScore {
+  font-weight: 700;
+  color: #111827;
+}
+
+.breakdownBarBg {
+  width: 100%;
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.breakdownBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Skills Badges */
+.skillsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.skillGroupTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.6rem;
+}
+
+.skillBadgeGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.matchedSkillBadge {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.missingSkillBadge {
+  background-color: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}

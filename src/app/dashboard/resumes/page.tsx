@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ClientDate } from '@/components/ui/ClientDate';
 import styles from './Resumes.module.css';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '@/services/apiClient';
-import { cvAnalysisApi, getUploadContentType } from '@/services/cvAnalysisApi';
+import { cvAnalysisApi, getUploadContentType, ResumeAnalysisMode } from '@/services/cvAnalysisApi';
 import {
   createResumeAnalysisOperation,
   ResumeAnalysisOperation,
@@ -17,8 +18,6 @@ import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus } from '@/utils/queryPolling';
-
-const REPORT_LANGUAGE_INSTRUCTION = '\n\n(Yêu cầu: Vui lòng trả về báo cáo phân tích hoàn toàn bằng Tiếng Việt)';
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
@@ -37,31 +36,41 @@ const ResumeHistoryList = ({ history }: { history: AnalysisHistoryItem[] }) => {
     <div className={styles.panel} style={{ marginTop: '2rem' }}>
       <h2 className={styles.panelTitle}>Lịch sử phân tích của bạn (Lưu trên thiết bị)</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-        {history.map(item => (
-          <div
-            key={item.id}
-            onClick={() => router.push(`/dashboard/resume-analyses/${item.id}`)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/dashboard/resume-analyses/${item.id}`); } }}
-            style={{
-              cursor: 'pointer',
-              padding: '1rem',
-              border: '1px solid #e5e7eb',
-              borderRadius: '0.5rem',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              backgroundColor: '#f9fafb'
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 600, color: '#111827' }}>{item.jdTitle}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={item.createdAt} /></div>
+        {history.map(item => {
+          const isBenchmark = item.mode === 'field_benchmark' || (!item.jdTitle && !!item.targetRole);
+          const title = isBenchmark
+            ? `${item.targetRole ?? 'Vị trí mục tiêu'}${item.seniority ? ` · ${item.seniority}` : ''}`
+            : (item.jdTitle || 'Phân tích CV');
+          const subtitle = isBenchmark && item.industry ? item.industry : null;
+          return (
+            <div
+              key={item.id}
+              onClick={() => router.push(`/dashboard/resume-analyses/${item.id}`)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/dashboard/resume-analyses/${item.id}`); } }}
+              style={{
+                cursor: 'pointer',
+                padding: '1rem',
+                border: '1px solid #e5e7eb',
+                borderRadius: '0.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#f9fafb'
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, color: '#111827' }}>{title}</div>
+                {subtitle && <div style={{ fontSize: '0.8rem', color: '#4b5563', marginTop: '0.15rem' }}>{subtitle}</div>}
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  <ClientDate date={item.createdAt} />
+                </div>
+              </div>
+              <div style={{ color: '#2563eb', fontWeight: 500, fontSize: '0.875rem' }}>Xem kết quả &rarr;</div>
             </div>
-            <div style={{ color: '#2563eb', fontWeight: 500, fontSize: '0.875rem' }}>Xem kết quả &rarr;</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -190,6 +199,77 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
   </div>
 );
 
+interface FieldBenchmarkPanelProps {
+  industry: string;
+  setIndustry: React.Dispatch<React.SetStateAction<string>>;
+  targetRole: string;
+  setTargetRole: React.Dispatch<React.SetStateAction<string>>;
+  seniority: string;
+  setSeniority: React.Dispatch<React.SetStateAction<string>>;
+  loading: boolean;
+}
+
+const FieldBenchmarkPanel = ({
+  industry,
+  setIndustry,
+  targetRole,
+  setTargetRole,
+  seniority,
+  setSeniority,
+  loading,
+}: FieldBenchmarkPanelProps) => (
+  <div className={styles.panel}>
+    <h2 className={styles.panelTitle}>
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      2. Định hướng chuẩn ngành
+    </h2>
+
+    <div className={styles.formGroup}>
+      <label className={styles.label} htmlFor="industry">Ngành nghề / Lĩnh vực</label>
+      <input
+        id="industry"
+        type="text"
+        maxLength={160}
+        className={styles.input}
+        placeholder="VD: Công nghệ thông tin / Thương mại điện tử"
+        value={industry}
+        onChange={e => setIndustry(e.target.value)}
+        disabled={loading}
+      />
+    </div>
+
+    <div className={styles.formGroup}>
+      <label className={styles.label} htmlFor="targetRole">Vị trí mục tiêu</label>
+      <input
+        id="targetRole"
+        type="text"
+        maxLength={160}
+        className={styles.input}
+        placeholder="VD: Senior Frontend Developer / Data Analyst"
+        value={targetRole}
+        onChange={e => setTargetRole(e.target.value)}
+        disabled={loading}
+      />
+    </div>
+
+    <div className={styles.formGroup}>
+      <label className={styles.label} htmlFor="seniority">Cấp bậc kinh nghiệm</label>
+      <input
+        id="seniority"
+        type="text"
+        maxLength={80}
+        className={styles.input}
+        placeholder="VD: Fresher / Junior / Mid-level / Senior / Lead"
+        value={seniority}
+        onChange={e => setSeniority(e.target.value)}
+        disabled={loading}
+      />
+    </div>
+  </div>
+);
+
 export default function ResumesPage() {
   const router = useRouter();
   const { authReady, isAuthenticated } = useAuth();
@@ -236,19 +316,38 @@ export default function ResumesPage() {
   const resumeStatus = readStatus(resumeData);
   const isResumeReady = resumeStatus === 'ready';
 
-  // JD state
+  // Mode selection state
+  const [mode, setMode] = useState<ResumeAnalysisMode>('job_targeted');
+
+  // JD state (job_targeted)
   const [jdTitle, setJdTitle] = useState('');
   const [jdContent, setJdContent] = useState('');
+
+  // Field benchmark state (field_benchmark)
+  const [industry, setIndustry] = useState('');
+  const [targetRole, setTargetRole] = useState('');
+  const [seniority, setSeniority] = useState('');
 
   // Submit state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quotaExceededError, setQuotaExceededError] = useState<{ message: string; requestId?: string } | null>(null);
   const [stage, setStage] = useState<'idle' | 'uploading' | 'processing' | 'ready' | 'analyzing'>('idle');
 
   const finishAnalysis = React.useCallback((operation: ResumeAnalysisOperation, analysis: { id: string }) => {
     if (!isMounted.current) return;
     setPendingAnalysis(null);
-    addHistoryItem({ id: analysis.id, jdTitle: operation.jdTitle });
+    if (operation.mode === 'job_targeted') {
+      addHistoryItem({ id: analysis.id, mode: 'job_targeted', jdTitle: operation.jdTitle });
+    } else {
+      addHistoryItem({
+        id: analysis.id,
+        mode: 'field_benchmark',
+        targetRole: operation.targetRole,
+        seniority: operation.seniority,
+        industry: operation.industry,
+      });
+    }
     setStage('ready');
     router.push(`/dashboard/resume-analyses/${analysis.id}`);
   }, [addHistoryItem, router, setPendingAnalysis]);
@@ -258,6 +357,7 @@ export default function ResumesPage() {
     activeAnalysisKey.current = operation.idempotencyKey;
     setLoading(true);
     setError(null);
+    setQuotaExceededError(null);
     setStage('analyzing');
     const controller = new AbortController();
     analysisAbortController.current = controller;
@@ -271,6 +371,18 @@ export default function ResumesPage() {
     }).catch((err: unknown) => {
       activeAnalysisKey.current = null;
       if (!isMounted.current || isAbortError(err)) return;
+      if (err instanceof ApiError && (err.code === 'FEATURE_QUOTA_EXCEEDED' || err.code === 'FEATURE_NOT_AVAILABLE')) {
+        setQuotaExceededError({
+          message: err.code === 'FEATURE_QUOTA_EXCEEDED'
+            ? 'Bạn đã sử dụng hết lượt phân tích CV miễn phí (1 lượt/tài khoản). Nâng cấp gói để tiếp tục phân tích không giới hạn.'
+            : 'Tính năng phân tích CV không khả dụng trong gói hiện tại của bạn.',
+          requestId: err.requestId,
+        });
+        setPendingAnalysis(null);
+        setError(null);
+        return;
+      }
+      setQuotaExceededError(null);
       setError(safeErrorMessage(err, 'Có lỗi xảy ra trong quá trình phân tích.'));
     }).finally(() => {
       if (isMounted.current) setLoading(false);
@@ -427,31 +539,78 @@ export default function ResumesPage() {
       setError('Vui lòng tải lên CV và chờ xử lý xong.');
       return;
     }
-    if (!jdTitle.trim() || !jdContent.trim()) {
-      setError('Vui lòng nhập đầy đủ Tiêu đề và Mô tả công việc.');
-      return;
-    }
 
-    const persistedContent = `${jdContent.trim()}${REPORT_LANGUAGE_INSTRUCTION}`;
-    const existingOperation = pending
-      && pending.userId === currentUser?.id
-      && pending.resumeId === resumeId
-      && pending.jdTitle === jdTitle.trim()
-      && pending.jdContent === persistedContent
-      ? pending
-      : null;
-    const operation = existingOperation ?? createResumeAnalysisOperation({
-      userId: currentUser.id,
-      resumeId,
-      jobDescriptionId: null,
-      analysisId: null,
-      jdTitle: jdTitle.trim(),
-      jdContent: persistedContent,
-    });
-    hasResumed.current = true;
-    setPendingAnalysis(operation);
-    startAnalysis(operation);
+    setQuotaExceededError(null);
+    setError(null);
+
+    if (mode === 'job_targeted') {
+      const trimmedTitle = jdTitle.trim();
+      const trimmedContent = jdContent.trim();
+      if (!trimmedTitle || !trimmedContent) {
+        setError('Vui lòng nhập đầy đủ Tiêu đề và Mô tả công việc.');
+        return;
+      }
+
+      const existingOperation = pending
+        && pending.userId === currentUser.id
+        && pending.resumeId === resumeId
+        && pending.mode === 'job_targeted'
+        && pending.jdTitle === trimmedTitle
+        && pending.jdContent === trimmedContent
+        ? pending
+        : null;
+
+      const operation = existingOperation ?? createResumeAnalysisOperation({
+        userId: currentUser.id,
+        resumeId,
+        mode: 'job_targeted',
+        jobDescriptionId: null,
+        analysisId: null,
+        jdTitle: trimmedTitle,
+        jdContent: trimmedContent,
+      });
+
+      hasResumed.current = true;
+      setPendingAnalysis(operation);
+      startAnalysis(operation);
+    } else {
+      const trimmedIndustry = industry.trim();
+      const trimmedTargetRole = targetRole.trim();
+      const trimmedSeniority = seniority.trim();
+      if (!trimmedIndustry || !trimmedTargetRole || !trimmedSeniority) {
+        setError('Vui lòng nhập đầy đủ Ngành nghề, Vị trí mục tiêu và Cấp bậc kinh nghiệm.');
+        return;
+      }
+
+      const existingOperation = pending
+        && pending.userId === currentUser.id
+        && pending.resumeId === resumeId
+        && pending.mode === 'field_benchmark'
+        && pending.industry === trimmedIndustry
+        && pending.targetRole === trimmedTargetRole
+        && pending.seniority === trimmedSeniority
+        ? pending
+        : null;
+
+      const operation = existingOperation ?? createResumeAnalysisOperation({
+        userId: currentUser.id,
+        resumeId,
+        mode: 'field_benchmark',
+        analysisId: null,
+        industry: trimmedIndustry,
+        targetRole: trimmedTargetRole,
+        seniority: trimmedSeniority,
+      });
+
+      hasResumed.current = true;
+      setPendingAnalysis(operation);
+      startAnalysis(operation);
+    }
   };
+
+  const isJobTargetedIncomplete = mode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
+  const isFieldBenchmarkIncomplete = mode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
+  const isSubmitDisabled = loading || isUploading || !file || !isResumeReady || isJobTargetedIncomplete || isFieldBenchmarkIncomplete;
 
   const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
   const stageMessage = visibleStage === 'uploading'
@@ -461,15 +620,72 @@ export default function ResumesPage() {
       : visibleStage === 'ready'
         ? 'CV đã sẵn sàng.'
         : visibleStage === 'analyzing'
-          ? 'AI đang phân tích độ phù hợp...'
+          ? (mode === 'job_targeted' ? 'AI đang phân tích độ phù hợp...' : 'AI đang đánh giá theo chuẩn ngành...')
           : '';
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>Phân tích CV chuyên sâu</h1>
-        <p className={styles.subtitle}>Tải lên CV và Mô tả công việc để AI đánh giá mức độ phù hợp và đưa ra lời khuyên cải thiện.</p>
+        <p className={styles.subtitle}>Tải lên CV và chọn phương thức phân tích để AI đánh giá chi tiết và đưa ra lộ trình tối ưu.</p>
       </header>
+
+      {/* Mode Selector */}
+      <div className={styles.modeSelectorContainer}>
+        <div className={styles.modeSelectorLabel}>Phương thức phân tích</div>
+        <div className={styles.modeToggleGroup} role="tablist" aria-label="Phương thức phân tích">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'job_targeted'}
+            className={`${styles.modeToggleButton} ${mode === 'job_targeted' ? styles.modeToggleButtonActive : ''}`}
+            onClick={() => {
+              setMode('job_targeted');
+              setError(null);
+            }}
+          >
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Phân tích theo công việc cụ thể
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'field_benchmark'}
+            className={`${styles.modeToggleButton} ${mode === 'field_benchmark' ? styles.modeToggleButtonActive : ''}`}
+            onClick={() => {
+              setMode('field_benchmark');
+              setError(null);
+            }}
+          >
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Đánh giá theo vị trí/ngành mục tiêu
+          </button>
+        </div>
+      </div>
+
+      {quotaExceededError && (
+        <div className={styles.quotaBanner} role="alert">
+          <div className={styles.quotaContent}>
+            <svg className={styles.quotaIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor" width="28" height="28">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <div className={styles.quotaTitle}>Đã hết lượt phân tích miễn phí</div>
+              <div className={styles.quotaText}>{quotaExceededError.message}</div>
+              {quotaExceededError.requestId && (
+                <div className={styles.quotaRequestId}>Mã yêu cầu: {quotaExceededError.requestId}</div>
+              )}
+            </div>
+          </div>
+          <Link href="/dashboard/billing" className={styles.upgradeButton}>
+            Nâng cấp gói ngay
+          </Link>
+        </div>
+      )}
 
       {error && <div className={styles.errorMessage}>{error}</div>}
 
@@ -487,20 +703,32 @@ export default function ResumesPage() {
           retryDisabled={isUploading || !!resumeId}
         />
 
-        <JobDescriptionPanel
-          jdTitle={jdTitle}
-          setJdTitle={setJdTitle}
-          jdContent={jdContent}
-          setJdContent={setJdContent}
-          loading={loading}
-        />
+        {mode === 'job_targeted' ? (
+          <JobDescriptionPanel
+            jdTitle={jdTitle}
+            setJdTitle={setJdTitle}
+            jdContent={jdContent}
+            setJdContent={setJdContent}
+            loading={loading}
+          />
+        ) : (
+          <FieldBenchmarkPanel
+            industry={industry}
+            setIndustry={setIndustry}
+            targetRole={targetRole}
+            setTargetRole={setTargetRole}
+            seniority={seniority}
+            setSeniority={setSeniority}
+            loading={loading}
+          />
+        )}
       </div>
 
       <div className={styles.actionArea}>
         <button
           className={styles.analyzeButton}
           onClick={handleAnalyze}
-          disabled={loading || isUploading || !file || !jdTitle.trim() || !jdContent.trim() || (!!file && !isResumeReady)}
+          disabled={isSubmitDisabled}
         >
           {loading ? (
             <><div className={styles.spinner}></div> Phân tích...</>
@@ -509,7 +737,7 @@ export default function ResumesPage() {
           ) : (file && !isResumeReady) ? (
             resumeStatus === 'failed' ? 'Lỗi xử lý CV' : <><div className={styles.spinner}></div> Đang xử lý CV...</>
           ) : (
-            'Phân tích độ phù hợp'
+            mode === 'job_targeted' ? 'Phân tích độ phù hợp' : 'Đánh giá mức độ sẵn sàng'
           )}
         </button>
         {stageMessage && (
