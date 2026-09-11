@@ -28,7 +28,6 @@ const Header = () => {
     { href: '/', label: 'Trang chủ' },
     { href: '/cv-analysis', label: 'Phân tích CV' },
     { href: '/interview', label: 'Phỏng vấn AI' },
-    { href: '/courses', label: 'Khóa học' },
     { href: '/pricing', label: 'Bảng giá' },
   ];
 
@@ -39,12 +38,9 @@ const Header = () => {
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
-        <Link href="/" className="header-anim flex items-center gap-2">
+        <Link href="/" className="header-anim flex items-center">
           {/* Logo */}
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold text-xl">
-            N
-          </div>
-          <span className="font-bold text-xl tracking-tight text-gray-900">NEXORA</span>
+          <img src="/logo.png" alt="Nexora Logo" className="h-8 md:h-10 w-auto object-contain" />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 header-anim">

@@ -1,18 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Playfair_Display } from "next/font/google";
 import "./globals.css";
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  preload: false,
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin", "vietnamese"],
-  preload: false,
-});
 
 export const metadata: Metadata = {
   title: "NEXORA - Innovating Today Inspiring Tomorrow",
@@ -24,7 +11,7 @@ import ReactQueryProvider from '@/components/providers/ReactQueryProvider';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" translate="no" className={`${outfit.variable} ${playfair.variable} antialiased`}>
+    <html lang="vi" translate="no" className="antialiased">
       <body className="min-h-full flex flex-col">
         <ReactQueryProvider>
           {children}

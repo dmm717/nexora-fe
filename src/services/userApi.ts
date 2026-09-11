@@ -83,6 +83,10 @@ export const userApi = {
   },
 
   changePassword: async (data: ChangePasswordRequest): Promise<void> => {
-    await apiClient.post('/me/password', data);
+    await apiClient.post('/me/password', data, {
+      headers: {
+        'X-Skip-Auth-Redirect': 'true'
+      }
+    });
   }
 };

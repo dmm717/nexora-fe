@@ -244,34 +244,7 @@ const FinalCTA = () => {
           </div>
         </div>
 
-        {/* Integrated Card Footer */}
-        <div className="relative z-10 pt-6 mt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium text-slate-500">
-          {/* Logo & Brand Name */}
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold text-[10px] shadow-sm">
-              P
-            </div>
-            <span className="font-bold text-sm text-slate-900 tracking-tight">ProInterview</span>
-          </div>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-6 md:gap-8 text-slate-600 font-medium text-xs">
-            <Link href="/" className="hover:text-purple-600 transition-colors">
-              Về ProInterview
-            </Link>
-            <Link href="/courses" className="hover:text-purple-600 transition-colors">
-              Dịch Vụ
-            </Link>
-            <Link href="#" className="hover:text-purple-600 transition-colors">
-              Liên Hệ
-            </Link>
-          </div>
-
-          {/* Copyright text */}
-          <span className="text-slate-400 text-xs">
-            © {new Date().getFullYear()} ProInterview. All rights reserved.
-          </span>
-        </div>
 
       </div>
     </section>

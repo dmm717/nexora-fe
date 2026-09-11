@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -8,21 +8,61 @@ gsap.registerPlugin(ScrollTrigger);
 
 const FeaturesBento = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const [pathData, setPathData] = useState('');
+  const [pathLength, setPathLength] = useState(0);
 
+  // Camera state for Card 3
+  const [isCamActive, setIsCamActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCamActive(true);
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Vui lòng cấp quyền truy cập Camera để trải nghiệm tính năng này.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      const tracks = stream.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCamActive(false);
+  };
+
+  useEffect(() => {
+    // Tự động yêu cầu quyền truy cập camera ngay khi component được render
+    startCamera();
+    
+    return () => stopCamera();
+  }, []);
+
+  // Initial cards entry animation
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
         '.bento-card-anim',
-        { y: 40, opacity: 0 },
+        { y: 50, opacity: 0, scale: 0.97 },
         {
           y: 0,
           opacity: 1,
-          duration: 0.7,
+          scale: 1,
+          duration: 0.8,
           stagger: 0.08,
           ease: 'power3.out',
           scrollTrigger: {
             trigger: containerRef.current,
-            start: 'top 80%',
+            start: 'top 75%',
           },
         }
       );
@@ -30,10 +70,105 @@ const FeaturesBento = () => {
     return () => ctx.revert();
   }, []);
 
+  // Continuous Line Drawing Logic
+  useEffect(() => {
+    const updatePath = () => {
+      if (!gridRef.current) return;
+      const cards = Array.from(gridRef.current.querySelectorAll('.bento-card-anim')) as HTMLElement[];
+      const gridRect = gridRef.current.getBoundingClientRect();
+      
+      let d = '';
+      cards.forEach((card, idx) => {
+        // Calculate the center of each card relative to the grid wrapper
+        const x = card.offsetLeft + card.offsetWidth / 2;
+        const y = card.offsetTop + card.offsetHeight / 2;
+        
+        if (idx === 0) {
+          d += `M ${x} ${y} `;
+        } else {
+          // Use Bezier curve for smooth turning between cards
+          const prevCard = cards[idx - 1];
+          const prevX = prevCard.offsetLeft + prevCard.offsetWidth / 2;
+          const prevY = prevCard.offsetTop + prevCard.offsetHeight / 2;
+          
+          const cp1x = prevX + (x - prevX) / 2;
+          const cp1y = prevY;
+          const cp2x = prevX + (x - prevX) / 2;
+          const cp2y = y;
+          
+          d += `C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x} ${y} `;
+        }
+      });
+      setPathData(d);
+    };
+
+    // Delay calculation slightly to ensure DOM is fully laid out and images loaded
+    const timeout = setTimeout(updatePath, 200);
+    window.addEventListener('resize', updatePath);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('resize', updatePath);
+    };
+  }, []);
+
+  // Animate the SVG line on scroll
+  useEffect(() => {
+    if (pathRef.current && pathData) {
+      const length = pathRef.current.getTotalLength();
+      setPathLength(length);
+      
+      gsap.fromTo(pathRef.current, 
+        { strokeDashoffset: length },
+        { 
+          strokeDashoffset: 0, 
+          ease: "none",
+          scrollTrigger: {
+            trigger: gridRef.current,
+            start: "top 50%",
+            end: "bottom 80%",
+            scrub: 1
+          }
+        }
+      );
+    }
+  }, [pathData]);
+
+  // Inject custom keyframes for the cards
+  useEffect(() => {
+    if (!document.getElementById('features-custom-styles')) {
+      const style = document.createElement('style');
+      style.id = 'features-custom-styles';
+      style.innerHTML = `
+        @keyframes scan {
+          0% { top: 0%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+          50% { opacity: 0.8; transform: scale(1.05); box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
+        }
+        @keyframes audio-bar {
+          0%, 100% { transform: scaleY(0.3); }
+          50% { transform: scaleY(1); }
+        }
+        @keyframes marquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes grow-width {
+          from { width: 0%; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   return (
     <section ref={containerRef} className="py-20 lg:py-28 bg-[#F6F8FD] relative overflow-hidden" id="features">
       <div className="max-w-[1440px] mx-auto px-4 md:px-8 relative z-10">
-        
+
         {/* Section Title */}
         <div className="text-center mb-12">
           <h2 className="text-[2.75rem] md:text-[3.75rem] font-extrabold text-[#0F172A] tracking-tight">
@@ -41,537 +176,511 @@ const FeaturesBento = () => {
           </h2>
         </div>
 
-        {/* GIANT OUTER BENTO CONTAINER MATCHING THE REFERENCE IMAGE */}
-        <div className="bg-[#EEF2FB] border border-[#D8E1F3] rounded-[2.5rem] md:rounded-[3.2rem] p-4 md:p-8 lg:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] relative">
+        {/* GIANT OUTER BENTO CONTAINER */}
+        <div className="bg-[#EEF2FB] border border-[#D8E1F3] rounded-[2.5rem] md:rounded-[3.2rem] p-4 md:p-8 lg:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.03)] relative overflow-hidden">
           
-          {/* 4-COLUMN BENTO GRID */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5 lg:gap-6 relative">
+          {/* THE CONTINUOUS SVG LINE OVERLAY (Behind the glass cards) */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-40 md:opacity-60" preserveAspectRatio="none">
+            {/* Background Track */}
+            <path d={pathData} stroke="#CBD5E1" strokeWidth="2" fill="none" strokeDasharray="6 6" />
+            {/* Animated Glowing Line */}
+            <path 
+              ref={pathRef}
+              d={pathData} 
+              stroke="#6366F1" 
+              strokeWidth="4" 
+              fill="none" 
+              strokeDasharray={pathLength}
+              strokeDashoffset={pathLength}
+              strokeLinecap="round"
+              className="drop-shadow-[0_0_8px_rgba(99,102,241,0.8)]"
+            />
+          </svg>
+
+          {/* 12-COLUMN BENTO GRID */}
+          <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 relative z-10">
 
             {/* ================= ROW 1 ================= */}
 
-            {/* CARD 1: Phân Tích & Phản Hồi Thông Minh (Col 1) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-6 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[340px] group hover:shadow-lg transition-all duration-300">
-              
-              {/* Connector Arrow to Card 2 */}
-              <div className="hidden lg:flex absolute -right-7 top-1/2 -translate-y-1/2 z-30 items-center text-indigo-400 pointer-events-none">
-                <svg width="36" height="20" viewBox="0 0 36 20" fill="none">
-                  <path d="M2 10H28" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
-                  <path d="M24 4L32 10L24 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-
+            {/* CARD 1: Phân Tích */}
+            <div className="bento-card-anim col-span-1 md:col-span-3 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-6 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[340px] group">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Phân Tích & Phản Hồi<br />Thông Minh
+                  Phân Tích & Phản Hồi
                 </h3>
                 <p className="text-[11px] text-gray-500 leading-relaxed max-w-[90%]">
-                  Phân tích analysis đã thông nác CV và liên văn mái tuyển tuyển.
+                  AI quét trực tiếp CV của bạn và đối chiếu yêu cầu công việc.
                 </p>
               </div>
 
-              {/* Graphic Area */}
-              <div className="mt-6 relative w-full h-[180px] bg-slate-50/70 rounded-2xl border border-slate-100 p-3 overflow-hidden">
-                {/* Skeleton Document */}
-                <div className="w-[65%] bg-white rounded-xl shadow-md p-3 border border-slate-100 space-y-2 relative z-10">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-purple-100 border border-purple-300"></div>
-                    <div className="h-2 w-16 bg-purple-200 rounded-full"></div>
-                  </div>
-                  <div className="h-1.5 w-full bg-slate-200 rounded-full"></div>
-                  <div className="h-1.5 w-[85%] bg-purple-400 rounded-full"></div>
-                  <div className="h-1.5 w-[70%] bg-slate-200 rounded-full"></div>
-                  <div className="h-1.5 w-[90%] bg-slate-200 rounded-full"></div>
+              {/* Live Scanner Graphic */}
+              <div className="mt-5 relative w-full flex-1 min-h-[220px] bg-slate-50/50 rounded-2xl border border-slate-200/50 p-2 overflow-hidden flex flex-col">
+                {/* Scanner Laser */}
+                <div className="absolute left-0 w-full h-12 bg-gradient-to-b from-transparent via-purple-500/20 to-transparent z-20" style={{ animation: 'scan 2.5s ease-in-out infinite' }}>
+                  <div className="absolute bottom-1/2 left-0 w-full h-[1px] bg-purple-400 shadow-[0_0_8px_#A855F7]"></div>
                 </div>
 
-                {/* Purple Pointer Line */}
-                <div className="absolute left-[55%] top-[45%] w-12 h-px bg-purple-400 z-20"></div>
+                {/* Real-looking Mini ATS CV */}
+                <div className="w-[88%] bg-white rounded-sm shadow-[0_2px_10px_rgba(0,0,0,0.04)] p-3 border border-slate-200 relative z-10 mx-auto mt-1 mb-1 text-[5px] leading-tight text-slate-800 font-sans">
+                  {/* Header */}
+                  <div className="text-center mb-2">
+                    <div className="text-[9px] font-black uppercase tracking-wider text-black">John Doe</div>
+                    <div className="text-[5px] font-bold uppercase tracking-widest text-slate-600 mt-0.5 mb-1">Senior Software Engineer</div>
+                    <div className="text-[4px] text-slate-500 flex justify-center gap-1.5">
+                      <span>john.doe@email.com</span>
+                      <span>•</span>
+                      <span>+1 234 567 890</span>
+                      <span>•</span>
+                      <span>San Francisco, CA</span>
+                    </div>
+                  </div>
+                  
+                  {/* About Me Section */}
+                  <div className="mb-1.5">
+                    <div className="font-black text-black mb-[2px] uppercase text-[4.5px] border-b-[1.5px] border-black pb-[1px]">About Me</div>
+                    <div className="text-[4px] text-slate-600 text-justify leading-snug">
+                      Experienced software engineer with 6+ years in full-stack development. Passionate about building scalable systems and optimizing performance.
+                    </div>
+                  </div>
 
-                {/* Floating Score Badge */}
-                <div className="absolute right-2 bottom-2 w-[52%] bg-white rounded-xl shadow-xl border border-purple-100 p-2.5 z-20 flex flex-col items-center">
-                  <div className="text-[8px] font-bold text-gray-600 mb-1 w-full text-left">CV score: 9</div>
-                  <div className="flex gap-1 mb-2 w-full">
-                    <span className="text-[6px] font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">ReactJS ✓</span>
-                    <span className="text-[6px] font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">NodeJS ✓</span>
+                  {/* Skills Section */}
+                  <div className="mb-1.5">
+                    <div className="font-black text-black mb-[2px] uppercase text-[4.5px] border-b-[1.5px] border-black pb-[1px]">Skills</div>
+                    <div className="text-[4px] text-slate-600 leading-snug">
+                      <span className="font-bold">Languages:</span> JavaScript, TypeScript, Python, Java, C++<br/>
+                      <span className="font-bold">Frameworks:</span> React, Next.js, Node.js, Express, Spring Boot
+                    </div>
                   </div>
-                  {/* Gauge Arc Meter */}
-                  <div className="relative w-12 h-12 flex items-center justify-center">
-                    <svg className="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
-                      <path className="text-gray-100" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                      <path className="text-purple-600" strokeWidth="4" strokeDasharray="92, 100" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                    <span className="absolute text-xs font-black text-purple-700">92</span>
+
+                  {/* Work Experience Section */}
+                  <div className="mb-1.5">
+                    <div className="font-black text-black mb-[2px] uppercase text-[4.5px] border-b-[1.5px] border-black pb-[1px]">Work Experience</div>
+                    
+                    <div className="mt-0.5 mb-1.5">
+                      <div className="flex justify-between font-bold text-black text-[4.5px]">
+                        <span>TechCorp - Lead Engineer</span>
+                        <span className="font-normal text-slate-500 text-[4px]">2022 - Present</span>
+                      </div>
+                      <ul className="list-disc pl-2.5 mt-[1px] space-y-[1px] text-[4px] text-slate-600">
+                        <li>Architected cloud-native microservices serving 2M+ users.</li>
+                        <li>Reduced latency by 40% using Redis caching.</li>
+                        <li>Mentored a team of 5 junior developers.</li>
+                      </ul>
+                    </div>
+
+                    <div className="mt-0.5">
+                      <div className="flex justify-between font-bold text-black text-[4.5px]">
+                        <span>WebSolutions - Frontend Dev</span>
+                        <span className="font-normal text-slate-500 text-[4px]">2020 - 2022</span>
+                      </div>
+                      <ul className="list-disc pl-2.5 mt-[1px] space-y-[1px] text-[4px] text-slate-600">
+                        <li>Developed responsive web apps using React and Redux.</li>
+                        <li>Improved Lighthouse scores from 65 to 95.</li>
+                      </ul>
+                    </div>
                   </div>
+
+                  {/* Education Section */}
+                  <div className="mb-1.5">
+                    <div className="font-black text-black mb-[2px] uppercase text-[4.5px] border-b-[1.5px] border-black pb-[1px]">Education</div>
+                    <div className="flex justify-between font-bold text-black text-[4.5px] mt-0.5">
+                      <span>Stanford University - BS Computer Science</span>
+                      <span className="font-normal text-slate-500 text-[4px]">2016 - 2020</span>
+                    </div>
+                  </div>
+
+                  {/* Projects Section */}
+                  <div>
+                    <div className="font-black text-black mb-[2px] uppercase text-[4.5px] border-b-[1.5px] border-black pb-[1px]">Projects</div>
+                    <div className="mt-0.5">
+                      <div className="flex justify-between font-bold text-black text-[4.5px]">
+                        <span>Open Source Contributor - React</span>
+                      </div>
+                      <ul className="list-disc pl-2.5 mt-[1px] space-y-[1px] text-[4px] text-slate-600">
+                        <li>Implemented new core hooks and resolved 50+ community issues.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute right-3 bottom-3 bg-white/90 backdrop-blur px-2 py-1 rounded shadow-sm border border-slate-100 text-[8px] font-mono text-purple-600 flex items-center gap-1.5 z-30">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Analyzing
                 </div>
               </div>
             </div>
 
+            {/* CARD 2: Hệ Thống Phỏng Vấn AI (Center) */}
+            <div className="bento-card-anim col-span-1 md:col-span-5 relative min-h-[350px] flex flex-col group">
+              <div className="absolute inset-0 rounded-[2.3rem] bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-blue-500/5 border border-white/80 backdrop-blur-xl shadow-[0_8px_30px_rgba(99,102,241,0.08)]"></div>
 
-            {/* CARD 2: Hệ Thống Phỏng Vấn AI Tổng Thể (Col 2 & 3 - CENTER CARD) */}
-            <div className="bento-card-anim col-span-1 md:col-span-2 relative min-h-[350px] flex flex-col z-20 group">
-              
-              {/* Continuous Gradient Border Frame with Custom Bottom Latch Notch */}
-              <div className="absolute inset-0 rounded-[2.3rem] bg-gradient-to-r from-purple-600 via-indigo-500 to-blue-500 p-[3px] shadow-[0_10px_35px_rgba(99,102,241,0.25)]">
-                <div className="absolute inset-[3px] bg-white rounded-[calc(2.3rem-3px)]"></div>
-              </div>
-
-              {/* Connector Arrow to Card 3 */}
-              <div className="hidden lg:flex absolute -right-7 top-1/2 -translate-y-1/2 z-30 items-center text-blue-400 pointer-events-none">
-                <svg width="36" height="20" viewBox="0 0 36 20" fill="none">
-                  <path d="M2 10H28" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
-                  <path d="M24 4L32 10L24 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-
-              {/* Inner Content */}
               <div className="relative p-7 md:p-8 flex flex-col justify-between h-full z-10">
-                <div>
-                  <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight mb-2">
-                    Hệ Thống Phỏng Vấn<br />AI Tổng Thể
-                  </h3>
-                  <p className="text-xs text-gray-500 max-w-[65%] leading-relaxed">
-                    Micro-animation of hệ thống nơ ron số thế nền phỏng vấn neural net.
-                  </p>
-                </div>
-
-                {/* Neural Network SVG Diagram */}
-                <div className="my-4 relative w-full h-[150px] flex items-center justify-center">
-                  <svg className="w-full h-full max-w-[480px]" viewBox="0 0 450 140" fill="none">
-                    <defs>
-                      <linearGradient id="neuralGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#A855F7" />
-                        <stop offset="50%" stopColor="#6366F1" />
-                        <stop offset="100%" stopColor="#3B82F6" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Connecting Lines */}
-                    {[20, 45, 70, 95, 120].map((y, i) => (
-                      <g key={i}>
-                        <path d={`M 50 ${y} C 120 ${y}, 140 70, 200 70`} stroke="url(#neuralGrad)" strokeWidth="1.2" strokeDasharray="4 4" opacity="0.7" />
-                        <path d={`M 200 70 C 260 70, 280 ${30 + i * 20}, 350 ${30 + i * 20}`} stroke="url(#neuralGrad)" strokeWidth="1.5" opacity="0.8" />
-                        <path d={`M 350 ${30 + i * 20} C 390 ${30 + i * 20}, 410 70, 430 70`} stroke="url(#neuralGrad)" strokeWidth="1" opacity="0.5" />
-                      </g>
-                    ))}
-
-                    {/* Left Nodes */}
-                    {[20, 45, 70, 95, 120].map((y, i) => (
-                      <circle key={`l-${i}`} cx="50" cy={y} r="4" fill="#A855F7" />
-                    ))}
-
-                    {/* Big Center Node */}
-                    <circle cx="200" cy="70" r="11" fill="#6366F1" className="shadow-lg" />
-                    <circle cx="200" cy="70" r="18" fill="#6366F1" opacity="0.2" className="animate-ping" />
-
-                    {/* Right Layer Nodes */}
-                    {[30, 50, 70, 90, 110].map((y, i) => (
-                      <circle key={`r-${i}`} cx="350" cy={y} r="5" fill="#3B82F6" />
-                    ))}
-
-                    {/* Output Node */}
-                    <circle cx="430" cy="70" r="4" fill="#3B82F6" />
-                  </svg>
-                </div>
-
-                {/* Bottom Row inside Card 2 */}
-                <div className="flex items-end justify-between mt-auto">
-                  {/* Floating AI Logo */}
-                  <div className="w-14 h-14 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-2xl shadow-lg flex items-center justify-center text-white font-black text-2xl tracking-tighter border border-purple-300/40">
-                    Ai
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight mb-2">
+                      Lõi AI Phỏng Vấn
+                    </h3>
+                    <p className="text-xs text-gray-500 max-w-[65%] leading-relaxed">
+                      Xử lý ngôn ngữ tự nhiên và đánh giá năng lực theo thời gian thực.
+                    </p>
                   </div>
+                  <div className="px-3 py-1 bg-white/80 backdrop-blur rounded-full border border-indigo-100 text-[9px] font-bold text-indigo-600 flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                    </span>
+                    Live processing
+                  </div>
+                </div>
 
-                  {/* Star Mascot standing naturally at bottom right */}
-                  <div className="relative -mb-4 -mr-2 z-30">
-                    <img
-                      src="/images/mascot.png"
-                      alt="Purple Mascot"
-                      className="w-28 h-28 object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.15)] hover:scale-105 transition-transform duration-300"
-                    />
+                {/* AI Thought Process UI */}
+                <div className="my-6 relative w-full flex-1 flex items-center justify-center">
+                  <div className="w-24 h-24 md:w-32 md:h-32 flex items-center justify-center z-20" style={{ animation: 'pulse-glow 3s infinite' }}>
+                    <img src="/logo.png" alt="Nexora Logo" className="w-full h-full object-contain drop-shadow-xl mix-blend-multiply" />
+                  </div>
+                  
+                  {/* Floating code / logic nodes */}
+                  <div className="absolute top-[10%] left-[5%] bg-white/90 backdrop-blur px-3 py-2 rounded-xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-[10px] font-mono text-slate-700 transform -rotate-3 hover:scale-105 transition-transform hover:z-30">
+                    <span className="text-purple-500 font-bold">Context</span>.match(<span className="text-emerald-500">98%</span>)
+                  </div>
+                  <div className="absolute top-[15%] right-[5%] bg-indigo-50/90 backdrop-blur border border-indigo-100 px-3 py-1.5 rounded-full text-[9px] text-indigo-600 font-bold flex items-center gap-1.5 shadow-[0_4px_12px_rgba(99,102,241,0.1)] hover:scale-105 transition-transform hover:z-30">
+                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                    NLP Engine Active
+                  </div>
+                  <div className="absolute top-[45%] left-[5%] bg-white/90 backdrop-blur px-3 py-2 rounded-xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-[9px] font-mono text-slate-700 transform rotate-2 hover:scale-105 transition-transform hover:z-30">
+                    <span className="text-emerald-500 font-bold">Emotion</span>.detect() <span className="text-gray-400">{'->'}</span> Confident
+                  </div>
+                  <div className="absolute top-[50%] right-[8%] bg-white/90 backdrop-blur px-3 py-2 rounded-xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-[9px] font-mono text-slate-700 transform -rotate-2 hover:scale-105 transition-transform hover:z-30">
+                    <span className="text-blue-500 font-bold">Knowledge</span>.query() <span className="text-gray-400">{'->'}</span> Tech Stack
+                  </div>
+                  <div className="absolute bottom-[20%] left-[10%] bg-purple-50/90 backdrop-blur border border-purple-100 px-3 py-1.5 rounded-full text-[9px] text-purple-600 font-bold flex items-center gap-1.5 shadow-[0_4px_12px_rgba(168,85,247,0.1)] hover:scale-105 transition-transform hover:z-30">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Latency: 42ms
+                  </div>
+                  <div className="absolute bottom-[15%] right-[5%] bg-white/90 backdrop-blur px-3 py-2 rounded-xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.05)] text-[10px] font-mono text-slate-700 transform rotate-3 hover:scale-105 transition-transform hover:z-30">
+                    <span className="text-indigo-500 font-bold">Speech</span>.toText() <span className="text-gray-400">{'->'}</span> OK
+                  </div>
+                  <div className="absolute bottom-[5%] left-[30%] bg-emerald-50/90 backdrop-blur border border-emerald-100 px-3 py-1.5 rounded-full text-[9px] text-emerald-600 font-bold flex items-center gap-1.5 shadow-[0_4px_12px_rgba(16,185,129,0.1)] hover:scale-105 transition-transform hover:z-30">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                    Generating Response
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* CARD 3: Hội Thoại Mô Phỏng */}
+            <div className="bento-card-anim col-span-1 md:col-span-4 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[340px] group">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
+                  Phỏng vấn 1:1 với AI
+                </h3>
+                <p className="text-[10px] text-gray-500 leading-relaxed mb-4">
+                  Tương tác giọng nói tự nhiên như với người thật.
+                </p>
+              </div>
 
-            {/* CARD 3: Hội Thoại Mô Phỏng (Col 4) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[340px] group hover:shadow-lg transition-all duration-300">
-              
-              <h3 className="text-xl font-bold text-gray-900 leading-snug mb-3">
-                Hội Thoại Mô Phỏng
-              </h3>
-
-              {/* Mac Window Mockup */}
-              <div className="flex-1 bg-slate-50/80 rounded-2xl border border-slate-200/80 p-3 flex flex-col justify-between relative overflow-hidden shadow-inner">
-                
-                {/* Mac Top Bar */}
-                <div className="flex items-center gap-1.5 pb-2.5 border-b border-slate-200/60 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></div>
-                  <span className="text-[9px] text-gray-400 font-medium ml-auto">Phỏng vấn vdeo - Phỏng vấn</span>
-                  <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded ml-2">Bước 2/5</span>
-                </div>
-
-                {/* AI Question Banner */}
-                <div className="bg-purple-100/70 border border-purple-200/80 rounded-xl p-2.5 text-[9.5px] text-purple-950 font-medium leading-tight mb-2.5">
-                  <span className="font-bold text-purple-700">AI:</span> Dựa trên CV có thể nhận thấy dự án pet-app của bạn rất đặc sắc. Mức độ khó khăn ở đâu?
-                </div>
-
-                {/* 2 Video Frames */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {/* Left: Interviewer */}
-                  <div className="relative aspect-video bg-slate-200 rounded-xl overflow-hidden border border-slate-300/60 shadow-sm">
-                    <img src="/images/interviewer.png" alt="Interviewer" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-1 left-1 text-[7px] text-white bg-black/60 px-1 py-0.5 rounded backdrop-blur-sm">Interviewer</span>
+              {/* Video Call Interface UI */}
+              <div className="flex-1 bg-slate-900 rounded-2xl p-2.5 flex flex-col relative overflow-hidden shadow-inner border border-slate-800 gap-2">
+                {/* Header / Timer */}
+                <div className="flex justify-between items-center px-2 pt-1">
+                  <div className="flex gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-[#FF5F56]"></div>
+                    <div className="w-2 h-2 rounded-full bg-[#FFBD2E]"></div>
                   </div>
-                  {/* Right: Candidate Camera Loading */}
-                  <div className="aspect-video bg-slate-900 rounded-xl border border-slate-800 flex flex-col items-center justify-center p-2 text-center relative overflow-hidden">
-                    <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-1"></div>
-                    <span className="text-[7px] text-slate-400 font-medium">Đang kết nối camera...</span>
+                  <div className="text-[9px] text-slate-400 font-mono tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span> 00:03:42
                   </div>
                 </div>
 
-                {/* Bottom Action Button - Bright Neon Lime Green */}
-                <div className="mt-auto flex items-center justify-between bg-white p-1 rounded-full border border-slate-200 shadow-sm">
-                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs">
-                    🎤
+                {/* Video Feeds Grid */}
+                <div className="flex-1 flex gap-2 items-center justify-center w-full">
+                  {/* AI Video (Left) */}
+                  <div className="flex-1 aspect-square bg-slate-800 rounded-xl relative overflow-hidden border border-slate-700/50 flex items-center justify-center shadow-sm">
+                    {/* AI Video Stream */}
+                    <video
+                      src="/images/interviewer-speaking.mp4"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    
+                    <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded flex items-center gap-1 z-20">
+                       <span className="text-[6.5px] text-white font-medium">Nexora AI</span>
+                       <div className="flex items-end gap-[1px] h-1.5 ml-0.5">
+                         <div className="w-[1.5px] bg-indigo-400 h-[40%] animate-pulse"></div>
+                         <div className="w-[1.5px] bg-indigo-400 h-[80%] animate-pulse" style={{ animationDelay: '75ms' }}></div>
+                         <div className="w-[1.5px] bg-indigo-400 h-[60%] animate-pulse" style={{ animationDelay: '150ms' }}></div>
+                       </div>
+                    </div>
                   </div>
-                  <button className="bg-[#A3E635] hover:bg-[#86EFAC] text-[#1E3A8A] font-bold text-[10px] py-1.5 px-4 rounded-full transition-colors shadow-sm">
-                    Cụ thể đáp →
+
+                  {/* User Camera (Right) */}
+                  <div 
+                    onClick={isCamActive ? stopCamera : startCamera}
+                    className={`flex-1 aspect-square rounded-xl relative overflow-hidden border flex flex-col items-center justify-center p-2 text-center group cursor-pointer transition-colors ${isCamActive ? 'bg-black border-slate-700' : 'bg-slate-800/80 border-slate-700/50 border-dashed hover:bg-slate-800'}`}
+                  >
+                    <video 
+                      ref={videoRef}
+                      autoPlay 
+                      playsInline
+                      muted
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 -scale-x-100 ${isCamActive ? 'opacity-100' : 'opacity-0'}`}
+                    />
+                    
+                    {!isCamActive && (
+                      <>
+                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                          <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <span className="text-[7.5px] text-slate-300 font-medium">Turn on camera</span>
+                        <span className="text-[5.5px] text-slate-500 mt-0.5">Click to allow access</span>
+                      </>
+                    )}
+
+                    {isCamActive && (
+                      <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]"></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Controls */}
+                <div className="h-8 flex items-center justify-center gap-3 mt-1">
+                  <button className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 transition-colors">
+                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
+                  <button className="w-7 h-7 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center hover:bg-red-500/40 transition-colors">
+                    <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8l2.414-2.414a2 2 0 012.828 2.828L18.828 10l2.414 2.414a2 2 0 01-2.828 2.828L16 12.828l-2.414 2.414a2 2 0 01-2.828-2.828L13.172 10l-2.414-2.414a2 2 0 012.828-2.828L16 8z" />
+                    </svg>
                   </button>
                 </div>
               </div>
-
-              {/* Mascot Standing on Bottom Right of Card 3 */}
-              <div className="absolute -right-3 -bottom-3 w-16 h-16 z-30 pointer-events-none">
-                <img src="/images/mascot.png" alt="Mascot" className="w-full h-full object-contain drop-shadow-md" />
-              </div>
             </div>
-
 
             {/* ================= ROW 2 ================= */}
 
-            {/* CARD 4: Hồ Sơ & CV Khớp Lệnh (Col 1 & 2) */}
-            <div className="bento-card-anim col-span-1 md:col-span-2 bg-white rounded-[2.2rem] p-6 lg:p-7 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col md:flex-row gap-6 relative min-h-[320px] group hover:shadow-lg transition-all duration-300">
-              
-              {/* Connector Arrow to Card 5 */}
-              <div className="hidden lg:flex absolute -right-7 top-1/2 -translate-y-1/2 z-30 items-center text-indigo-400 pointer-events-none">
-                <svg width="36" height="20" viewBox="0 0 36 20" fill="none">
-                  <path d="M2 10H28" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
-                  <path d="M24 4L32 10L24 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-
-              {/* Left Tilted Purple CV Graphic */}
-              <div className="w-full md:w-[42%] bg-gradient-to-br from-[#7C3AED] via-[#6D28D9] to-[#4C1D95] rounded-2xl p-4 text-white shadow-xl transform -rotate-3 border border-purple-400/40 shrink-0 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2.5 pb-3 border-b border-white/20 mb-3">
-                    <div className="w-9 h-9 rounded-full bg-white/20 border border-white/40 overflow-hidden flex items-center justify-center font-bold text-xs">
-                      CV
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">CV OV</div>
-                      <div className="text-[8px] text-purple-200">Fullstack Engineer</div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-1.5 w-full bg-white/25 rounded-full"></div>
-                    <div className="h-1.5 w-[80%] bg-white/25 rounded-full"></div>
-                    <div className="h-1.5 w-[90%] bg-purple-300/60 rounded-full"></div>
-                    <div className="h-1.5 w-[60%] bg-white/25 rounded-full"></div>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-white/20 mt-4 flex items-center justify-between text-[8px] text-purple-200">
-                  <span>Match Rate</span>
-                  <span className="font-bold text-white bg-purple-500/50 px-1.5 py-0.5 rounded">95%</span>
-                </div>
-              </div>
-
-              {/* Right Info & Skill Gap Chart */}
+            {/* CARD 4: Hồ Sơ & CV Khớp Lệnh */}
+            <div className="bento-card-anim col-span-1 md:col-span-6 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-6 lg:p-7 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-6 relative min-h-[320px] group">
               <div className="flex-1 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight mb-1">
-                    Hồ Sơ & CV Khớp Lệnh
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight mb-2">
+                    Khớp Lệnh Kỹ Năng
                   </h3>
-                  <p className="text-[11px] text-gray-500 leading-relaxed mb-4">
-                    Animated CV với tracking key skills của màn thoại dữ liệu phòng.
+                  <p className="text-[11px] text-gray-500 leading-relaxed mb-6 max-w-[85%]">
+                    Hệ thống tự động phân tích và đo lường mức độ phù hợp của CV so với JD.
                   </p>
-
-                  <h4 className="text-xs font-bold text-gray-800 mb-2">Animated Key Kịch</h4>
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {['ReactJS', 'NodeJS', 'Python', 'Python', 'AWS', 'Docker', 'GraphQL'].map((skill, idx) => (
-                      <span key={idx} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200 shadow-2xs">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-
-                {/* Skill-Gap Analysis Curve */}
-                <div>
-                  <h4 className="text-xs font-bold text-gray-800 mb-1.5">Skill-gap analysis</h4>
-                  <div className="h-[75px] w-full bg-slate-50/80 rounded-xl border border-slate-200/80 p-2 relative overflow-hidden flex items-end">
-                    <svg className="w-full h-full" viewBox="0 0 200 50" preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="purpleWave" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#A855F7" stopOpacity="0.4" />
-                          <stop offset="100%" stopColor="#A855F7" stopOpacity="0" />
-                        </linearGradient>
-                        <linearGradient id="greenWave" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10B981" stopOpacity="0.4" />
-                          <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      <path d="M0 50 L0 35 Q 30 10, 60 40 T 120 20 T 180 35 L200 25 L200 50 Z" fill="url(#purpleWave)" />
-                      <path d="M0 35 Q 30 10, 60 40 T 120 20 T 180 35 L200 25" stroke="#A855F7" strokeWidth="2" fill="none" />
-                      
-                      <path d="M0 50 L0 45 Q 40 30, 80 15 T 140 35 T 200 15 L200 50 Z" fill="url(#greenWave)" />
-                      <path d="M0 45 Q 40 30, 80 15 T 140 35 T 200 15" stroke="#10B981" strokeWidth="2" fill="none" />
-                    </svg>
-
-                    <div className="absolute top-1.5 right-2 bg-white/90 backdrop-blur-sm text-[7px] p-1.5 rounded-md border border-slate-200 shadow-sm space-y-0.5">
-                      <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span><span className="font-bold">CV match 4/5</span></div>
-                      <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span className="font-bold">Python: 5.0</span></div>
+                
+                <div className="space-y-4">
+                  {[
+                    { skill: 'System Design', score: 95, color: 'bg-indigo-500' },
+                    { skill: 'React / Frontend', score: 88, color: 'bg-purple-500' },
+                    { skill: 'Cloud Infrastructure', score: 72, color: 'bg-blue-500' }
+                  ].map((item, idx) => (
+                    <div key={idx}>
+                      <div className="flex justify-between text-[11px] font-bold mb-1.5 text-gray-700">
+                        <span>{item.skill}</span>
+                        <span className="text-indigo-600">{item.score}%</span>
+                      </div>
+                      <div className="h-2.5 w-full bg-slate-100/80 rounded-full overflow-hidden border border-slate-200/50">
+                        <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.score}%`, animation: `grow-width 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards`, animationDelay: `${idx * 0.2}s` }}></div>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-full md:w-[42%] bg-gradient-to-br from-slate-50/50 to-indigo-50/50 rounded-[1.5rem] p-5 border border-indigo-100/50 flex flex-col items-center justify-center text-center shadow-inner">
+                <div className="relative mb-3">
+                  <svg className="w-28 h-28 transform -rotate-90" viewBox="0 0 112 112">
+                    <circle cx="56" cy="56" r="46" stroke="#F1F5F9" strokeWidth="10" fill="none" />
+                    <circle cx="56" cy="56" r="46" stroke="#6366F1" strokeWidth="10" fill="none" strokeDasharray="289" strokeDashoffset="28" strokeLinecap="round" style={{ transition: 'stroke-dashoffset 2s ease-out' }} />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-black text-indigo-600 tracking-tighter">90<span className="text-lg text-indigo-400">%</span></span>
+                  </div>
+                </div>
+                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-widest bg-white px-3 py-1 rounded-full shadow-sm border border-slate-100">Match Score</div>
+              </div>
+            </div>
+
+            {/* CARD 5: Phân Tích Đa Giác Quan */}
+            <div className="bento-card-anim col-span-1 md:col-span-3 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col relative min-h-[320px] group overflow-hidden">
+              <div className="relative z-10 mb-4">
+                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
+                  Phân Tích Hành Vi
+                </h3>
+                <p className="text-[10px] text-gray-500 leading-relaxed">
+                  Đo lường độ tự tin và giao tiếp phi ngôn ngữ.
+                </p>
+              </div>
+
+              {/* Camera Tracking UI */}
+              <div className="flex-1 bg-slate-900 rounded-2xl p-3 relative overflow-hidden flex flex-col justify-end shadow-inner border border-slate-800">
+                {/* Face Tracking Graphic */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-80">
+                  <div className="w-24 h-28 border-[1.5px] border-dashed border-indigo-400/40 rounded-xl relative">
+                    {/* Tracking points */}
+                    <div className="absolute top-8 left-6 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_5px_#34d399] animate-ping"></div>
+                    <div className="absolute top-8 right-6 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_5px_#34d399] animate-ping" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-2 h-1 bg-emerald-400 rounded-full shadow-[0_0_5px_#34d399]"></div>
+                    {/* Scanning line inside face box */}
+                    <div className="absolute left-0 w-full h-[1px] bg-indigo-500 shadow-[0_0_8px_#6366f1]" style={{ animation: 'scan 2.5s ease-in-out infinite' }}></div>
+                  </div>
+                </div>
+
+                {/* Metrics */}
+                <div className="relative z-10 space-y-2 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 shadow-lg">
+                  <div className="flex justify-between items-center text-[9px] font-mono">
+                    <span className="text-slate-400">Eye Contact</span>
+                    <span className="text-emerald-400 font-bold">92%</span>
+                  </div>
+                  <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-400 rounded-full" style={{ width: '92%' }}></div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-[9px] font-mono mt-2">
+                    <span className="text-slate-400">Confidence</span>
+                    <span className="text-indigo-400 font-bold">88%</span>
+                  </div>
+                  <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-400 rounded-full" style={{ width: '88%' }}></div>
                   </div>
                 </div>
               </div>
             </div>
 
-
-            {/* CARD 5: Đề Xuất Phù Hợp (Col 3) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[320px] group hover:shadow-lg transition-all duration-300">
-              
-              {/* Connector Arrow to Card 6 */}
-              <div className="hidden lg:flex absolute -right-7 top-1/2 -translate-y-1/2 z-30 items-center text-indigo-400 pointer-events-none">
-                <svg width="36" height="20" viewBox="0 0 36 20" fill="none">
-                  <path d="M2 10H28" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" />
-                  <path d="M24 4L32 10L24 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-
+            {/* CARD 6: Lộ Trình Học Tập */}
+            <div className="bento-card-anim col-span-1 md:col-span-3 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[320px] group">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Đề Xuất Phù Hợp
+                  Lộ Trình Tối Ưu
                 </h3>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-4">
-                  Miniature mentors in carton style for đánh nhanh trạc.
+                <p className="text-[10px] text-gray-500 leading-relaxed mb-5">
+                  AI gợi ý các bước nâng cấp kỹ năng.
                 </p>
               </div>
 
-              {/* 3 Mentor Columns */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="relative pl-6 space-y-5 my-auto border-l-2 border-slate-100 ml-3">
+                <div className="absolute top-0 bottom-1/3 left-[-2px] w-[2px] bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full"></div>
+
                 {[
-                  { name: 'Lê Minh Anh', role: 'swe/vng', img: '/images/mentor1.png', rating: '5.0' },
-                  { name: 'Đào Duy A.', role: 'Ai Eng', img: '/images/mentor2.png', rating: '5.0' },
-                  { name: 'Bình M.', role: 'Tech Lead', img: '/images/mentor3.png', rating: '4.9' },
-                ].map((mentor, idx) => (
-                  <div key={idx} className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2 flex flex-col items-center relative text-center shadow-2xs hover:bg-white hover:border-purple-200 transition-colors">
-                    {/* Badge */}
-                    <span className="absolute -top-2 bg-emerald-500 text-white font-extrabold text-[6px] px-1 py-0.5 rounded shadow-2xs">
-                      + Đề xuất
-                    </span>
-                    <img src={mentor.img} alt={mentor.name} className="w-9 h-9 rounded-full object-cover border border-white shadow-sm mt-1.5 mb-1" />
-                    <div className="text-[8px] font-bold text-gray-900 truncate w-full">{mentor.name}</div>
-                    <div className="text-[7px] text-gray-400 truncate w-full mb-1">{mentor.role}</div>
-                    <div className="text-[7px] text-amber-500 font-bold mb-2">★ {mentor.rating}</div>
-                    <button className="w-full bg-purple-600 hover:bg-purple-700 text-white text-[7px] font-bold py-1 rounded transition-colors shadow-2xs mt-auto">
-                      Đặt lịch →
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-
-            {/* CARD 6: Lộ Trình Học Tập (Col 4) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[320px] group hover:shadow-lg transition-all duration-300">
-              
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Lộ Trình Học Tập
-                </h3>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-4">
-                  Recommend ngắn hạn (từ dựa của 1 section).
-                </p>
-              </div>
-
-              {/* Vertical Timeline */}
-              <div className="relative pl-6 space-y-3 my-auto border-l-2 border-purple-200 ml-3">
-                {[
-                  { time: 'Tháng 1/2024', title: 'Trang bị core skills', sub: 'Lộ trình ngắn hạn', active: true },
-                  { time: 'Tháng 3/2024', title: 'Khóa học năm AI', sub: 'Lộ trình học ngắn', active: false },
-                  { time: 'Tháng 6/2024', title: 'Từ kịch bản Mentor', sub: 'Lộ trình trung hạn', active: false },
+                  { title: 'Củng cố Core Skills', active: true, desc: 'Hoàn thành 80%' },
+                  { title: 'Luyện tập Phỏng vấn', active: true, desc: 'Đang tiến hành' },
+                  { title: 'Tự tin Ứng tuyển', active: false, desc: 'Sắp tới' },
                 ].map((item, idx) => (
                   <div key={idx} className="relative">
-                    {/* Timeline Bullet */}
-                    <div className={`absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full border-2 bg-white ${item.active ? 'border-purple-600 shadow-[0_0_8px_rgba(147,51,234,0.4)]' : 'border-slate-300'}`}></div>
-                    
-                    <div className={`p-2.5 rounded-xl border transition-all ${item.active ? 'bg-purple-50/70 border-purple-300 text-purple-950' : 'bg-slate-50/50 border-slate-200 text-slate-700'}`}>
-                      <div className="text-[7px] text-purple-600 font-bold uppercase tracking-wider">{item.time}</div>
-                      <div className="text-[10px] font-bold">{item.title}</div>
-                      <div className="text-[8px] text-gray-400">{item.sub}</div>
-                    </div>
+                    <div className={`absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full border-[3px] bg-white ${item.active ? 'border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.4)]' : 'border-slate-200'}`}></div>
+                    <div className={`text-[12px] font-bold ${item.active ? 'text-gray-900' : 'text-gray-400'}`}>{item.title}</div>
+                    <div className="text-[9px] text-gray-500 mt-0.5">{item.desc}</div>
                   </div>
                 ))}
-
-                <div className="text-[8px] font-bold text-purple-700 italic pt-1">
-                  → Tự tin trở thành Mentor
-                </div>
               </div>
             </div>
-
 
             {/* ================= ROW 3 ================= */}
 
-            {/* CARD 7: Mạng Lưới Mentor (Col 1) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[200px] group hover:shadow-lg transition-all duration-300">
+            {/* CARD 7: Đánh Giá Năng Lực Chuyên Sâu */}
+            <div className="bento-card-anim col-span-1 md:col-span-6 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-6 lg:p-7 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-6 lg:gap-8 relative min-h-[220px] group overflow-hidden">
               
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Mạng Lưới Mentor
-                </h3>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-3">
-                  Khóa giá trị tạo tệp; về trình Mentor
-                </p>
-              </div>
-
-              {/* Slider with Arrows */}
-              <div className="flex items-center gap-1.5 my-auto">
-                <button className="w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 shrink-0 text-xs">
-                  ‹
-                </button>
-
-                <div className="grid grid-cols-3 gap-1.5 flex-1">
-                  {[
-                    { name: 'Nguyễn Thương', role: 'Pro Leader', img: '/images/mentor1.png' },
-                    { name: 'Lê Minh Huấn', role: 'Pro Mentor', img: '/images/mentor2.png' },
-                    { name: 'Nguyễn Thị Hồng', role: 'Sr. Lead', img: '/images/mentor3.png' },
-                  ].map((m, idx) => (
-                    <div key={idx} className="bg-slate-50 p-1.5 rounded-xl border border-slate-200/60 text-center flex flex-col items-center relative">
-                      <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      <img src={m.img} alt={m.name} className="w-7 h-7 rounded-full object-cover mb-1 border border-white" />
-                      <div className="text-[7px] font-bold text-gray-900 truncate w-full">{m.name}</div>
-                      <div className="text-[6px] text-amber-500 font-bold">★ 5/5</div>
-                      <div className="text-[5px] text-gray-400">Chuyên Môn 5/5</div>
-                    </div>
-                  ))}
-                </div>
-
-                <button className="w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 shrink-0 text-xs">
-                  ›
-                </button>
-              </div>
-
-              {/* Pagination Dots */}
-              <div className="flex justify-center gap-1 mt-2">
-                <span className="w-2 h-1 bg-purple-600 rounded-full"></span>
-                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-              </div>
-            </div>
-
-
-            {/* CARD 8: Kênh Phản Hồi (Col 2) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[200px] group hover:shadow-lg transition-all duration-300">
-              
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Kênh Phản Hồi
-                </h3>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-3">
-                  Key với tiên mặt sử dụng cao dụng.
-                </p>
-              </div>
-
-              {/* 2 Speech Bubbles with Speech Bubble Tails */}
-              <div className="space-y-2.5 my-auto">
-                <div className="relative bg-slate-50 border border-slate-200/80 p-2.5 rounded-2xl rounded-bl-none text-[9px] text-slate-700 leading-relaxed shadow-2xs">
-                  "Đội ngũ nhân viên rất friendly, nền tảng phân tích cực kỳ đúng nhu cầu của tôi."
-                </div>
-                <div className="relative bg-slate-50 border border-slate-200/80 p-2.5 rounded-2xl rounded-bl-none text-[9px] text-slate-700 leading-relaxed shadow-2xs ml-3">
-                  "Khả năng tạo cv của mình được làm mượt mà, cảm giác AI làm việc rất chỉnh chu."
-                </div>
-              </div>
-            </div>
-
-
-            {/* CARD 9: Cộng Đồng (Col 3) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[200px] group hover:shadow-lg transition-all duration-300">
-              
-              {/* Blue Arrow pointing INTO Card 9 from left boundary */}
-              <div className="hidden lg:block absolute -left-3 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[12px] border-r-indigo-600 z-30"></div>
-
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Cộng Đồng
-                </h3>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-3">
-                  Dynamic counter của từ dựng.
-                </p>
-              </div>
-
-              {/* Gradient Purple Container with Counter 93 */}
-              <div className="flex-1 bg-gradient-to-br from-[#6366F1] via-[#4F46E5] to-[#4338CA] rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-md">
+              {/* Left: Radar Chart */}
+              <div className="w-full md:w-[45%] flex flex-col justify-center items-center relative">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 w-full mb-1">Đánh Giá Đa Chiều</h3>
+                <p className="text-[11px] text-gray-500 w-full mb-6">Rubric 5 trục kỹ năng cốt lõi.</p>
                 
-                {/* 2-User Icon + 93 Number */}
-                <div className="flex items-center gap-2 z-10">
-                  <svg className="w-6 h-6 text-indigo-200" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                <div className="relative w-36 h-36 flex items-center justify-center">
+                  {/* Radar Background */}
+                  <svg viewBox="0 0 100 100" className="w-full h-full absolute inset-0 opacity-20">
+                    <polygon points="50,5 95,35 80,90 20,90 5,35" fill="none" stroke="#64748b" strokeWidth="1" />
+                    <polygon points="50,25 75,45 65,75 35,75 25,45" fill="none" stroke="#64748b" strokeWidth="1" />
+                    <line x1="50" y1="50" x2="50" y2="5" stroke="#64748b" strokeWidth="0.5" />
+                    <line x1="50" y1="50" x2="95" y2="35" stroke="#64748b" strokeWidth="0.5" />
+                    <line x1="50" y1="50" x2="80" y2="90" stroke="#64748b" strokeWidth="0.5" />
+                    <line x1="50" y1="50" x2="20" y2="90" stroke="#64748b" strokeWidth="0.5" />
+                    <line x1="50" y1="50" x2="5" y2="35" stroke="#64748b" strokeWidth="0.5" />
                   </svg>
-                  <span className="text-4xl font-black text-white tracking-tighter">93</span>
+                  {/* Radar Value (Animated pulse) */}
+                  <svg viewBox="0 0 100 100" className="w-full h-full absolute inset-0 z-10 filter drop-shadow-[0_0_6px_rgba(99,102,241,0.5)]" style={{ animation: 'pulse-glow 3s infinite' }}>
+                    <polygon points="50,15 85,38 70,80 30,75 15,45" fill="rgba(99,102,241,0.25)" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round" />
+                    {/* Points */}
+                    <circle cx="50" cy="15" r="2.5" fill="#4f46e5" />
+                    <circle cx="85" cy="38" r="2.5" fill="#4f46e5" />
+                    <circle cx="70" cy="80" r="2.5" fill="#4f46e5" />
+                    <circle cx="30" cy="75" r="2.5" fill="#4f46e5" />
+                    <circle cx="15" cy="45" r="2.5" fill="#4f46e5" />
+                  </svg>
+                  
+                  {/* Labels */}
+                  <span className="absolute -top-4 text-[9px] font-bold text-indigo-600">Tech</span>
+                  <span className="absolute -right-5 top-1/3 text-[9px] font-bold text-slate-500">Logic</span>
+                  <span className="absolute -bottom-4 right-3 text-[9px] font-bold text-slate-500">Comm</span>
+                  <span className="absolute -bottom-4 left-3 text-[9px] font-bold text-slate-500">Eng</span>
+                  <span className="absolute -left-6 top-1/3 text-[9px] font-bold text-slate-500">Design</span>
                 </div>
+              </div>
 
-                {/* Animated Soundwave */}
-                <div className="absolute bottom-2 inset-x-4 flex items-end justify-center gap-1 opacity-60">
-                  {[6, 12, 18, 24, 16, 28, 14, 20, 10, 16, 8].map((h, i) => (
-                    <div key={i} className="w-1 bg-white rounded-full animate-pulse" style={{ height: `${h}px`, animationDelay: `${i * 100}ms` }}></div>
-                  ))}
+              {/* Right: Evidence Log */}
+              <div className="w-full md:w-[55%] flex flex-col justify-center">
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/60 shadow-inner h-full flex flex-col">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Evidence Log</span>
+                  </div>
+                  
+                  <div className="space-y-2.5 flex-1 flex flex-col justify-center">
+                    <div className="bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 relative group/log hover:border-indigo-200 transition-colors">
+                      <div className="absolute -left-2 top-3 w-4 h-4 rounded-full bg-indigo-50 border-2 border-white flex items-center justify-center shadow-sm">
+                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                      </div>
+                      <div className="flex justify-between items-start ml-3 mb-1.5">
+                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50/80 px-2 py-0.5 rounded">02:30</span>
+                        <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">+ System Design</span>
+                      </div>
+                      <p className="text-[11px] text-gray-600 ml-3 italic leading-relaxed">"Bạn đã giải thích rất tốt về chiến lược Cache Breakdown bằng Redis..."</p>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 relative group/log hover:border-slate-200 transition-colors">
+                      <div className="absolute -left-2 top-3 w-4 h-4 rounded-full bg-slate-50 border-2 border-white flex items-center justify-center shadow-sm">
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                      </div>
+                      <div className="flex justify-between items-start ml-3 mb-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded">08:15</span>
+                        <span className="text-[9px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-100">! Giao tiếp</span>
+                      </div>
+                      <p className="text-[11px] text-gray-600 ml-3 italic leading-relaxed">"Câu trả lời hơi dài dòng, nên đi thẳng vào vấn đề theo cấu trúc STAR."</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-
-            {/* CARD 10: Xử Lý Dữ Liệu (Col 4) */}
-            <div className="bento-card-anim col-span-1 bg-white rounded-[2.2rem] p-5 border border-blue-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex flex-col justify-between relative min-h-[200px] group hover:shadow-lg transition-all duration-300">
+            {/* CARD 8: Thống Kê Hiệu Suất */}
+            <div className="bento-card-anim col-span-1 md:col-span-6 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[2.2rem] p-6 lg:p-8 text-white shadow-[0_8px_30px_rgba(99,102,241,0.25)] flex flex-col justify-between relative min-h-[220px] overflow-hidden group">
+              <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 blur-3xl rounded-full transition-transform group-hover:scale-110 duration-700"></div>
+              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-purple-500/20 blur-2xl rounded-full"></div>
               
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
-                  Xử Lý Dữ Liệu
-                </h3>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-3">
-                  Xử lý dữ liệu through platform.
-                </p>
+              <div className="z-10">
+                <h3 className="text-xl md:text-2xl font-bold leading-snug mb-2">Hiệu Suất Vượt Trội</h3>
+                <p className="text-[12px] text-indigo-100/80 max-w-[80%] leading-relaxed">Nền tảng xử lý dữ liệu mạnh mẽ, đảm bảo trải nghiệm mượt mà và chính xác tuyệt đối.</p>
               </div>
-
-              {/* 4 Quadrants Grid */}
-              <div className="grid grid-cols-2 gap-2 my-auto">
-                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70 flex flex-col justify-center">
-                  <div className="text-base font-black text-gray-900">170+</div>
-                  <div className="text-[7px] text-gray-400 uppercase font-bold">CV scores</div>
+              
+              <div className="grid grid-cols-3 gap-4 mt-6 z-10">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+                  <div className="text-2xl lg:text-3xl font-black text-white mb-0.5">98<span className="text-lg opacity-70">%</span></div>
+                  <div className="text-[9px] lg:text-[10px] text-indigo-200 font-medium uppercase tracking-wide">Tỷ lệ hài lòng</div>
                 </div>
-
-                {/* Speedometer Gauge Box */}
-                <div className="bg-slate-50/80 p-2 rounded-xl border border-slate-200/70 flex flex-col items-center justify-center relative">
-                  <svg className="w-12 h-8" viewBox="0 0 100 60">
-                    <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2E8F0" strokeWidth="10" strokeLinecap="round" />
-                    <path d="M 10 50 A 40 40 0 0 1 70 20" fill="none" stroke="#2563EB" strokeWidth="10" strokeLinecap="round" />
-                    <line x1="50" y1="50" x2="68" y2="24" stroke="#1E40AF" strokeWidth="3" strokeLinecap="round" />
-                    <circle cx="50" cy="50" r="5" fill="#1E40AF" />
-                  </svg>
-                  <div className="text-xs font-black text-gray-900 mt-0.5">5</div>
-                  <div className="text-[6px] text-gray-400 uppercase font-bold">throughput nhật</div>
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+                  <div className="text-2xl lg:text-3xl font-black text-white mb-0.5">10<span className="text-lg opacity-70">k+</span></div>
+                  <div className="text-[9px] lg:text-[10px] text-indigo-200 font-medium uppercase tracking-wide">Lượt phỏng vấn</div>
                 </div>
-
-                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70 flex flex-col justify-center">
-                  <div className="text-base font-black text-gray-900">655</div>
-                  <div className="text-[7px] text-gray-400 uppercase font-bold">throughput nhất</div>
-                </div>
-
-                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70 flex flex-col justify-center">
-                  <div className="text-base font-black text-gray-900">265+</div>
-                  <div className="text-[7px] text-gray-400 uppercase font-bold">throughput thật</div>
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+                  <div className="text-2xl lg:text-3xl font-black text-white mb-0.5">&lt;50<span className="text-lg opacity-70">ms</span></div>
+                  <div className="text-[9px] lg:text-[10px] text-indigo-200 font-medium uppercase tracking-wide">Độ trễ AI</div>
                 </div>
               </div>
             </div>

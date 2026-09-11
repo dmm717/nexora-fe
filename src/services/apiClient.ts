@@ -67,9 +67,13 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     }
   }
 
-  const isAuthEndpoint = fetchParams.url.includes('/auth/');
+  // Kiểm tra cấu hình xem request này có yêu cầu bỏ qua tự động redirect khi gặp 401 không
+  const headersObj = fetchParams.options.headers as Record<string, string> | undefined;
+  const skipAuthRedirect = headersObj ? headersObj['X-Skip-Auth-Redirect'] === 'true' : false;
+  
+  const isExcludedFrom401Redirect = fetchParams.url.includes('/auth/') || skipAuthRedirect;
 
-  if (response.status === 401 && !isAuthEndpoint) {
+  if (response.status === 401 && !isExcludedFrom401Redirect) {
     if (isRefreshing) {
       // Nếu đang refresh, cho request này vào hàng đợi
       try {
