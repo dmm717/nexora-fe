@@ -8,6 +8,7 @@ import {
   getAccessToken,
   setAccessToken,
   clearAccessToken,
+  subscribeAuthState,
 } from '../src/store/authStore.ts';
 
 import {
@@ -348,6 +349,144 @@ test('14. concurrent bootstrap invocations deduplicate into a single in-flight r
     assert.equal(getAccessToken(), 'deduped_token_xyz');
   } finally {
     globalThis.fetch = originalFetch;
+    clearAccessToken();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Reactive authStore Subscription & SPA Login/Logout Transition Tests
+// ---------------------------------------------------------------------------
+
+test('15. subscribeAuthState receives token updates on setAccessToken', () => {
+  clearAccessToken();
+  const seenTokens = [];
+  const unsubscribe = subscribeAuthState((token) => {
+    seenTokens.push(token);
+  });
+
+  try {
+    setAccessToken('token_step_1');
+    setAccessToken('token_step_2');
+    assert.deepEqual(seenTokens, ['token_step_1', 'token_step_2']);
+  } finally {
+    unsubscribe();
+    clearAccessToken();
+  }
+});
+
+test('16. subscribeAuthState receives null on clearAccessToken', () => {
+  setAccessToken('initial_token');
+  const seenTokens = [];
+  const unsubscribe = subscribeAuthState((token) => {
+    seenTokens.push(token);
+  });
+
+  try {
+    clearAccessToken();
+    assert.deepEqual(seenTokens, [null]);
+  } finally {
+    unsubscribe();
+    clearAccessToken();
+  }
+});
+
+test('17. subscribeAuthState does not trigger when setAccessToken receives identical token or clear on empty', () => {
+  clearAccessToken();
+  let callCount = 0;
+  const unsubscribe = subscribeAuthState(() => {
+    callCount += 1;
+  });
+
+  try {
+    setAccessToken('same_token');
+    assert.equal(callCount, 1);
+    setAccessToken('same_token');
+    assert.equal(callCount, 1, 'Duplicate token must not notify listeners');
+
+    clearAccessToken();
+    assert.equal(callCount, 2);
+    clearAccessToken();
+    assert.equal(callCount, 2, 'Redundant clearAccessToken must not notify listeners');
+  } finally {
+    unsubscribe();
+    clearAccessToken();
+  }
+});
+
+test('18. subscribeAuthState unsubscription stops listener notifications cleanly', () => {
+  clearAccessToken();
+  let callCount = 0;
+  const unsubscribe = subscribeAuthState(() => {
+    callCount += 1;
+  });
+
+  setAccessToken('first_token');
+  assert.equal(callCount, 1);
+  unsubscribe();
+
+  setAccessToken('second_token');
+  clearAccessToken();
+  assert.equal(callCount, 1, 'Unsubscribed listener must receive no further updates');
+});
+
+test('19. SPA login transition: subscriber reactively updates to authenticated on setAccessToken after initial anonymous bootstrap', async () => {
+  clearAccessToken();
+
+  // Simulate initial anonymous session bootstrap (no cookie -> 401)
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 401,
+    json: async () => ({ message: 'Unauthorized' }),
+  });
+
+  try {
+    const bootstrapSuccess = await bootstrapAuthSession();
+    assert.equal(bootstrapSuccess, false);
+    assert.equal(getAccessToken(), null);
+
+    // Root context state simulation:
+    let isContextAuthenticated = Boolean(getAccessToken());
+    assert.equal(isContextAuthenticated, false);
+
+    // Subscribe as AuthBootstrapProvider does:
+    const unsubscribe = subscribeAuthState((token) => {
+      isContextAuthenticated = Boolean(token);
+    });
+
+    try {
+      // User logs in via /auth form -> authApi.login() returns JWT -> setAccessToken('spa_login_jwt')
+      setAccessToken('spa_login_jwt');
+      // Root context immediately reflects true without remounting AuthBootstrapProvider
+      assert.equal(isContextAuthenticated, true);
+      assert.equal(getAccessToken(), 'spa_login_jwt');
+
+      // User then navigates to /dashboard; RequireAuth sees isAuthenticated === true and does NOT bounce to /auth
+    } finally {
+      unsubscribe();
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearAccessToken();
+  }
+});
+
+test('20. SPA logout transition: subscriber reactively clears to unauthenticated on clearAccessToken', () => {
+  setAccessToken('active_session_jwt');
+  let isContextAuthenticated = Boolean(getAccessToken());
+  assert.equal(isContextAuthenticated, true);
+
+  const unsubscribe = subscribeAuthState((token) => {
+    isContextAuthenticated = Boolean(token);
+  });
+
+  try {
+    // User logs out -> authApi.logout() -> clearAccessToken()
+    clearAccessToken();
+    assert.equal(isContextAuthenticated, false);
+    assert.equal(getAccessToken(), null);
+  } finally {
+    unsubscribe();
     clearAccessToken();
   }
 });

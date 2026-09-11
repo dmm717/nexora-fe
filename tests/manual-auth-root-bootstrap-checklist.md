@@ -70,13 +70,22 @@ This document outlines manual verification procedures for root session bootstrap
 
 ---
 
-## F. Logout Flow
-- [ ] From an authenticated dashboard session, click user avatar and select "Đăng xuất".
-- [ ] Verify `POST /api/v1/auth/logout` is dispatched and user is routed to `/auth`.
-- [ ] Navigate to `/`.
-- [ ] Hard reload `/`.
-- [ ] Verify Header displays anonymous "Đăng nhập" and "Đăng ký" CTAs.
-- [ ] Attempt navigating to `/dashboard`; verify immediate redirection to `/auth`.
+## F. SPA Login & Logout Transitions (Reactive authStore Subscription)
+- [ ] **SPA Login**:
+  - [ ] Open incognito window and go to `/` (anonymous state: "Đăng nhập", "Đăng ký" shown).
+  - [ ] Click "Đăng nhập" (client-side transition to `/auth`).
+  - [ ] Fill credentials and click submit (`authApi.login()` returns access token).
+  - [ ] `authApi.login()` calls `setAccessToken(token)`.
+  - [ ] Root `AuthBootstrapProvider` reactively updates `isAuthenticated` to `true` via `subscribeAuthState`.
+  - [ ] App navigates to `/dashboard`.
+  - [ ] `RequireAuth` guard inspects `isAuthenticated === true` and grants immediate access without bouncing back to `/auth`.
+  - [ ] Navigate back to `/` via client-side link: Header immediately renders "Vào Dashboard →" without full reload.
+- [ ] **SPA Logout**:
+  - [ ] From `/dashboard`, click user menu and select "Đăng xuất" (`authApi.logout()`).
+  - [ ] `clearAccessToken()` notifies `subscribeAuthState` listeners; `isAuthenticated` updates immediately to `false`.
+  - [ ] App navigates to `/auth`.
+  - [ ] In browser, navigate back to `/`: Header renders "Đăng nhập" / "Đăng ký" without needing page refresh.
+  - [ ] Attempting to navigate to `/dashboard` immediately triggers `RequireAuth` redirect to `/auth`.
 
 ---
 

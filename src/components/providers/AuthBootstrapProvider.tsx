@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { bootstrapAuthSession } from '@/services/authSession';
-import { getAccessToken } from '@/store/authStore';
+import { getAccessToken, subscribeAuthState } from '@/store/authStore';
 
 export interface AuthSessionState {
   authReady: boolean;
@@ -31,6 +31,15 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
   useEffect(() => {
     let cancelled = false;
 
+    // 1. Subscribe to authStore so any token mutation (login, logout, refresh, 401 fallback)
+    // immediately updates React context without requiring page reloads or remounts.
+    const unsubscribe = subscribeAuthState((token) => {
+      if (!cancelled) {
+        setIsAuthenticated(Boolean(token));
+      }
+    });
+
+    // 2. Perform initial session restoration if needed
     const initializeSession = async () => {
       if (getAccessToken()) {
         if (!cancelled) {
@@ -64,6 +73,7 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
