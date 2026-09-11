@@ -525,6 +525,59 @@ export function getAnsweredQuestions(
 }
 
 /**
+ * Idempotently reconciles a successful submitAnswer result into an interview view.
+ * The accepted answer is appended exactly once (keyed by answer id), the optional
+ * next question exactly once (keyed by question id), continuation is replaced when
+ * the result carries one and preserved otherwise, and unrelated interview fields
+ * are left untouched. Deterministic: applying the same result again cannot duplicate.
+ */
+export function applyAnswerResultToInterview(
+  current: InterviewView,
+  result: AnswerResult
+): InterviewView {
+  const answers = current.answers.some((a) => a.id === result.answer.id)
+    ? current.answers
+    : [...current.answers, result.answer];
+
+  let questions = current.questions;
+  const nextQuestion = result.nextQuestion;
+  if (nextQuestion && !current.questions.some((q) => q.id === nextQuestion.id)) {
+    questions = [...current.questions, nextQuestion];
+  }
+
+  return {
+    ...current,
+    answers,
+    questions,
+    continuation: result.continuation ?? current.continuation,
+    version: current.version + 1,
+  };
+}
+
+/**
+ * Holds the idempotency key for a single interview completion intent.
+ * The key is generated once and reused across ALL attempts: a transport failure
+ * must never rotate it because the server processes complete side effects keyed
+ * by it. Only a confirmed successful completion mints a fresh key for a future intent.
+ */
+export interface CompleteIntentState {
+  getKey(): string;
+  confirmComplete(): void;
+}
+
+export function createCompleteIntentState(): CompleteIntentState {
+  let key = generateIdempotencyKey();
+  return {
+    getKey() {
+      return key;
+    },
+    confirmComplete() {
+      key = generateIdempotencyKey();
+    },
+  };
+}
+
+/**
  * Checks whether STAR evaluation is applicable to an answer.
  */
 export function isStarApplicable(star?: StarEvaluation | null): boolean {

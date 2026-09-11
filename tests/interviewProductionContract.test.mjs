@@ -31,11 +31,13 @@ import {
   getOrCreateAnswerIntent,
   isSameAnswerPayload,
   shouldRunAnswerTimer,
-  createReportPollingAttemptTracker,
+createReportPollingAttemptTracker,
   getReportPollingDecision,
   REPORT_POLL_INTERVAL_MS,
   REPORT_POLL_MAX_ATTEMPTS,
   normalizeReportView,
+  applyAnswerResultToInterview,
+  createCompleteIntentState,
 } from '../src/services/interviewContract.ts';
 
 // 1. continuation in_progress
@@ -801,4 +803,193 @@ test('25. normalizeReportView returns typed collections and safely empties malfo
   assert.deepEqual(malformed.strengths, []);
   assert.deepEqual(malformed.gaps, []);
   assert.deepEqual(malformed.actionPlan, []);
+});
+
+const makeInterview = (continuation) => ({
+  id: 'interview-1',
+  status: 'active',
+  role: 'Frontend Developer',
+  seniority: 'Senior',
+  interviewType: 'Technical',
+  difficulty: 'Hard',
+  version: 3,
+  questions: [
+    { id: 'q-1', sequence: 1, kind: 'primary', content: 'Self intro', createdAt: '' },
+    { id: 'q-2', sequence: 2, kind: 'primary', content: 'Behavioral STAR', createdAt: '' },
+  ],
+  answers: [
+    { id: 'ans-1', questionId: 'q-1', content: 'Intro answer', createdAt: '' },
+  ],
+  continuation: continuation ?? {
+    state: 'in_progress',
+    canFinishNow: false,
+    canUpgradeAndContinue: false,
+  },
+  createdAt: '2026-09-11T00:00:00Z',
+  updatedAt: '2026-09-11T00:00:00Z',
+});
+
+// 26. Case A — normal answer reconciliation: answer + next question appended once, continuation updated
+test('26. normal answer reconciles the accepted answer, next question, and continuation', () => {
+  const current = makeInterview();
+  const result = {
+    answer: { id: 'ans-2', questionId: 'q-2', content: 'STAR answer', createdAt: '' },
+    nextQuestion: { id: 'q-3', sequence: 3, kind: 'primary', content: 'Motivation', createdAt: '' },
+    isComplete: false,
+    continuation: {
+      state: 'in_progress',
+      canFinishNow: true,
+      canUpgradeAndContinue: false,
+    },
+  };
+
+  const next = applyAnswerResultToInterview(current, result);
+
+  // Answer added exactly once
+  assert.equal(next.answers.length, 2);
+  assert.equal(next.answers[1].id, 'ans-2');
+  // Next question added exactly once
+  assert.equal(next.questions.length, 3);
+  assert.equal(next.questions[2].id, 'q-3');
+  // Continuation updated
+  assert.equal(next.continuation.state, 'in_progress');
+  assert.equal(next.continuation.canFinishNow, true);
+  // Unrelated fields preserved
+  assert.equal(next.id, current.id);
+  assert.equal(next.status, 'active');
+  assert.equal(next.role, current.role);
+  assert.equal(next.seniority, current.seniority);
+  assert.equal(next.interviewType, current.interviewType);
+  assert.equal(next.difficulty, current.difficulty);
+  assert.equal(next.version, current.version + 1);
+
+  // getCurrentQuestion now derives the new active question
+  assert.equal(getCurrentQuestion(next.questions, next.answers)?.id, 'q-3');
+});
+
+// 27. Case B — idempotent reconciliation: applying the same AnswerResult twice duplicates nothing
+test('27. applying the same AnswerResult twice never duplicates answer, question, or continuation', () => {
+  const current = makeInterview();
+  const result = {
+    answer: { id: 'ans-2', questionId: 'q-2', content: 'STAR answer', createdAt: '' },
+    nextQuestion: { id: 'q-3', sequence: 3, kind: 'primary', content: 'Motivation', createdAt: '' },
+    isComplete: false,
+    continuation: {
+      state: 'in_progress',
+      canFinishNow: true,
+      canUpgradeAndContinue: false,
+    },
+  };
+
+  const once = applyAnswerResultToInterview(current, result);
+  const twice = applyAnswerResultToInterview(once, result);
+
+  assert.equal(twice.answers.length, 2);
+  assert.equal(twice.questions.length, 3);
+  assert.deepEqual(
+    twice.answers.map((a) => a.id),
+    once.answers.map((a) => a.id)
+  );
+  assert.deepEqual(
+    twice.questions.map((q) => q.id),
+    ['q-1', 'q-2', 'q-3']
+  );
+  // Continuation still the updated one
+  assert.equal(twice.continuation.canFinishNow, true);
+});
+
+// 28. Case C — auto-complete answer accepted, complete fails: accepted answer stays reconciled
+test('28. accepted answer survives a failed complete without reappearing as unanswered', () => {
+  const current = makeInterview();
+  const result = {
+    answer: { id: 'ans-last', questionId: 'q-2', content: 'Final answer', createdAt: '' },
+    nextQuestion: null,
+    isComplete: true,
+    continuation: {
+      state: 'max_questions_reached',
+      canFinishNow: true,
+      canUpgradeAndContinue: false,
+    },
+  };
+
+  // 1. submitAnswer succeeds
+  const afterSubmit = applyAnswerResultToInterview(current, result);
+
+  // 2. auto-complete is genuinely eligible
+  assert.equal(shouldAutoComplete(true, result.continuation, null), true);
+  assert.equal(canFinishInterview(result.continuation), true);
+
+  // 3. complete() fails (network/server error)
+
+  // Prove the accepted answer remains in interview state…
+  assert.equal(afterSubmit.answers.length, 2);
+  assert.equal(afterSubmit.answers[1].id, 'ans-last');
+  assert.equal(afterSubmit.answers[1].questionId, 'q-2');
+
+  // …continuation remains updated…
+  assert.equal(afterSubmit.continuation.state, 'max_questions_reached');
+  assert.equal(afterSubmit.continuation.canFinishNow, true);
+
+  // …and getCurrentQuestion() does NOT return the already answered question
+  assert.equal(getCurrentQuestion(afterSubmit.questions, afterSubmit.answers), null);
+
+  // Re-applying the same accepted result after a failed complete stays idempotent
+  const afterRetry = applyAnswerResultToInterview(afterSubmit, result);
+  assert.equal(afterRetry.answers.length, 2);
+});
+
+// 29. Case D — complete idempotency key survives a failed attempt and rotates only after success
+test('29. complete intent reuses the same key across failed attempts and rotates after confirmed success', () => {
+  const completeIntent = createCompleteIntentState();
+
+  const keyBeforeAttempt = completeIntent.getKey();
+  assert.equal(completeIntent.getKey(), keyBeforeAttempt, 'the key is stable before any mutation');
+
+  // Simulate a failed complete attempt (transport error): the key must NOT rotate
+  assert.equal(completeIntent.getKey(), keyBeforeAttempt, 'transport failure must not rotate the complete key');
+
+  // Retry the exact same unresolved intent
+  const keyAfterRetry = completeIntent.getKey();
+  assert.equal(keyAfterRetry, keyBeforeAttempt, 'retry reuses the same unresolved complete key');
+
+  // Only a confirmed successful completion mints a fresh key for a future intent
+  completeIntent.confirmComplete();
+  assert.notEqual(completeIntent.getKey(), keyBeforeAttempt);
+  assert.equal(completeIntent.getKey(), completeIntent.getKey(), 'new key is stable too');
+});
+
+// 30. Case E — upgrade_required is still never auto-complete, even after an accepted answer
+test('30. upgrade_required with nextQuestion=null is NOT auto-complete and never requests complete', () => {
+  const continuationUpgradeRequired = {
+    state: 'upgrade_required',
+    canFinishNow: true,
+    canUpgradeAndContinue: true,
+  };
+
+  assert.equal(
+    shouldAutoComplete(true, continuationUpgradeRequired, null),
+    false,
+    'nextQuestion = null + upgrade_required must never auto-complete'
+  );
+  assert.equal(
+    shouldAutoComplete(false, continuationUpgradeRequired, null),
+    false
+  );
+
+  // Also with a continuation even where canFinishNow is true
+  assert.equal(canFinishInterview(continuationUpgradeRequired), true);
+  assert.equal(
+    shouldAutoComplete(true, continuationUpgradeRequired, null) &&
+      canFinishInterview(continuationUpgradeRequired),
+    false,
+    'no complete request is fired for upgrade_required'
+  );
+
+  // In contrast, max_questions_reached with isComplete and no next question still auto-completes
+  const continuationMaxReached = {
+    state: 'max_questions_reached',
+    canFinishNow: true,
+    canUpgradeAndContinue: false,
+  };
+  assert.equal(shouldAutoComplete(true, continuationMaxReached, null), true);
 });

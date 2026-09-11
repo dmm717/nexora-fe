@@ -20,7 +20,10 @@ import {
   safeAnswerEvaluation,
   generateIdempotencyKey,
   getOrCreateAnswerIntent,
+  applyAnswerResultToInterview,
+  createCompleteIntentState,
   type AnswerIntent,
+  type CompleteIntentState,
   shouldRunAnswerTimer,
   SCORE_SCALE,
 } from '@/services/interviewContract';
@@ -49,7 +52,7 @@ export default function InterviewRoomPage() {
   // Stable intent tracking: reuse key and frozen duration for unchanged retries of the same answer
   const pendingAnswerIntentRef = useRef<AnswerIntent | null>(null);
   const continueKeyRef = useRef<string>(generateIdempotencyKey());
-  const completeKeyRef = useRef<string>(generateIdempotencyKey());
+  const completeIntentRef = useRef<CompleteIntentState>(createCompleteIntentState());
 
   const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
@@ -111,7 +114,9 @@ export default function InterviewRoomPage() {
     setCompleting(true);
     setActionError(null);
     try {
-      await interviewApi.complete(id, completeKeyRef.current);
+      await interviewApi.complete(id, completeIntentRef.current.getKey());
+      // Completion confirmed: mint a fresh key for any future (unused) intent
+      completeIntentRef.current.confirmComplete();
       router.push(`/dashboard/interviews/${id}/report`);
     } catch (err: unknown) {
       setActionError({
@@ -173,6 +178,13 @@ export default function InterviewRoomPage() {
         intent.key
       );
 
+      // The answer is accepted on the backend the moment submitAnswer resolves.
+      // Reconcile it into client cache BEFORE any further network mutation so a
+      // failed complete cannot desync client state from the accepted answer.
+      queryClient.setQueryData(['interview', id], (oldData: InterviewView | undefined) =>
+        oldData ? applyAnswerResultToInterview(oldData, result) : oldData
+      );
+
       // Submission succeeded: clear pending intent, input, and timer
       pendingAnswerIntentRef.current = null;
       setAnswerContent('');
@@ -184,27 +196,21 @@ export default function InterviewRoomPage() {
         shouldAutoComplete(result.isComplete, resultContinuation, result.nextQuestion) &&
         canFinishInterview(resultContinuation)
       ) {
-        await interviewApi.complete(id, completeKeyRef.current);
-        router.push(`/dashboard/interviews/${id}/report`);
-      } else {
-        queryClient.setQueryData(['interview', id], (oldData: InterviewView | undefined) => {
-          if (!oldData) return oldData;
-          const existsAnswer = oldData.answers.some((a) => a.id === result.answer.id);
-          const newAnswers = existsAnswer ? oldData.answers : [...oldData.answers, result.answer];
-
-          let newQuestions = oldData.questions;
-          if (result.nextQuestion && !oldData.questions.some((q) => q.id === result.nextQuestion!.id)) {
-            newQuestions = [...oldData.questions, result.nextQuestion];
-          }
-
-          return {
-            ...oldData,
-            answers: newAnswers,
-            questions: newQuestions,
-            continuation: result.continuation ?? oldData.continuation,
-            version: oldData.version + 1,
-          };
-        });
+        try {
+          await interviewApi.complete(id, completeIntentRef.current.getKey());
+          // Completion confirmed: mint a fresh key for any future (unused) intent
+          completeIntentRef.current.confirmComplete();
+          router.push(`/dashboard/interviews/${id}/report`);
+        } catch (err: unknown) {
+          // Do NOT roll back the accepted answer. Same complete key must remain
+          // reusable so the Finish action can retry with identical idempotency.
+          setActionError({
+            message:
+              'Câu trả lời đã được lưu, nhưng chưa thể kết thúc buổi phỏng vấn. Vui lòng thử nộp bài lại.',
+            requestId: err instanceof ApiError ? err.requestId : undefined,
+            code: err instanceof ApiError ? err.code : undefined,
+          });
+        }
       }
     } catch (err: unknown) {
       setActionError({
