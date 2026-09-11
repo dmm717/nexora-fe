@@ -18,6 +18,8 @@ import {
   normalizeStarComponent,
   safeAnswerEvaluation,
   generateIdempotencyKey,
+  getOrCreateAnswerIntent,
+  type AnswerIntent,
   SCORE_SCALE,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
@@ -42,8 +44,8 @@ export default function InterviewRoomPage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Stable idempotency keys across retries of the SAME intent
-  const answerKeyMapRef = useRef<Record<string, string>>({});
+  // Stable intent tracking: reuse key and frozen duration for unchanged retries of the same answer
+  const pendingAnswerIntentRef = useRef<AnswerIntent | null>(null);
   const continueKeyRef = useRef<string>(generateIdempotencyKey());
   const completeKeyRef = useRef<string>(generateIdempotencyKey());
 
@@ -53,10 +55,12 @@ export default function InterviewRoomPage() {
   const answeredPairs = getAnsweredQuestions(interview?.questions, interview?.answers);
   const activeQuestion = getCurrentQuestion(interview?.questions, interview?.answers);
   const continuation = interview?.continuation;
-  const canFinish = canFinishInterview(continuation, answeredPairs.length);
+  const canFinish = canFinishInterview(continuation);
   const upgradeRequired = isUpgradeRequired(continuation);
   const canUpgrade = canUpgradeAndContinue(continuation);
 
+  // Active lifecycle gating: only 'active' sessions with an unanswered question and no upgrade block permit answering
+  const canAnswer = interview?.status === 'active' && Boolean(activeQuestion) && !upgradeRequired;
   const hasActiveQuestion = Boolean(activeQuestion);
   const activeQuestionId = activeQuestion?.id;
 
@@ -131,7 +135,7 @@ export default function InterviewRoomPage() {
   };
 
   const handleSubmitAnswer = async () => {
-    if (!answerContent.trim() || !activeQuestion || submitting) return;
+    if (!canAnswer || !answerContent.trim() || !activeQuestion || submitting) return;
 
     setSubmitting(true);
     setActionError(null);
@@ -142,23 +146,23 @@ export default function InterviewRoomPage() {
       timerRef.current = null;
     }
 
-    // Reuse existing key for this question ID if this is a retry of the same intent
-    answerKeyMapRef.current[activeQuestion.id] ||= generateIdempotencyKey();
-    const idempotencyKey = answerKeyMapRef.current[activeQuestion.id];
+    // Option B: Freeze attempt duration in pending intent. If retrying unchanged answer, reuse key & frozen duration.
+    const intent = getOrCreateAnswerIntent(pendingAnswerIntentRef.current, {
+      questionId: activeQuestion.id,
+      content: answerContent,
+      durationSeconds: secondsElapsed,
+    });
+    pendingAnswerIntentRef.current = intent;
 
     try {
       const result = await interviewApi.submitAnswer(
         id,
-        {
-          questionId: activeQuestion.id,
-          content: answerContent.trim(),
-          durationSeconds: secondsElapsed,
-        },
-        idempotencyKey
+        intent.payload,
+        intent.key
       );
 
-      // Submission succeeded: clear input and remove idempotency key for this question
-      delete answerKeyMapRef.current[activeQuestion.id];
+      // Submission succeeded: clear pending intent, input, and timer
+      pendingAnswerIntentRef.current = null;
       setAnswerContent('');
       setSecondsElapsed(0);
 
@@ -278,7 +282,7 @@ export default function InterviewRoomPage() {
             Buổi phỏng vấn đã kết thúc ({interview.status === 'failed' ? 'Thất bại' : 'Đã hủy'})
           </h2>
           <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            Phiên phỏng vấn này không còn hoạt động. Bạn có thể bắt đầu một buổi phỏng vấn mới bất cứ lúc nào.
+            Phiên phỏng vấn này không còn hoạt động. Bạn có thể quay lại danh sách phỏng vấn để xem các lựa chọn hiện có.
           </p>
           <div style={{ marginTop: '2rem' }}>
             <Link href="/dashboard/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
@@ -316,7 +320,7 @@ export default function InterviewRoomPage() {
           onClick={handleComplete}
           disabled={completing || submitting || !canFinish}
           style={{ opacity: canFinish ? 1 : 0.5 }}
-          title={canFinish ? 'Nộp bài và xuất báo cáo' : 'Cần trả lời tối thiểu 2 câu hỏi để nộp bài'}
+          title={canFinish ? 'Nộp bài và xuất báo cáo' : 'Chưa thể kết thúc buổi phỏng vấn ở trạng thái hiện tại.'}
         >
           {completing ? 'Đang xử lý...' : 'Nộp bài sớm'}
         </button>
@@ -389,84 +393,141 @@ export default function InterviewRoomPage() {
                         <table className={styles.starTable}>
                           <thead>
                             <tr>
-                              <th style={{ width: '120px' }}>Thành phần</th>
-                              <th style={{ width: '90px', textAlign: 'center' }}>Điểm</th>
+                              <th style={{ width: '130px' }}>Thành phần</th>
+                              <th style={{ width: '80px', textAlign: 'center' }}>Trạng thái</th>
+                              <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
                               <th>Nhận xét &amp; Bằng chứng</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {star.situation && (
-                              <tr>
-                                <td><strong>Situation (Tình huống)</strong></td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>
-                                    {normalizeStarComponent(star.situation).score}/100
-                                  </span>
-                                </td>
-                                <td>
-                                  <div>{normalizeStarComponent(star.situation).feedback}</div>
-                                  {normalizeStarComponent(star.situation).evidence && (
-                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                      <em>Bằng chứng: {normalizeStarComponent(star.situation).evidence}</em>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            )}
-                            {star.task && (
-                              <tr>
-                                <td><strong>Task (Nhiệm vụ)</strong></td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>
-                                    {normalizeStarComponent(star.task).score}/100
-                                  </span>
-                                </td>
-                                <td>
-                                  <div>{normalizeStarComponent(star.task).feedback}</div>
-                                  {normalizeStarComponent(star.task).evidence && (
-                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                      <em>Bằng chứng: {normalizeStarComponent(star.task).evidence}</em>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            )}
-                            {star.action && (
-                              <tr>
-                                <td><strong>Action (Hành động)</strong></td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>
-                                    {normalizeStarComponent(star.action).score}/100
-                                  </span>
-                                </td>
-                                <td>
-                                  <div>{normalizeStarComponent(star.action).feedback}</div>
-                                  {normalizeStarComponent(star.action).evidence && (
-                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                      <em>Bằng chứng: {normalizeStarComponent(star.action).evidence}</em>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            )}
-                            {star.result && (
-                              <tr>
-                                <td><strong>Result (Kết quả)</strong></td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>
-                                    {normalizeStarComponent(star.result).score}/100
-                                  </span>
-                                </td>
-                                <td>
-                                  <div>{normalizeStarComponent(star.result).feedback}</div>
-                                  {normalizeStarComponent(star.result).evidence && (
-                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                      <em>Bằng chứng: {normalizeStarComponent(star.result).evidence}</em>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            )}
+                            {star.situation && (() => {
+                              const norm = normalizeStarComponent(star.situation);
+                              return (
+                                <tr>
+                                  <td><strong>Situation (Tình huống)</strong></td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>
+                                      {norm.score}/100
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                            {star.task && (() => {
+                              const norm = normalizeStarComponent(star.task);
+                              return (
+                                <tr>
+                                  <td><strong>Task (Nhiệm vụ)</strong></td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>
+                                      {norm.score}/100
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                            {star.action && (() => {
+                              const norm = normalizeStarComponent(star.action);
+                              return (
+                                <tr>
+                                  <td><strong>Action (Hành động)</strong></td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>
+                                      {norm.score}/100
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                            {star.result && (() => {
+                              const norm = normalizeStarComponent(star.result);
+                              return (
+                                <tr>
+                                  <td><strong>Result (Kết quả)</strong></td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>
+                                      {norm.score}/100
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
                           </tbody>
                         </table>
                       </div>
@@ -474,6 +535,21 @@ export default function InterviewRoomPage() {
                       {star.missingElements && star.missingElements.length > 0 && (
                         <div style={{ marginTop: '0.75rem', color: '#b91c1c', fontSize: '0.9rem' }}>
                           <strong>Yếu tố còn thiếu:</strong> {star.missingElements.join(', ')}
+                        </div>
+                      )}
+
+                      {star.strengths && star.strengths.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
+                            ✨ Điểm mạnh nổi bật:
+                          </strong>
+                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
+                            {star.strengths.map((st, idx) => (
+                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
+                                {st}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
 
@@ -496,8 +572,39 @@ export default function InterviewRoomPage() {
                     <div className={styles.coachingBox}>
                       <div className={styles.coachingTitle}>
                         <span>✨</span>
-                        <span>AI Phản Hồi Trực Tiếp</span>
+                        <span>AI Phản Hồi Trực Tiếp ({evalData.scoreScale || SCORE_SCALE})</span>
                       </div>
+
+                      {evalData.scores.length > 0 && (
+                        <div className={styles.starTableWrapper} style={{ marginBottom: '1rem' }}>
+                          <table className={styles.starTable}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: '160px' }}>Tiêu chí</th>
+                                <th style={{ width: '90px', textAlign: 'center' }}>Điểm</th>
+                                <th>Bằng chứng đánh giá</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {evalData.scores.map((sc, scIdx) => (
+                                <tr key={scIdx}>
+                                  <td><strong>{sc.criterion}</strong></td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{sc.score}/100</span>
+                                  </td>
+                                  <td>{sc.evidence || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {evalData.feedback && (
+                        <div style={{ marginBottom: '0.75rem', color: '#334155', lineHeight: '1.6' }}>
+                          <strong>Nhận xét:</strong> {evalData.feedback}
+                        </div>
+                      )}
 
                       {evalData.strengths.length > 0 && (
                         <div style={{ marginBottom: '0.75rem' }}>
@@ -548,10 +655,6 @@ export default function InterviewRoomPage() {
                           </div>
                         </div>
                       )}
-
-                      {evalData.feedback && !evalData.strengths.length && !evalData.improvements.length && (
-                        <p style={{ margin: 0, color: '#334155' }}>{evalData.feedback}</p>
-                      )}
                     </div>
                   ) : null}
                 </div>
@@ -564,7 +667,7 @@ export default function InterviewRoomPage() {
         {upgradeRequired ? (
           <div className={styles.upgradeCard}>
             <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#0f172a', fontWeight: 700 }}>
-              Bạn đã hoàn thành phần phỏng vấn mẫu miễn phí 🔒
+              Bạn đã đạt giới hạn câu hỏi của gói hiện tại
             </h3>
             <p
               style={{

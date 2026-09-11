@@ -4,7 +4,10 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from '../Interviews.module.css';
 import { interviewApi, type StartInterviewCommand } from '@/services/interviewApi';
-import { generateIdempotencyKey } from '@/services/interviewContract';
+import {
+  getOrCreateStartIntent,
+  type StartIntent,
+} from '@/services/interviewContract';
 import { ApiError } from '@/services/apiClient';
 
 export default function NewInterviewPage() {
@@ -12,8 +15,8 @@ export default function NewInterviewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
 
-  // Stable idempotency key for the creation intent
-  const startKeyRef = useRef<string>(generateIdempotencyKey());
+  // Stable intent tracking: reuse key for identical payload retries, regenerate on edit
+  const pendingStartIntentRef = useRef<StartIntent | null>(null);
 
   const [form, setForm] = useState<StartInterviewCommand>({
     role: '',
@@ -29,16 +32,27 @@ export default function NewInterviewPage() {
       return;
     }
 
+    const candidatePayload = {
+      role: form.role.trim(),
+      seniority: form.seniority,
+      interviewType: form.interviewType,
+      difficulty: form.difficulty,
+      resumeId: form.resumeId,
+      jobDescriptionId: form.jobDescriptionId,
+    };
+
+    const intent = getOrCreateStartIntent(pendingStartIntentRef.current, candidatePayload);
+    pendingStartIntentRef.current = intent;
+
     setLoading(true);
     setError(null);
     try {
       const res = await interviewApi.start(
-        {
-          ...form,
-          role: form.role.trim(),
-        },
-        startKeyRef.current
+        intent.payload,
+        intent.key
       );
+      // Succeeded: clear pending intent
+      pendingStartIntentRef.current = null;
       router.push(`/dashboard/interviews/${res.id}`);
     } catch (err: unknown) {
       setError({
@@ -87,11 +101,7 @@ export default function NewInterviewPage() {
               className={styles.input}
               placeholder="Vd: Frontend Developer, Product Manager, Data Analyst..."
               value={form.role}
-              onChange={(e) => {
-                setForm({ ...form, role: e.target.value });
-                // Reset startKey if user changes role intent
-                startKeyRef.current = generateIdempotencyKey();
-              }}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
               disabled={loading}
             />
           </div>

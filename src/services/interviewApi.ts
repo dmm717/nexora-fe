@@ -1,6 +1,10 @@
 import { apiClient } from './apiClient';
 import {
-  generateIdempotencyKey,
+  buildStartInterviewRequest,
+  buildSubmitAnswerRequest,
+  buildContinueInterviewRequest,
+  buildCompleteInterviewRequest,
+  buildRetryReportRequest,
   type InterviewView,
   type AnswerResult,
   type ReportView,
@@ -25,10 +29,9 @@ export interface SubmitAnswerRequest {
 
 export const interviewApi = {
   start: async (data: StartInterviewCommand, idempotencyKey?: string): Promise<InterviewView> => {
-    const response = (await apiClient.post('/interviews', data, {
-      headers: {
-        'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
-      },
+    const req = buildStartInterviewRequest(data, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
     })) as { data: InterviewView };
     return response.data;
   },
@@ -43,50 +46,34 @@ export const interviewApi = {
     data: SubmitAnswerRequest,
     idempotencyKey?: string
   ): Promise<AnswerResult> => {
-    const response = (await apiClient.post(`/interviews/${id}/answers`, data, {
-      headers: {
-        'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
-      },
+    const req = buildSubmitAnswerRequest(id, data, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
     })) as { data: AnswerResult };
     return response.data;
   },
 
   continue: async (id: string, idempotencyKey?: string): Promise<InterviewView> => {
-    const response = (await apiClient.post(
-      `/interviews/${id}/continue`,
-      {},
-      {
-        headers: {
-          'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
-        },
-      }
-    )) as { data: InterviewView };
+    const req = buildContinueInterviewRequest(id, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
+    })) as { data: InterviewView };
     return response.data;
   },
 
   complete: async (id: string, idempotencyKey?: string): Promise<InterviewView> => {
-    const response = (await apiClient.post(
-      `/interviews/${id}/complete`,
-      {},
-      {
-        headers: {
-          'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
-        },
-      }
-    )) as { data: InterviewView };
+    const req = buildCompleteInterviewRequest(id, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
+    })) as { data: InterviewView };
     return response.data;
   },
 
   retryReport: async (id: string, idempotencyKey?: string): Promise<InterviewView> => {
-    const response = (await apiClient.post(
-      `/interviews/${id}/report/retry`,
-      {},
-      {
-        headers: {
-          'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
-        },
-      }
-    )) as { data: InterviewView };
+    const req = buildRetryReportRequest(id, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
+    })) as { data: InterviewView };
     return response.data;
   },
 

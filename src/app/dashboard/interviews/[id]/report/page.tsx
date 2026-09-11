@@ -13,6 +13,7 @@ import {
   isReportProcessingError,
   isReportFailedError,
   normalizeStarComponent,
+  safeAnswerEvaluation,
   generateIdempotencyKey,
   SCORE_SCALE,
   type RubricScore,
@@ -106,7 +107,7 @@ export default function InterviewReportPage() {
         <div className={styles.retryCard}>
           <div className={styles.retryTitle}>Báo cáo phỏng vấn chưa tạo được ⚠️</div>
           <p className={styles.retryDescription}>
-            Hệ thống gặp sự cố gián đoạn trong quá trình phân tích bài phỏng vấn. Bạn có thể thử lại miễn phí mà không bị trừ thêm lượt phỏng vấn nào.
+            Hệ thống gặp sự cố gián đoạn trong quá trình phân tích bài phỏng vấn. Bạn có thể thử lại mà không bị trừ thêm lượt phỏng vấn nào.
           </p>
 
           {retryError && (
@@ -389,6 +390,7 @@ export default function InterviewReportPage() {
           <div>
             {questionReviews.map((rev) => {
               const star = rev.star;
+              const hasStar = Boolean(star?.applicable);
               return (
                 <div key={rev.questionId} className={styles.questionReviewCard}>
                   <div className={styles.questionHeader}>
@@ -407,66 +409,256 @@ export default function InterviewReportPage() {
                   </div>
 
                   {/* STAR Breakdown if applicable */}
-                  {star?.applicable && (
+                  {hasStar && star && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
+                          Phân tích S-T-A-R ({star.scoreScale || SCORE_SCALE})
+                        </h4>
+                        {typeof star.overallScore === 'number' && (
+                          <span className={styles.scorePill} style={{ marginLeft: 'auto' }}>
+                            {star.overallScore}/100
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={styles.tableWrapper}>
+                        <table className={styles.table}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '120px' }}>Thành phần</th>
+                              <th style={{ width: '80px', textAlign: 'center' }}>Trạng thái</th>
+                              <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
+                              <th>Nhận xét &amp; Bằng chứng</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {star.situation && (() => {
+                              const norm = normalizeStarComponent(star.situation);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Situation</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                            {star.task && (() => {
+                              const norm = normalizeStarComponent(star.task);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Task</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                            {star.action && (() => {
+                              const norm = normalizeStarComponent(star.action);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Action</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                            {star.result && (() => {
+                              const norm = normalizeStarComponent(star.result);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Result</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>
+                                    <div>{norm.feedback}</div>
+                                    {norm.evidence && (
+                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                        <em>Bằng chứng: {norm.evidence}</em>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {star.missingElements && star.missingElements.length > 0 && (
+                        <div style={{ marginTop: '0.75rem', color: '#b91c1c', fontSize: '0.9rem' }}>
+                          <strong>Yếu tố còn thiếu:</strong> {star.missingElements.join(', ')}
+                        </div>
+                      )}
+
+                      {star.strengths && star.strengths.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
+                            ✨ Điểm mạnh:
+                          </strong>
+                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
+                            {star.strengths.map((st, idx) => (
+                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
+                                {st}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {star.coachingTips && star.coachingTips.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <strong style={{ color: '#16a34a', display: 'block', marginBottom: '0.25rem' }}>
+                            💡 Lời khuyên hoàn thiện:
+                          </strong>
+                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#334155' }}>
+                            {star.coachingTips.map((tip, idx) => (
+                              <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                {tip}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rubric Breakdown for Generic evaluation */}
+                  {Array.isArray(rev.rubric) && rev.rubric.length > 0 && (
                     <div style={{ marginBottom: '1rem' }}>
                       <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.5rem' }}>
-                        Phân tích S-T-A-R
+                        Tiêu chí đánh giá
                       </h4>
                       <div className={styles.tableWrapper}>
                         <table className={styles.table}>
                           <thead>
                             <tr>
-                              <th style={{ width: '110px' }}>Thành phần</th>
+                              <th style={{ width: '150px' }}>Tiêu chí</th>
                               <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
-                              <th>Nhận xét</th>
+                              <th>Bằng chứng</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {star.situation && (
-                              <tr>
-                                <td className={styles.criterion}>Situation</td>
+                            {rev.rubric.map((r, rIdx) => (
+                              <tr key={rIdx}>
+                                <td className={styles.criterion}>{r.criterion}</td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.situation).score}/100</span>
+                                  <span className={styles.scorePill}>{r.score}/100</span>
                                 </td>
-                                <td>{normalizeStarComponent(star.situation).feedback}</td>
+                                <td>{r.evidence || '—'}</td>
                               </tr>
-                            )}
-                            {star.task && (
-                              <tr>
-                                <td className={styles.criterion}>Task</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.task).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.task).feedback}</td>
-                              </tr>
-                            )}
-                            {star.action && (
-                              <tr>
-                                <td className={styles.criterion}>Action</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.action).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.action).feedback}</td>
-                              </tr>
-                            )}
-                            {star.result && (
-                              <tr>
-                                <td className={styles.criterion}>Result</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.result).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.result).feedback}</td>
-                              </tr>
-                            )}
+                            ))}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   )}
 
-                  {rev.feedback && !star?.applicable && (
-                    <div style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>
-                      <strong style={{ color: '#334155' }}>Nhận xét:</strong> {rev.feedback}
+                  {rev.feedback && (
+                    <div style={{ marginBottom: '0.75rem', fontSize: '0.95rem', color: '#334155', lineHeight: '1.6' }}>
+                      <strong>Nhận xét:</strong> {rev.feedback}
+                    </div>
+                  )}
+
+                  {rev.strengths && rev.strengths.length > 0 && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
+                        Điểm mạnh:
+                      </strong>
+                      <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
+                        {rev.strengths.map((s, idx) => (
+                          <li key={idx} style={{ marginBottom: '0.2rem' }}>
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {rev.improvements && rev.improvements.length > 0 && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '0.25rem' }}>
+                        Cần cải thiện:
+                      </strong>
+                      <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#7f1d1d' }}>
+                        {rev.improvements.map((imp, idx) => (
+                          <li key={idx} style={{ marginBottom: '0.2rem' }}>
+                            {imp}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
@@ -501,7 +693,8 @@ export default function InterviewReportPage() {
           <div>
             {interview.answers.map((answer, index) => {
               const question = interview.questions?.find((q) => q.id === answer.questionId);
-              const star = answer.evaluation?.star;
+              const evalData = safeAnswerEvaluation(answer.evaluation);
+              const star = evalData.star;
               return (
                 <div key={answer.id} className={styles.questionReviewCard}>
                   <div className={styles.questionText} style={{ marginBottom: '0.5rem' }}>
@@ -511,64 +704,178 @@ export default function InterviewReportPage() {
 
                   {star?.applicable ? (
                     <div>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem' }}>Đánh giá S-T-A-R</h4>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                        Đánh giá S-T-A-R ({evalData.scoreScale})
+                      </h4>
                       <div className={styles.tableWrapper}>
                         <table className={styles.table}>
                           <thead>
                             <tr>
-                              <th style={{ width: '110px' }}>Thành phần</th>
+                              <th style={{ width: '120px' }}>Thành phần</th>
+                              <th style={{ width: '80px', textAlign: 'center' }}>Trạng thái</th>
                               <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
                               <th>Nhận xét</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {star.situation && (
-                              <tr>
-                                <td className={styles.criterion}>Situation</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.situation).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.situation).feedback}</td>
-                              </tr>
-                            )}
-                            {star.task && (
-                              <tr>
-                                <td className={styles.criterion}>Task</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.task).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.task).feedback}</td>
-                              </tr>
-                            )}
-                            {star.action && (
-                              <tr>
-                                <td className={styles.criterion}>Action</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.action).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.action).feedback}</td>
-                              </tr>
-                            )}
-                            {star.result && (
-                              <tr>
-                                <td className={styles.criterion}>Result</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{normalizeStarComponent(star.result).score}/100</span>
-                                </td>
-                                <td>{normalizeStarComponent(star.result).feedback}</td>
-                              </tr>
-                            )}
+                            {star.situation && (() => {
+                              const norm = normalizeStarComponent(star.situation);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Situation</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>{norm.feedback}</td>
+                                </tr>
+                              );
+                            })()}
+                            {star.task && (() => {
+                              const norm = normalizeStarComponent(star.task);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Task</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>{norm.feedback}</td>
+                                </tr>
+                              );
+                            })()}
+                            {star.action && (() => {
+                              const norm = normalizeStarComponent(star.action);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Action</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>{norm.feedback}</td>
+                                </tr>
+                              );
+                            })()}
+                            {star.result && (() => {
+                              const norm = normalizeStarComponent(star.result);
+                              return (
+                                <tr>
+                                  <td className={styles.criterion}>Result</td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span
+                                      className={styles.scorePill}
+                                      style={{
+                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
+                                        color: norm.detected ? '#166534' : '#991b1b',
+                                      }}
+                                    >
+                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <span className={styles.scorePill}>{norm.score}/100</span>
+                                  </td>
+                                  <td>{norm.feedback}</td>
+                                </tr>
+                              );
+                            })()}
                           </tbody>
                         </table>
                       </div>
+
+                      {star.strengths && star.strengths.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
+                            Điểm mạnh:
+                          </strong>
+                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
+                            {star.strengths.map((s: string, idx: number) => (
+                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    answer.evaluation?.feedback && (
-                      <div>
-                        <strong style={{ fontSize: '0.9rem', color: '#334155' }}>Nhận xét: </strong>
-                        <span style={{ color: '#475569', fontSize: '0.95rem' }}>{answer.evaluation.feedback}</span>
-                      </div>
-                    )
+                    <>
+                      {evalData.scores.length > 0 && (
+                        <div style={{ marginBottom: '0.75rem' }}>
+                          <div className={styles.tableWrapper}>
+                            <table className={styles.table}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '150px' }}>Tiêu chí</th>
+                                  <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
+                                  <th>Bằng chứng</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {evalData.scores.map((r: RubricScore, rIdx: number) => (
+                                  <tr key={rIdx}>
+                                    <td className={styles.criterion}>{r.criterion}</td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <span className={styles.scorePill}>{r.score}/100</span>
+                                    </td>
+                                    <td>{r.evidence || '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                      {evalData.feedback && (
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <strong style={{ fontSize: '0.9rem', color: '#334155' }}>Nhận xét: </strong>
+                          <span style={{ color: '#475569', fontSize: '0.95rem' }}>{evalData.feedback}</span>
+                        </div>
+                      )}
+                      {evalData.strengths.length > 0 && (
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <strong style={{ fontSize: '0.9rem', color: '#059669' }}>Điểm mạnh: </strong>
+                          <span style={{ color: '#064e3b', fontSize: '0.95rem' }}>{evalData.strengths.join('; ')}</span>
+                        </div>
+                      )}
+                      {evalData.improvements.length > 0 && (
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <strong style={{ fontSize: '0.9rem', color: '#b91c1c' }}>Cần cải thiện: </strong>
+                          <span style={{ color: '#7f1d1d', fontSize: '0.95rem' }}>{evalData.improvements.join('; ')}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );

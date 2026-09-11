@@ -4,10 +4,11 @@ import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus, type RealtimeFallbackInterval } from '@/utils/queryPolling';
 import {
-  isReportNotReady,
   isDeterministicError,
   isReportProcessingError,
   isReportFailedError,
+  isReportUnavailableError,
+  getReportPollingDecision,
 } from '@/services/interviewContract';
 
 export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInterval) => {
@@ -41,7 +42,9 @@ export const useInterviewReport = (
   const interviewStatus =
     typeof interviewStatusOrInterval === 'string' ? interviewStatusOrInterval : undefined;
   const refetchInterval =
-    typeof interviewStatusOrInterval === 'function' || typeof interviewStatusOrInterval === 'number' || typeof interviewStatusOrInterval === 'boolean'
+    typeof interviewStatusOrInterval === 'function' ||
+    typeof interviewStatusOrInterval === 'number' ||
+    typeof interviewStatusOrInterval === 'boolean'
       ? interviewStatusOrInterval
       : customRefetchInterval;
 
@@ -55,7 +58,8 @@ export const useInterviewReport = (
       if (
         isDeterministicError(error) ||
         isReportProcessingError(error) ||
-        isReportFailedError(error)
+        isReportFailedError(error) ||
+        isReportUnavailableError(error)
       ) {
         return false;
       }
@@ -66,13 +70,15 @@ export const useInterviewReport = (
         ? refetchInterval
         : (query) => {
             if (query.state.data) return false;
-            if (isReportNotReady(interviewStatus, query.state.error)) {
-              return REALTIME_FALLBACK_POLL_MS;
+            const decision = getReportPollingDecision({
+              interviewStatus,
+              error: query.state.error,
+              fallbackAttemptCount: query.state.dataUpdateCount ?? 0,
+            });
+            if (decision.shouldPoll) {
+              return decision.intervalMs ?? REALTIME_FALLBACK_POLL_MS;
             }
-            if (query.state.error && isReportFailedError(query.state.error)) {
-              return false;
-            }
-            return REALTIME_FALLBACK_POLL_MS;
+            return false;
           },
   });
 };

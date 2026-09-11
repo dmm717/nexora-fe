@@ -37,6 +37,13 @@ export const DETERMINISTIC_ERROR_CODES = [
   'INTERVIEW_REPORT_UNAVAILABLE',
   'INVALID_STATE',
   'VALIDATION_ERROR',
+  'INVALID_INTERVIEW_STATE',
+  'INTERVIEW_UPGRADE_REQUIRED',
+  'INTERVIEW_MAX_QUESTIONS_REACHED',
+  'IDEMPOTENCY_CONFLICT',
+  'IDEMPOTENCY_KEY_REQUIRED',
+  'QUOTA_EXCEEDED',
+  'NOT_FOUND',
 ] as const;
 
 export interface QuestionView {
@@ -190,16 +197,16 @@ export interface ContractErrorLike {
 
 /**
  * Determines whether the user can finish the interview session now.
- * Minimum report answers is backend-owned (>= 2).
+ * Server-authoritative: strictly respects continuation.canFinishNow.
+ * If continuation is not present, fails closed (returns false) without local guesses.
  */
 export function canFinishInterview(
-  continuation?: InterviewContinuationView | null,
-  answeredCount?: number
+  continuation?: InterviewContinuationView | null
 ): boolean {
   if (continuation?.canFinishNow !== undefined) {
-    return continuation.canFinishNow;
+    return Boolean(continuation.canFinishNow);
   }
-  return (answeredCount ?? 0) >= MINIMUM_REPORT_ANSWERS;
+  return false;
 }
 
 /**
@@ -309,6 +316,7 @@ export function isStarApplicable(star?: StarEvaluation | null): boolean {
 
 /**
  * Defensively normalizes a STAR component evaluation to guarantee non-crashing UI.
+ * Explicit detected === false means score is 0 and evidence is empty string.
  */
 export function normalizeStarComponent(comp?: StarEvaluationComponent | null): {
   score: number;
@@ -316,11 +324,28 @@ export function normalizeStarComponent(comp?: StarEvaluationComponent | null): {
   evidence: string;
   feedback: string;
 } {
+  if (!comp) {
+    return {
+      score: 0,
+      detected: false,
+      evidence: '',
+      feedback: '',
+    };
+  }
+
+  // If detected is explicitly false, score is 0 and evidence is empty
+  const detected = comp.detected !== undefined
+    ? Boolean(comp.detected)
+    : typeof comp.score === 'number' && comp.score > 0;
+
+  const score = detected && typeof comp.score === 'number' ? comp.score : 0;
+  const evidence = detected && typeof comp.evidence === 'string' ? comp.evidence : '';
+
   return {
-    score: typeof comp?.score === 'number' ? comp.score : 0,
-    detected: Boolean(comp?.detected ?? (comp && typeof comp.score === 'number' && comp.score > 0)),
-    evidence: comp?.evidence || '',
-    feedback: comp?.feedback || '',
+    score,
+    detected,
+    evidence,
+    feedback: comp.feedback || '',
   };
 }
 
@@ -528,4 +553,172 @@ export function buildRetryReportRequest(interviewId: string, idempotencyKey?: st
       'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
     },
   };
+}
+
+export interface CanonicalStartPayload {
+  role: string;
+  seniority: string;
+  interviewType: string;
+  difficulty: string;
+  resumeId?: string;
+  jobDescriptionId?: string;
+}
+
+export interface StartIntent {
+  key: string;
+  payload: CanonicalStartPayload;
+}
+
+/**
+ * Compares two start payloads for semantic equality (with trimmed role).
+ */
+export function isSameStartPayload(a: CanonicalStartPayload, b: CanonicalStartPayload): boolean {
+  return (
+    a.role.trim() === b.role.trim() &&
+    a.seniority === b.seniority &&
+    a.interviewType === b.interviewType &&
+    a.difficulty === b.difficulty &&
+    (a.resumeId || undefined) === (b.resumeId || undefined) &&
+    (a.jobDescriptionId || undefined) === (b.jobDescriptionId || undefined)
+  );
+}
+
+/**
+ * Returns an existing start intent if candidate payload matches, or creates a new one.
+ */
+export function getOrCreateStartIntent(
+  existingIntent: StartIntent | null | undefined,
+  candidatePayload: CanonicalStartPayload
+): StartIntent {
+  const normalizedCandidate: CanonicalStartPayload = {
+    role: candidatePayload.role.trim(),
+    seniority: candidatePayload.seniority,
+    interviewType: candidatePayload.interviewType,
+    difficulty: candidatePayload.difficulty,
+    ...(candidatePayload.resumeId ? { resumeId: candidatePayload.resumeId } : {}),
+    ...(candidatePayload.jobDescriptionId ? { jobDescriptionId: candidatePayload.jobDescriptionId } : {}),
+  };
+
+  if (existingIntent && isSameStartPayload(existingIntent.payload, normalizedCandidate)) {
+    return existingIntent;
+  }
+
+  return {
+    key: generateIdempotencyKey(),
+    payload: normalizedCandidate,
+  };
+}
+
+export interface CanonicalAnswerPayload {
+  questionId: string;
+  content: string;
+  durationSeconds?: number;
+}
+
+export interface AnswerIntent {
+  key: string;
+  payload: CanonicalAnswerPayload;
+}
+
+/**
+ * Compares two answer payloads for semantic equality (matching questionId and trimmed content).
+ */
+export function isSameAnswerPayload(a: CanonicalAnswerPayload, b: CanonicalAnswerPayload): boolean {
+  return a.questionId === b.questionId && a.content.trim() === b.content.trim();
+}
+
+/**
+ * Returns an existing answer intent if candidate questionId and trimmed content match (reusing key and frozen duration),
+ * or creates a new one with a fresh key and the provided durationSeconds.
+ */
+export function getOrCreateAnswerIntent(
+  existingIntent: AnswerIntent | null | undefined,
+  candidatePayload: { questionId: string; content: string; durationSeconds?: number }
+): AnswerIntent {
+  const trimmedContent = candidatePayload.content.trim();
+
+  if (
+    existingIntent &&
+    existingIntent.payload.questionId === candidatePayload.questionId &&
+    existingIntent.payload.content.trim() === trimmedContent
+  ) {
+    return existingIntent;
+  }
+
+  return {
+    key: generateIdempotencyKey(),
+    payload: {
+      questionId: candidatePayload.questionId,
+      content: trimmedContent,
+      ...(candidatePayload.durationSeconds !== undefined
+        ? { durationSeconds: candidatePayload.durationSeconds }
+        : {}),
+    },
+  };
+}
+
+export const REPORT_POLL_INTERVAL_MS = 15_000;
+export const REPORT_POLL_MAX_ATTEMPTS = 8; // 8 * 15s = 120s (2 minutes)
+
+export interface ReportPollingDecisionParams {
+  interviewStatus?: string;
+  error?: unknown;
+  fallbackAttemptCount?: number;
+  maxAttempts?: number;
+}
+
+export interface ReportPollingDecision {
+  shouldPoll: boolean;
+  intervalMs?: number;
+  reason:
+    | 'failed'
+    | 'unavailable'
+    | 'bound_exhausted'
+    | 'processing'
+    | 'completing_404'
+    | 'completed_404'
+    | 'not_pending';
+}
+
+/**
+ * Evaluates whether report polling should continue, strictly bounded and pending-only.
+ * Never polls on report failure, unavailable, or once max attempts are reached.
+ */
+export function getReportPollingDecision(
+  params: ReportPollingDecisionParams
+): ReportPollingDecision {
+  const {
+    interviewStatus,
+    error,
+    fallbackAttemptCount = 0,
+    maxAttempts = REPORT_POLL_MAX_ATTEMPTS,
+  } = params;
+
+  if (isReportFailedError(error)) {
+    return { shouldPoll: false, reason: 'failed' };
+  }
+
+  if (isReportUnavailableError(error)) {
+    return { shouldPoll: false, reason: 'unavailable' };
+  }
+
+  if (fallbackAttemptCount >= maxAttempts) {
+    return { shouldPoll: false, reason: 'bound_exhausted' };
+  }
+
+  if (isReportProcessingError(error)) {
+    return { shouldPoll: true, intervalMs: REPORT_POLL_INTERVAL_MS, reason: 'processing' };
+  }
+
+  if (error && typeof error === 'object') {
+    const err = error as ContractErrorLike;
+    if (err.code === 'NOT_FOUND' || err.status === 404) {
+      if (interviewStatus === 'completing') {
+        return { shouldPoll: true, intervalMs: REPORT_POLL_INTERVAL_MS, reason: 'completing_404' };
+      }
+      return { shouldPoll: false, reason: 'completed_404' };
+    }
+  }
+
+  return { shouldPoll: false, reason: 'not_pending' };
 }
