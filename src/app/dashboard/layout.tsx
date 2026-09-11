@@ -1,13 +1,13 @@
 import DashboardLayout from '@/components/layouts/DashboardLayout';
-import AuthBootstrapProvider from '@/components/providers/AuthBootstrapProvider';
+import RequireAuth from '@/components/providers/RequireAuth';
 import RealtimeProvider from '@/components/providers/RealtimeProvider';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthBootstrapProvider>
+    <RequireAuth>
       <RealtimeProvider>
         <DashboardLayout>{children}</DashboardLayout>
       </RealtimeProvider>
-    </AuthBootstrapProvider>
+    </RequireAuth>
   );
 }

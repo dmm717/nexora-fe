@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import { bootstrapAuthSession } from '@/services/authSession';
 import { getAccessToken } from '@/store/authStore';
 
@@ -25,8 +24,6 @@ export const useAuth = () => useContext(AuthSessionContext);
 export const useAuthSession = useAuth;
 
 export default function AuthBootstrapProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
   const [bootstrapError, setBootstrapError] = useState<Error | null>(null);
@@ -49,10 +46,6 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
 
         setIsAuthenticated(authenticated);
         setSessionInitialized(true);
-
-        if (!authenticated && pathname !== '/auth') {
-          router.replace('/auth');
-        }
       } catch (error: unknown) {
         if (cancelled) return;
 
@@ -72,7 +65,7 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
     return () => {
       cancelled = true;
     };
-  }, [pathname, router]);
+  }, []);
 
   const authReady = sessionInitialized;
   const authState: AuthSessionState = {
@@ -81,27 +74,6 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
     isAuthenticated,
     bootstrapError,
   };
-
-  if (!sessionInitialized) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc' }} role="status" aria-live="polite">
-        <div style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated && pathname !== '/auth') {
-    if (bootstrapError) {
-      return (
-        <div role="alert">
-          Không thể khôi phục phiên đăng nhập. Vui lòng thử lại.
-        </div>
-      );
-    }
-
-    return null;
-  }
 
   return (
     <AuthSessionContext.Provider value={authState}>
