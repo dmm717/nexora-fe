@@ -8,13 +8,16 @@ export const metadata: Metadata = {
 
 import { Toaster } from 'sonner';
 import ReactQueryProvider from '@/components/providers/ReactQueryProvider';
+import AuthBootstrapProvider from '@/components/providers/AuthBootstrapProvider';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" translate="no" className="antialiased">
       <body className="min-h-full flex flex-col">
         <ReactQueryProvider>
-          {children}
+          <AuthBootstrapProvider>
+            {children}
+          </AuthBootstrapProvider>
           <Toaster position="bottom-right" richColors />
         </ReactQueryProvider>
       </body>

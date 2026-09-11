@@ -1,4 +1,4 @@
-import { clearAccessToken, getAccessToken, setAccessToken } from '@/store/authStore';
+import { clearAccessToken, getAccessToken, setAccessToken } from '../store/authStore.ts';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
