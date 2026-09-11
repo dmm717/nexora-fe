@@ -40,7 +40,15 @@ export interface ScenarioAttemptSubmitRequest {
   answer: string;
 }
 
-export { generateIdempotencyKey } from '@/utils/scenarioHelpers';
+export {
+  generateIdempotencyKey,
+  getOrCreateScenarioCreateIntent,
+  getOrCreateScenarioSubmitIntent,
+  type CanonicalScenarioCreatePayload,
+  type ScenarioCreateIntent,
+  type CanonicalScenarioSubmitPayload,
+  type ScenarioSubmitIntent,
+} from '@/utils/scenarioHelpers';
 
 export const scenarioApi = {
   getCategories: async (): Promise<ScenarioCategory[]> => {
@@ -100,10 +108,11 @@ export const scenarioApi = {
     answerOrRequest: string | ScenarioAttemptSubmitRequest,
     idempotencyKey?: string
   ): Promise<ScenarioAttempt> => {
-    const answer =
+    const rawAnswer =
       typeof answerOrRequest === 'string'
         ? answerOrRequest
         : answerOrRequest.answer;
+    const answer = (rawAnswer || '').trim();
     const key = idempotencyKey || generateIdempotencyKey();
     const response = (await apiClient.post(
       `/scenario-attempts/${attemptId}/submit`,

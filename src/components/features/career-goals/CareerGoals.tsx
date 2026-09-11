@@ -1,14 +1,24 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styles from './CareerGoals.module.css';
-import { careerGoalsApi, CareerGoalResponse, CreateCareerGoalRequest } from '@/services/careerGoalsApi';
+import type { CareerGoalResponse } from '@/services/careerGoalContract';
+import { ApiError } from '@/services/apiClient';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
 import inputStyles from '@/components/ui/Input/Input.module.css';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import {
+  useCareerGoals,
+  useCreateCareerGoal,
+  useUpdateCareerGoal,
+  useArchiveCareerGoal,
+  useReactivateCareerGoal,
+  type CareerGoalFormValues,
+} from '@/hooks/queries/useCareerGoals';
+import { buildUpdateCareerGoalRequest } from '@/services/careerGoalContract';
 
 const goalSchema = z.object({
   targetRole: z.string().min(2, 'Vị trí mục tiêu phải có ít nhất 2 ký tự'),
@@ -20,92 +30,153 @@ const goalSchema = z.object({
 
 type GoalFormValues = z.infer<typeof goalSchema>;
 
+interface MutationError {
+  message: string;
+  code?: string;
+  requestId?: string;
+}
+
+const toMutationError = (err: unknown, fallback: string): MutationError => {
+  if (err instanceof ApiError) {
+    return { message: err.message || fallback, code: err.code, requestId: err.requestId };
+  }
+  return { message: err instanceof Error ? err.message : fallback };
+};
+
+const ErrorNotice = ({ error }: { error: MutationError | null }) => {
+  if (!error) return null;
+  return (
+    <div className={styles.errorMessage} style={{ marginBottom: '1rem' }}>
+      <div>{error.message}</div>
+      {(error.code || error.requestId) && (
+        <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', color: '#64748b' }}>
+          {error.code && <span>Mã lỗi: {error.code}</span>}
+          {error.code && error.requestId && <span> · </span>}
+          {error.requestId && <span>Mã yêu cầu: {error.requestId}</span>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function CareerGoals() {
-  const [goals, setGoals] = useState<CareerGoalResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<CareerGoalResponse | null>(null);
+  const [mutationError, setMutationError] = useState<MutationError | null>(null);
+
+  const { data: goals = [], isLoading, error: queryError, refetch, isFetching } = useCareerGoals();
+  const createMutation = useCreateCareerGoal();
+  const updateMutation = useUpdateCareerGoal();
+  const archiveMutation = useArchiveCareerGoal();
+  const reactivateMutation = useReactivateCareerGoal();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<GoalFormValues>({
     resolver: zodResolver(goalSchema)
   });
 
-  const fetchGoals = async () => {
-    try {
-      setLoading(true);
-      const data = await careerGoalsApi.list();
-      setGoals(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể tải danh sách mục tiêu');
-    } finally {
-      setLoading(false);
-    }
+  const openCreateModal = () => {
+    setEditingGoal(null);
+    setMutationError(null);
+    reset({ targetRole: '', seniority: '', industry: '', targetCompany: '', targetDate: '' });
+    setIsModalOpen(true);
   };
 
-  useEffect(() => {
-    fetchGoals();
-  }, []);
+  const openEditModal = (goal: CareerGoalResponse) => {
+    setEditingGoal(goal);
+    setMutationError(null);
+    reset({
+      targetRole: goal.targetRole,
+      seniority: goal.seniority,
+      industry: goal.industry || '',
+      targetCompany: goal.targetCompany || '',
+      targetDate: goal.targetDate || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingGoal(null);
+  };
 
   const onSubmit = async (data: GoalFormValues) => {
-    try {
-      setError(null);
-      
-      const requestData: CreateCareerGoalRequest = {
-        targetRole: data.targetRole,
-        seniority: data.seniority,
-        industry: data.industry || null,
-        targetCompany: data.targetCompany || null,
-        targetDate: data.targetDate || null,
-      };
+    setMutationError(null);
+    const values: CareerGoalFormValues = {
+      targetRole: data.targetRole,
+      seniority: data.seniority,
+      industry: data.industry,
+      targetCompany: data.targetCompany,
+      targetDate: data.targetDate,
+    };
 
-      await careerGoalsApi.create(requestData);
-      setIsModalOpen(false);
-      reset();
-      fetchGoals();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi khi tạo mục tiêu mới');
+    try {
+      if (editingGoal) {
+        const request = buildUpdateCareerGoalRequest(editingGoal, values);
+        if (Object.keys(request).length > 0) {
+          await updateMutation.mutateAsync({ id: editingGoal.id, request });
+        }
+      } else {
+        await createMutation.mutateAsync(values);
+      }
+      closeModal();
+    } catch (err: unknown) {
+      setMutationError(toMutationError(err, 'Lỗi khi lưu mục tiêu.'));
     }
   };
 
-  const toggleActiveStatus = async (goal: CareerGoalResponse) => {
-    // Optimistic UI Update: Thay đổi giao diện tức thì
-    const originalGoals = [...goals];
-    setGoals(goals.map(g => g.id === goal.id ? { ...g, active: !g.active } : g));
-
+  const handleArchive = async (goal: CareerGoalResponse) => {
+    setMutationError(null);
     try {
-      // Gọi API chạy ngầm
-      const updatedGoal = await careerGoalsApi.update(goal.id, {
-        activeSpecified: true,
-        active: !goal.active
-      });
-      
-      // Đồng bộ dữ liệu thật từ backend thay vì fetch lại toàn bộ danh sách
-      setGoals(currentGoals => currentGoals.map(g => g.id === goal.id ? updatedGoal : g));
-    } catch (err) {
-      // Đảo ngược lại nếu lỗi
-      setGoals(originalGoals);
-      alert('Không thể cập nhật trạng thái mục tiêu');
+      await archiveMutation.mutateAsync(goal.id);
+    } catch (err: unknown) {
+      setMutationError(toMutationError(err, 'Không thể lưu trữ mục tiêu.'));
     }
   };
 
-  if (loading && goals.length === 0) {
+  const handleReactivate = async (goal: CareerGoalResponse) => {
+    setMutationError(null);
+    try {
+      await reactivateMutation.mutateAsync(goal.id);
+    } catch (err: unknown) {
+      setMutationError(toMutationError(err, 'Không thể kích hoạt lại mục tiêu.'));
+    }
+  };
+
+  if (isLoading && goals.length === 0) {
     return <div className={styles.container}>Đang tải...</div>;
+  }
+
+  if (queryError && goals.length === 0) {
+    const loadError = toMutationError(queryError, 'Không thể tải danh sách mục tiêu');
+    return (
+      <div className={styles.container}>
+        <ErrorNotice error={loadError} />
+        <button
+          type="button"
+          className={styles.buttonOutline}
+          onClick={() => void refetch()}
+          disabled={isFetching}
+        >
+          {isFetching ? 'Đang thử lại...' : 'Thử tải lại'}
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Mục Tiêu Nghề Nghiệp</h1>
-        <Button onClick={() => setIsModalOpen(true)}>Thêm Mục Tiêu</Button>
+        <Button onClick={openCreateModal}>Thêm Mục Tiêu</Button>
       </div>
 
-      {error && !isModalOpen && <div className={styles.errorMessage} style={{marginBottom: '1rem'}}>{error}</div>}
+      {!isModalOpen && <ErrorNotice error={mutationError} />}
 
       {goals.length === 0 ? (
         <div className={styles.emptyState}>
           <h3 className={styles.emptyStateTitle}>Chưa có mục tiêu nào</h3>
           <p className={styles.emptyStateDesc}>Hãy thiết lập mục tiêu nghề nghiệp để Nexora giúp bạn chuẩn bị lộ trình tốt nhất.</p>
-          <Button onClick={() => setIsModalOpen(true)}>Tạo Mục Tiêu Đầu Tiên</Button>
+          <Button onClick={openCreateModal}>Tạo Mục Tiêu Đầu Tiên</Button>
         </div>
       ) : (
         <div className={styles.goalsList}>
@@ -113,16 +184,13 @@ export default function CareerGoals() {
             <div key={goal.id} className={styles.goalCard}>
               <div className={styles.goalHeader}>
                 <div className={styles.targetRole}>{goal.targetRole}</div>
-                <div 
+                <div
                   className={`${styles.badge} ${goal.active ? styles.badgeActive : styles.badgeInactive}`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => toggleActiveStatus(goal)}
-                  title="Nhấn để đổi trạng thái"
                 >
                   {goal.active ? 'Đang theo đuổi' : 'Tạm dừng'}
                 </div>
               </div>
-              
+
               <div className={styles.goalDetails}>
                 <div className={styles.detailItem}>
                   <span className={styles.detailLabel}>Cấp bậc</span>
@@ -143,6 +211,31 @@ export default function CareerGoals() {
                   </span>
                 </div>
               </div>
+
+              <div className={styles.modalFooter} style={{ marginTop: '0.75rem' }}>
+                <button type="button" className={styles.buttonOutline} onClick={() => openEditModal(goal)}>
+                  Chỉnh sửa
+                </button>
+                {goal.active ? (
+                  <button
+                    type="button"
+                    className={styles.buttonOutline}
+                    onClick={() => void handleArchive(goal)}
+                    disabled={archiveMutation.isPending}
+                  >
+                    Lưu trữ
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.buttonOutline}
+                    onClick={() => void handleReactivate(goal)}
+                    disabled={reactivateMutation.isPending}
+                  >
+                    Kích hoạt lại
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -152,22 +245,22 @@ export default function CareerGoals() {
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Thêm Mục Tiêu Mới</h3>
-              <button className={styles.closeButton} onClick={() => setIsModalOpen(false)}>&times;</button>
+              <h3 className={styles.modalTitle}>{editingGoal ? 'Chỉnh Sửa Mục Tiêu' : 'Thêm Mục Tiêu Mới'}</h3>
+              <button className={styles.closeButton} onClick={closeModal}>&times;</button>
             </div>
-            
+
             <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-              {error && <div className={styles.errorMessage}>{error}</div>}
-              
+              <ErrorNotice error={mutationError} />
+
               <div className={styles.formGroup}>
-                <Input 
-                  label="Vị trí mục tiêu (*)" 
+                <Input
+                  label="Vị trí mục tiêu (*)"
                   placeholder="VD: Senior Frontend Engineer"
-                  {...register('targetRole')} 
+                  {...register('targetRole')}
                   error={errors.targetRole?.message}
                 />
               </div>
-              
+
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
                   <label className={inputStyles.label}>Cấp bậc (*)</label>
@@ -191,40 +284,40 @@ export default function CareerGoals() {
                   {errors.seniority && <span className={inputStyles.errorMessage}>{errors.seniority.message}</span>}
                 </div>
                 <div className={styles.formGroup}>
-                  <Input 
-                    label="Ngành nghề" 
+                  <Input
+                    label="Ngành nghề"
                     placeholder="VD: FinTech, E-commerce"
-                    {...register('industry')} 
+                    {...register('industry')}
                   />
                 </div>
               </div>
 
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
-                  <Input 
-                    label="Công ty mơ ước" 
+                  <Input
+                    label="Công ty mơ ước"
                     placeholder="VD: Google, VNG"
-                    {...register('targetCompany')} 
+                    {...register('targetCompany')}
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <Input 
+                  <Input
                     type="date"
-                    label="Hạn chót mục tiêu" 
-                    {...register('targetDate')} 
+                    label="Hạn chót mục tiêu"
+                    {...register('targetDate')}
                   />
                 </div>
               </div>
 
               <div className={styles.modalFooter}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={styles.buttonOutline}
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                 >
                   Hủy
                 </button>
-                <Button type="submit" isLoading={isSubmitting}>Lưu Mục Tiêu</Button>
+                <Button type="submit" isLoading={isSubmitting}>{editingGoal ? 'Cập Nhật' : 'Lưu Mục Tiêu'}</Button>
               </div>
             </form>
           </div>

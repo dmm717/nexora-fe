@@ -642,6 +642,99 @@ export function safeAnswerEvaluation(evaluation?: AnswerEvaluation | null): {
   };
 }
 
+// --- B8 STAR practice contract (Nexora.Business.Ai.StarEvaluation) ---
+
+export interface NormalizedStarComponent {
+  score: number;
+  detected: boolean;
+  evidence: string;
+  feedback: string;
+}
+
+export interface NormalizedStarEvaluation {
+  applicable: boolean;
+  overallScore: number | null;
+  situation: NormalizedStarComponent | null;
+  task: NormalizedStarComponent | null;
+  action: NormalizedStarComponent | null;
+  result: NormalizedStarComponent | null;
+  missingElements: string[];
+  strengths: string[];
+  coachingTips: string[];
+  scoreScale: string;
+}
+
+export const STAR_COMPONENT_ORDER = ['situation', 'task', 'action', 'result'] as const;
+export type StarComponentKey = (typeof STAR_COMPONENT_ORDER)[number];
+
+export const STAR_COMPONENT_LABELS: Record<StarComponentKey, string> = {
+  situation: 'Situation',
+  task: 'Task',
+  action: 'Action',
+  result: 'Result',
+};
+
+const normalizeStarPracticeComponent = (value: unknown): NormalizedStarComponent | null => {
+  const record = asRecord(value);
+  if (!record) return null;
+  const normalized = normalizeStarComponent({
+    score: asNumber(record.score),
+    ...(typeof record.detected === 'boolean' ? { detected: record.detected } : {}),
+    ...(typeof record.evidence === 'string' ? { evidence: record.evidence } : {}),
+    feedback: asString(record.feedback),
+  });
+  return {
+    score: normalized.score,
+    detected: normalized.detected,
+    evidence: normalized.evidence,
+    feedback: normalized.feedback,
+  };
+};
+
+/**
+ * Null-safe normalization for the backend STAR-practice evaluation
+ * (`Nexora.Business.Ai.StarEvaluation`). Returns null when the payload is absent
+ * or lacks the `applicable` discriminator so the UI renders a neutral state
+ * rather than crashing. Backend scores are preserved verbatim; the "0-100" scale
+ * is never transformed and components are never reweighted client-side.
+ */
+export function normalizeStarPracticeEvaluation(raw: unknown): NormalizedStarEvaluation | null {
+  const record = asRecord(raw);
+  if (!record || typeof record.applicable !== 'boolean') return null;
+
+  return {
+    applicable: record.applicable,
+    overallScore: typeof record.overallScore === 'number' && Number.isFinite(record.overallScore)
+      ? record.overallScore
+      : null,
+    situation: normalizeStarPracticeComponent(record.situation),
+    task: normalizeStarPracticeComponent(record.task),
+    action: normalizeStarPracticeComponent(record.action),
+    result: normalizeStarPracticeComponent(record.result),
+    missingElements: normalizeStringCollection(record.missingElements),
+    strengths: normalizeStringCollection(record.strengths),
+    coachingTips: normalizeStringCollection(record.coachingTips),
+    scoreScale: typeof record.scoreScale === 'string' && record.scoreScale
+      ? record.scoreScale
+      : SCORE_SCALE,
+  };
+}
+
+/**
+ * Ordered, null-safe list of the STAR components the backend actually returned.
+ * Never fabricates a component the backend omitted.
+ */
+export function listStarComponents(
+  evaluation: NormalizedStarEvaluation
+): Array<{ key: StarComponentKey; component: NormalizedStarComponent }> {
+  const result: Array<{ key: StarComponentKey; component: NormalizedStarComponent }> = [];
+  for (const key of STAR_COMPONENT_ORDER) {
+    const component = evaluation[key];
+    if (component) result.push({ key, component });
+  }
+  return result;
+}
+
 /**
  * Identifies if an error represents an in-progress report generation (409 INTERVIEW_REPORT_PROCESSING).
  */
