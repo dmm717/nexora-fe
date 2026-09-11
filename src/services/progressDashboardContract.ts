@@ -4,13 +4,10 @@
  * `Nexora.Business.Progress.ProgressDashboardContracts` exactly.
  */
 
-export interface NextPracticeRecommendationResponse {
-  reason: string;
-  activityType: string;
-  resourceId: string | null;
-  estimatedMinutes: number;
-  priority: number;
-}
+import {
+  normalizeNextPracticeRecommendationResponse,
+  type NextPracticeRecommendationResponse,
+} from './recommendationContract.ts';
 
 export interface ProgressDashboardReadinessResponse {
   score: number | null;
@@ -209,29 +206,8 @@ export function normalizeProgressHistoricalStats(
   };
 }
 
-export function normalizeNextPracticeRecommendationResponse(
-  raw: unknown
-): NextPracticeRecommendationResponse | null {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-
-  if (!isRecord(raw)) {
-    return null;
-  }
-
-  if (!raw.reason && !raw.activityType) {
-    return null;
-  }
-
-  return {
-    reason: asString(raw.reason),
-    activityType: asString(raw.activityType),
-    resourceId: asNullableString(raw.resourceId),
-    estimatedMinutes: asNumber(raw.estimatedMinutes, 0),
-    priority: asNumber(raw.priority, 1),
-  };
-}
+export type { NextPracticeRecommendationResponse };
+export { normalizeNextPracticeRecommendationResponse };
 
 export function normalizeProgressDashboardResponse(
   raw: unknown

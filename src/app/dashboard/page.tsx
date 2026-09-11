@@ -6,7 +6,7 @@ import styles from './DashboardPage.module.css';
 import { useDashboardSummary } from '@/hooks/queries/useDashboard';
 import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
 import { ClientDate } from '@/components/ui/ClientDate';
-import NextPracticeRecommendationCard from '@/components/features/recommendations/NextPracticeRecommendationCard';
+import { NextPracticeRecommendationContent } from '@/components/features/recommendations/NextPracticeRecommendationCard';
 import { ApiError } from '@/services/apiClient';
 
 const getStatusBadgeClass = (status: string) => {
@@ -182,8 +182,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* B12 Next Recommendation (Reuses B12 card, fed from B13 dashboard to prevent duplicate fetch) */}
-      <NextPracticeRecommendationCard
+      {/* B12 Next Recommendation (Pure presentation component fed from B13 dashboard snapshot to avoid duplicate fetch) */}
+      <NextPracticeRecommendationContent
         recommendation={progressData?.nextRecommendedPractice}
         isLoading={progressLoading}
       />

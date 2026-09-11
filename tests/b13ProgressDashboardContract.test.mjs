@@ -8,7 +8,13 @@ import {
   normalizeProgressDashboardWeeklyActivities,
   normalizeProgressHistoricalStats,
   normalizeProgressDashboardResponse,
+  normalizeNextPracticeRecommendationResponse as progressExportedNormalizeRecommendation,
 } from '../src/services/progressDashboardContract.ts';
+
+import {
+  normalizeNextPracticeRecommendationResponse as canonicalNormalizeRecommendation,
+  getRecommendationDeepLink,
+} from '../src/services/recommendationContract.ts';
 
 // ---------------------------------------------------------------------------
 // B13 Progress Dashboard Contract & Normalization Tests
@@ -361,4 +367,102 @@ test('20. numerical field resilience: stringified or non-finite numbers normaliz
   assert.equal(res.readiness.assessedCompetencies, 0);
   assert.equal(res.readiness.evidenceCount, 0);
   assert.equal(res.weeklyCompletedActivities.total, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Section 9 Regression Tests: B12/B13 Contract Integration & No-Duplicate Guarantees
+// ---------------------------------------------------------------------------
+
+test('21. canonical B12 normalizer: progressDashboardContract exports canonical recommendation normalizer', () => {
+  assert.strictEqual(
+    progressExportedNormalizeRecommendation,
+    canonicalNormalizeRecommendation,
+    'progressDashboardContract must re-export the exact canonical B12 normalizer without duplication'
+  );
+});
+
+test('22. embedded recommendation: null recommendation in B13 wire payload normalizes strictly to null', () => {
+  const wireWithNull = {
+    readiness: { score: 80, assessedCompetencies: 4, evidenceCount: 10 },
+    nextRecommendedPractice: null,
+  };
+  const resultNull = normalizeProgressDashboardResponse(wireWithNull);
+  assert.equal(resultNull.nextRecommendedPractice, null);
+
+  const wireWithUndefined = {
+    readiness: { score: 80 },
+  };
+  const resultUndef = normalizeProgressDashboardResponse(wireWithUndefined);
+  assert.equal(resultUndef.nextRecommendedPractice, null);
+
+  const wireWithEmptyObj = {
+    nextRecommendedPractice: {},
+  };
+  const resultEmpty = normalizeProgressDashboardResponse(wireWithEmptyObj);
+  assert.equal(resultEmpty.nextRecommendedPractice, null);
+});
+
+test('23. embedded recommendation: valid recommendation preserves canonical B12 fields and deep links', () => {
+  const wireWithRec = {
+    nextRecommendedPractice: {
+      reason: 'Cải thiện kỹ năng System Design để tăng điểm sẵn sàng',
+      activityType: 'scenario',
+      resourceId: 'b7b9-1234-5678-9abc',
+      estimatedMinutes: 30,
+      priority: 1,
+    },
+  };
+
+  const result = normalizeProgressDashboardResponse(wireWithRec);
+  assert.ok(result.nextRecommendedPractice);
+  assert.equal(
+    result.nextRecommendedPractice.reason,
+    'Cải thiện kỹ năng System Design để tăng điểm sẵn sàng'
+  );
+  assert.equal(result.nextRecommendedPractice.activityType, 'scenario');
+  assert.equal(result.nextRecommendedPractice.resourceId, 'b7b9-1234-5678-9abc');
+  assert.equal(result.nextRecommendedPractice.estimatedMinutes, 30);
+  assert.equal(result.nextRecommendedPractice.priority, 1);
+
+  // Deep link contract verification on embedded recommendation
+  const deepLink = getRecommendationDeepLink(result.nextRecommendedPractice);
+  assert.equal(deepLink, '/dashboard/scenarios/b7b9-1234-5678-9abc');
+});
+
+test('24. embedded recommendation: non-scenario activity types resolve canonical deep links', () => {
+  const starRec = canonicalNormalizeRecommendation({
+    reason: 'Luyện tập STAR Drill',
+    activityType: 'star_drill',
+    resourceId: null,
+    estimatedMinutes: 15,
+    priority: 2,
+  });
+  assert.equal(getRecommendationDeepLink(starRec), '/dashboard/star-builder');
+
+  const interviewRec = canonicalNormalizeRecommendation({
+    reason: 'Luyện tập phỏng vấn mô phỏng',
+    activityType: 'interview',
+    resourceId: null,
+    estimatedMinutes: 45,
+    priority: 1,
+  });
+  assert.equal(getRecommendationDeepLink(interviewRec), '/dashboard/interviews/new');
+
+  const resumeRec = canonicalNormalizeRecommendation({
+    reason: 'Cập nhật CV theo góp ý mới',
+    activityType: 'resume_improvement',
+    resourceId: null,
+    estimatedMinutes: 20,
+    priority: 3,
+  });
+  assert.equal(getRecommendationDeepLink(resumeRec), '/dashboard/resumes');
+
+  const externalRec = canonicalNormalizeRecommendation({
+    reason: 'Tài liệu ngoài',
+    activityType: 'external_learning',
+    resourceId: null,
+    estimatedMinutes: 60,
+    priority: 4,
+  });
+  assert.equal(getRecommendationDeepLink(externalRec), null);
 });
