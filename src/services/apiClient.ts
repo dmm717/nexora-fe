@@ -5,12 +5,14 @@ import { refreshSession } from './authSession';
 export class ApiError extends Error {
   code?: string;
   requestId?: string;
+  status?: number;
   
-  constructor(message: string, code?: string, requestId?: string) {
+  constructor(message: string, code?: string, requestId?: string, status?: number) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.requestId = requestId;
+    this.status = status;
   }
 }
 
@@ -101,7 +103,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
       if (retryRes.status !== 401) {
         const errorData = await retryRes.json().catch(() => ({}));
         const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-        throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
+        throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, retryRes.status);
       }
       
       // Nếu retry bị 401, rơi xuống dưới để logout
@@ -135,7 +137,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
           if (retryRes.status !== 401) {
             const errorData = await retryRes.json().catch(() => ({}));
             const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-            throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
+            throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, retryRes.status);
           }
 
           // Nếu retry bị 401, rơi xuống logic clear token
@@ -161,13 +163,13 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     
     const errorData = await response.json().catch(() => ({}));
     const rawMessage = errorData.error?.message || errorData.message || 'Bạn cần đăng nhập để tiếp tục.';
-    throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code || 'UNAUTHENTICATED', errorData.error?.requestId);
+    throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code || 'UNAUTHENTICATED', errorData.error?.requestId, response.status);
   }
 
   // Ném lỗi để UI xử lý (nếu không phải 401 hoặc isAuthEndpoint)
   const errorData = await response.json().catch(() => ({}));
   const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-  throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId);
+  throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, response.status);
 };
 
 export const apiClient = {

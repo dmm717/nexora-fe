@@ -1,36 +1,64 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from '../Interviews.module.css';
-import { interviewApi, StartInterviewCommand } from '@/services/interviewApi';
+import { interviewApi, type StartInterviewCommand } from '@/services/interviewApi';
+import {
+  getOrCreateStartIntent,
+  type StartIntent,
+} from '@/services/interviewContract';
+import { ApiError } from '@/services/apiClient';
 
 export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
+
+  // Stable intent tracking: reuse key for identical payload retries, regenerate on edit
+  const pendingStartIntentRef = useRef<StartIntent | null>(null);
 
   const [form, setForm] = useState<StartInterviewCommand>({
     role: '',
     seniority: 'Junior',
     interviewType: 'Technical',
-    difficulty: 'Medium'
+    difficulty: 'Medium',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.role.trim()) {
-      setError('Vui lòng nhập vị trí ứng tuyển');
+      setError({ message: 'Vui lòng nhập vị trí ứng tuyển mong muốn.' });
       return;
     }
+
+    const candidatePayload = {
+      role: form.role.trim(),
+      seniority: form.seniority,
+      interviewType: form.interviewType,
+      difficulty: form.difficulty,
+      resumeId: form.resumeId,
+      jobDescriptionId: form.jobDescriptionId,
+    };
+
+    const intent = getOrCreateStartIntent(pendingStartIntentRef.current, candidatePayload);
+    pendingStartIntentRef.current = intent;
 
     setLoading(true);
     setError(null);
     try {
-      const res = await interviewApi.start(form);
+      const res = await interviewApi.start(
+        intent.payload,
+        intent.key
+      );
+      // Succeeded: clear pending intent
+      pendingStartIntentRef.current = null;
       router.push(`/dashboard/interviews/${res.id}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi bắt đầu phỏng vấn.');
+      setError({
+        message: err instanceof ApiError ? err.message : 'Có lỗi xảy ra khi bắt đầu phỏng vấn.',
+        requestId: err instanceof ApiError ? err.requestId : undefined,
+      });
       setLoading(false);
     }
   };
@@ -39,67 +67,92 @@ export default function NewInterviewPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Bắt đầu Phỏng vấn mới</h1>
-        <button className={styles.btnDanger} style={{ backgroundColor: '#6b7280' }} onClick={() => router.back()}>Hủy</button>
+        <button
+          className={styles.btnDanger}
+          style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
+          onClick={() => router.back()}
+          disabled={loading}
+        >
+          Hủy
+        </button>
       </div>
 
       <div className={styles.panel}>
-        {error && <div style={{ color: '#dc2626', marginBottom: '1rem', padding: '1rem', backgroundColor: '#fee2e2', borderRadius: '8px' }}>{error}</div>}
+        {error && (
+          <div className={styles.actionError}>
+            <div className={styles.errorTitle}>
+              <span>⚠️</span>
+              <span>{error.message}</span>
+            </div>
+            {error.requestId && (
+              <div className={styles.errorMeta}>Mã yêu cầu (Request ID): {error.requestId}</div>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="role">Vị trí ứng tuyển (Role)</label>
+            <label className={styles.label} htmlFor="role">
+              Vị trí ứng tuyển (Role)
+            </label>
             <input
               id="role"
               type="text"
               className={styles.input}
-              placeholder="Vd: Frontend Developer, Product Manager..."
+              placeholder="Vd: Frontend Developer, Product Manager, Data Analyst..."
               value={form.role}
-              onChange={e => setForm({ ...form, role: e.target.value })}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
               disabled={loading}
             />
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="seniority">Cấp bậc (Seniority)</label>
+            <label className={styles.label} htmlFor="seniority">
+              Cấp bậc (Seniority)
+            </label>
             <select
               id="seniority"
               className={styles.select}
               value={form.seniority}
-              onChange={e => setForm({ ...form, seniority: e.target.value })}
+              onChange={(e) => setForm({ ...form, seniority: e.target.value })}
               disabled={loading}
             >
               <option value="Intern">Intern / Thực tập sinh</option>
-              <option value="Fresher">Fresher / Mới ra trường</option>
-              <option value="Junior">Junior / Ít kinh nghiệm</option>
-              <option value="Mid-level">Mid-level / Có kinh nghiệm</option>
-              <option value="Senior">Senior / Chuyên viên</option>
+              <option value="Fresher">Fresher / Mới tốt nghiệp</option>
+              <option value="Junior">Junior / 1-2 năm kinh nghiệm</option>
+              <option value="Mid-level">Mid-level / 2-4 năm kinh nghiệm</option>
+              <option value="Senior">Senior / Trên 5 năm kinh nghiệm</option>
               <option value="Lead">Lead / Trưởng nhóm</option>
             </select>
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="interviewType">Loại phỏng vấn (Type)</label>
+            <label className={styles.label} htmlFor="interviewType">
+              Loại phỏng vấn (Type)
+            </label>
             <select
               id="interviewType"
               className={styles.select}
               value={form.interviewType}
-              onChange={e => setForm({ ...form, interviewType: e.target.value })}
+              onChange={(e) => setForm({ ...form, interviewType: e.target.value })}
               disabled={loading}
             >
-              <option value="Technical">Technical (Kỹ thuật chuyên môn)</option>
-              <option value="Behavioral">Behavioral (Hành vi & Văn hóa)</option>
+              <option value="Technical">Technical (Kỹ thuật &amp; Chuyên môn)</option>
+              <option value="Behavioral">Behavioral (Hành vi &amp; Phương pháp STAR)</option>
               <option value="System Design">System Design (Thiết kế hệ thống)</option>
-              <option value="General">General (Tổng quan)</option>
+              <option value="General">General (Tổng quan &amp; Định hướng)</option>
             </select>
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="difficulty">Độ khó (Difficulty)</label>
+            <label className={styles.label} htmlFor="difficulty">
+              Độ khó (Difficulty)
+            </label>
             <select
               id="difficulty"
               className={styles.select}
               value={form.difficulty}
-              onChange={e => setForm({ ...form, difficulty: e.target.value })}
+              onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
               disabled={loading}
             >
               <option value="Easy">Dễ (Easy)</option>
