@@ -128,62 +128,66 @@ export function mapSpeechLanguage(code: unknown): SpeechLanguage {
 
 /**
  * Appends a freshly finalized speech segment to the current (editable) text.
- * Idempotent: a segment already present at the tail is not duplicated. The
- * returned value is always fully editable plain text, never an audio artifact.
+ * It deliberately performs NO content-based deduplication: a user may legitimately
+ * repeat a word or phrase ("đúng" ... "đúng") and both finalized segments must be
+ * preserved. Duplicate suppression is the job of recognition-result progression
+ * (`collectFinalTranscript` + processed result indexes), never text equality.
  */
 export function mergeFinalTranscript(current: string, segment: string): string {
   const cleanSegment = segment.trim();
   if (!cleanSegment) return current;
 
-  const trimmedCurrent = current.replace(/\s+$/, '');
-  if (!trimmedCurrent) return cleanSegment;
-  if (trimmedCurrent === cleanSegment) return current;
-  if (trimmedCurrent.endsWith(cleanSegment)) return current;
-
-  return `${trimmedCurrent} ${cleanSegment}`;
+  const base = current.replace(/\s+$/, '');
+  return base ? `${base} ${cleanSegment}` : cleanSegment;
 }
 
 export interface FinalTranscriptCollection {
   finalText: string;
-  nextIndex: number;
   addedSegments: string[];
+  /** Final result indexes newly consumed by this pass (union with prior set). */
+  processedFinalIndexes: Set<number>;
 }
 
 /**
- * Consumes a SpeechRecognition result list, collecting only finalized segments.
+ * Consumes a SpeechRecognition result list, collecting only newly finalized segments.
+ *
+ * Deduplication is keyed by recognition result INDEX, not by text. `processedFinalIndexes`
+ * carries the set of result indexes already emitted for the current session. Because an
+ * index can transition from interim to final (or be re-delivered), tracking a set of
+ * already-emitted final indexes (instead of a contiguous cursor) avoids both:
+ *   - re-emitting the same finalized result, and
+ *   - permanently skipping an interim index that later becomes final.
+ *
  * Interim (non-final) results are never returned, so they can never be submitted
- * automatically. `startIndex` lets callers resume without reprocessing finalized
- * results, which prevents duplicate chunks across repeated result events.
+ * automatically. The returned set is the caller's next `processedFinalIndexes`.
  */
 export function collectFinalTranscript(
   previousFinal: string,
   results: SpeechRecognitionResultListLike,
-  startIndex: number
+  processedFinalIndexes: ReadonlySet<number>
 ): FinalTranscriptCollection {
   let finalText = previousFinal;
-  let nextIndex = startIndex;
   const addedSegments: string[] = [];
+  const nextProcessed = new Set<number>(processedFinalIndexes ?? []);
 
-  const safeStart = Math.max(0, startIndex);
   if (!results || typeof results.length !== 'number') {
-    return { finalText, nextIndex, addedSegments };
+    return { finalText, addedSegments, processedFinalIndexes: nextProcessed };
   }
 
-  for (let i = safeStart; i < results.length; i += 1) {
+  for (let i = 0; i < results.length; i += 1) {
     const result = results[i];
     if (!result || result.isFinal !== true) continue;
+    if (nextProcessed.has(i)) continue;
 
-    const segment = result[0]?.transcript ?? '';
-    const nextText = mergeFinalTranscript(finalText, segment);
-    if (nextText !== finalText) {
-      const cleanSegment = segment.trim();
-      if (cleanSegment) addedSegments.push(cleanSegment);
-      finalText = nextText;
-    }
-    nextIndex = i + 1;
+    nextProcessed.add(i);
+    const segment = (result[0]?.transcript ?? '').trim();
+    if (!segment) continue;
+
+    finalText = mergeFinalTranscript(finalText, segment);
+    addedSegments.push(segment);
   }
 
-  return { finalText, nextIndex, addedSegments };
+  return { finalText, addedSegments, processedFinalIndexes: nextProcessed };
 }
 
 /**
@@ -229,6 +233,37 @@ export function unsupportedSpeechError(): SpeechErrorUi {
 /** A listening session may only begin when not already listening. */
 export function canStartSpeechSession(isListening: boolean): boolean {
   return !isListening;
+}
+
+/**
+ * Single production decision for whether an answer may be officially submitted.
+ * Submission is blocked while speech recognition is actively listening so a late
+ * final result can never land after the payload was already frozen and sent.
+ * The user must stop recording, review the transcript, then submit.
+ */
+export function canSubmitAnswerWithSpeech(params: {
+  canAnswer: boolean;
+  submitting: boolean;
+  hasContent: boolean;
+  speechListening: boolean;
+}): boolean {
+  return (
+    params.canAnswer === true &&
+    params.submitting === false &&
+    params.hasContent === true &&
+    params.speechListening === false
+  );
+}
+
+/**
+ * Language may only be chosen between sessions: not while recognition is active
+ * and not while submitting. The selected value applies to the next speech session.
+ */
+export function isSpeechLanguageSelectDisabled(params: {
+  speechListening: boolean;
+  submitting: boolean;
+}): boolean {
+  return params.speechListening === true || params.submitting === true;
 }
 
 /**

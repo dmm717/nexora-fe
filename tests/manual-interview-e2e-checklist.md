@@ -16,9 +16,10 @@ The submitted value is always the final text in the answer textarea.
 1. Chrome. In the answer box, keep language `Tiếng Việt` (vi-VN).
 2. Click `🎤 Bắt đầu nói`. Allow microphone permission.
 3. Speak. Confirm `● Đang nghe...` and the `Bản nháp giọng nói` preview update (interim text).
-4. Click `⏹ Dừng ghi âm`.
-5. Confirm final text is appended to the textarea and remains editable. Fix any recognition error manually.
-6. Submit. In the network tab confirm `POST /api/v1/interviews/{id}/answers` body contains only `questionId`, `content` (the final edited text), and optional `durationSeconds`. There must be no audio/blob field.
+4. Confirm `Gửi câu trả lời` is DISABLED while `● Đang nghe...` is shown, and the hint `Dừng ghi âm trước khi gửi câu trả lời.` appears.
+5. Click `⏹ Dừng ghi âm`.
+6. Confirm any pending recognition result still appends to the textarea (final text arrives after Stop), the status returns to idle, the language select becomes enabled again, and Submit becomes enabled. Fix any recognition error manually.
+7. Submit. In the network tab confirm `POST /api/v1/interviews/{id}/answers` body contains only `questionId`, `content` (the final edited text), and optional `durationSeconds`. There must be no audio/blob field.
 
 ## CASE 3 — English voice
 1. Switch the language select to `English` (en-US).

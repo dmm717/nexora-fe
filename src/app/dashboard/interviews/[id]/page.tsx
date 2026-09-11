@@ -31,6 +31,8 @@ import { useInterview } from '@/hooks/queries/useInterviews';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import {
   mergeFinalTranscript,
+  canSubmitAnswerWithSpeech,
+  isSpeechLanguageSelectDisabled,
   SPEECH_LANGUAGE_OPTIONS,
   SPEECH_UNSUPPORTED_MESSAGE,
 } from '@/hooks/speechRecognitionContract';
@@ -86,11 +88,26 @@ export default function InterviewRoomPage() {
   const hasActiveQuestion = Boolean(activeQuestion);
   const activeQuestionId = activeQuestion?.id;
 
-  // Stop listening when leaving the answerable state or while submitting.
+  // Official submission is blocked while speech is still listening so a late final
+  // result can never land after the answer payload was already frozen and sent.
+  const canSubmitAnswer = canSubmitAnswerWithSpeech({
+    canAnswer,
+    submitting,
+    hasContent: answerContent.trim().length > 0,
+    speechListening: speech.listening,
+  });
+  const speechLanguageDisabled = isSpeechLanguageSelectDisabled({
+    speechListening: speech.listening,
+    submitting,
+  });
+
+  // Leaving the answerable state (or submitting) hard-stops recognition so a late
+  // final can never leak into a different answer or a frozen payload. While an
+  // answer is still being composed, the explicit Stop button uses graceful stop().
   useEffect(() => {
     if (!speech.supported) return;
     if (!canAnswer || submitting) {
-      speech.stop();
+      speech.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAnswer, submitting, speech.supported]);
@@ -176,7 +193,7 @@ export default function InterviewRoomPage() {
   };
 
   const handleSubmitAnswer = async () => {
-    if (!canAnswer || !answerContent.trim() || !activeQuestion || submitting) return;
+    if (!canSubmitAnswer || !activeQuestion) return;
 
     setSubmitting(true);
     setActionError(null);
@@ -889,7 +906,7 @@ export default function InterviewRoomPage() {
                       onChange={(e) =>
                         speech.setLanguage(e.target.value === 'en-US' ? 'en-US' : 'vi-VN')
                       }
-                      disabled={submitting}
+                      disabled={speechLanguageDisabled}
                     >
                       {SPEECH_LANGUAGE_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -928,10 +945,15 @@ export default function InterviewRoomPage() {
               <button
                 className={styles.btnPrimary}
                 onClick={handleSubmitAnswer}
-                disabled={!canAnswer || submitting || !answerContent.trim()}
+                disabled={!canSubmitAnswer}
               >
                 {submitting ? 'Đang gửi...' : 'Gửi câu trả lời'}
               </button>
+              {speech.supported && speech.listening && (
+                <span style={{ color: '#b45309', fontSize: '0.875rem', marginLeft: '0.75rem' }}>
+                  Dừng ghi âm trước khi gửi câu trả lời.
+                </span>
+              )}
             </div>
           </>
         ) : (

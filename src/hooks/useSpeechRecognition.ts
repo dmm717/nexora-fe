@@ -69,7 +69,7 @@ export function useSpeechRecognition(
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
-  const nextResultIndexRef = useRef(0);
+  const processedFinalIndexesRef = useRef<Set<number>>(new Set());
   const listeningRef = useRef(false);
   const explicitStopRef = useRef(false);
   const languageRef = useRef<SpeechLanguage>(DEFAULT_SPEECH_LANGUAGE);
@@ -102,27 +102,39 @@ export function useSpeechRecognition(
   }, [teardown]);
 
   const stop = useCallback(() => {
+    // Request the browser to finalize pending audio. Do NOT flip listening=false
+    // here: `onresult` may still deliver one final segment before `onend`. Keeping
+    // listening=true until `onend` guarantees submission stays blocked until the
+    // transcript is truly settled, so no text can appear after a submitted payload.
     explicitStopRef.current = true;
-    listeningRef.current = false;
-    setListening(false);
     const recognition = recognitionRef.current;
-    if (recognition) {
-      try {
-        recognition.stop();
-      } catch {
-        teardown();
-      }
+    if (!recognition) {
+      listeningRef.current = false;
+      setListening(false);
+      return;
+    }
+    try {
+      recognition.stop();
+    } catch {
+      teardown();
+      listeningRef.current = false;
+      setListening(false);
     }
   }, [teardown]);
 
   const reset = useCallback(() => {
+    // Hard reset (new question, successful submit, explicit reset): abort any active
+    // recognition so late finals cannot leak into the next answer, then clear state.
+    teardown();
+    listeningRef.current = false;
+    setListening(false);
     const empty = emptySpeechTranscript();
     finalTranscriptRef.current = empty.finalText;
-    nextResultIndexRef.current = 0;
+    processedFinalIndexesRef.current = new Set();
     setFinalTranscript(empty.finalText);
     setInterimTranscript(empty.interimText);
     setError(empty.error);
-  }, []);
+  }, [teardown]);
 
   const start = useCallback(() => {
     if (!canStartSpeechSession(listeningRef.current)) return; // already listening
@@ -135,7 +147,7 @@ export function useSpeechRecognition(
 
     // Fresh session: clear transcript state but keep the chosen language.
     finalTranscriptRef.current = '';
-    nextResultIndexRef.current = 0;
+    processedFinalIndexesRef.current = new Set();
     setFinalTranscript('');
     setInterimTranscript('');
     setError(null);
@@ -162,9 +174,9 @@ export function useSpeechRecognition(
       const collected = collectFinalTranscript(
         finalTranscriptRef.current,
         event.results,
-        nextResultIndexRef.current
+        processedFinalIndexesRef.current
       );
-      nextResultIndexRef.current = collected.nextIndex;
+      processedFinalIndexesRef.current = collected.processedFinalIndexes;
 
       if (collected.finalText !== finalTranscriptRef.current) {
         finalTranscriptRef.current = collected.finalText;
