@@ -6,7 +6,7 @@ import styles from './Analysis.module.css';
 import { useResumeAnalysis } from '@/hooks/queries/useResumes';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus } from '@/utils/queryPolling';
-import type { ResumeAnalysisMode } from '@/services/cvAnalysisApi';
+import type { ResumeAnalysisMode } from '@/services/cvAnalysisContract';
 
 function parseResult(raw: unknown): Record<string, unknown> | null {
   if (!raw) return null;

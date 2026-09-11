@@ -1,4 +1,17 @@
 import { ApiError, apiClient } from './apiClient';
+import type {
+  ResumeAnalysisMode,
+  CreateJobTargetedAnalysisRequest,
+  CreateFieldBenchmarkAnalysisRequest,
+  CreateAnalysisRequest,
+} from './cvAnalysisContract';
+
+export type {
+  ResumeAnalysisMode,
+  CreateJobTargetedAnalysisRequest,
+  CreateFieldBenchmarkAnalysisRequest,
+  CreateAnalysisRequest,
+};
 
 export interface PresignRequest {
   fileName: string;
@@ -36,30 +49,6 @@ export interface JdView {
   content: string;
   createdAt: string;
 }
-
-export type ResumeAnalysisMode = 'job_targeted' | 'field_benchmark';
-
-export interface CreateJobTargetedAnalysisRequest {
-  resumeId: string;
-  mode: 'job_targeted';
-  jobDescriptionId: string;
-  industry?: null;
-  targetRole?: null;
-  seniority?: null;
-}
-
-export interface CreateFieldBenchmarkAnalysisRequest {
-  resumeId: string;
-  mode: 'field_benchmark';
-  jobDescriptionId?: null;
-  industry: string;
-  targetRole: string;
-  seniority: string;
-}
-
-export type CreateAnalysisRequest =
-  | CreateJobTargetedAnalysisRequest
-  | CreateFieldBenchmarkAnalysisRequest;
 
 export interface JobTargetedBreakdown {
   technicalSkillMatch: number;

@@ -1,34 +1,21 @@
 import { ApiError } from './apiClient';
 import { AnalysisView, cvAnalysisApi } from './cvAnalysisApi';
+import {
+  ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
+  buildCreateAnalysisRequest,
+  isDeterministicAnalysisError,
+} from './cvAnalysisContract';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 
 export type ResumeAnalysisStage = 'creating-jd' | 'analyzing' | 'recovering';
 
-export interface BaseResumeAnalysisOperation {
-  userId: string;
-  idempotencyKey: string;
-  resumeId: string;
-  analysisId: string | null;
-  timestamp: string;
-}
-
-export interface JobTargetedAnalysisOperation extends BaseResumeAnalysisOperation {
-  mode: 'job_targeted';
-  jobDescriptionId: string | null;
-  jdTitle: string;
-  jdContent: string;
-}
-
-export interface FieldBenchmarkAnalysisOperation extends BaseResumeAnalysisOperation {
-  mode: 'field_benchmark';
-  industry: string;
-  targetRole: string;
-  seniority: string;
-}
-
-export type ResumeAnalysisOperation =
-  | JobTargetedAnalysisOperation
-  | FieldBenchmarkAnalysisOperation;
+export type {
+  ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
+};
 
 export interface ResumeAnalysisCoordinatorOptions {
   signal?: AbortSignal;
@@ -100,6 +87,7 @@ async function withTransportRetry<T>(
       return await action();
     } catch (error) {
       throwIfAborted(signal);
+      if (isDeterministicAnalysisError(error)) throw error;
       if (attempt >= MAX_TRANSPORT_RETRIES || !isTransportFailure(error)) throw error;
       await wait(250 * attempt, signal);
     }
@@ -113,23 +101,7 @@ async function createAnalysisWithRetry(
   let readyAttempt = 0;
   while (true) {
     try {
-      const requestData = operation.mode === 'job_targeted'
-        ? {
-            resumeId: operation.resumeId,
-            mode: 'job_targeted' as const,
-            jobDescriptionId: operation.jobDescriptionId!,
-            industry: null,
-            targetRole: null,
-            seniority: null,
-          }
-        : {
-            resumeId: operation.resumeId,
-            mode: 'field_benchmark' as const,
-            jobDescriptionId: null,
-            industry: operation.industry,
-            targetRole: operation.targetRole,
-            seniority: operation.seniority,
-          };
+      const requestData = buildCreateAnalysisRequest(operation);
 
       return await withTransportRetry(
         () => cvAnalysisApi.analyze(

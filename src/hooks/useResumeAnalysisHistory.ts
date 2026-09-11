@@ -1,5 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ResumeAnalysisMode } from '@/services/cvAnalysisApi';
+import {
+  ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
+  normalizePendingAnalysis,
+} from '@/services/cvAnalysisContract';
+
+export type {
+  ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
+};
+
+export { normalizePendingAnalysis };
+
+export type PendingAnalysis = ResumeAnalysisOperation;
+export type JobTargetedPendingAnalysis = JobTargetedAnalysisOperation;
+export type FieldBenchmarkPendingAnalysis = FieldBenchmarkAnalysisOperation;
 
 export interface AnalysisHistoryItem {
   id: string;
@@ -11,121 +29,16 @@ export interface AnalysisHistoryItem {
   createdAt: string;
 }
 
-export interface BasePendingAnalysis {
-  userId: string;
-  idempotencyKey: string;
-  resumeId: string;
-  analysisId: string | null;
-  timestamp: string;
-}
-
-export interface JobTargetedPendingAnalysis extends BasePendingAnalysis {
-  mode: 'job_targeted';
-  jobDescriptionId: string | null;
-  jdTitle: string;
-  jdContent: string;
-}
-
-export interface FieldBenchmarkPendingAnalysis extends BasePendingAnalysis {
-  mode: 'field_benchmark';
-  industry: string;
-  targetRole: string;
-  seniority: string;
-}
-
-export type PendingAnalysis =
-  | JobTargetedPendingAnalysis
-  | FieldBenchmarkPendingAnalysis;
-
 type PendingAnalysisInput =
-  | Omit<JobTargetedPendingAnalysis, 'timestamp'>
-  | Omit<FieldBenchmarkPendingAnalysis, 'timestamp'>
-  | PendingAnalysis;
+  | Omit<JobTargetedAnalysisOperation, 'timestamp'>
+  | Omit<FieldBenchmarkAnalysisOperation, 'timestamp'>
+  | ResumeAnalysisOperation;
 
 const HISTORY_KEY_PREFIX = 'nexora_resume_analysis_history_v2';
 const PENDING_KEY_PREFIX = 'nexora_resume_analysis_pending_v2';
 
 function storageKey(prefix: string, userId: string): string {
   return `${prefix}:${encodeURIComponent(userId)}`;
-}
-
-export function normalizePendingAnalysis(raw: unknown, expectedUserId: string): PendingAnalysis | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const item = raw as Record<string, unknown>;
-
-  if (typeof item.userId !== 'string' || item.userId !== expectedUserId) return null;
-  if (typeof item.idempotencyKey !== 'string' || !item.idempotencyKey.trim()) return null;
-  if (typeof item.resumeId !== 'string' || !item.resumeId.trim()) return null;
-  if (typeof item.timestamp !== 'string') return null;
-
-  const ageInMs = Date.now() - new Date(item.timestamp).getTime();
-  if (!Number.isFinite(ageInMs) || ageInMs < 0 || ageInMs >= 60 * 60 * 1000) {
-    return null;
-  }
-
-  const analysisId = typeof item.analysisId === 'string' ? item.analysisId : null;
-
-  if (item.mode === 'field_benchmark') {
-    if (
-      typeof item.industry === 'string' && item.industry.trim() &&
-      typeof item.targetRole === 'string' && item.targetRole.trim() &&
-      typeof item.seniority === 'string' && item.seniority.trim()
-    ) {
-      return {
-        userId: item.userId,
-        idempotencyKey: item.idempotencyKey,
-        resumeId: item.resumeId,
-        mode: 'field_benchmark',
-        analysisId,
-        industry: item.industry.trim(),
-        targetRole: item.targetRole.trim(),
-        seniority: item.seniority.trim(),
-        timestamp: item.timestamp,
-      };
-    }
-    return null;
-  }
-
-  if (item.mode === 'job_targeted') {
-    if (
-      typeof item.jdTitle === 'string' &&
-      typeof item.jdContent === 'string'
-    ) {
-      return {
-        userId: item.userId,
-        idempotencyKey: item.idempotencyKey,
-        resumeId: item.resumeId,
-        mode: 'job_targeted',
-        jobDescriptionId: typeof item.jobDescriptionId === 'string' ? item.jobDescriptionId : null,
-        analysisId,
-        jdTitle: item.jdTitle,
-        jdContent: item.jdContent,
-        timestamp: item.timestamp,
-      };
-    }
-    return null;
-  }
-
-  // Legacy schema migration: record with resumeId + jdTitle + jdContent without explicit mode
-  if (
-    item.mode === undefined &&
-    typeof item.jdTitle === 'string' &&
-    typeof item.jdContent === 'string'
-  ) {
-    return {
-      userId: item.userId,
-      idempotencyKey: item.idempotencyKey,
-      resumeId: item.resumeId,
-      mode: 'job_targeted',
-      jobDescriptionId: typeof item.jobDescriptionId === 'string' ? item.jobDescriptionId : null,
-      analysisId,
-      jdTitle: item.jdTitle,
-      jdContent: item.jdContent,
-      timestamp: item.timestamp,
-    };
-  }
-
-  return null;
 }
 
 export function useResumeAnalysisHistory(userId?: string) {

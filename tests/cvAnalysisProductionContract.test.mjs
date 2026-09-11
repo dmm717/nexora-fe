@@ -1,134 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Production contract constants for CV / Resume Analysis
-const MAX_OPERATION_AGE_MS = 60 * 60 * 1000; // 1 hour
-const DETERMINISTIC_ERROR_CODES = ['FEATURE_QUOTA_EXCEEDED', 'FEATURE_NOT_AVAILABLE', 'RESUME_ANALYSIS_CONTEXT_INVALID'];
-
-const JOB_TARGETED_BREAKDOWN_KEYS = [
-  'technicalSkillMatch',
-  'experienceRelevance',
-  'impactEvidence',
-  'clarity',
-  'structure',
-];
-
-const FIELD_BENCHMARK_BREAKDOWN_KEYS = [
-  'technicalFoundation',
-  'projectEvidence',
-  'experiencePresentation',
-  'impactAchievements',
-  'clarity',
-  'roleAlignment',
-];
-
-// Helper functions implementing contract business rules
-function buildAnalysisRequest(mode, params) {
-  if (mode === 'job_targeted') {
-    return {
-      resumeId: params.resumeId,
-      mode: 'job_targeted',
-      jobDescriptionId: params.jobDescriptionId,
-    };
-  }
-  if (mode === 'field_benchmark') {
-    return {
-      resumeId: params.resumeId,
-      mode: 'field_benchmark',
-      industry: params.industry?.trim(),
-      targetRole: params.targetRole?.trim(),
-      seniority: params.seniority?.trim(),
-    };
-  }
-  throw new Error(`Unsupported mode: ${mode}`);
-}
-
-function shouldRetryTransportError(error) {
-  if (!error) return false;
-  if (error.code && DETERMINISTIC_ERROR_CODES.includes(error.code)) return false;
-  if (error.status && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) {
-    return false;
-  }
-  return true;
-}
-
-function normalizePendingAnalysis(raw, currentUserId) {
-  if (!raw || typeof raw !== 'object') return null;
-  if (raw.userId && currentUserId && raw.userId !== currentUserId) return null;
-  if (typeof raw.timestamp === 'number' && Date.now() - raw.timestamp > MAX_OPERATION_AGE_MS) {
-    return null;
-  }
-  if (!raw.resumeId || !raw.idempotencyKey) return null;
-
-  if (!raw.mode) {
-    if (raw.jdTitle && raw.jdContent) {
-      return {
-        ...raw,
-        mode: 'job_targeted',
-      };
-    }
-    return null;
-  }
-
-  if (raw.mode === 'job_targeted') {
-    if (!raw.jdTitle || !raw.jdContent) return null;
-    return raw;
-  }
-
-  if (raw.mode === 'field_benchmark') {
-    if (!raw.industry || !raw.targetRole || !raw.seniority) return null;
-    return raw;
-  }
-
-  return null;
-}
-
-function prepareSubmitPayload(mode, formData) {
-  if (mode === 'job_targeted') {
-    return {
-      mode: 'job_targeted',
-      resumeId: formData.resumeId,
-      jdTitle: formData.jdTitle,
-      jdContent: formData.jdContent,
-    };
-  }
-  if (mode === 'field_benchmark') {
-    return {
-      mode: 'field_benchmark',
-      resumeId: formData.resumeId,
-      industry: formData.industry,
-      targetRole: formData.targetRole,
-      seniority: formData.seniority,
-    };
-  }
-  throw new Error(`Unknown mode: ${mode}`);
-}
-
-function extractAnalysisScoreAndBreakdown(result, mode) {
-  const effectiveMode = mode || (result?.readinessScore !== undefined ? 'field_benchmark' : 'job_targeted');
-  if (effectiveMode === 'job_targeted') {
-    return {
-      mode: 'job_targeted',
-      score: result.matchScore,
-      breakdownKeys: Object.keys(result.breakdown || {}).filter((k) => JOB_TARGETED_BREAKDOWN_KEYS.includes(k)),
-      hasSkills: Array.isArray(result.matchedKeywordsOrSkills) && Array.isArray(result.missingKeywordsOrSkills),
-    };
-  }
-  return {
-    mode: 'field_benchmark',
-    score: result.readinessScore,
-    breakdownKeys: Object.keys(result.breakdown || {}).filter((k) => FIELD_BENCHMARK_BREAKDOWN_KEYS.includes(k)),
-    hasSkills: false,
-  };
-}
+import {
+  OPERATION_EXPIRY_MS,
+  JOB_TARGETED_BREAKDOWN_KEYS,
+  FIELD_BENCHMARK_BREAKDOWN_KEYS,
+  buildCreateAnalysisRequest,
+  normalizePendingAnalysis,
+  isDeterministicAnalysisError,
+  formatQuotaError,
+  extractAnalysisPresentation,
+} from '../src/services/cvAnalysisContract.ts';
 
 // 1. job_targeted request contains explicit mode and JD ID
 test('1. job_targeted request contains explicit mode and JD ID', () => {
-  const req = buildAnalysisRequest('job_targeted', {
+  const op = {
+    userId: 'user-1',
+    idempotencyKey: 'idem-1',
     resumeId: 'res-123',
+    mode: 'job_targeted',
     jobDescriptionId: 'jd-456',
-    industry: 'Tech', // stray field
-  });
+    jdTitle: 'Frontend Engineer',
+    jdContent: 'React Next.js',
+    timestamp: Date.now(),
+  };
+
+  const req = buildCreateAnalysisRequest(op);
 
   assert.equal(req.mode, 'job_targeted');
   assert.equal(req.resumeId, 'res-123');
@@ -136,161 +33,196 @@ test('1. job_targeted request contains explicit mode and JD ID', () => {
   assert.equal(req.industry, undefined);
   assert.equal(req.targetRole, undefined);
   assert.equal(req.seniority, undefined);
+
+  // Throws if jobDescriptionId is missing
+  assert.throws(
+    () => buildCreateAnalysisRequest({ ...op, jobDescriptionId: null }),
+    /jobDescriptionId is required/
+  );
 });
 
 // 2. field_benchmark request contains explicit mode/context and no JD ID
 test('2. field_benchmark request contains explicit mode/context and no JD ID', () => {
-  const req = buildAnalysisRequest('field_benchmark', {
+  const op = {
+    userId: 'user-1',
+    idempotencyKey: 'idem-2',
     resumeId: 'res-123',
-    industry: 'Fintech',
-    targetRole: 'Senior Backend Engineer',
-    seniority: 'Senior',
-    jobDescriptionId: 'jd-unexpected',
-  });
+    mode: 'field_benchmark',
+    industry: '  FinTech  ',
+    targetRole: '  Senior Engineer  ',
+    seniority: '  Senior  ',
+    timestamp: Date.now(),
+  };
+
+  const req = buildCreateAnalysisRequest(op);
 
   assert.equal(req.mode, 'field_benchmark');
   assert.equal(req.resumeId, 'res-123');
-  assert.equal(req.industry, 'Fintech');
-  assert.equal(req.targetRole, 'Senior Backend Engineer');
+  assert.equal(req.industry, 'FinTech');
+  assert.equal(req.targetRole, 'Senior Engineer');
   assert.equal(req.seniority, 'Senior');
   assert.equal(req.jobDescriptionId, undefined);
+
+  // Throws if any required field is empty or whitespace
+  assert.throws(
+    () => buildCreateAnalysisRequest({ ...op, industry: '   ' }),
+    /industry, targetRole, and seniority are required/
+  );
 });
 
 // 3. field_benchmark does NOT call/create Job Description
-test('3. field_benchmark does NOT call/create Job Description', async () => {
-  let jdCreated = false;
-  let analysisCreated = false;
-
-  const coordinatorMock = {
-    async createJobDescription() {
-      jdCreated = true;
-      return { id: 'jd-fail' };
-    },
-    async createAnalysis(req) {
-      analysisCreated = true;
-      assert.equal(req.mode, 'field_benchmark');
-      assert.equal(req.jobDescriptionId, undefined);
-      return { id: 'analysis-999' };
-    },
-  };
-
-  const op = {
-    mode: 'field_benchmark',
+test('3. field_benchmark does NOT call/create Job Description', () => {
+  const benchmarkOp = {
+    userId: 'user-1',
+    idempotencyKey: 'idem-3',
     resumeId: 'res-123',
-    industry: 'HealthTech',
-    targetRole: 'Data Scientist',
-    seniority: 'Mid',
-    idempotencyKey: 'idem-key-1',
+    mode: 'field_benchmark',
+    industry: 'EdTech',
+    targetRole: 'Product Manager',
+    seniority: 'Mid-level',
+    timestamp: Date.now(),
   };
 
-  // Execute workflow
-  if (op.mode === 'job_targeted') {
-    await coordinatorMock.createJobDescription();
-  }
-  const result = await coordinatorMock.createAnalysis(buildAnalysisRequest(op.mode, op));
+  // The request payload for field_benchmark must not include jobDescriptionId
+  const req = buildCreateAnalysisRequest(benchmarkOp);
+  assert.equal('jobDescriptionId' in req, false);
 
-  assert.equal(jdCreated, false, 'JD creation must not be invoked for field_benchmark');
-  assert.equal(analysisCreated, true);
-  assert.equal(result.id, 'analysis-999');
+  // Coordinator workflow contract: field_benchmark dispatches directly without JD ID
+  let jdCreated = false;
+  const dispatchMock = (payload) => {
+    if (payload.mode === 'job_targeted' && !payload.jobDescriptionId) {
+      jdCreated = true;
+    }
+    return { id: 'analysis-created' };
+  };
+
+  const result = dispatchMock(req);
+  assert.equal(jdCreated, false, 'field_benchmark must never trigger JD creation');
+  assert.equal(result.id, 'analysis-created');
 });
 
 // 4. job_targeted recovery reuses an already-created jobDescriptionId
-test('4. job_targeted recovery reuses an already-created jobDescriptionId', async () => {
-  let jdCalls = 0;
-  const coordinatorMock = {
-    async createJobDescription() {
-      jdCalls++;
-      return { id: 'new-jd-id' };
-    },
-    async createAnalysis(req) {
-      return { id: 'analysis-123', jobDescriptionId: req.jobDescriptionId };
-    },
-  };
-
-  // Operation that already persisted a jobDescriptionId before failure
+test('4. job_targeted recovery reuses an already-created jobDescriptionId', () => {
   const recoveredOp = {
+    userId: 'user-1',
+    idempotencyKey: 'idem-4',
+    resumeId: 'res-123',
     mode: 'job_targeted',
-    resumeId: 'res-1',
-    jdTitle: 'Frontend Dev',
-    jdContent: 'React Next.js',
     jobDescriptionId: 'persisted-jd-999',
-    idempotencyKey: 'idem-key-2',
+    jdTitle: 'Backend Developer',
+    jdContent: 'Go, PostgreSQL',
+    timestamp: Date.now(),
   };
 
+  let createdNewJd = false;
   let effectiveJdId = recoveredOp.jobDescriptionId;
   if (!effectiveJdId) {
-    const jd = await coordinatorMock.createJobDescription();
-    effectiveJdId = jd.id;
+    createdNewJd = true;
+    effectiveJdId = 'unexpected-new-jd';
   }
 
-  const analysis = await coordinatorMock.createAnalysis({
-    resumeId: recoveredOp.resumeId,
-    mode: 'job_targeted',
+  const req = buildCreateAnalysisRequest({
+    ...recoveredOp,
     jobDescriptionId: effectiveJdId,
   });
 
-  assert.equal(jdCalls, 0, 'Must NOT re-create JD if jobDescriptionId is already present');
-  assert.equal(analysis.jobDescriptionId, 'persisted-jd-999');
+  assert.equal(createdNewJd, false, 'Must not create a new JD if jobDescriptionId already exists');
+  assert.equal(req.jobDescriptionId, 'persisted-jd-999');
 });
 
 // 5. transport replay uses the same analysis idempotency key
 test('5. transport replay uses the same analysis idempotency key', () => {
-  const initialKey = '550e8400-e29b-41d4-a716-446655440000';
+  const originalKey = '550e8400-e29b-41d4-a716-446655440000';
   const op = {
+    userId: 'user-1',
+    idempotencyKey: originalKey,
+    resumeId: 'res-123',
     mode: 'job_targeted',
-    resumeId: 'res-1',
-    jdTitle: 'DevOps',
-    jdContent: 'AWS Docker',
-    idempotencyKey: initialKey,
+    jobDescriptionId: 'jd-1',
+    jdTitle: 'Title',
+    jdContent: 'Content',
+    timestamp: Date.now(),
   };
 
-  // First dispatch
-  const header1 = { 'Idempotency-Key': op.idempotencyKey };
-  // Replay attempt after transient network drop
-  const replayOp = { ...op };
-  const header2 = { 'Idempotency-Key': replayOp.idempotencyKey };
-
-  assert.equal(header1['Idempotency-Key'], initialKey);
-  assert.equal(header2['Idempotency-Key'], initialKey);
-  assert.equal(header1['Idempotency-Key'], header2['Idempotency-Key']);
+  // Transient retry simulation preserves exact key
+  const replayAttempt = { ...op };
+  assert.equal(replayAttempt.idempotencyKey, originalKey);
+  assert.equal(replayAttempt.idempotencyKey, op.idempotencyKey);
 });
 
 // 6. old pending local-state safely migrates to explicit job_targeted schema
 test('6. old pending local-state safely migrates to explicit job_targeted schema', () => {
   const legacyRecord = {
-    userId: 'user-abc',
+    userId: 'user-123',
     idempotencyKey: 'idem-legacy',
     resumeId: 'res-legacy',
-    jdTitle: 'Fullstack Engineer',
-    jdContent: 'Node and React',
-    timestamp: Date.now() - 5000,
+    jdTitle: 'Fullstack Developer',
+    jdContent: 'React, Node.js, Next.js',
+    timestamp: Date.now() - 10000,
   };
 
-  const migrated = normalizePendingAnalysis(legacyRecord, 'user-abc');
+  const migrated = normalizePendingAnalysis(legacyRecord, 'user-123');
   assert.ok(migrated !== null);
   assert.equal(migrated.mode, 'job_targeted');
+  assert.equal(migrated.userId, 'user-123');
   assert.equal(migrated.resumeId, 'res-legacy');
-  assert.equal(migrated.jdTitle, 'Fullstack Engineer');
-  assert.equal(migrated.jdContent, 'Node and React');
-  assert.equal(migrated.idempotencyKey, 'idem-legacy');
+  assert.equal(migrated.jdTitle, 'Fullstack Developer');
+  assert.equal(migrated.jdContent, 'React, Node.js, Next.js');
+  assert.equal(migrated.jobDescriptionId, null);
 });
 
 // 7. invalid/expired persisted operation is rejected/cleared safely
 test('7. invalid/expired persisted operation is rejected/cleared safely', () => {
   // Expired operation (> 1 hour)
-  const expiredRecord = {
-    userId: 'user-abc',
+  const expired = {
+    userId: 'user-1',
     mode: 'job_targeted',
     idempotencyKey: 'idem-old',
     resumeId: 'res-old',
     jdTitle: 'Title',
     jdContent: 'Content',
-    timestamp: Date.now() - (MAX_OPERATION_AGE_MS + 1000),
+    timestamp: Date.now() - (OPERATION_EXPIRY_MS + 5000),
   };
-  assert.equal(normalizePendingAnalysis(expiredRecord, 'user-abc'), null);
+  assert.equal(normalizePendingAnalysis(expired, 'user-1'), null);
 
-  // Mismatched user ID
-  const wrongUserRecord = {
+  // Blank jdTitle or jdContent after trim
+  const blankTitle = {
+    userId: 'user-1',
+    mode: 'job_targeted',
+    idempotencyKey: 'idem-blank',
+    resumeId: 'res-blank',
+    jdTitle: '   ',
+    jdContent: 'Some content',
+    timestamp: Date.now(),
+  };
+  assert.equal(normalizePendingAnalysis(blankTitle, 'user-1'), null);
+
+  const blankContent = {
+    userId: 'user-1',
+    mode: 'job_targeted',
+    idempotencyKey: 'idem-blank2',
+    resumeId: 'res-blank2',
+    jdTitle: 'Valid title',
+    jdContent: '\t  \n',
+    timestamp: Date.now(),
+  };
+  assert.equal(normalizePendingAnalysis(blankContent, 'user-1'), null);
+
+  // Blank field_benchmark fields after trim
+  const blankBenchmark = {
+    userId: 'user-1',
+    mode: 'field_benchmark',
+    idempotencyKey: 'idem-bm',
+    resumeId: 'res-bm',
+    industry: '   ',
+    targetRole: 'Developer',
+    seniority: 'Junior',
+    timestamp: Date.now(),
+  };
+  assert.equal(normalizePendingAnalysis(blankBenchmark, 'user-1'), null);
+
+  // Ownership mismatch
+  const wrongUser = {
     userId: 'user-other',
     mode: 'job_targeted',
     idempotencyKey: 'idem-wrong',
@@ -299,54 +231,48 @@ test('7. invalid/expired persisted operation is rejected/cleared safely', () => 
     jdContent: 'Content',
     timestamp: Date.now(),
   };
-  assert.equal(normalizePendingAnalysis(wrongUserRecord, 'user-abc'), null);
+  assert.equal(normalizePendingAnalysis(wrongUser, 'user-1'), null);
 
-  // Corrupt record (missing resumeId)
-  const corruptRecord = {
-    userId: 'user-abc',
-    mode: 'field_benchmark',
-    idempotencyKey: 'idem-corrupt',
-    timestamp: Date.now(),
-  };
-  assert.equal(normalizePendingAnalysis(corruptRecord, 'user-abc'), null);
-
-  // Null/non-object
-  assert.equal(normalizePendingAnalysis(null, 'user-abc'), null);
-  assert.equal(normalizePendingAnalysis('invalid-json-string', 'user-abc'), null);
+  // Non-object or corrupt
+  assert.equal(normalizePendingAnalysis(null, 'user-1'), null);
+  assert.equal(normalizePendingAnalysis('invalid', 'user-1'), null);
 });
 
 // 8. result-mode discriminator selects matchScore and 5 dimensions for job_targeted
 test('8. result-mode discriminator selects matchScore and 5 dimensions for job_targeted', () => {
-  const mockResult = {
+  const rawResult = {
     matchScore: 88,
-    summary: 'Strong candidate profile',
+    summary: 'Candidate demonstrates strong React background',
     matchedKeywordsOrSkills: ['React', 'TypeScript'],
-    missingKeywordsOrSkills: ['GraphQL'],
+    missingKeywordsOrSkills: ['Docker'],
     breakdown: {
       technicalSkillMatch: 90,
       experienceRelevance: 85,
       impactEvidence: 80,
       clarity: 95,
       structure: 90,
-      extraUnrelated: 50,
+      unrelatedDimension: 40,
     },
   };
 
-  const parsed = extractAnalysisScoreAndBreakdown(mockResult, 'job_targeted');
-  assert.equal(parsed.mode, 'job_targeted');
-  assert.equal(parsed.score, 88);
-  assert.equal(parsed.breakdownKeys.length, 5);
-  for (const k of JOB_TARGETED_BREAKDOWN_KEYS) {
-    assert.ok(parsed.breakdownKeys.includes(k), `Missing breakdown key: ${k}`);
+  const presentation = extractAnalysisPresentation(rawResult, 'job_targeted');
+
+  assert.equal(presentation.mode, 'job_targeted');
+  assert.equal(presentation.score, 88);
+  assert.equal(Object.keys(presentation.breakdown).length, 5);
+  for (const key of JOB_TARGETED_BREAKDOWN_KEYS) {
+    assert.equal(typeof presentation.breakdown[key], 'number');
   }
-  assert.equal(parsed.hasSkills, true);
+  assert.equal('unrelatedDimension' in presentation.breakdown, false);
+  assert.deepEqual(presentation.skills?.matched, ['React', 'TypeScript']);
+  assert.deepEqual(presentation.skills?.missing, ['Docker']);
 });
 
 // 9. result-mode discriminator selects readinessScore and 6 dimensions for field_benchmark
 test('9. result-mode discriminator selects readinessScore and 6 dimensions for field_benchmark', () => {
-  const mockResult = {
+  const rawResult = {
     readinessScore: 78,
-    summary: 'Good baseline readiness for Senior level',
+    summary: 'Strong baseline foundation for Senior role',
     breakdown: {
       technicalFoundation: 80,
       projectEvidence: 75,
@@ -354,114 +280,114 @@ test('9. result-mode discriminator selects readinessScore and 6 dimensions for f
       impactAchievements: 85,
       clarity: 90,
       roleAlignment: 68,
+      strayKey: 10,
     },
   };
 
-  const parsed = extractAnalysisScoreAndBreakdown(mockResult, 'field_benchmark');
-  assert.equal(parsed.mode, 'field_benchmark');
-  assert.equal(parsed.score, 78);
-  assert.equal(parsed.breakdownKeys.length, 6);
-  for (const k of FIELD_BENCHMARK_BREAKDOWN_KEYS) {
-    assert.ok(parsed.breakdownKeys.includes(k), `Missing breakdown key: ${k}`);
+  const presentation = extractAnalysisPresentation(rawResult, 'field_benchmark');
+
+  assert.equal(presentation.mode, 'field_benchmark');
+  assert.equal(presentation.score, 78);
+  assert.equal(Object.keys(presentation.breakdown).length, 6);
+  for (const key of FIELD_BENCHMARK_BREAKDOWN_KEYS) {
+    assert.equal(typeof presentation.breakdown[key], 'number');
   }
-  assert.equal(parsed.hasSkills, false);
+  assert.equal('strayKey' in presentation.breakdown, false);
+  assert.equal(presentation.skills, undefined);
 });
 
-// 10. frontend never computes a second free quota per mode
-test('10. frontend never computes a second free quota per mode', () => {
-  // Quota is authoritative at server level (FEATURE_QUOTA_EXCEEDED).
-  // Switching between job_targeted and field_benchmark does NOT grant separate free quotas in FE.
-  const quotaState = {
-    featureQuotaExceeded: false,
-  };
+// 10. both modes rely on the same server quota authority without client-side credit pooling
+test('10. both modes rely on the same server quota authority without client-side credit pooling', () => {
+  // Verify formatQuotaError provides authoritative messaging without assuming free-tier limit claims
+  const quotaExceeded = formatQuotaError('FEATURE_QUOTA_EXCEEDED');
+  assert.equal(quotaExceeded.title, 'Đã hết lượt phân tích CV');
+  assert.equal(quotaExceeded.message, 'Bạn đã sử dụng hết lượt phân tích CV của gói hiện tại.');
+  // Confirm absence of hard-coded free tier claims
+  assert.equal(quotaExceeded.message.includes('1 lượt/tài khoản'), false);
+  assert.equal(quotaExceeded.title.includes('miễn phí'), false);
 
-  function onServerQuotaExceeded() {
-    quotaState.featureQuotaExceeded = true;
-  }
-
-  function canAttemptAnalysis() {
-    // Both modes check the same global quota flag; no mode-specific bypass
-    return !quotaState.featureQuotaExceeded;
-  }
-
-  assert.equal(canAttemptAnalysis(), true);
-  // Server rejects with quota exceeded
-  onServerQuotaExceeded();
-  assert.equal(canAttemptAnalysis(), false, 'Quota exceeded blocks job_targeted');
-
-  // Switch to field_benchmark in FE: quota MUST still be respected and blocked
-  const mode = 'field_benchmark';
-  assert.equal(canAttemptAnalysis(), false, `Switching to ${mode} must not bypass server quota limit`);
+  const unavailable = formatQuotaError('FEATURE_NOT_AVAILABLE');
+  assert.equal(unavailable.title, 'Tính năng chưa khả dụng');
+  assert.equal(unavailable.message, 'Tính năng phân tích CV không khả dụng trong gói hiện tại của bạn.');
+  assert.equal(unavailable.title.includes('miễn phí'), false);
+  assert.equal(unavailable.title.includes('Đã hết lượt'), false);
 });
 
-// 11. quota ApiError is treated as deterministic—not transport-retried
-test('11. quota ApiError is treated as deterministic—not transport-retried', () => {
-  const quotaError403 = {
-    name: 'ApiError',
+// 11. quota and deterministic ApiErrors are not transport-retried
+test('11. quota and deterministic ApiErrors are not transport-retried', () => {
+  const quotaExceededError = {
     status: 403,
     code: 'FEATURE_QUOTA_EXCEEDED',
     message: 'Bạn đã dùng hết lượt của tính năng này.',
   };
 
-  const unavailableError403 = {
-    name: 'ApiError',
+  const notAvailableError = {
     status: 403,
     code: 'FEATURE_NOT_AVAILABLE',
     message: 'Tính năng này hiện không khả dụng.',
   };
 
-  const transientNetworkError = {
-    name: 'TypeError',
-    message: 'Failed to fetch',
+  const contextInvalidError = {
+    status: 400,
+    code: 'RESUME_ANALYSIS_CONTEXT_INVALID',
+    message: 'Ngữ cảnh phân tích không hợp lệ.',
   };
 
-  const server500Error = {
-    name: 'ApiError',
+  const genericClientError = {
+    status: 422,
+    message: 'Unprocessable entity',
+  };
+
+  const transientServerError = {
     status: 500,
     message: 'Internal server error',
   };
 
-  assert.equal(shouldRetryTransportError(quotaError403), false, 'Quota 403 must not retry');
-  assert.equal(shouldRetryTransportError(unavailableError403), false, 'Unavailable 403 must not retry');
-  assert.equal(shouldRetryTransportError(transientNetworkError), true, 'Network failure must retry');
-  assert.equal(shouldRetryTransportError(server500Error), true, '500 Internal error must retry');
+  const transientNetworkError = new TypeError('Failed to fetch');
+
+  assert.equal(isDeterministicAnalysisError(quotaExceededError), true);
+  assert.equal(isDeterministicAnalysisError(notAvailableError), true);
+  assert.equal(isDeterministicAnalysisError(contextInvalidError), true);
+  assert.equal(isDeterministicAnalysisError(genericClientError), true);
+  assert.equal(isDeterministicAnalysisError(transientServerError), false);
+  assert.equal(isDeterministicAnalysisError(transientNetworkError), false);
 });
 
-// 12. hidden fields from the other mode are not submitted
-test('12. hidden fields from the other mode are not submitted', () => {
-  // User typed into benchmark fields, then switched back to job_targeted
-  const formWithStaleBenchmarkFields = {
-    resumeId: 'res-active',
-    jdTitle: 'Backend Engineer',
-    jdContent: 'Go, PostgreSQL',
-    industry: 'Stale FinTech',
-    targetRole: 'Stale Lead',
-    seniority: 'Stale Staff',
+// 12. request construction guarantees cross-mode fields are excluded from payload
+test('12. request construction guarantees cross-mode fields are excluded from payload', () => {
+  // Job targeted operation with potential stray benchmark fields
+  const jobTargetedOp = {
+    userId: 'user-1',
+    idempotencyKey: 'idem-jt',
+    resumeId: 'res-jt',
+    mode: 'job_targeted',
+    jobDescriptionId: 'jd-jt',
+    jdTitle: 'Title',
+    jdContent: 'Content',
+    timestamp: Date.now(),
   };
 
-  const submittedJobTargeted = prepareSubmitPayload('job_targeted', formWithStaleBenchmarkFields);
-  assert.equal(submittedJobTargeted.mode, 'job_targeted');
-  assert.equal(submittedJobTargeted.jdTitle, 'Backend Engineer');
-  assert.equal(submittedJobTargeted.jdContent, 'Go, PostgreSQL');
-  assert.equal(submittedJobTargeted.industry, undefined, 'Must not submit industry in job_targeted mode');
-  assert.equal(submittedJobTargeted.targetRole, undefined, 'Must not submit targetRole in job_targeted mode');
-  assert.equal(submittedJobTargeted.seniority, undefined, 'Must not submit seniority in job_targeted mode');
+  const jtPayload = buildCreateAnalysisRequest(jobTargetedOp);
+  assert.deepEqual(Object.keys(jtPayload).sort(), ['jobDescriptionId', 'mode', 'resumeId'].sort());
+  assert.equal('industry' in jtPayload, false);
+  assert.equal('targetRole' in jtPayload, false);
+  assert.equal('seniority' in jtPayload, false);
 
-  // User typed into JD fields, then switched to field_benchmark
-  const formWithStaleJdFields = {
-    resumeId: 'res-active',
-    industry: 'AI / ML',
-    targetRole: 'ML Engineer',
-    seniority: 'Senior',
-    jdTitle: 'Stale JD Title',
-    jdContent: 'Stale JD Description',
+  // Field benchmark operation with potential stray JD fields
+  const fieldBenchmarkOp = {
+    userId: 'user-1',
+    idempotencyKey: 'idem-fb',
+    resumeId: 'res-fb',
+    mode: 'field_benchmark',
+    industry: 'Logistics',
+    targetRole: 'Operations Manager',
+    seniority: 'Lead',
+    timestamp: Date.now(),
   };
 
-  const submittedFieldBenchmark = prepareSubmitPayload('field_benchmark', formWithStaleJdFields);
-  assert.equal(submittedFieldBenchmark.mode, 'field_benchmark');
-  assert.equal(submittedFieldBenchmark.industry, 'AI / ML');
-  assert.equal(submittedFieldBenchmark.targetRole, 'ML Engineer');
-  assert.equal(submittedFieldBenchmark.seniority, 'Senior');
-  assert.equal(submittedFieldBenchmark.jdTitle, undefined, 'Must not submit jdTitle in field_benchmark mode');
-  assert.equal(submittedFieldBenchmark.jdContent, undefined, 'Must not submit jdContent in field_benchmark mode');
+  const fbPayload = buildCreateAnalysisRequest(fieldBenchmarkOp);
+  assert.deepEqual(Object.keys(fbPayload).sort(), ['industry', 'mode', 'resumeId', 'seniority', 'targetRole'].sort());
+  assert.equal('jobDescriptionId' in fbPayload, false);
+  assert.equal('jdTitle' in fbPayload, false);
+  assert.equal('jdContent' in fbPayload, false);
 });

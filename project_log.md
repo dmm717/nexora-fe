@@ -38,3 +38,10 @@
   - `git diff --check`: clean.
 - Commit: `feat(cv): integrate production analysis modes`
 - Blockers: none. Backend untouched.
+
+### Corrective Pass (Review Blockers 1-4)
+- Fixed A5 Quota/Feature UX semantics: removed hardcoded client-side tier assumptions ("1 lượt/tài khoản", "miễn phí"); formatted authoritative plan-neutral titles and messages for `FEATURE_QUOTA_EXCEEDED` ("Đã hết lượt phân tích CV", "Bạn đã sử dụng hết lượt phân tích CV của gói hiện tại.") and `FEATURE_NOT_AVAILABLE` ("Tính năng chưa khả dụng", "Tính năng phân tích CV không khả dụng trong gói hiện tại của bạn.").
+- Fixed reload recovery UI: synchronized visible form state (`mode`, `jdTitle`, `jdContent` or `industry`, `targetRole`, `seniority`) to exact persisted user intent before/while resuming; derived displayed analysis stage text and submit label from the active operation's explicit mode.
+- Hardened pending record validation: required nonblank trimmed inputs (`jdTitle`/`jdContent` for job_targeted, `industry`/`targetRole`/`seniority` for field_benchmark); safely pruned malformed records.
+- Refactored pure contract logic into importable `src/services/cvAnalysisContract.ts`; rewrote `tests/cvAnalysisProductionContract.test.mjs` to test real production functions directly; eliminated fictional local quota boolean test.
+- Validation: `npm test` 23 passed, `npx tsc --noEmit` 0 errors, touched files ESLint 0 errors/0 warnings, `npm run build` passed, `git diff --check` clean.

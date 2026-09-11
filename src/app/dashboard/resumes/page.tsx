@@ -7,12 +7,16 @@ import { ClientDate } from '@/components/ui/ClientDate';
 import styles from './Resumes.module.css';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '@/services/apiClient';
-import { cvAnalysisApi, getUploadContentType, ResumeAnalysisMode } from '@/services/cvAnalysisApi';
+import { cvAnalysisApi, getUploadContentType } from '@/services/cvAnalysisApi';
 import {
   createResumeAnalysisOperation,
   ResumeAnalysisOperation,
   runResumeAnalysisOperation,
 } from '@/services/resumeAnalysisCoordinator';
+import {
+  ResumeAnalysisMode,
+  formatQuotaError,
+} from '@/services/cvAnalysisContract';
 import { AnalysisHistoryItem, useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { useCurrentUser } from '@/hooks/queries/useUser';
@@ -328,10 +332,13 @@ export default function ResumesPage() {
   const [targetRole, setTargetRole] = useState('');
   const [seniority, setSeniority] = useState('');
 
+  // Active running operation state to truthfully reflect active operation mode in UI and stage messages
+  const [activeOperation, setActiveOperation] = useState<ResumeAnalysisOperation | null>(null);
+
   // Submit state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quotaExceededError, setQuotaExceededError] = useState<{ message: string; requestId?: string } | null>(null);
+  const [quotaExceededError, setQuotaExceededError] = useState<{ title: string; message: string; requestId?: string } | null>(null);
   const [stage, setStage] = useState<'idle' | 'uploading' | 'processing' | 'ready' | 'analyzing'>('idle');
 
   const finishAnalysis = React.useCallback((operation: ResumeAnalysisOperation, analysis: { id: string }) => {
@@ -355,6 +362,20 @@ export default function ResumesPage() {
   const startAnalysis = React.useCallback((operation: ResumeAnalysisOperation) => {
     if (activeAnalysisKey.current && activeAnalysisKey.current !== operation.idempotencyKey) return;
     activeAnalysisKey.current = operation.idempotencyKey;
+    setActiveOperation(operation);
+
+    // Synchronize visible form state to that exact persisted user intent BEFORE/while resuming it
+    if (operation.mode === 'job_targeted') {
+      setMode('job_targeted');
+      setJdTitle(operation.jdTitle);
+      setJdContent(operation.jdContent);
+    } else if (operation.mode === 'field_benchmark') {
+      setMode('field_benchmark');
+      setIndustry(operation.industry);
+      setTargetRole(operation.targetRole);
+      setSeniority(operation.seniority);
+    }
+
     setLoading(true);
     setError(null);
     setQuotaExceededError(null);
@@ -367,15 +388,17 @@ export default function ResumesPage() {
       onStage: () => setStage('analyzing'),
     }).then(analysis => {
       activeAnalysisKey.current = null;
+      setActiveOperation(null);
       finishAnalysis(operation, analysis);
     }).catch((err: unknown) => {
       activeAnalysisKey.current = null;
+      setActiveOperation(null);
       if (!isMounted.current || isAbortError(err)) return;
       if (err instanceof ApiError && (err.code === 'FEATURE_QUOTA_EXCEEDED' || err.code === 'FEATURE_NOT_AVAILABLE')) {
+        const { title, message } = formatQuotaError(err.code);
         setQuotaExceededError({
-          message: err.code === 'FEATURE_QUOTA_EXCEEDED'
-            ? 'Bạn đã sử dụng hết lượt phân tích CV miễn phí (1 lượt/tài khoản). Nâng cấp gói để tiếp tục phân tích không giới hạn.'
-            : 'Tính năng phân tích CV không khả dụng trong gói hiện tại của bạn.',
+          title,
+          message,
           requestId: err.requestId,
         });
         setPendingAnalysis(null);
@@ -608,8 +631,9 @@ export default function ResumesPage() {
     }
   };
 
-  const isJobTargetedIncomplete = mode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
-  const isFieldBenchmarkIncomplete = mode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
+  const activeMode = activeOperation?.mode ?? mode;
+  const isJobTargetedIncomplete = activeMode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
+  const isFieldBenchmarkIncomplete = activeMode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
   const isSubmitDisabled = loading || isUploading || !file || !isResumeReady || isJobTargetedIncomplete || isFieldBenchmarkIncomplete;
 
   const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
@@ -620,7 +644,7 @@ export default function ResumesPage() {
       : visibleStage === 'ready'
         ? 'CV đã sẵn sàng.'
         : visibleStage === 'analyzing'
-          ? (mode === 'job_targeted' ? 'AI đang phân tích độ phù hợp...' : 'AI đang đánh giá theo chuẩn ngành...')
+          ? (activeMode === 'job_targeted' ? 'AI đang phân tích độ phù hợp...' : 'AI đang đánh giá theo chuẩn ngành...')
           : '';
 
   return (
@@ -674,7 +698,7 @@ export default function ResumesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div>
-              <div className={styles.quotaTitle}>Đã hết lượt phân tích miễn phí</div>
+              <div className={styles.quotaTitle}>{quotaExceededError.title}</div>
               <div className={styles.quotaText}>{quotaExceededError.message}</div>
               {quotaExceededError.requestId && (
                 <div className={styles.quotaRequestId}>Mã yêu cầu: {quotaExceededError.requestId}</div>
@@ -737,7 +761,7 @@ export default function ResumesPage() {
           ) : (file && !isResumeReady) ? (
             resumeStatus === 'failed' ? 'Lỗi xử lý CV' : <><div className={styles.spinner}></div> Đang xử lý CV...</>
           ) : (
-            mode === 'job_targeted' ? 'Phân tích độ phù hợp' : 'Đánh giá mức độ sẵn sàng'
+            activeMode === 'job_targeted' ? 'Phân tích độ phù hợp' : 'Đánh giá mức độ sẵn sàng'
           )}
         </button>
         {stageMessage && (
