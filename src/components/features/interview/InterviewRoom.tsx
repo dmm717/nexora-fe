@@ -49,8 +49,9 @@ export default function InterviewRoom() {
             // Generate a bell curve height distribution
             const centerDist = Math.abs(20 - i);
             const baseHeight = Math.max(5, 50 - centerDist * 2.5);
-            // Randomize height if speaking
-            const randomMultiplier = isSpeaking ? (0.3 + Math.random() * 1.5) : 0.2;
+            // Use deterministic pseudo-random based on index to avoid impurity in render
+            const pseudoRandom = Math.abs(Math.sin(i * 0.8));
+            const randomMultiplier = isSpeaking ? (0.3 + pseudoRandom * 1.5) : 0.2;
             const finalHeight = baseHeight * randomMultiplier;
             
             return (

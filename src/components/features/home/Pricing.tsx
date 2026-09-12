@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef } from 'react';
+import React from 'react';
 import styles from './Pricing.module.css';
 
 const pricingPlans = [

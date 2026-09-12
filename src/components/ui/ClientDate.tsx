@@ -20,7 +20,7 @@ export function ClientDate({ date, fallback = '', format = 'datetime' }: ClientD
       } else {
         setFormattedDate(d.toLocaleString('vi-VN'));
       }
-    } catch (e) {
+    } catch {
       setFormattedDate('');
     }
   }, [date, format]);

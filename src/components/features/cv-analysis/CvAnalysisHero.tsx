@@ -1,112 +1,139 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import Link from 'next/link';
+import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
+import { Check, AlertCircle } from 'lucide-react';
+
+gsap.registerPlugin(useGSAP);
 
 export default function CvAnalysisHero() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    const tl = gsap.timeline();
+    
+    // Animate Left Text
+    tl.fromTo(
+      textRef.current?.children ? Array.from(textRef.current.children) : [],
+      { y: 30, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.8, stagger: 0.1, ease: 'power3.out' }
+    );
+
+    // Animate Right Bento Cards
+    tl.fromTo(
+      gridRef.current?.children ? Array.from(gridRef.current.children) : [],
+      { scale: 0.9, opacity: 0, y: 30 },
+      { scale: 1, opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: 'back.out(1.2)' },
+      '-=0.6'
+    );
+
+  }, { scope: containerRef });
+
   return (
-    <section className="relative w-full min-h-[calc(100vh-80px)] flex items-center justify-center py-12 md:py-20 px-6 overflow-hidden bg-gradient-to-br from-[#F5EFFF] to-[#E9E0F8] font-sans">
-      
-      <div className="max-w-[1300px] mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-14 items-center relative z-10">
+    <section 
+      ref={containerRef}
+      className="relative w-full min-h-[calc(100vh-80px)] flex items-center bg-[#FAFAFA] pt-20 pb-20 px-6 md:px-12 lg:px-20 overflow-hidden"
+    >
+      {/* Background Gradients */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-purple-300/40 via-violet-200/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 opacity-70 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-purple-200/30 via-transparent to-transparent rounded-full blur-3xl translate-y-1/4 -translate-x-1/4 pointer-events-none" />
+
+      <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 relative z-10 items-center">
         
-        {/* Left Column: Content */}
-        <div className="flex flex-col items-start text-left pt-10 lg:pt-0 relative">
-          <h1 className="text-[40px] md:text-[48px] lg:text-[56px] font-black leading-[1.15] mb-4 tracking-[-0.02em]">
-            <span className="text-[#5B21B6]">Làm sao để CV ấn tượng</span> <br />
-            <span className="text-[#1F2937]">trong mắt nhà tuyển dụng?</span>
+        {/* Left Column: Text (6 cols) */}
+        <div ref={textRef} className="lg:col-span-6 flex flex-col items-start relative z-20 pr-0 lg:pr-10">
+          <h1 
+            className="w-full font-black text-slate-900 tracking-[-0.03em] mb-6 leading-[1.1] text-4xl md:text-5xl lg:text-[3.5rem]"
+          >
+            Hồ sơ của bạn đã sẵn sàng <br className="hidden lg:block" />
+            <span className="text-purple-600">chinh phục nhà tuyển dụng?</span>
           </h1>
           
-          <p className="text-[#6D28D9] text-[16px] md:text-[18px] font-bold mb-10 max-w-[480px] leading-relaxed">
-            ProInterview giúp bạn kiểm tra, góp ý và cải thiện CV trước khi gửi đến nhà tuyển dụng.
+          <p className="text-slate-600 text-[1.125rem] font-medium mb-10 leading-relaxed max-w-[450px] text-balance">
+            Nexora ứng dụng AI để "soi" CV của bạn dưới góc nhìn chuyên gia. Đối chiếu JD, phát hiện điểm mù và tối ưu hóa từ khóa để nắm chắc cơ hội phỏng vấn.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 mb-24 w-full sm:w-auto relative z-20">
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             <Link 
               href="/cv-analysis/optimize"
-              className="px-8 py-3.5 rounded-2xl bg-[#7C3AED] text-white font-bold hover:-translate-y-0.5 transition-all duration-200 text-center text-[15px] shadow-lg shadow-purple-500/20"
+              className="inline-flex items-center justify-center px-7 py-3.5 bg-[#CEFA61] text-white rounded-2xl font-bold text-[15px] shadow-[0_8px_20px_-8px_rgba(206,250,97,0.5)] transition-all duration-300 hover:scale-[1.02] hover:bg-[#c2ef53] whitespace-nowrap"
             >
-              Tối ưu CV theo vị trí ứng tuyển
+              Tối ưu CV theo vị trí
             </Link>
             <Link 
               href="/cv-analysis/industry"
-              className="px-8 py-3.5 rounded-2xl bg-white text-[#7C3AED] font-bold hover:-translate-y-0.5 transition-all duration-200 text-center text-[15px] border border-purple-100 shadow-sm"
+              className="inline-flex items-center justify-center px-7 py-3.5 bg-white text-purple-600 border border-purple-200 rounded-2xl font-bold text-[15px] shadow-sm transition-all duration-300 hover:scale-[1.02] hover:bg-purple-50 hover:text-purple-700 whitespace-nowrap"
             >
-              Phân tích CV theo ngành nghề
+              Phân tích theo ngành
             </Link>
           </div>
         </div>
 
-        {/* Right Column: Cards */}
-        <div className="flex flex-col gap-4 relative z-20">
+        {/* Right Column: Bento Grid (6 cols) */}
+        <div ref={gridRef} className="lg:col-span-6 grid grid-cols-2 gap-5 relative z-20">
           
-          {/* Card 1: Main Score */}
-          <div className="bg-[#A78BFA] rounded-[24px] p-6 text-white shadow-sm relative overflow-hidden">
-            <h3 className="text-[13px] font-bold text-white mb-2">Mức độ phù hợp CV</h3>
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-[48px] leading-none font-black tracking-tight">73%</span>
-              <span className="text-[13px] font-medium text-white/90">keyword match</span>
-              {/* Dashed line exactly like image */}
-              <div className="flex-1 ml-2 flex items-center gap-1.5 opacity-90">
-                <div className="h-1.5 w-6 bg-white rounded-full"></div>
-                <div className="h-1.5 w-6 bg-white rounded-full"></div>
-                <div className="h-1.5 w-6 bg-white rounded-full"></div>
-                <div className="h-1.5 w-6 bg-white rounded-full"></div>
-                <div className="h-1.5 w-6 bg-white/40 rounded-full"></div>
-                <div className="h-1.5 w-6 bg-white/40 rounded-full"></div>
+          {/* Card 1: Match Score (Full width) */}
+          <div className="col-span-2 bg-gradient-to-r from-purple-400 to-violet-400 rounded-3xl p-6 text-white shadow-lg shadow-purple-500/10 transition-transform duration-500 hover:scale-[1.01]">
+            <h3 className="text-sm font-bold text-white/90 mb-1">Mức độ phù hợp CV (Frontend Developer)</h3>
+            <div className="flex items-end gap-3 mb-3">
+              <span className="text-5xl font-black leading-none tracking-tight">85%</span>
+              <span className="text-sm font-medium text-white/80 pb-1">keyword match</span>
+              {/* Progress Line */}
+              <div className="flex-1 flex gap-1.5 ml-2 pb-1.5">
+                {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-1.5 flex-1 bg-white rounded-full shadow-sm" />)}
+                {[1].map(i => <div key={i} className="h-1.5 flex-1 bg-white/30 rounded-full" />)}
               </div>
             </div>
-            <p className="text-[13px] text-white/90 font-medium">
-              Khá tốt, bổ sung từ khóa còn thiếu có thể nâng điểm đáng kể.
+            <p className="text-sm font-medium text-white/90">
+              Rất tốt! Bổ sung thêm một vài kỹ năng chuyên sâu để đạt điểm tối đa.
             </p>
           </div>
 
-          {/* Card 2 Row: Two separate cards side by side */}
-          <div className="grid grid-cols-2 gap-4">
-            
-            {/* Left Card: Từ khóa khớp */}
-            <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] border border-slate-50">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#22C55E]">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                </div>
-                <span className="font-bold text-[14px] text-slate-800">Từ khóa khớp</span>
+          {/* Card 2: Matched Keywords */}
+          <div className="col-span-1 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-transform duration-500 hover:scale-[1.02]">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
               </div>
-              <div className="flex flex-wrap gap-2.5">
-                {['React', 'TypeScript', 'Node.js', 'REST API'].map(tech => (
-                  <span key={tech} className="px-3.5 py-1.5 bg-[#F7FEE7] border border-[#D9F99D] text-[#4D7C0F] text-[12px] font-semibold rounded-full flex items-center gap-1.5">
-                    {tech} 
-                    <span className="text-[10px] text-[#4D7C0F]/80 leading-none">✓</span>
-                  </span>
-                ))}
-              </div>
+              <span className="font-bold text-[15px] text-slate-800">Từ khóa khớp</span>
             </div>
-
-            {/* Right Card: Cần bổ sung */}
-            <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] border border-slate-50">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 rounded-lg bg-[#FFF7ED] flex items-center justify-center text-[#EA580C]">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                </div>
-                <span className="font-bold text-[14px] text-slate-800">Cần bổ sung</span>
-              </div>
-              <div className="flex flex-wrap gap-2.5">
-                {['AWS', 'Docker', 'Kubernetes'].map(tech => (
-                  <span key={tech} className="px-3.5 py-1.5 bg-[#FFF7ED] border border-[#FED7AA] text-[#EA580C] text-[12px] font-semibold rounded-full">
-                    {tech}
-                  </span>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {['Next.js', 'React', 'Tailwind', 'GSAP'].map(tech => (
+                <span key={tech} className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-bold rounded-full flex items-center gap-1">
+                  {tech} <Check className="w-3 h-3" />
+                </span>
+              ))}
             </div>
-
           </div>
 
-          {/* Card 3: Detailed Scores */}
-          <div className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] border border-slate-50">
-            <div className="flex flex-row gap-8 items-center">
+          {/* Card 3: Missing Keywords */}
+          <div className="col-span-1 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-transform duration-500 hover:scale-[1.02]">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center">
+                <AlertCircle className="w-4 h-4 text-orange-600 stroke-[2.5]" />
+              </div>
+              <span className="font-bold text-[15px] text-slate-800">Cần bổ sung</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['Redux', 'GraphQL', 'Jest'].map(tech => (
+                <span key={tech} className="px-3 py-1.5 bg-orange-50 border border-orange-100 text-orange-700 text-xs font-bold rounded-full">
+                  {tech}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Card 4: Detailed AI Scores (Full width) */}
+          <div className="col-span-2 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-transform duration-500 hover:scale-[1.01]">
+            <div className="flex flex-col md:flex-row gap-8 items-center">
               
               {/* Circular Score */}
               <div className="flex flex-col items-center shrink-0">
-                <div className="relative w-[110px] h-[110px] mb-3">
+                <div className="relative w-28 h-28 mb-3">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="44" stroke="#F1F5F9" strokeWidth="6" fill="none" />
                     <circle 
@@ -119,72 +146,42 @@ export default function CvAnalysisHero() {
                       strokeDashoffset={276.46 * (1 - 0.73)}
                     />
                   </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
-                    <span className="text-[36px] leading-none font-black text-[#111827] tracking-tight">73</span>
-                    <span className="text-[12px] font-bold text-slate-500 mt-1">/ 100</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pt-1">
+                    <span className="text-3xl font-black text-slate-900 tracking-tighter">73</span>
+                    <span className="text-[10px] font-bold text-slate-400">/ 100</span>
                   </div>
                 </div>
-                <span className="font-bold text-[#1F2937] text-[13px] mb-1">Điểm AI</span>
+                <span className="font-bold text-slate-800 text-sm mb-1">Điểm AI</span>
                 <span className="text-[10px] text-slate-500 font-medium">Clarity · Structure</span>
                 <span className="text-[10px] text-slate-500 font-medium">Relevance · Credibility</span>
               </div>
 
               {/* Progress Bars */}
-              <div className="flex-1 w-full space-y-4">
+              <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                 
-                {/* Clarity */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[12px] font-bold text-[#1F2937]">Clarity (Rõ ràng)</span>
-                    <span className="text-[11px] font-bold text-[#4D7C0F] bg-[#ECFDF5] px-2 py-0.5 rounded">8/10</span>
+                {/* Score Item */}
+                {[
+                  { name: 'Clarity (Rõ ràng)', score: '8/10', color: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', fill: '80%', desc: 'Rõ ràng, súc tích.' },
+                  { name: 'Structure (STAR)', score: '7/10', color: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', fill: '70%', desc: 'Cấu trúc ổn, thiếu số liệu.' },
+                  { name: 'Relevance (Liên quan JD)', score: '6.5/10', color: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', fill: '65%', desc: 'Khớp một phần JD.' },
+                  { name: 'Credibility (Thuyết phục)', score: '7.5/10', color: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', fill: '75%', desc: 'Cần thêm KPI cụ thể.' }
+                ].map((item, idx) => (
+                  <div key={idx}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs font-bold text-slate-800">{item.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${item.bg} ${item.text}`}>{item.score}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full mb-1 overflow-hidden">
+                      <div className={`h-full ${item.color} rounded-full`} style={{ width: item.fill }} />
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium">{item.desc}</p>
                   </div>
-                  <div className="h-2 w-full bg-[#F1F5F9] rounded-full mb-1">
-                    <div className="h-full bg-[#84CC16] rounded-full w-[80%]"></div>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Rõ ràng, súc tích.</p>
-                </div>
-
-                {/* Structure */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[12px] font-bold text-[#1F2937]">Structure (STAR)</span>
-                    <span className="text-[11px] font-bold text-[#5B21B6] bg-[#F3E8FF] px-2 py-0.5 rounded">7/10</span>
-                  </div>
-                  <div className="h-2 w-full bg-[#F1F5F9] rounded-full mb-1">
-                    <div className="h-full bg-[#A855F7] rounded-full w-[70%]"></div>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Cấu trúc ổn, vài bullet thiếu số liệu.</p>
-                </div>
-
-                {/* Relevance */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[12px] font-bold text-[#1F2937]">Relevance (Liên quan JD)</span>
-                    <span className="text-[11px] font-bold text-[#5B21B6] bg-[#F3E8FF] px-2 py-0.5 rounded">6.5/10</span>
-                  </div>
-                  <div className="h-2 w-full bg-[#F1F5F9] rounded-full mb-1">
-                    <div className="h-full bg-[#A855F7] rounded-full w-[65%]"></div>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Khớp JD một phần, còn thiếu vài kỹ năng.</p>
-                </div>
-
-                {/* Credibility */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[12px] font-bold text-[#1F2937]">Credibility (Thuyết phục)</span>
-                    <span className="text-[11px] font-bold text-[#5B21B6] bg-[#F3E8FF] px-2 py-0.5 rounded">7.5/10</span>
-                  </div>
-                  <div className="h-2 w-full bg-[#F1F5F9] rounded-full mb-1">
-                    <div className="h-full bg-[#A855F7] rounded-full w-[75%]"></div>
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Cần thêm KPI và thành tựu cụ thể.</p>
-                </div>
+                ))}
 
               </div>
-              
             </div>
           </div>
-          
+
         </div>
 
       </div>

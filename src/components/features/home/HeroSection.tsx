@@ -131,7 +131,7 @@ export default function HeroSection() {
                           <span className="w-5 h-5 bg-purple-200 rounded-full flex items-center justify-center text-[10px]">N</span>
                           AI response:
                         </div>
-                        Nexora\'s next-generation AI simulates the 1:1 behavioral & technical interviews with incredible accuracy. Refine your answers, optimize your CV, all in a single platform...
+                        Nexora&apos;s next-generation AI simulates the 1:1 behavioral & technical interviews with incredible accuracy. Refine your answers, optimize your CV, all in a single platform...
                       </div>
                     </div>
 
