@@ -82,7 +82,7 @@ const HowItWorks = () => {
         <div className="space-y-16 lg:space-y-24">
 
           {/* ================= STEP 01 (TOP LEFT) ================= */}
-          <div className="step-card-anim flex flex-col lg:flex-row items-center gap-6 lg:gap-10 max-w-[700px] relative z-20">
+          <div className="step-card-anim opacity-0 flex flex-col lg:flex-row items-center gap-6 lg:gap-10 max-w-[800px] relative z-20">
             
             {/* Step 01 Card */}
             <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] p-8 md:p-9 border border-slate-200/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] w-full lg:w-[360px] shrink-0">
@@ -156,7 +156,7 @@ const HowItWorks = () => {
 
 
           {/* ================= STEP 02 (MIDDLE RIGHT) ================= */}
-          <div className="step-card-anim flex flex-col lg:flex-row items-center gap-6 lg:gap-10 max-w-[920px] ml-auto relative z-20">
+          <div className="step-card-anim opacity-0 flex flex-col-reverse lg:flex-row items-center gap-6 lg:gap-10 max-w-[850px] ml-auto relative z-20">
             
             {/* Step 02 Card */}
             <div className="bg-white/95 backdrop-blur-md rounded-[2.5rem] p-8 md:p-9 border border-slate-200/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] w-full lg:w-[360px] shrink-0">

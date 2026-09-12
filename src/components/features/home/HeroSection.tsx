@@ -48,23 +48,23 @@ export default function HeroSection() {
   return (
     <section ref={containerRef} className="relative w-full min-h-[100dvh] pt-24 lg:pt-32 pb-20 overflow-hidden bg-[#FAFAFC] flex items-center [@media(max-height:800px)]:items-start [@media(max-height:800px)]:pt-32">
       {/* Soft Ambient Background Glow */}
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-bl from-purple-200/40 via-pink-100/20 to-transparent blur-[120px] rounded-full pointer-events-none -z-10" />
+      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(ellipse_at_center,_rgba(233,213,255,0.4)_0%,_rgba(252,231,243,0.2)_40%,_transparent_70%)] rounded-full pointer-events-none -z-10" />
 
       <div className="max-w-[1400px] mx-auto px-6 md:px-12 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center [@media(max-height:800px)]:items-start">
 
         {/* LEFT COLUMN: TEXT */}
         <div className="flex flex-col z-10 max-w-2xl mt-[-100px] [@media(max-height:800px)]:mt-0">
-          <h1 className="hero-text-anim text-[4rem] md:text-[5rem] lg:text-[6.5rem] xl:text-7xl leading-[1.05] tracking-tight text-[#1C1C28] mb-8 font-[family-name:var(--font-playfair)] font-semibold">
+          <h1 className="hero-text-anim opacity-0 text-[4rem] md:text-[5rem] lg:text-[6.5rem] xl:text-7xl leading-[1.05] tracking-tight text-[#1C1C28] mb-8 font-[family-name:var(--font-playfair)] font-semibold">
             Luyện Phỏng Vấn AI.<br />
             Đạt Công Việc<br />
             Mơ Ước.
           </h1>
 
-          <p className="hero-text-anim text-lg md:text-xl text-gray-600 mb-10 leading-[1.6] max-w-xl font-medium">
+          <p className="hero-text-anim opacity-0 text-lg md:text-xl text-gray-600 mb-10 leading-[1.6] max-w-xl font-medium">
             AI thế hệ mới của Nexora mô phỏng phỏng vấn 1:1 hành vi & kỹ thuật với độ chính xác đáng kinh ngạc. Hoàn thiện câu trả lời, tối ưu CV, và nhận phản hồi chi tiết cấp độ chuyên gia trên một nền tảng duy nhất. Chuẩn bị thông minh hơn.
           </p>
 
-          <div className="hero-text-anim flex flex-col sm:flex-row items-center gap-8">
+          <div className="hero-text-anim opacity-0 flex flex-col sm:flex-row items-center gap-8">
             <Link href="/auth?mode=register" className="px-8 py-4 bg-[#CEFA61] hover:bg-[#c2ef53] text-[#1C1C28] text-lg font-bold rounded-full transition-all duration-300 shadow-[0_10px_30px_-10px_rgba(206,250,97,0.8)] hover:shadow-[0_15px_40px_-10px_rgba(206,250,97,0.9)] hover:-translate-y-1">
               Bắt Đầu Phỏng Vấn (Miễn Phí)
             </Link>
@@ -99,7 +99,7 @@ export default function HeroSection() {
             <div className="relative w-[500px] h-[700px] right-0 xl:right-[-50px]">
 
               {/* TOP CARD: Video Call Simulation */}
-              <div className="hero-card-1 absolute top-[-100px] left-[-220px] w-[500px] bg-white rounded-2xl p-4 shadow-[20px_20px_30px_-5px_rgba(0,0,0,0.2),40px_50px_70px_-10px_rgba(0,0,0,0.35)] border-[1px] border-[#9333ea]/30 z-30" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="hero-card-1 opacity-0 absolute top-[-100px] left-[-220px] w-[500px] bg-white rounded-2xl p-4 shadow-[20px_20px_30px_-5px_rgba(0,0,0,0.2),40px_50px_70px_-10px_rgba(0,0,0,0.35)] border-[1px] border-[#9333ea]/30 z-30" style={{ transformStyle: 'preserve-3d' }}>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4 px-2">
                   <div className="flex items-center gap-1.5">
@@ -159,16 +159,16 @@ export default function HeroSection() {
                 </div>
 
                 {/* Floating Pills */}
-                <div className="hero-pill absolute -left-12 top-[60%] px-4 py-2 bg-white rounded-full shadow-[0_10px_20px_-5px_rgba(0,0,0,0.15)] flex items-center gap-2 text-[11px] font-bold text-gray-800 z-20 border border-gray-100">
+                <div className="hero-pill opacity-0 absolute -left-12 top-[60%] px-4 py-2 bg-white rounded-full shadow-[0_10px_20px_-5px_rgba(0,0,0,0.15)] flex items-center gap-2 text-[11px] font-bold text-gray-800 z-20 border border-gray-100">
                   <span className="w-2 h-2 rounded-full bg-green-500"></span> Live 1:1 Simulation
                 </div>
-                <div className="hero-pill absolute -right-8 -top-4 px-4 py-2 bg-white rounded-full shadow-[0_10px_20px_-5px_rgba(0,0,0,0.15)] flex items-center gap-2 text-[11px] font-bold text-gray-800 z-20 border border-gray-100">
+                <div className="hero-pill opacity-0 absolute -right-8 -top-4 px-4 py-2 bg-white rounded-full shadow-[0_10px_20px_-5px_rgba(0,0,0,0.15)] flex items-center gap-2 text-[11px] font-bold text-gray-800 z-20 border border-gray-100">
                   STAR Method Validation
                 </div>
               </div>
 
               {/* MIDDLE CARD: CV Analysis (Vertical layout) */}
-              <div className="hero-card-2 absolute top-[80px] left-[220px] w-[420px] h-[580px] bg-white rounded-2xl shadow-[20px_20px_30px_-5px_rgba(0,0,0,0.2),40px_50px_70px_-10px_rgba(0,0,0,0.35)] border-[1px] border-[#9333ea]/30 z-10 flex" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="hero-card-2 opacity-0 absolute top-[80px] left-[220px] w-[420px] h-[580px] bg-white rounded-2xl shadow-[20px_20px_30px_-5px_rgba(0,0,0,0.2),40px_50px_70px_-10px_rgba(0,0,0,0.35)] border-[1px] border-[#9333ea]/30 z-10 flex" style={{ transformStyle: 'preserve-3d' }}>
                 {/* Left Dark Sidebar */}
                 <div className="w-[35%] bg-[#2d3748] p-4 text-white flex flex-col relative z-0 rounded-l-2xl overflow-hidden">
                   <div className="w-14 h-14 rounded-full bg-gray-500 overflow-hidden mx-auto mb-3 border-2 border-[#4a5568]">
@@ -343,7 +343,7 @@ export default function HeroSection() {
               </div>
 
               {/* BOTTOM CARD: Dashboard Overview */}
-              <div className="hero-card-3 absolute top-[380px] left-[-240px] w-[580px] bg-white rounded-2xl shadow-[20px_20px_30px_-5px_rgba(0,0,0,0.2),40px_50px_70px_-10px_rgba(0,0,0,0.35)] border-[1px] border-[#9333ea]/30 z-30 flex" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="hero-card-3 opacity-0 absolute top-[380px] left-[-240px] w-[580px] bg-white rounded-2xl shadow-[20px_20px_30px_-5px_rgba(0,0,0,0.2),40px_50px_70px_-10px_rgba(0,0,0,0.35)] border-[1px] border-[#9333ea]/30 z-30 flex" style={{ transformStyle: 'preserve-3d' }}>
 
                 {/* Left Sidebar Menu */}
                 <div className="w-14 border-r border-gray-100 flex flex-col items-center py-4 gap-6 bg-[#f8f5fe] rounded-l-2xl">

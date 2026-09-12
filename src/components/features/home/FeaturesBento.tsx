@@ -17,16 +17,28 @@ const FeaturesBento = () => {
   const [isCamActive, setIsCamActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const startCamera = async () => {
+  const startCamera = async (isManual = false) => {
+    if (!isManual && typeof window !== 'undefined' && localStorage.getItem('nexora_camera_denied') === 'true') {
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCamActive(true);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('nexora_camera_denied');
+        }
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
-      alert("Vui lòng cấp quyền truy cập Camera để trải nghiệm tính năng này.");
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nexora_camera_denied', 'true');
+      }
+      if (isManual) {
+        alert("Vui lòng cấp quyền truy cập Camera trong trình duyệt để trải nghiệm tính năng này.");
+      }
     }
   };
 
@@ -41,10 +53,25 @@ const FeaturesBento = () => {
   };
 
   useEffect(() => {
-    // Tự động yêu cầu quyền truy cập camera ngay khi component được render
-    startCamera();
+    // Chỉ yêu cầu quyền truy cập camera khi người dùng cuộn (scroll) đến vùng này
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          startCamera(false);
+          observer.disconnect(); // Chỉ hỏi 1 lần khi cuộn tới
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
     
-    return () => stopCamera();
+    return () => {
+      observer.disconnect();
+      stopCamera();
+    };
   }, []);
 
   // Initial cards entry animation
@@ -133,12 +160,9 @@ const FeaturesBento = () => {
     }
   }, [pathData]);
 
-  // Inject custom keyframes for the cards
-  useEffect(() => {
-    if (!document.getElementById('features-custom-styles')) {
-      const style = document.createElement('style');
-      style.id = 'features-custom-styles';
-      style.innerHTML = `
+  return (
+    <section ref={containerRef} className="py-20 lg:py-28 bg-[#F6F8FD] relative overflow-hidden" id="features">
+      <style>{`
         @keyframes scan {
           0% { top: 0%; opacity: 0; }
           10% { opacity: 1; }
@@ -160,13 +184,7 @@ const FeaturesBento = () => {
         @keyframes grow-width {
           from { width: 0%; }
         }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
-
-  return (
-    <section ref={containerRef} className="py-20 lg:py-28 bg-[#F6F8FD] relative overflow-hidden" id="features">
+      `}</style>
       <div className="max-w-[1440px] mx-auto px-4 md:px-8 relative z-10">
 
         {/* Section Title */}
@@ -203,7 +221,7 @@ const FeaturesBento = () => {
             {/* ================= ROW 1 ================= */}
 
             {/* CARD 1: Phân Tích */}
-            <div className="bento-card-anim col-span-1 md:col-span-3 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-6 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[340px] group">
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-3 bg-white/70 will-change-transform rounded-[2.2rem] p-6 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[340px] group">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
                   Phân Tích & Phản Hồi
@@ -310,8 +328,8 @@ const FeaturesBento = () => {
             </div>
 
             {/* CARD 2: Hệ Thống Phỏng Vấn AI (Center) */}
-            <div className="bento-card-anim col-span-1 md:col-span-5 relative min-h-[350px] flex flex-col group">
-              <div className="absolute inset-0 rounded-[2.3rem] bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-blue-500/5 border border-white/80 backdrop-blur-xl shadow-[0_8px_30px_rgba(99,102,241,0.08)]"></div>
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-5 relative min-h-[350px] flex flex-col group">
+              <div className="absolute inset-0 rounded-[2.3rem] bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-blue-500/5 border border-white/80 will-change-transform shadow-[0_8px_30px_rgba(99,102,241,0.08)]"></div>
 
               <div className="relative p-7 md:p-8 flex flex-col justify-between h-full z-10">
                 <div className="flex justify-between items-start">
@@ -368,7 +386,7 @@ const FeaturesBento = () => {
             </div>
 
             {/* CARD 3: Hội Thoại Mô Phỏng */}
-            <div className="bento-card-anim col-span-1 md:col-span-4 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[340px] group">
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-4 bg-white/70 will-change-transform rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[340px] group">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
                   Phỏng vấn 1:1 với AI
@@ -417,7 +435,7 @@ const FeaturesBento = () => {
 
                   {/* User Camera (Right) */}
                   <div 
-                    onClick={isCamActive ? stopCamera : startCamera}
+                    onClick={() => isCamActive ? stopCamera() : startCamera(true)}
                     className={`flex-1 aspect-square rounded-xl relative overflow-hidden border flex flex-col items-center justify-center p-2 text-center group cursor-pointer transition-colors ${isCamActive ? 'bg-black border-slate-700' : 'bg-slate-800/80 border-slate-700/50 border-dashed hover:bg-slate-800'}`}
                   >
                     <video 
@@ -465,7 +483,7 @@ const FeaturesBento = () => {
             {/* ================= ROW 2 ================= */}
 
             {/* CARD 4: Hồ Sơ & CV Khớp Lệnh */}
-            <div className="bento-card-anim col-span-1 md:col-span-6 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-6 lg:p-7 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-6 relative min-h-[320px] group">
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-6 bg-white/70 will-change-transform rounded-[2.2rem] p-6 lg:p-7 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-6 relative min-h-[320px] group">
               <div className="flex-1 flex flex-col justify-between">
                 <div>
                   <h3 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight mb-2">
@@ -510,7 +528,7 @@ const FeaturesBento = () => {
             </div>
 
             {/* CARD 5: Phân Tích Đa Giác Quan */}
-            <div className="bento-card-anim col-span-1 md:col-span-3 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col relative min-h-[320px] group overflow-hidden">
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-3 bg-white/70 will-change-transform rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col relative min-h-[320px] group overflow-hidden">
               <div className="relative z-10 mb-4">
                 <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
                   Phân Tích Hành Vi
@@ -556,7 +574,7 @@ const FeaturesBento = () => {
             </div>
 
             {/* CARD 6: Lộ Trình Học Tập */}
-            <div className="bento-card-anim col-span-1 md:col-span-3 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[320px] group">
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-3 bg-white/70 will-change-transform rounded-[2.2rem] p-5 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between relative min-h-[320px] group">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 leading-snug mb-1">
                   Lộ Trình Tối Ưu
@@ -586,7 +604,7 @@ const FeaturesBento = () => {
             {/* ================= ROW 3 ================= */}
 
             {/* CARD 7: Đánh Giá Năng Lực Chuyên Sâu */}
-            <div className="bento-card-anim col-span-1 md:col-span-6 bg-white/70 backdrop-blur-xl rounded-[2.2rem] p-6 lg:p-7 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-6 lg:gap-8 relative min-h-[220px] group overflow-hidden">
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-6 bg-white/70 will-change-transform rounded-[2.2rem] p-6 lg:p-7 border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-6 lg:gap-8 relative min-h-[220px] group overflow-hidden">
               
               {/* Left: Radar Chart */}
               <div className="w-full md:w-[45%] flex flex-col justify-center items-center relative">
@@ -660,9 +678,9 @@ const FeaturesBento = () => {
             </div>
 
             {/* CARD 8: Thống Kê Hiệu Suất */}
-            <div className="bento-card-anim col-span-1 md:col-span-6 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[2.2rem] p-6 lg:p-8 text-white shadow-[0_8px_30px_rgba(99,102,241,0.25)] flex flex-col justify-between relative min-h-[220px] overflow-hidden group">
-              <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 blur-3xl rounded-full transition-transform group-hover:scale-110 duration-700"></div>
-              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-purple-500/20 blur-2xl rounded-full"></div>
+            <div className="bento-card-anim opacity-0 col-span-1 md:col-span-6 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-[2.2rem] p-6 lg:p-8 text-white shadow-[0_8px_30px_rgba(99,102,241,0.25)] flex flex-col justify-between relative min-h-[220px] overflow-hidden group">
+              <div className="absolute -right-10 -top-10 w-48 h-48 bg-[radial-gradient(circle,_rgba(255,255,255,0.2)_0%,_transparent_70%)] rounded-full transition-transform group-hover:scale-110 duration-700"></div>
+              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-[radial-gradient(circle,_rgba(168,85,247,0.3)_0%,_transparent_70%)] rounded-full"></div>
               
               <div className="z-10">
                 <h3 className="text-xl md:text-2xl font-bold leading-snug mb-2">Hiệu Suất Vượt Trội</h3>
