@@ -27,6 +27,7 @@ export interface AnalysisHistoryItem {
   seniority?: string;
   industry?: string;
   createdAt: string;
+  resumeId?: string;
 }
 
 type PendingAnalysisInput =

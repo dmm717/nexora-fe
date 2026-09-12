@@ -242,11 +242,11 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     <div className={styles.practiceContainer}>
       {/* Breadcrumbs */}
       <nav className={styles.breadcrumbBar} aria-label="Breadcrumb">
-        <Link href="/dashboard" className={styles.breadcrumbLink}>
+        <Link href="/overview" className={styles.breadcrumbLink}>
           Dashboard
         </Link>
         <span>/</span>
-        <Link href="/dashboard/scenarios" className={styles.breadcrumbLink}>
+        <Link href="/scenarios" className={styles.breadcrumbLink}>
           Scenario Academy
         </Link>
         <span>/</span>

@@ -102,7 +102,6 @@ const FeaturesBento = () => {
     const updatePath = () => {
       if (!gridRef.current) return;
       const cards = Array.from(gridRef.current.querySelectorAll('.bento-card-anim')) as HTMLElement[];
-      const gridRect = gridRef.current.getBoundingClientRect();
       
       let d = '';
       cards.forEach((card, idx) => {
@@ -659,7 +658,7 @@ const FeaturesBento = () => {
                         <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50/80 px-2 py-0.5 rounded">02:30</span>
                         <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">+ System Design</span>
                       </div>
-                      <p className="text-[11px] text-gray-600 ml-3 italic leading-relaxed">"Bạn đã giải thích rất tốt về chiến lược Cache Breakdown bằng Redis..."</p>
+                      <p className="text-[11px] text-gray-600 ml-3 italic leading-relaxed">&quot;Bạn đã giải thích rất tốt về chiến lược Cache Breakdown bằng Redis...&quot;</p>
                     </div>
 
                     <div className="bg-white p-3 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 relative group/log hover:border-slate-200 transition-colors">
@@ -670,7 +669,7 @@ const FeaturesBento = () => {
                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded">08:15</span>
                         <span className="text-[9px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-100">! Giao tiếp</span>
                       </div>
-                      <p className="text-[11px] text-gray-600 ml-3 italic leading-relaxed">"Câu trả lời hơi dài dòng, nên đi thẳng vào vấn đề theo cấu trúc STAR."</p>
+                      <p className="text-[11px] text-gray-600 ml-3 italic leading-relaxed">&quot;Câu trả lời hơi dài dòng, nên đi thẳng vào vấn đề theo cấu trúc STAR.&quot;</p>
                     </div>
                   </div>
                 </div>

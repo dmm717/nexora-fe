@@ -48,7 +48,7 @@ export function ScenarioProgressOverview({
       </div>
 
       <div className={styles.headerActions}>
-        <Link href="/dashboard/star-builder" className={styles.btnSecondaryAction}>
+        <Link href="/star-builder" className={styles.btnSecondaryAction}>
           <svg
             width="16"
             height="16"

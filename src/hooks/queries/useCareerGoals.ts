@@ -11,7 +11,7 @@ import { PROGRESS_DASHBOARD_QUERY_KEY } from './useProgressDashboard';
 
 export const CAREER_GOALS_QUERY_KEY = ['careerGoals'] as const;
 
-export type { CareerGoalFormValues } from '@/services/careerGoalsApi';
+export type { CareerGoalFormValues, CareerGoalResponse } from '@/services/careerGoalsApi';
 
 export const useCareerGoals = () => {
   const { authReady, isAuthenticated } = useAuth();
@@ -76,6 +76,25 @@ export const useReactivateCareerGoal = () => {
       careerGoalsApi.update(id, { activeSpecified: true, active: true }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
+    },
+  });
+};
+
+/** Delete career goal via DELETE with Idempotency-Key. Optimistic update the cache. */
+export const useDeleteCareerGoal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => careerGoalsApi.delete(id),
+    onSuccess: (_, deletedId) => {
+      // Optimistic update
+      queryClient.setQueryData<import('@/services/careerGoalsApi').CareerGoalResponse[]>(
+        CAREER_GOALS_QUERY_KEY,
+        (old) => (old ? old.filter((goal) => goal.id !== deletedId) : [])
+      );
+      // Still need to invalidate dashboard/recommendation since they might depend on the deleted goal
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
     },

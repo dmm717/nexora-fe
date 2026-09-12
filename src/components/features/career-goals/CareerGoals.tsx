@@ -16,6 +16,7 @@ import {
   useUpdateCareerGoal,
   useArchiveCareerGoal,
   useReactivateCareerGoal,
+  useDeleteCareerGoal,
   type CareerGoalFormValues,
 } from '@/hooks/queries/useCareerGoals';
 import { buildUpdateCareerGoalRequest } from '@/services/careerGoalContract';
@@ -69,6 +70,8 @@ export default function CareerGoals() {
   const updateMutation = useUpdateCareerGoal();
   const archiveMutation = useArchiveCareerGoal();
   const reactivateMutation = useReactivateCareerGoal();
+  const deleteMutation = useDeleteCareerGoal();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<GoalFormValues>({
     resolver: zodResolver(goalSchema)
@@ -139,6 +142,21 @@ export default function CareerGoals() {
       await reactivateMutation.mutateAsync(goal.id);
     } catch (err: unknown) {
       setMutationError(toMutationError(err, 'Không thể kích hoạt lại mục tiêu.'));
+    }
+  };
+
+  const handleDelete = async (goal: CareerGoalResponse) => {
+    if (!window.confirm("Bạn có chắc muốn xóa mục tiêu này? Hành động này không thể hoàn tác.")) {
+      return;
+    }
+    setMutationError(null);
+    setDeletingId(goal.id);
+    try {
+      await deleteMutation.mutateAsync(goal.id);
+    } catch (err: unknown) {
+      setMutationError(toMutationError(err, 'Không thể xóa mục tiêu.'));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -235,6 +253,15 @@ export default function CareerGoals() {
                     Kích hoạt lại
                   </button>
                 )}
+                <button
+                  type="button"
+                  className={styles.buttonOutline}
+                  style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                  onClick={() => void handleDelete(goal)}
+                  disabled={deleteMutation.isPending && deletingId === goal.id}
+                >
+                  Xóa
+                </button>
               </div>
             </div>
           ))}

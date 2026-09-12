@@ -152,7 +152,7 @@ export default function Auth() {
           password: loginData.password,
         });
         toast.success('Đăng nhập thành công');
-        router.push('/dashboard');
+        router.push('/overview');
       } else {
         const registerData = data as RegisterFormData;
         await authApi.register({

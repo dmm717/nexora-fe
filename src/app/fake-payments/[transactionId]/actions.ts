@@ -14,14 +14,14 @@ export async function handleFakePayment(formData: FormData) {
 
   const transactionId = formData.get('transactionId') as string;
   if (!transactionId || !transactionId.startsWith('fake_')) {
-    redirect('/dashboard/billing?error=invalid_transaction');
+    redirect('/billing?error=invalid_transaction');
   }
 
   // Extract the orderId string (32 hex chars) and format it as Guid
   // e.g. fake_f6be8f2b5e9d434f91ad3776228d5093
   const hex = transactionId.substring(5); 
   if (hex.length !== 32) {
-    redirect('/dashboard/billing?error=invalid_transaction');
+    redirect('/billing?error=invalid_transaction');
   }
 
   const orderId = `${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}`;
@@ -59,16 +59,16 @@ export async function handleFakePayment(formData: FormData) {
 
     if (!res.ok) {
       console.error('Webhook failed:', await res.text());
-      redirect('/dashboard/billing?error=webhook_failed');
+      redirect('/billing?error=webhook_failed');
     }
   } catch (err) {
     if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
       throw err; // Allow Next.js redirect to bubble up
     }
     console.error('Webhook request failed:', err);
-    redirect('/dashboard/billing?error=webhook_error');
+    redirect('/billing?error=webhook_error');
   }
 
   // Redirect back to billing with success
-  redirect('/dashboard/billing?success=true');
+  redirect('/billing?success=true');
 }

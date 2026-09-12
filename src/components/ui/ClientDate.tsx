@@ -1,7 +1,9 @@
 /* eslint-disable react-doctor/no-adjust-state-on-prop-change */
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useSyncExternalStore } from 'react';
+
+const emptySubscribe = () => () => {};
 
 interface ClientDateProps {
   date: Date | string | number;
@@ -10,23 +12,23 @@ interface ClientDateProps {
 }
 
 export function ClientDate({ date, fallback = '', format = 'datetime' }: ClientDateProps) {
-  const [formattedDate, setFormattedDate] = useState<string | null>(null);
+  // Chuẩn Enterprise React 18+: Dùng useSyncExternalStore để tránh lỗi Hydration thay vì useEffect
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
-  useEffect(() => {
-    try {
-      const d = new Date(date);
-      if (format === 'date') {
-        setFormattedDate(d.toLocaleDateString('vi-VN'));
-      } else {
-        setFormattedDate(d.toLocaleString('vi-VN'));
-      }
-    } catch {
-      setFormattedDate('');
-    }
-  }, [date, format]);
-
-  if (formattedDate === null) {
+  if (!isMounted) {
     return <>{fallback}</>;
+  }
+
+  let formattedDate = '';
+  try {
+    const d = new Date(date);
+    if (format === 'date') {
+      formattedDate = d.toLocaleDateString('vi-VN');
+    } else {
+      formattedDate = d.toLocaleString('vi-VN');
+    }
+  } catch {
+    formattedDate = '';
   }
 
   return <>{formattedDate}</>;

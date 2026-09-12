@@ -58,4 +58,12 @@ export const careerGoalsApi = {
     const response = (await apiClient.patch(`/career-goals/${id}`, data)) as { data: unknown };
     return normalizeCareerGoal(response.data);
   },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/career-goals/${id}`, {
+      headers: {
+        'Idempotency-Key': crypto.randomUUID(),
+      },
+    });
+  },
 };

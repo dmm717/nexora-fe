@@ -155,14 +155,14 @@ export function getActivityDeepLink(activity: LearningPathActivityResponse): str
   switch (activity.type) {
     case LearningPathValues.Scenario:
       return activity.resourceId
-        ? `/dashboard/scenarios/${activity.resourceId}`
-        : '/dashboard/scenarios';
+        ? `/scenarios/${activity.resourceId}`
+        : '/scenarios';
     case LearningPathValues.StarDrill:
-      return '/dashboard/star-builder';
+      return '/star-builder';
     case LearningPathValues.Interview:
-      return '/dashboard/interviews/new';
+      return '/interviews/new';
     case LearningPathValues.ResumeImprovement:
-      return '/dashboard/resumes';
+      return '/resumes';
     case LearningPathValues.ExternalLearning:
       return activity.externalUrl || null;
     default:

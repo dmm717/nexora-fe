@@ -65,7 +65,7 @@ const Header = () => {
             <div className="w-32 h-9 rounded-full bg-gray-100/70 animate-pulse" aria-hidden="true" />
           ) : isAuthenticated ? (
             <Link
-              href="/dashboard"
+              href="/overview"
               className="text-sm font-medium px-5 py-2.5 rounded-full bg-purple-600 text-white hover:bg-purple-700 transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
             >
               Vào Dashboard →

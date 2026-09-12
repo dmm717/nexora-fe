@@ -129,7 +129,7 @@ export default function LearningPathView() {
             Lộ trình học được xây dựng theo mục tiêu công việc và khoảng trống kỹ năng của bạn. Vui lòng tạo mục tiêu nghề nghiệp trước.
           </p>
           <div className={styles.emptyActions}>
-            <Link href="/dashboard/career-goals" className={styles.btnPrimary}>
+            <Link href="/career-goals" className={styles.btnPrimary}>
               Thiết lập mục tiêu nghề nghiệp →
             </Link>
           </div>
@@ -186,7 +186,7 @@ export default function LearningPathView() {
           </p>
         </div>
         <div className={styles.headerActions}>
-          <Link href="/dashboard/skill-profile" className={styles.btnSecondary}>
+          <Link href="/skill-profile" className={styles.btnSecondary}>
             Xem hồ sơ kỹ năng
           </Link>
           <button

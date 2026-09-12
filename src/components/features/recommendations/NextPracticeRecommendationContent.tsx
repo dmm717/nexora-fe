@@ -100,7 +100,7 @@ export function NextPracticeRecommendationContent({
             Hệ thống cần mục tiêu nghề nghiệp để đề xuất bài luyện tập trọng tâm cho bạn.
           </p>
           <div className={styles.errorActions}>
-            <Link href="/dashboard/career-goals" className={styles.btnAction}>
+            <Link href="/career-goals" className={styles.btnAction}>
               Thiết lập mục tiêu nghề nghiệp →
             </Link>
           </div>
@@ -116,7 +116,7 @@ export function NextPracticeRecommendationContent({
             Hãy tạo lộ trình học tập để nhận đề xuất bài luyện tập phù hợp với kỹ năng còn thiếu.
           </p>
           <div className={styles.errorActions}>
-            <Link href="/dashboard/learning-path" className={styles.btnAction}>
+            <Link href="/learning-path" className={styles.btnAction}>
               Đến Lộ trình học →
             </Link>
           </div>

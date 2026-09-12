@@ -54,7 +54,7 @@ export default function CvAnalysisHero() {
           </h1>
           
           <p className="text-slate-600 text-[1.125rem] font-medium mb-10 leading-relaxed max-w-[450px] text-balance">
-            Nexora ứng dụng AI để "soi" CV của bạn dưới góc nhìn chuyên gia. Đối chiếu JD, phát hiện điểm mù và tối ưu hóa từ khóa để nắm chắc cơ hội phỏng vấn.
+            Nexora ứng dụng AI để &quot;soi&quot; CV của bạn dưới góc nhìn chuyên gia. Đối chiếu JD, phát hiện điểm mù và tối ưu hóa từ khóa để nắm chắc cơ hội phỏng vấn.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">

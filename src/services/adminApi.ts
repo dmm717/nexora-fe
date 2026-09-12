@@ -74,7 +74,45 @@ export interface AdminUserPageResponse {
   users: AdminUserView[];
 }
 
-export interface AdminRoleView { name: string; }
+export interface EntitlementFeatureResponse {
+  code: string;
+  name: string;
+  enabled: boolean;
+  limit: number | null;
+  reserved: number;
+  consumed: number;
+  adjustment: number;
+  available: number | null;
+  unlimited: boolean;
+}
+
+export interface EntitlementDetailResponse {
+  id: string;
+  planCode: string;
+  startsAt: string;
+  endsAt?: string;
+  features: EntitlementFeatureResponse[];
+}
+
+export interface OrderResponse {
+  id: string;
+  planCode: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdminUserDetailView extends AdminUserView {
+  currentEntitlement?: EntitlementDetailResponse;
+  recentOrders: OrderResponse[];
+}
+
+export interface AdminRoleView { 
+  id: string;
+  name: string; 
+  normalizedName: string;
+}
 
 export const adminApi = {
 
@@ -151,28 +189,33 @@ export const adminApi = {
   },
 
   // --- Users Management ---
-  getUsers: async () => {
-    const response = await apiClient.get('/admin/users') as { data: AdminUserPageResponse };
+  getUsers: async (cursor?: string) => {
+    const url = cursor ? `/admin/users?cursor=${cursor}` : '/admin/users';
+    const response = await apiClient.get(url) as { data: AdminUserPageResponse };
     return response.data;
   },
   getUserDetails: async (userId: string) => {
-    const response = await apiClient.get(`/admin/users/${userId}`) as { data: AdminUserView };
+    const response = await apiClient.get(`/admin/users/${userId}`) as { data: AdminUserDetailView };
     return response.data;
   },
-  grantPlan: async (userId: string, data: Record<string, unknown>) => {
-    const response = await apiClient.post(`/admin/users/${userId}/plan-grants`, data) as { data: unknown };
+  grantPlan: async (userId: string, idempotencyKey: string, data: Record<string, unknown>) => {
+    const response = await apiClient.post(`/admin/users/${userId}/plan-grants`, data, {
+      headers: { 'Idempotency-Key': idempotencyKey }
+    }) as { data: unknown };
     return response.data;
   },
-  adjustFeatures: async (userId: string, data: Record<string, unknown>) => {
-    const response = await apiClient.post(`/admin/users/${userId}/feature-adjustments`, data) as { data: unknown };
+  adjustFeatures: async (userId: string, idempotencyKey: string, data: Record<string, unknown>) => {
+    const response = await apiClient.post(`/admin/users/${userId}/feature-adjustments`, data, {
+      headers: { 'Idempotency-Key': idempotencyKey }
+    }) as { data: unknown };
     return response.data;
   },
-  updateUserRoles: async (userId: string, roles: string[]) => {
-    const response = await apiClient.put(`/admin/users/${userId}/roles`, { roles }) as { data: AdminUserView };
+  updateUserRoles: async (userId: string, data: { roles: string[], reason: string }) => {
+    const response = await apiClient.put(`/admin/users/${userId}/roles`, data) as { data: AdminUserDetailView };
     return response.data;
   },
-  updateUserStatus: async (userId: string, status: string) => {
-    const response = await apiClient.put(`/admin/users/${userId}/status`, { status }) as { data: AdminUserView };
+  updateUserStatus: async (userId: string, data: { active: boolean, reason: string }) => {
+    const response = await apiClient.put(`/admin/users/${userId}/status`, data) as { data: AdminUserDetailView };
     return response.data;
   },
 

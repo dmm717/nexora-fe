@@ -6,7 +6,7 @@ export class ApiError extends Error {
   code?: string;
   requestId?: string;
   status?: number;
-  
+
   constructor(message: string, code?: string, requestId?: string, status?: number) {
     super(message);
     this.name = 'ApiError';
@@ -70,7 +70,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
   // Kiểm tra cấu hình xem request này có yêu cầu bỏ qua tự động redirect khi gặp 401 không
   const headersObj = fetchParams.options.headers as Record<string, string> | undefined;
   const skipAuthRedirect = headersObj ? headersObj['X-Skip-Auth-Redirect'] === 'true' : false;
-  
+
   const isExcludedFrom401Redirect = fetchParams.url.includes('/auth/') || skipAuthRedirect;
 
   if (response.status === 401 && !isExcludedFrom401Redirect) {
@@ -85,7 +85,7 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
         clearAccessToken();
         if (typeof window !== 'undefined') {
           window.location.href = '/auth';
-          return new Promise(() => {});
+          return new Promise(() => { });
         }
         throw err;
       }
@@ -98,18 +98,18 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
           ...getHeaders()
         }
       });
-      
+
       if (retryRes.ok) {
         if (retryRes.status === 204) return null;
         return await retryRes.json();
       }
-      
+
       if (retryRes.status !== 401) {
         const errorData = await retryRes.json().catch(() => ({}));
         const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
         throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, retryRes.status);
       }
-      
+
       // Nếu retry bị 401, rơi xuống dưới để logout
     } else {
       isRefreshing = true;
@@ -162,9 +162,9 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = '/auth'; // Chuyển hướng về login
       // Return a pending promise so we don't throw and crash the UI during redirect
-      return new Promise(() => {});
+      return new Promise(() => { });
     }
-    
+
     const errorData = await response.json().catch(() => ({}));
     const rawMessage = errorData.error?.message || errorData.message || 'Bạn cần đăng nhập để tiếp tục.';
     throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code || 'UNAUTHENTICATED', errorData.error?.requestId, response.status);
@@ -193,7 +193,7 @@ export const apiClient = {
   post: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
     const { headers: customHeaders, ...restOptions } = customOptions || {};
-    
+
     const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
     if (!headers['Idempotency-Key']) {
       headers['Idempotency-Key'] = crypto.randomUUID();
@@ -213,7 +213,7 @@ export const apiClient = {
   patch: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
     const { headers: customHeaders, ...restOptions } = customOptions || {};
-    
+
     const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
     if (!headers['Idempotency-Key']) {
       headers['Idempotency-Key'] = crypto.randomUUID();
@@ -246,7 +246,7 @@ export const apiClient = {
   put: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
     const { headers: customHeaders, ...restOptions } = customOptions || {};
-    
+
     const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
     if (!headers['Idempotency-Key']) {
       headers['Idempotency-Key'] = crypto.randomUUID();

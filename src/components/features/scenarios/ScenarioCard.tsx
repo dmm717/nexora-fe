@@ -73,7 +73,7 @@ export function ScenarioCard({ scenario }: ScenarioCardProps) {
 
       <div className={styles.cardFooter}>
         <Link
-          href={`/dashboard/scenarios/${scenario.slug}`}
+          href={`/scenarios/${scenario.slug}`}
           className={styles.btnPracticeAction}
           aria-label={`Luyện tình huống: ${scenario.title}`}
         >

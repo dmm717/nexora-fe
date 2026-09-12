@@ -10,7 +10,7 @@ export default function AILayout({ children }: { children: React.ReactNode }) {
       <div className={styles.container}>
         {/* Left Sidebar */}
         <aside className={styles.leftSidebar}>
-          <Link href="/dashboard" className={styles.logoLink}>
+          <Link href="/overview" className={styles.logoLink}>
             <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
           </Link>
           

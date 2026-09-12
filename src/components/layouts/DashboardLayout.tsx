@@ -11,31 +11,31 @@ import { getAvatarColor } from '@/utils/colorUtils';
 const navItems = [
   {
     name: 'Dashboard',
-    href: '/dashboard',
+    href: '/overview',
   },
   {
     name: 'Mục tiêu nghề nghiệp',
-    href: '/dashboard/career-goals',
+    href: '/career-goals',
   },
   {
     name: 'Hồ sơ kỹ năng',
-    href: '/dashboard/skill-profile',
+    href: '/skill-profile',
   },
   {
     name: 'Lộ trình học',
-    href: '/dashboard/learning-path',
+    href: '/learning-path',
   },
   {
     name: 'Phân tích CV',
-    href: '/dashboard/resumes',
+    href: '/resumes',
   },
   {
     name: 'Tình huống & STAR',
-    href: '/dashboard/scenarios',
+    href: '/scenarios',
   },
   {
     name: 'Gói cước',
-    href: '/dashboard/billing',
+    href: '/billing',
   },
   {
     name: 'Trạng thái',
@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={styles.navContent}>
           {/* Logo */}
           <div className={styles.logo}>
-            <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center' }}>
+            <Link href="/overview" style={{ display: 'flex', alignItems: 'center' }}>
               <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
             </Link>
             
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className={styles.rightSection}>
             <button 
               className={styles.actionButton} 
-              onClick={() => router.push('/dashboard/interviews/new')}
+              onClick={() => router.push('/interviews/new')}
             >
               Bắt đầu phỏng vấn
             </button>
@@ -170,7 +170,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className={styles.dropdownItem} 
                     onClick={() => {
                       setDropdownOpen(false);
-                      router.push('/dashboard/account');
+                      router.push('/account');
                     }}
                   >
                     Cài đặt tài khoản
@@ -180,7 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       className={styles.dropdownItem} 
                       onClick={() => {
                         setDropdownOpen(false);
-                        router.push('/dashboard/admin');
+                        router.push('/admin');
                       }}
                     >
                       Quản trị hệ thống
@@ -190,7 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className={styles.dropdownItem} 
                     onClick={() => {
                       setDropdownOpen(false);
-                      router.push('/dashboard/billing');
+                      router.push('/billing');
                     }}
                   >
                     Nâng cấp gói cước

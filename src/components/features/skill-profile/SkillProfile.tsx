@@ -30,7 +30,7 @@ export default function SkillProfile() {
           </p>
         </div>
         <div>
-          <Link href="/dashboard/learning-path" className={styles.btnPrimary}>
+          <Link href="/learning-path" className={styles.btnPrimary}>
             Xem lộ trình học →
           </Link>
         </div>
@@ -71,13 +71,13 @@ export default function SkillProfile() {
                   Hãy upload CV, tạo câu trả lời STAR hoặc tham gia phỏng vấn thử để hệ thống phân tích.
                 </p>
                 <div className={styles.emptyActionLinks}>
-                  <Link href="/dashboard/resumes" className={styles.btnSecondary}>
+                  <Link href="/resumes" className={styles.btnSecondary}>
                     Tải lên CV
                   </Link>
-                  <Link href="/dashboard/scenarios" className={styles.btnSecondary}>
+                  <Link href="/scenarios" className={styles.btnSecondary}>
                     Luyện STAR & Tình huống
                   </Link>
-                  <Link href="/dashboard/interviews/new" className={styles.btnSecondary}>
+                  <Link href="/interviews/new" className={styles.btnSecondary}>
                     Bắt đầu phỏng vấn
                   </Link>
                 </div>

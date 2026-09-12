@@ -24,7 +24,7 @@ interface SharedSidebarProps {
 
 export const SharedSidebar = ({ pathname, userEmail, handleLogout, menuItems }: SharedSidebarProps) => (
   <aside className={styles.leftSidebar}>
-      <Link href="/dashboard" className={styles.logo}>
+      <Link href="/overview" className={styles.logo}>
         <Image src="/logo.png" alt="Nexora" width={128} height={32} style={{ width: 'auto', height: '32px' }} priority />
       </Link>
     
