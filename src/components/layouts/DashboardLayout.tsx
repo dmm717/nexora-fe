@@ -54,6 +54,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? user.billing.entitlement.planCode.charAt(0).toUpperCase() + user.billing.entitlement.planCode.slice(1).toLowerCase() 
     : 'Free';
 
+  const isAdmin = user?.roles?.some(role => role.toLowerCase() === 'admin') || false;
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest(`.${styles.userProfileWrapper}`)) {
@@ -173,6 +175,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   >
                     Cài đặt tài khoản
                   </button>
+                  {isAdmin && (
+                    <button 
+                      className={styles.dropdownItem} 
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        router.push('/dashboard/admin');
+                      }}
+                    >
+                      Quản trị hệ thống
+                    </button>
+                  )}
                   <button 
                     className={styles.dropdownItem} 
                     onClick={() => {
