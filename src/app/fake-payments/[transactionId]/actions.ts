@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import crypto from 'node:crypto';
 
-// eslint-disable-next-line react-doctor/server-auth-actions
+
 export async function handleFakePayment(formData: FormData) {
   const cookieStore = await cookies();
   const hasRefreshToken = cookieStore.has('refreshToken');

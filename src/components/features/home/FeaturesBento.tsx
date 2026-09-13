@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -352,7 +353,7 @@ const FeaturesBento = () => {
                 {/* AI Thought Process UI */}
                 <div className="my-6 relative w-full flex-1 flex items-center justify-center">
                   <div className="w-24 h-24 md:w-32 md:h-32 flex items-center justify-center z-20" style={{ animation: 'pulse-glow 3s infinite' }}>
-                    <img src="/logo.png" alt="Nexora Logo" className="w-full h-full object-contain drop-shadow-xl mix-blend-multiply" />
+                    <Image src="/logo.png" alt="Nexora Logo" width={128} height={128} unoptimized className="w-full h-full object-contain drop-shadow-xl mix-blend-multiply" />
                   </div>
                   
                   {/* Floating code / logic nodes */}

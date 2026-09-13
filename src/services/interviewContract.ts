@@ -828,12 +828,13 @@ export function generateIdempotencyKey(): string {
  */
 export function buildStartInterviewRequest(
   data: {
-    role: string;
-    seniority: string;
+    role?: string;
+    seniority?: string;
     interviewType: string;
     difficulty: string;
     resumeId?: string;
     jobDescriptionId?: string;
+    careerGoalId?: string;
   },
   idempotencyKey?: string
 ) {
@@ -841,12 +842,13 @@ export function buildStartInterviewRequest(
     url: '/interviews',
     method: 'POST' as const,
     data: {
-      role: data.role.trim(),
-      seniority: data.seniority,
+      ...(data.role ? { role: data.role.trim() } : {}),
+      ...(data.seniority ? { seniority: data.seniority } : {}),
       interviewType: data.interviewType,
       difficulty: data.difficulty,
       ...(data.resumeId ? { resumeId: data.resumeId } : {}),
       ...(data.jobDescriptionId ? { jobDescriptionId: data.jobDescriptionId } : {}),
+      ...(data.careerGoalId ? { careerGoalId: data.careerGoalId } : {}),
     },
     headers: {
       'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
@@ -905,6 +907,32 @@ export function buildCompleteInterviewRequest(interviewId: string, idempotencyKe
 }
 
 /**
+ * Builds canonical practice again request specification.
+ */
+export function buildPracticeAgainRequest(
+  interviewId: string,
+  data: {
+    questionId?: string;
+    focus: string;
+    reason: 'repeat_question' | 'rubric_weakness' | 'recommendation' | 'manual';
+  },
+  idempotencyKey?: string
+) {
+  return {
+    url: `/interviews/${interviewId}/practice-again`,
+    method: 'POST' as const,
+    data: {
+      ...(data.questionId ? { questionId: data.questionId } : {}),
+      focus: data.focus,
+      reason: data.reason,
+    },
+    headers: {
+      'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
+    },
+  };
+}
+
+/**
  * Builds canonical report retry request specification.
  */
 export function buildRetryReportRequest(interviewId: string, idempotencyKey?: string) {
@@ -919,12 +947,13 @@ export function buildRetryReportRequest(interviewId: string, idempotencyKey?: st
 }
 
 export interface CanonicalStartPayload {
-  role: string;
-  seniority: string;
+  role?: string;
+  seniority?: string;
   interviewType: string;
   difficulty: string;
   resumeId?: string;
   jobDescriptionId?: string;
+  careerGoalId?: string;
 }
 
 export interface StartIntent {
@@ -937,12 +966,13 @@ export interface StartIntent {
  */
 export function isSameStartPayload(a: CanonicalStartPayload, b: CanonicalStartPayload): boolean {
   return (
-    a.role.trim() === b.role.trim() &&
-    a.seniority === b.seniority &&
+    (a.role || '').trim() === (b.role || '').trim() &&
+    (a.seniority || '') === (b.seniority || '') &&
     a.interviewType === b.interviewType &&
     a.difficulty === b.difficulty &&
     (a.resumeId || undefined) === (b.resumeId || undefined) &&
-    (a.jobDescriptionId || undefined) === (b.jobDescriptionId || undefined)
+    (a.jobDescriptionId || undefined) === (b.jobDescriptionId || undefined) &&
+    (a.careerGoalId || undefined) === (b.careerGoalId || undefined)
   );
 }
 
@@ -954,12 +984,13 @@ export function getOrCreateStartIntent(
   candidatePayload: CanonicalStartPayload
 ): StartIntent {
   const normalizedCandidate: CanonicalStartPayload = {
-    role: candidatePayload.role.trim(),
-    seniority: candidatePayload.seniority,
+    ...(candidatePayload.role ? { role: candidatePayload.role.trim() } : {}),
+    ...(candidatePayload.seniority ? { seniority: candidatePayload.seniority } : {}),
     interviewType: candidatePayload.interviewType,
     difficulty: candidatePayload.difficulty,
     ...(candidatePayload.resumeId ? { resumeId: candidatePayload.resumeId } : {}),
     ...(candidatePayload.jobDescriptionId ? { jobDescriptionId: candidatePayload.jobDescriptionId } : {}),
+    ...(candidatePayload.careerGoalId ? { careerGoalId: candidatePayload.careerGoalId } : {}),
   };
 
   if (existingIntent && isSameStartPayload(existingIntent.payload, normalizedCandidate)) {

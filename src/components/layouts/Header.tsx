@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { gsap } from 'gsap';
@@ -42,7 +43,7 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
         <Link href="/" className="header-anim flex items-center">
           {/* Logo */}
-          <img src="/logo.png" alt="Nexora Logo" className="h-8 md:h-10 w-auto object-contain" />
+          <Image src="/logo.png" alt="Nexora Logo" width={160} height={40} unoptimized className="h-8 md:h-10 w-auto object-contain" />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 header-anim">

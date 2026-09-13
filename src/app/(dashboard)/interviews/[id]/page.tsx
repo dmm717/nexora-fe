@@ -32,8 +32,6 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import {
   mergeFinalTranscript,
   canSubmitAnswerWithSpeech,
-  isSpeechLanguageSelectDisabled,
-  SPEECH_LANGUAGE_OPTIONS,
   SPEECH_UNSUPPORTED_MESSAGE,
 } from '@/hooks/speechRecognitionContract';
 import { formatTime } from '@/utils/formatters';
@@ -95,10 +93,6 @@ export default function InterviewRoomPage() {
     submitting,
     hasContent: answerContent.trim().length > 0,
     speechListening: speech.listening,
-  });
-  const speechLanguageDisabled = isSpeechLanguageSelectDisabled({
-    speechListening: speech.listening,
-    submitting,
   });
 
   // Leaving the answerable state (or submitting) hard-stops recognition so a late
@@ -895,25 +889,6 @@ export default function InterviewRoomPage() {
                         🎤 Bắt đầu nói
                       </button>
                     )}
-
-                    <label htmlFor="speechLanguage" style={{ fontSize: '0.9rem', color: '#475569' }}>
-                      Ngôn ngữ:
-                    </label>
-                    <select
-                      id="speechLanguage"
-                      className={styles.select}
-                      value={speech.language}
-                      onChange={(e) =>
-                        speech.setLanguage(e.target.value === 'en-US' ? 'en-US' : 'vi-VN')
-                      }
-                      disabled={speechLanguageDisabled}
-                    >
-                      {SPEECH_LANGUAGE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
 
                     {speech.listening && (
                       <span style={{ color: '#2563eb', fontWeight: 600 }}>● Đang nghe...</span>

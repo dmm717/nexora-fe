@@ -8,7 +8,7 @@ import { useInterview, useInterviewReport } from '@/hooks/queries/useInterviews'
 import { useAutoTranslate } from '@/hooks/useAutoTranslate';
 import { ClientDate } from '@/components/ui/ClientDate';
 import { ApiError } from '@/services/apiClient';
-import { interviewApi } from '@/services/interviewApi';
+import { interviewApi, type PracticeAgainCommand } from '@/services/interviewApi';
 import {
   isReportProcessingError,
   isReportFailedError,
@@ -17,6 +17,71 @@ import {
   generateIdempotencyKey,
   SCORE_SCALE,
 } from '@/services/interviewContract';
+
+function PracticeAgainButton({
+  interviewId,
+  questionId,
+  reason,
+  focus,
+  label,
+  buttonStyle,
+}: {
+  interviewId: string;
+  questionId?: string;
+  reason: PracticeAgainCommand['reason'];
+  focus: string;
+  label?: string;
+  buttonStyle?: React.CSSProperties;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef(generateIdempotencyKey());
+
+  const handlePractice = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const payload: PracticeAgainCommand = { focus, reason };
+      if (questionId) payload.questionId = questionId;
+
+      const res = await interviewApi.practiceAgain(interviewId, payload, idempotencyKeyRef.current);
+      idempotencyKeyRef.current = generateIdempotencyKey(); // Refresh on success
+      router.push(`/interviews/${res.id}`);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Có lỗi xảy ra khi tạo bài luyện tập mới.');
+      }
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', marginTop: '0.75rem' }}>
+      <button
+        onClick={handlePractice}
+        disabled={loading}
+        className={styles.btnPrimary}
+        style={{
+          padding: '0.5rem 1rem',
+          fontSize: '0.9rem',
+          backgroundColor: '#4f46e5',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          ...buttonStyle,
+        }}
+      >
+        <span>🔄</span>
+        <span>{loading ? 'Đang khởi tạo...' : label || 'Thực hành lại'}</span>
+      </button>
+      {error && <span style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: '0.25rem' }}>{error}</span>}
+    </div>
+  );
+}
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -221,9 +286,18 @@ export default function InterviewReportPage() {
       <div id="google_translate_element"></div>
       <div className={styles.header}>
         <h1 className={styles.title}>Kết quả phỏng vấn</h1>
-        <button className={styles.btnPrimary} onClick={() => router.push('/interviews')}>
-          Trở về Danh sách
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <PracticeAgainButton
+            interviewId={id as string}
+            reason="manual"
+            focus="correctness"
+            label="Luyện tập lại bài phỏng vấn này"
+            buttonStyle={{ backgroundColor: '#10b981', marginTop: 0 }}
+          />
+          <button className={styles.btnPrimary} onClick={() => router.push('/interviews')}>
+            Trở về Danh sách
+          </button>
+        </div>
       </div>
 
       {/* Partial Evaluation Banner */}
@@ -720,6 +794,14 @@ export default function InterviewReportPage() {
                       </div>
                     </div>
                   )}
+
+                  <PracticeAgainButton
+                    interviewId={id as string}
+                    questionId={rev.questionId}
+                    reason="repeat_question"
+                    focus="correctness"
+                    label="Thực hành lại câu này"
+                  />
                 </div>
               );
             })}
@@ -916,6 +998,13 @@ export default function InterviewReportPage() {
                       )}
                     </>
                   )}
+                  <PracticeAgainButton
+                    interviewId={id as string}
+                    questionId={answer.questionId}
+                    reason="repeat_question"
+                    focus="correctness"
+                    label="Thực hành lại câu này"
+                  />
                 </div>
               );
             })}

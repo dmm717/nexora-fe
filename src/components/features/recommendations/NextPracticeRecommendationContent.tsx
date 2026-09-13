@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import styles from './NextPracticeRecommendationCard.module.css';
 import {
   getRecommendationDeepLink,
@@ -9,6 +10,7 @@ import {
 } from '@/services/recommendationsApi';
 import { LearningPathValues } from '@/services/learningPathContract';
 import { ApiError } from '@/services/apiClient';
+import { interviewApi, generateIdempotencyKey, type PracticeAgainCommand } from '@/services/interviewApi';
 
 function getActivityBadgeClass(activityType: string): string {
   switch (activityType) {
@@ -77,6 +79,37 @@ export function NextPracticeRecommendationContent({
   refetch,
   isFetching = false,
 }: NextPracticeRecommendationContentProps) {
+  const router = useRouter();
+  const [isExecutingAction, setIsExecutingAction] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef(generateIdempotencyKey());
+
+  const handleActionClick = async () => {
+    if (!recommendation?.action || isExecutingAction) return;
+
+    const { action } = recommendation;
+    if (action.type === 'practice_again' && action.sourceInterviewId) {
+      setIsExecutingAction(true);
+      setActionError(null);
+      try {
+        const payload: PracticeAgainCommand = {
+          focus: action.focusTopic || 'correctness',
+          reason: action.reason as PracticeAgainCommand['reason'],
+          ...(action.sourceQuestionId ? { questionId: action.sourceQuestionId } : {}),
+        };
+        const res = await interviewApi.practiceAgain(action.sourceInterviewId, payload, idempotencyKeyRef.current);
+        idempotencyKeyRef.current = generateIdempotencyKey();
+        router.push(`/interviews/${res.id}`);
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setActionError(err.message);
+        } else {
+          setActionError('Có lỗi xảy ra khi khởi tạo bài luyện tập.');
+        }
+        setIsExecutingAction(false);
+      }
+    }
+  };
   if (isLoading) {
     return (
       <div className={styles.loadingCard} role="status" aria-live="polite">
@@ -203,15 +236,28 @@ export function NextPracticeRecommendationContent({
         <span className={styles.footerHint}>
           Dựa trên mục tiêu nghề nghiệp và khoảng trống năng lực của bạn
         </span>
-        {deepLink ? (
-          <Link href={deepLink} className={styles.btnAction}>
-            {getActivityActionLabel(recommendation.activityType)}
-          </Link>
-        ) : (
-          <span className={styles.footerHint}>
-            Hoạt động này nằm trong lộ trình học của bạn
-          </span>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+          {recommendation.action?.type === 'practice_again' ? (
+            <button
+              className={styles.btnAction}
+              onClick={handleActionClick}
+              disabled={isExecutingAction}
+            >
+              {isExecutingAction ? 'Đang khởi tạo...' : getActivityActionLabel(recommendation.activityType)}
+            </button>
+          ) : deepLink ? (
+            <Link href={deepLink} className={styles.btnAction}>
+              {getActivityActionLabel(recommendation.activityType)}
+            </Link>
+          ) : (
+            <span className={styles.footerHint}>
+              Hoạt động này nằm trong lộ trình học của bạn
+            </span>
+          )}
+          {actionError && (
+            <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>{actionError}</span>
+          )}
+        </div>
       </div>
     </section>
   );

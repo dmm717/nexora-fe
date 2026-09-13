@@ -11,6 +11,8 @@ import { useForm as useHookForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { formatCurrency } from '../../../utils/formatters';
+import { useResumes, useSetPrimaryResume, useCareerProfile } from '../../../hooks/queries/useCareerProfile';
+import { ClientDate } from '../../ui/ClientDate';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, 'Tên hiển thị phải có ít nhất 2 ký tự').max(120, 'Tên hiển thị quá dài')
@@ -63,6 +65,102 @@ const PasswordForm = () => {
       </div>
       <Button type="submit" isLoading={isSubmitting}>Đổi mật khẩu</Button>
     </form>
+  );
+};
+
+const ResumeManagementSection = () => {
+  const { data: resumes, isLoading, isError } = useResumes();
+  const { data: careerProfile } = useCareerProfile();
+  const { mutate: setPrimaryResume, isPending } = useSetPrimaryResume();
+  const primaryResumeId = careerProfile?.primaryResume?.id;
+
+  if (isLoading) return <div>Đang tải danh sách CV...</div>;
+  if (isError) return <div style={{ color: '#ef4444' }}>Đã xảy ra lỗi khi tải danh sách CV.</div>;
+  if (!resumes || resumes.length === 0) {
+    return <div className={styles.infoLabel}>Bạn chưa tải lên CV nào.</div>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {resumes.map(resume => {
+        const isPrimary = resume.id === primaryResumeId;
+        return (
+          <div
+            key={resume.id}
+            style={{
+              padding: '1rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#f9fafb'
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ fontWeight: 600, color: '#111827' }} title={resume.fileName}>
+                  {resume.fileName}
+                </div>
+                {isPrimary && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#FEF3C7', color: '#D97706', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <svg fill="currentColor" viewBox="0 0 20 20" width="12" height="12" style={{ marginRight: '4px' }}>
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    CV Chính
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#4b5563', marginTop: '0.25rem' }}>
+                {(resume.size / 1024 / 1024).toFixed(2)} MB • <ClientDate date={resume.createdAt} />
+              </div>
+            </div>
+            <div>
+              {isPrimary ? (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => setPrimaryResume(null)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    backgroundColor: '#fff',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
+                    cursor: isPending ? 'not-allowed' : 'pointer',
+                    opacity: isPending ? 0.7 : 1,
+                    color: '#ef4444'
+                  }}
+                >
+                  Bỏ chọn CV chính
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isPending || resume.status !== 'ready'}
+                  onClick={() => setPrimaryResume(resume.id)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    backgroundColor: resume.status === 'ready' ? '#EFF6FF' : '#F3F4F6',
+                    border: '1px solid',
+                    borderColor: resume.status === 'ready' ? '#BFDBFE' : '#E5E7EB',
+                    borderRadius: '4px',
+                    cursor: (isPending || resume.status !== 'ready') ? 'not-allowed' : 'pointer',
+                    opacity: (isPending || resume.status !== 'ready') ? 0.7 : 1,
+                    color: resume.status === 'ready' ? '#2563EB' : '#9CA3AF'
+                  }}
+                >
+                  {resume.status === 'ready' ? 'Đặt làm CV chính' : 'Đang xử lý...'}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 };
 
@@ -320,6 +418,14 @@ const AccountSettings = () => {
           Nếu bạn đăng nhập bằng Google, hãy để trống ô Mật khẩu hiện tại để thiết lập mật khẩu mới.
         </p>
         <PasswordForm />
+      </div>
+
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Quản lý CV (Resumes)</h3>
+        <p className={styles.infoLabel} style={{marginBottom: '1rem'}}>
+          Danh sách các CV bạn đã tải lên. Hãy đặt một CV làm mặc định để hệ thống tự động sử dụng trong các buổi phỏng vấn (Career Goal) tiếp theo.
+        </p>
+        <ResumeManagementSection />
       </div>
 
       <div className={styles.section}>

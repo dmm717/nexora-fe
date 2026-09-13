@@ -17,7 +17,7 @@ import {
   ResumeAnalysisMode,
   formatQuotaError,
 } from '@/services/cvAnalysisContract';
-import { AnalysisHistoryItem, useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
+import { useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useCareerProfile, useSetPrimaryResume } from '@/hooks/queries/useCareerProfile';
@@ -35,21 +35,28 @@ function safeErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-const ResumeHistoryList = ({ history, primaryResumeId, onSetPrimary, isSettingPrimary }: { history: AnalysisHistoryItem[], primaryResumeId?: string, onSetPrimary: (resumeId: string) => void, isSettingPrimary: boolean }) => {
+import { type AnalysisView } from '@/services/cvAnalysisApi';
+
+const ResumeHistoryList = ({ 
+  history, 
+  primaryResumeId, 
+  onSetPrimary, 
+  isSettingPrimary,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore
+}: { 
+  history: AnalysisView[], 
+  primaryResumeId?: string, 
+  onSetPrimary: (resumeId: string) => void, 
+  isSettingPrimary: boolean,
+  hasNextPage: boolean,
+  isFetchingNextPage: boolean,
+  onLoadMore: () => void
+}) => {
   const router = useRouter();
   
-  // Lọc lấy danh sách các resumeId duy nhất để hiển thị, ưu tiên bản phân tích mới nhất cho mỗi CV
-  const uniqueResumes = React.useMemo(() => {
-    const map = new Map<string, AnalysisHistoryItem>();
-    for (const item of history) {
-      if (item.resumeId && !map.has(item.resumeId)) {
-        map.set(item.resumeId, item);
-      }
-    }
-    return Array.from(map.values());
-  }, [history]);
-
-  if (uniqueResumes.length === 0) return null;
+  if (history.length === 0) return null;
 
   return (
     <div className={styles.panel} style={{ marginTop: '2rem' }}>
@@ -60,13 +67,13 @@ const ResumeHistoryList = ({ history, primaryResumeId, onSetPrimary, isSettingPr
         Quản lý CV đã phân tích
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-        {uniqueResumes.map(item => {
+        {history.map(item => {
           const isPrimary = item.resumeId === primaryResumeId;
-          const isBenchmark = item.mode === 'field_benchmark' || (!item.jdTitle && !!item.targetRole);
+          const isBenchmark = item.mode === 'field_benchmark' || (!item.jobDescriptionId && !!item.context?.targetRole);
           const title = isBenchmark
-            ? `${item.targetRole ?? 'Vị trí mục tiêu'}${item.seniority ? ` · ${item.seniority}` : ''}`
-            : (item.jdTitle || 'Phân tích CV');
-          const subtitle = isBenchmark && item.industry ? item.industry : null;
+            ? `${item.context?.targetRole ?? 'Vị trí mục tiêu'}${item.context?.seniority ? ` · ${item.context.seniority}` : ''}`
+            : ('Phân tích CV theo JD');
+          const subtitle = isBenchmark && item.context?.industry ? item.context.industry : null;
           return (
             <div
               key={item.id}
@@ -100,6 +107,8 @@ const ResumeHistoryList = ({ history, primaryResumeId, onSetPrimary, isSettingPr
                 {subtitle && <div style={{ fontSize: '0.8rem', color: '#4b5563', marginTop: '0.15rem' }}>{subtitle}</div>}
                 <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                   <ClientDate date={item.createdAt} />
+                  {item.status === 'failed' && <span style={{color: '#ef4444', marginLeft: 8}}>• Đã có lỗi</span>}
+                  {item.status !== 'completed' && item.status !== 'failed' && <span style={{color: '#eab308', marginLeft: 8}}>• Đang xử lý</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -128,6 +137,26 @@ const ResumeHistoryList = ({ history, primaryResumeId, onSetPrimary, isSettingPr
           );
         })}
       </div>
+      {hasNextPage && (
+        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+          <button
+            onClick={onLoadMore}
+            disabled={isFetchingNextPage}
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#f3f4f6',
+              border: '1px solid #d1d5db',
+              borderRadius: '0.375rem',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              cursor: isFetchingNextPage ? 'not-allowed' : 'pointer',
+              opacity: isFetchingNextPage ? 0.7 : 1,
+            }}
+          >
+            {isFetchingNextPage ? 'Đang tải...' : 'Xem thêm lịch sử'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -334,7 +363,7 @@ export default function ResumesPage() {
   const { data: careerProfile } = useCareerProfile();
   const { mutate: setPrimaryResume, isPending: isSettingPrimary } = useSetPrimaryResume();
 
-  const { history, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory(currentUser?.id);
+  const { history, historyQuery, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory(currentUser?.id);
   const hasResumed = useRef(false);
   const isMounted = useRef(true);
   const uploadGeneration = useRef(0);
@@ -400,16 +429,9 @@ export default function ResumesPage() {
     if (!isMounted.current) return;
     setPendingAnalysis(null);
     if (operation.mode === 'job_targeted') {
-      addHistoryItem({ id: analysis.id, mode: 'job_targeted', jdTitle: operation.jdTitle, resumeId: operation.resumeId });
+      addHistoryItem();
     } else {
-      addHistoryItem({
-        id: analysis.id,
-        mode: 'field_benchmark',
-        targetRole: operation.targetRole,
-        seniority: operation.seniority,
-        industry: operation.industry,
-        resumeId: operation.resumeId
-      });
+      addHistoryItem();
     }
     setStage('ready');
     router.push(`/resume-analyses/${analysis.id}`);
@@ -831,6 +853,9 @@ export default function ResumesPage() {
           primaryResumeId={careerProfile?.primaryResume?.id}
           onSetPrimary={setPrimaryResume}
           isSettingPrimary={isSettingPrimary}
+          hasNextPage={!!historyQuery.hasNextPage}
+          isFetchingNextPage={historyQuery.isFetchingNextPage}
+          onLoadMore={() => historyQuery.fetchNextPage()}
         />
       )}
     </div>

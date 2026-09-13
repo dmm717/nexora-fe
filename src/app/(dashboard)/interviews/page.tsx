@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './Interviews.module.css';
-import { useDashboardSummary } from '@/hooks/queries/useDashboard';
+import { useInterviewsHistory } from '@/hooks/queries/useInterviews';
 import { ClientDate } from '@/components/ui/ClientDate';
 
 function renderStatusBadge(status: string) {
@@ -120,8 +120,8 @@ function renderStatusBadge(status: string) {
 
 export default function InterviewsIndexPage() {
   const router = useRouter();
-  const { data, isLoading: loading } = useDashboardSummary();
-  const interviews = data?.interviews || [];
+  const { data, isLoading: loading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInterviewsHistory(20);
+  const interviews = data?.pages.flatMap(page => page.items) || [];
 
   return (
     <div className={styles.container}>
@@ -147,28 +147,51 @@ export default function InterviewsIndexPage() {
               Bạn chưa có bài phỏng vấn nào. Hãy bắt đầu ngay!
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {interviews.map(inv => {
-                const targetUrl = inv.status === 'completed'
-                  ? `/interviews/${inv.id}/report`
-                  : `/interviews/${inv.id}`;
+            <>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {interviews.map(inv => {
+                  const targetUrl = inv.status === 'completed'
+                    ? `/interviews/${inv.id}/report`
+                    : `/interviews/${inv.id}`;
 
-                return (
-                  <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '1.1rem', color: '#111827' }}>{inv.role}</div>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={inv.updatedAt} /></div>
+                  return (
+                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '1.1rem', color: '#111827' }}>{inv.role || 'Phỏng vấn'}</div>
+                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={inv.updatedAt || inv.createdAt} /></div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                        {renderStatusBadge(inv.status)}
+                        <Link href={targetUrl} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>
+                          {inv.status === 'completed' ? 'Xem báo cáo →' : 'Xem chi tiết →'}
+                        </Link>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                      {renderStatusBadge(inv.status)}
-                      <Link href={targetUrl} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>
-                        {inv.status === 'completed' ? 'Xem báo cáo →' : 'Xem chi tiết →'}
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              
+              {hasNextPage && (
+                <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    style={{
+                      padding: '0.5rem 1.5rem',
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      cursor: isFetchingNextPage ? 'not-allowed' : 'pointer',
+                      opacity: isFetchingNextPage ? 0.7 : 1,
+                    }}
+                  >
+                    {isFetchingNextPage ? 'Đang tải...' : 'Xem thêm lịch sử'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

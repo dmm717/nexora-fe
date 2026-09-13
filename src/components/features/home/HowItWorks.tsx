@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -100,7 +101,7 @@ const HowItWorks = () => {
             {/* Step 01 Floating 3D CV Mockup */}
             <div className="relative w-[210px] bg-white rounded-2xl border border-slate-200 shadow-[0_15px_35px_rgba(0,0,0,0.07)] p-3 shrink-0 transform lg:rotate-2 hover:rotate-0 transition-transform duration-300">
               <div className="flex gap-2 mb-2 pb-2 border-b border-slate-100">
-                <img src="/images/mentor1.png" alt="CV Avatar" className="w-8 h-8 rounded-full object-cover" />
+                <Image src="/images/mentor1.png" alt="CV Avatar" width={32} height={32} unoptimized className="w-8 h-8 rounded-full object-cover" />
                 <div className="space-y-1 flex-1">
                   <div className="h-2 w-16 bg-slate-800 rounded"></div>
                   <div className="h-1.5 w-10 bg-slate-300 rounded"></div>
@@ -186,13 +187,13 @@ const HowItWorks = () => {
                 <div className="grid grid-cols-2 gap-2">
                   {/* AI Interviewer */}
                   <div className="bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative aspect-[4/3]">
-                    <img src="/images/interviewer.png" alt="AI Interviewer" className="w-full h-full object-cover" />
+                    <Image src="/images/interviewer.png" alt="AI Interviewer" width={240} height={180} unoptimized className="w-full h-full object-cover" />
                     <span className="absolute bottom-1 left-1 text-[7px] font-bold text-slate-700 bg-white/90 px-1 py-0.5 rounded">AI Interviewer</span>
                   </div>
 
                   {/* Candidate Video Feed with ON AIR */}
                   <div className="bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative aspect-[4/3]">
-                    <img src="/images/candidate.png" alt="Candidate" className="w-full h-full object-cover" />
+                    <Image src="/images/candidate.png" alt="Candidate" width={240} height={180} unoptimized className="w-full h-full object-cover" />
                     <span className="absolute top-1 right-1 text-[6px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
                       ● ON AIR
                     </span>
@@ -205,7 +206,7 @@ const HowItWorks = () => {
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[9px] font-bold text-gray-800">Sentiment</span>
                   {/* Peeking mascot */}
-                  <img src="/images/mascot.png" alt="Mascot" className="w-6 h-6 object-contain" />
+                  <Image src="/images/mascot.png" alt="Mascot" width={24} height={24} unoptimized className="w-6 h-6 object-contain" />
                 </div>
                 {/* Soundwave Bars */}
                 <div className="h-7 flex items-center justify-center gap-0.5 my-1">
@@ -330,7 +331,7 @@ const HowItWorks = () => {
 
                 {/* Purple Mascot Peeking from Bottom Right of Step 3 */}
                 <div className="absolute -right-4 -bottom-4 w-14 h-14 z-30 pointer-events-none">
-                  <img src="/images/mascot.png" alt="Mascot" className="w-full h-full object-contain drop-shadow-md" />
+                  <Image src="/images/mascot.png" alt="Mascot" width={56} height={56} unoptimized className="w-full h-full object-contain drop-shadow-md" />
                 </div>
               </div>
 

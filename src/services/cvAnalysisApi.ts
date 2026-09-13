@@ -1,4 +1,4 @@
-import { ApiError, apiClient } from './apiClient';
+import { apiClient, ApiError, PaginatedResponse } from './apiClient';
 import type {
   ResumeAnalysisMode,
   CreateJobTargetedAnalysisRequest,
@@ -282,5 +282,20 @@ export const cvAnalysisApi = {
   getAnalysis: async (id: string, options?: RequestOptions): Promise<AnalysisView> => {
     const response = await apiClient.get(`/resume-analyses/${id}`, options);
     return responseData<AnalysisView>(response);
+  },
+
+  getResumeAnalyses: async (page: number = 1, pageSize: number = 20, options?: RequestOptions): Promise<PaginatedResponse<AnalysisView>> => {
+    const response = await apiClient.get(`/resume-analyses?page=${page}&pageSize=${pageSize}`, options);
+    return responseData<PaginatedResponse<AnalysisView>>(response);
+  },
+
+  getJobDescriptions: async (page: number = 1, pageSize: number = 20, options?: RequestOptions): Promise<PaginatedResponse<JdView>> => {
+    const response = await apiClient.get(`/job-descriptions?page=${page}&pageSize=${pageSize}`, options);
+    return responseData<PaginatedResponse<JdView>>(response);
+  },
+
+  getJobDescriptionDetails: async (id: string, options?: RequestOptions): Promise<JdView> => {
+    const response = await apiClient.get(`/job-descriptions/${id}`, options);
+    return responseData<JdView>(response);
   }
 };

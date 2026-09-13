@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { interviewApi } from '@/services/interviewApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
@@ -127,4 +127,19 @@ export const useInterviewReport = (
       reportPollingDecision.reason === 'bound_exhausted',
     resetReportPollingAttempts: reportPollingTracker.reset,
   };
+};
+
+export const useInterviewsHistory = (pageSize: number = 20) => {
+  const { authReady, isAuthenticated } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: ['interviewsHistory', pageSize],
+    queryFn: ({ pageParam = 1 }) => interviewApi.getInterviews(pageParam as number, pageSize),
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.hasNextPage ? allPages.length + 1 : undefined;
+    },
+    initialPageParam: 1,
+    enabled: authReady && isAuthenticated,
+    staleTime: 30000,
+  });
 };

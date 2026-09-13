@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { gsap } from 'gsap';
 import Link from 'next/link';
 
@@ -117,7 +118,7 @@ export default function HeroSection() {
                 <div className="grid grid-cols-[1fr_1.2fr] gap-4">
                   {/* Left: Video */}
                   <div className="relative h-[240px] rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                    <img src="/images/video_lady_avatar.png" alt="AI Interviewer" className="w-full h-full object-cover" />
+                    <Image src="/images/video_lady_avatar.png" alt="AI Interviewer" width={320} height={240} unoptimized className="w-full h-full object-cover" />
                     <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] text-white font-medium flex items-center gap-2">
                       Hoàng Yến - HR Tech <span className="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
                     </div>
@@ -172,7 +173,7 @@ export default function HeroSection() {
                 {/* Left Dark Sidebar */}
                 <div className="w-[35%] bg-[#2d3748] p-4 text-white flex flex-col relative z-0 rounded-l-2xl overflow-hidden">
                   <div className="w-14 h-14 rounded-full bg-gray-500 overflow-hidden mx-auto mb-3 border-2 border-[#4a5568]">
-                    <img src="https://i.pravatar.cc/150?img=11" alt="Avatar" className="w-full h-full object-cover" />
+                    <Image src="https://i.pravatar.cc/150?img=11" alt="Avatar" width={56} height={56} unoptimized className="w-full h-full object-cover" />
                   </div>
 
                   {/* Contact Info */}
@@ -372,7 +373,7 @@ export default function HeroSection() {
                         <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
                       </div>
                       <div className="w-7 h-7 rounded-full bg-gray-300 overflow-hidden border border-gray-200">
-                        <img src="https://i.pravatar.cc/150?img=12" alt="User" />
+                        <Image src="https://i.pravatar.cc/150?img=12" alt="User" width={28} height={28} unoptimized />
                       </div>
                     </div>
                   </div>

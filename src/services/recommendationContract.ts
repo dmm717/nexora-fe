@@ -18,6 +18,14 @@ export interface NextPracticeRecommendationResponse {
   resourceId: string | null;
   estimatedMinutes: number;
   priority: number;
+  action?: {
+    type: string;
+    reason: string;
+    sourceInterviewId?: string;
+    sourceQuestionId?: string;
+    focusTopic?: string;
+    suggestedInterviewType?: string;
+  } | null;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -58,6 +66,16 @@ export function normalizeNextPracticeRecommendationResponse(
     resourceId: asNullableString(raw.resourceId),
     estimatedMinutes: asNumber(raw.estimatedMinutes, 0),
     priority: asNumber(raw.priority, 1),
+    action: isRecord(raw.action)
+      ? {
+          type: asString(raw.action.type),
+          reason: asString(raw.action.reason),
+          sourceInterviewId: asNullableString(raw.action.sourceInterviewId) || undefined,
+          sourceQuestionId: asNullableString(raw.action.sourceQuestionId) || undefined,
+          focusTopic: asNullableString(raw.action.focusTopic) || undefined,
+          suggestedInterviewType: asNullableString(raw.action.suggestedInterviewType) || undefined,
+        }
+      : null,
   };
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -86,9 +87,12 @@ const Mentors = () => {
             <div key={index} className="mentor-card-premium p-2 bg-white rounded-[2.5rem] ring-1 ring-black/[0.04] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.03)] group cursor-pointer hover:-translate-y-2 transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
               <div className="bg-gray-50/50 rounded-[calc(2.5rem-0.5rem)] p-6 md:p-8 text-center flex flex-col items-center">
                 <div className="relative w-32 h-32 rounded-full overflow-hidden mb-8 ring-4 ring-white shadow-xl">
-                  <img 
+                  <Image 
                     src={mentor.image} 
                     alt={mentor.name} 
+                    width={128}
+                    height={128}
+                    unoptimized
                     className="object-cover w-full h-full filter grayscale group-hover:grayscale-0 scale-100 group-hover:scale-110 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]"
                   />
                 </div>

@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import type { ResumeView } from './cvAnalysisApi';
 
 export interface CareerProfileResponse {
   profile: {
@@ -60,7 +61,11 @@ export const profileApi = {
     const response = await apiClient.get('/me/career-profile') as { data: CareerProfileResponse };
     return response.data;
   },
-  setPrimaryResume: async (resumeId: string) => {
+  getResumes: async () => {
+    const response = await apiClient.get('/resumes') as { data: ResumeView[] };
+    return response.data;
+  },
+  setPrimaryResume: async (resumeId: string | null) => {
     const response = await apiClient.put('/me/primary-resume', { resumeId }) as { data: unknown };
     return response.data;
   }
