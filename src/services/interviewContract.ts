@@ -117,6 +117,30 @@ export interface InterviewView {
   updatedAt: string;
 }
 
+/**
+ * Lightweight summary returned by `GET /interviews` (history list).
+ * Matches BE's `InterviewHistoryItemResponse` exactly.
+ */
+export interface InterviewHistoryItem {
+  id: string;
+  status: InterviewLifecycleStatus | string;
+  role: string;
+  seniority: string;
+  interviewType: string;
+  difficulty: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+  answeredQuestionCount: number;
+  issuedQuestionCount: number;
+  reportAvailable: boolean;
+  careerGoalId?: string | null;
+  sourceInterviewId?: string | null;
+  sourceQuestionId?: string | null;
+  practiceReason?: string | null;
+  focusTopic?: string | null;
+}
+
 export interface AnswerResult {
   answer: AnswerView;
   nextQuestion?: QuestionView | null;

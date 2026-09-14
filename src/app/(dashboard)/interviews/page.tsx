@@ -150,20 +150,53 @@ export default function InterviewsIndexPage() {
             <>
               <div style={{ display: 'grid', gap: '1rem' }}>
                 {interviews.map(inv => {
-                  const targetUrl = inv.status === 'completed'
+                  const targetUrl = inv.reportAvailable
                     ? `/interviews/${inv.id}/report`
                     : `/interviews/${inv.id}`;
 
+                  const interviewTypeLabel: Record<string, string> = {
+                    technical: 'Kỹ thuật',
+                    behavioral: 'Hành vi',
+                    mixed: 'Tổng hợp',
+                  };
+                  const typeText = interviewTypeLabel[inv.interviewType] || inv.interviewType;
+
+                  const practiceReasonLabel: Record<string, string> = {
+                    repeat_question: 'Ôn lại câu hỏi',
+                    rubric_weakness: 'Cải thiện điểm yếu',
+                    recommendation: 'Theo đề xuất',
+                    manual: 'Luyện tập lại',
+                  };
+
                   return (
-                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '1.1rem', color: '#111827' }}>{inv.role || 'Phỏng vấn'}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={inv.updatedAt || inv.createdAt} /></div>
+                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem 1.25rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, fontSize: '1.05rem', color: '#111827' }}>{inv.role || 'Phỏng vấn'}</span>
+                          {inv.seniority && (
+                            <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 500 }}>· {inv.seniority}</span>
+                          )}
+                          <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
+                            {typeText}
+                          </span>
+                          {inv.practiceReason && (
+                            <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#fef3c7', color: '#92400e' }}>
+                              🔁 {practiceReasonLabel[inv.practiceReason] || inv.practiceReason}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.35rem', fontSize: '0.825rem', color: '#6b7280' }}>
+                          <ClientDate date={inv.updatedAt || inv.createdAt} />
+                          <span style={{ color: '#d1d5db' }}>|</span>
+                          <span>
+                            {inv.answeredQuestionCount}/{inv.issuedQuestionCount} câu
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0, marginLeft: '1rem' }}>
                         {renderStatusBadge(inv.status)}
-                        <Link href={targetUrl} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>
-                          {inv.status === 'completed' ? 'Xem báo cáo →' : 'Xem chi tiết →'}
+                        <Link href={targetUrl} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          {inv.reportAvailable ? 'Xem báo cáo →' : 'Xem chi tiết →'}
                         </Link>
                       </div>
                     </div>

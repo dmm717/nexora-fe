@@ -35,7 +35,7 @@ function safeErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-import { type AnalysisView } from '@/services/cvAnalysisApi';
+import { type ResumeAnalysisHistoryItem } from '@/services/cvAnalysisApi';
 
 const ResumeHistoryList = ({ 
   history, 
@@ -46,7 +46,7 @@ const ResumeHistoryList = ({
   isFetchingNextPage,
   onLoadMore
 }: { 
-  history: AnalysisView[], 
+  history: ResumeAnalysisHistoryItem[], 
   primaryResumeId?: string, 
   onSetPrimary: (resumeId: string) => void, 
   isSettingPrimary: boolean,
@@ -69,7 +69,7 @@ const ResumeHistoryList = ({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
         {history.map(item => {
           const isPrimary = item.resumeId === primaryResumeId;
-          const isBenchmark = item.mode === 'field_benchmark' || (!item.jobDescriptionId && !!item.context?.targetRole);
+          const isBenchmark = item.mode === 'field_benchmark';
           const title = isBenchmark
             ? `${item.context?.targetRole ?? 'Vị trí mục tiêu'}${item.context?.seniority ? ` · ${item.context.seniority}` : ''}`
             : ('Phân tích CV theo JD');

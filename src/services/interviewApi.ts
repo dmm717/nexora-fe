@@ -8,6 +8,7 @@ import {
   buildPracticeAgainRequest,
   normalizeReportView,
   type InterviewView,
+  type InterviewHistoryItem,
   type AnswerResult,
   type ReportView,
 } from './interviewContract';
@@ -45,8 +46,8 @@ export const interviewApi = {
     return response.data;
   },
 
-  getInterviews: async (page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<InterviewView>> => {
-    const response = (await apiClient.get(`/interviews?page=${page}&pageSize=${pageSize}`)) as { data: PaginatedResponse<InterviewView> };
+  getInterviews: async (page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<InterviewHistoryItem>> => {
+    const response = (await apiClient.get(`/interviews?page=${page}&pageSize=${pageSize}`)) as { data: PaginatedResponse<InterviewHistoryItem> };
     return response.data;
   },
 

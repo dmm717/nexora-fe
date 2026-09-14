@@ -126,6 +126,21 @@ export interface AnalysisView {
   updatedAt?: string;
 }
 
+/**
+ * Lightweight summary returned by `GET /resume-analyses` (history list).
+ * Matches BE's `ResumeAnalysisHistoryItemResponse` exactly.
+ */
+export interface ResumeAnalysisHistoryItem {
+  id: string;
+  resumeId: string;
+  mode: string;
+  status: string;
+  createdAt: string;
+  completedAt?: string | null;
+  context?: ResumeAnalysisContextView | null;
+  errorCode?: string | null;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 const PDF_MIME = 'application/pdf';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -284,14 +299,14 @@ export const cvAnalysisApi = {
     return responseData<AnalysisView>(response);
   },
 
-  getResumeAnalyses: async (page: number = 1, pageSize: number = 20, options?: RequestOptions): Promise<PaginatedResponse<AnalysisView>> => {
+  getResumeAnalyses: async (page: number = 1, pageSize: number = 20, options?: RequestOptions): Promise<PaginatedResponse<ResumeAnalysisHistoryItem>> => {
     const response = await apiClient.get(`/resume-analyses?page=${page}&pageSize=${pageSize}`, options);
-    return responseData<PaginatedResponse<AnalysisView>>(response);
+    return responseData<PaginatedResponse<ResumeAnalysisHistoryItem>>(response);
   },
 
-  getJobDescriptions: async (page: number = 1, pageSize: number = 20, options?: RequestOptions): Promise<PaginatedResponse<JdView>> => {
-    const response = await apiClient.get(`/job-descriptions?page=${page}&pageSize=${pageSize}`, options);
-    return responseData<PaginatedResponse<JdView>>(response);
+  getJobDescriptions: async (options?: RequestOptions): Promise<JdView[]> => {
+    const response = await apiClient.get('/job-descriptions', options);
+    return responseData<JdView[]>(response);
   },
 
   getJobDescriptionDetails: async (id: string, options?: RequestOptions): Promise<JdView> => {
