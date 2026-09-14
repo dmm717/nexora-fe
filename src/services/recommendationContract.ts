@@ -107,10 +107,9 @@ export function getRecommendationDeepLink(
     case RecommendationActivityValues.Interview:
       return '/interviews/new';
     case RecommendationActivityValues.ResumeImprovement:
-      return '/resumes';
+      return '/resume-analyses';
     case RecommendationActivityValues.ExternalLearning:
     default:
       return null;
   }
 }
-

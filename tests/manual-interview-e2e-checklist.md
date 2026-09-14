@@ -13,25 +13,20 @@ The submitted value is always the final text in the answer textarea.
 5. Confirm Q2 appears as the current question and the timer reset.
 
 ## CASE 2 — Vietnamese voice
-1. Chrome. In the answer box, keep language `Tiếng Việt` (vi-VN).
+1. Chrome. On the active interview screen, locate the answer box.
 2. Click `🎤 Bắt đầu nói`. Allow microphone permission.
 3. Speak. Confirm `● Đang nghe...` and the `Bản nháp giọng nói` preview update (interim text).
 4. Confirm `Gửi câu trả lời` is DISABLED while `● Đang nghe...` is shown, and the hint `Dừng ghi âm trước khi gửi câu trả lời.` appears.
 5. Click `⏹ Dừng ghi âm`.
-6. Confirm any pending recognition result still appends to the textarea (final text arrives after Stop), the status returns to idle, the language select becomes enabled again, and Submit becomes enabled. Fix any recognition error manually.
+6. Confirm any pending recognition result still appends to the textarea (final text arrives after Stop), the status returns to idle, and Submit becomes enabled. Fix any recognition error manually.
 7. Submit. In the network tab confirm `POST /api/v1/interviews/{id}/answers` body contains only `questionId`, `content` (the final edited text), and optional `durationSeconds`. There must be no audio/blob field.
 
-## CASE 3 — English voice
-1. Switch the language select to `English` (en-US).
-2. Repeat CASE 2 steps 2–6 speaking English.
-3. Confirm the same text-only submission payload.
-
-## CASE 4 — Unsupported / denied microphone
+## CASE 3 — Unsupported / denied microphone
 1. Deny microphone permission (or use a browser without Web Speech support).
 2. Denied: confirm a clear message "Không thể truy cập microphone..." and that typing/submitting still works.
 3. Unsupported: confirm mic controls are hidden and the message "Trình duyệt hiện tại chưa hỗ trợ nhập giọng nói..." appears, while the textarea and submit remain fully functional.
 
-## CASE 5 — Free entitlement boundary (A7)
+## CASE 4 — Free entitlement boundary (A7)
 1. Answer Q1, Q2, Q3.
 2. After Q3 confirm: no Q4 is generated client-side; the upgrade-required card appears ("Bạn đã đạt giới hạn câu hỏi của gói hiện tại").
 3. Confirm `continuation.state = upgrade_required`, `canFinishNow = true`, `canUpgradeAndContinue = true` in the API response.

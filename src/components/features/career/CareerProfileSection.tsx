@@ -53,8 +53,8 @@ export const CareerProfileSection = () => {
               </Link>
             )}
             {!onboarding.hasPrimaryResume && (
-              <Link href="/resumes" style={{ padding: '0.5rem 1rem', backgroundColor: 'white', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
-                Chọn CV chính
+              <Link href="/resume-analyses" style={{ padding: '0.5rem 1rem', backgroundColor: 'white', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
+                Phân tích lại CV
               </Link>
             )}
           </div>

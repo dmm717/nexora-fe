@@ -29,7 +29,7 @@ export default function NewInterviewPage() {
   const [form, setForm] = useState<StartInterviewCommand>({
     role: '',
     seniority: 'Junior',
-    interviewType: 'Technical',
+    interviewType: 'technical',
     difficulty: 'Medium',
     careerGoalId: '',
   });
@@ -231,10 +231,13 @@ export default function NewInterviewPage() {
               onChange={(e) => setForm({ ...form, interviewType: e.target.value })}
               disabled={loading}
             >
-              <option value="Technical">Technical (Kỹ thuật &amp; Chuyên môn)</option>
-              <option value="Behavioral">Behavioral (Hành vi &amp; Phương pháp STAR)</option>
-              <option value="System Design">System Design (Thiết kế hệ thống)</option>
-              <option value="General">General (Tổng quan &amp; Định hướng)</option>
+              <option value="technical">Technical (Kỹ thuật &amp; Chuyên môn)</option>
+              <option value="behavioral">Behavioral (Hành vi &amp; Phương pháp STAR)</option>
+              <option value="scenario">Scenario (Tình huống thực tế)</option>
+              <option value="cv_targeted">CV Targeted (Theo CV của bạn)</option>
+              <option value="jd_targeted">JD Targeted (Theo Job Description)</option>
+              <option value="motivation_role_fit">Motivation &amp; Role Fit (Động lực &amp; Phù hợp)</option>
+              <option value="self_introduction">Self Introduction (Giới thiệu bản thân)</option>
             </select>
           </div>
 

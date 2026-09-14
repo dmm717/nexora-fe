@@ -71,7 +71,7 @@ export default function SkillProfile() {
                   Hãy upload CV, tạo câu trả lời STAR hoặc tham gia phỏng vấn thử để hệ thống phân tích.
                 </p>
                 <div className={styles.emptyActionLinks}>
-                  <Link href="/resumes" className={styles.btnSecondary}>
+                  <Link href="/resume-analyses" className={styles.btnSecondary}>
                     Tải lên CV
                   </Link>
                   <Link href="/scenarios" className={styles.btnSecondary}>

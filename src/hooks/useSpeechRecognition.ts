@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   collectFinalTranscript,
-  DEFAULT_SPEECH_LANGUAGE,
-  mapSpeechLanguage,
   previewTranscript,
   resolveSpeechRecognitionConstructor,
   shouldSurfaceSpeechError,
@@ -13,7 +11,6 @@ import {
   emptySpeechTranscript,
   unsupportedSpeechError,
   type SpeechErrorUi,
-  type SpeechLanguage,
   type SpeechRecognitionErrorEventLike,
   type SpeechRecognitionEventLike,
   type SpeechRecognitionLike,
@@ -35,8 +32,6 @@ export interface UseSpeechRecognitionResult {
   finalTranscript: string;
   preview: string;
   error: SpeechErrorUi | null;
-  language: SpeechLanguage;
-  setLanguage: (language: SpeechLanguage) => void;
   start: () => void;
   stop: () => void;
   reset: () => void;
@@ -65,14 +60,12 @@ export function useSpeechRecognition(
   const [interimTranscript, setInterimTranscript] = useState('');
   const [finalTranscript, setFinalTranscript] = useState('');
   const [error, setError] = useState<SpeechErrorUi | null>(null);
-  const [language, setLanguageState] = useState<SpeechLanguage>(DEFAULT_SPEECH_LANGUAGE);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
   const processedFinalIndexesRef = useRef<Set<number>>(new Set());
   const listeningRef = useRef(false);
   const explicitStopRef = useRef(false);
-  const languageRef = useRef<SpeechLanguage>(DEFAULT_SPEECH_LANGUAGE);
   const onFinalSegmentRef = useRef(options.onFinalSegment);
 
   // Keep the latest callback without re-creating recognizers mid-session.
@@ -145,7 +138,7 @@ export function useSpeechRecognition(
       return;
     }
 
-    // Fresh session: clear transcript state but keep the chosen language.
+    // Fresh session: clear transcript state.
     finalTranscriptRef.current = '';
     processedFinalIndexesRef.current = new Set();
     setFinalTranscript('');
@@ -161,7 +154,7 @@ export function useSpeechRecognition(
       return;
     }
 
-    recognition.lang = mapSpeechLanguage(languageRef.current);
+    recognition.lang = 'vi-VN';
     recognition.continuous = true;
     recognition.interimResults = true;
 
@@ -227,16 +220,6 @@ export function useSpeechRecognition(
     }
   }, [teardown]);
 
-  const setLanguage = useCallback((next: SpeechLanguage) => {
-    const mapped = mapSpeechLanguage(next);
-    languageRef.current = mapped;
-    setLanguageState(mapped);
-    const recognition = recognitionRef.current;
-    if (recognition) {
-      recognition.lang = mapped;
-    }
-  }, []);
-
   return {
     supported,
     listening,
@@ -244,8 +227,6 @@ export function useSpeechRecognition(
     finalTranscript,
     preview: previewTranscript(finalTranscript, interimTranscript),
     error,
-    language,
-    setLanguage,
     start,
     stop,
     reset,

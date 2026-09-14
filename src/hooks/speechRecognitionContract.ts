@@ -7,19 +7,7 @@
  * editable text that is submitted as the normal answer `content`.
  */
 
-export type SpeechLanguage = 'vi-VN' | 'en-US';
-
-export interface SpeechLanguageOption {
-  label: string;
-  value: SpeechLanguage;
-}
-
-export const DEFAULT_SPEECH_LANGUAGE: SpeechLanguage = 'vi-VN';
-
-export const SPEECH_LANGUAGE_OPTIONS: readonly SpeechLanguageOption[] = [
-  { label: 'Tiếng Việt', value: 'vi-VN' },
-  { label: 'English', value: 'en-US' },
-];
+// No language configuration exported. Hardcoded to 'vi-VN' internally where needed.
 
 // --- Minimal structural Web Speech API types (not present in TS lib.dom) ---
 
@@ -116,15 +104,7 @@ export function resolveSpeechRecognitionConstructor(
   return null;
 }
 
-/**
- * Normalizes a language code to a supported recognition locale.
- * Anything unrecognized falls back to the Vietnamese default.
- */
-export function mapSpeechLanguage(code: unknown): SpeechLanguage {
-  return SPEECH_LANGUAGE_OPTIONS.some((option) => option.value === code)
-    ? (code as SpeechLanguage)
-    : DEFAULT_SPEECH_LANGUAGE;
-}
+// mapSpeechLanguage removed
 
 /**
  * Appends a freshly finalized speech segment to the current (editable) text.

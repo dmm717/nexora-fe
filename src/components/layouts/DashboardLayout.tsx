@@ -26,8 +26,12 @@ const navItems = [
     href: '/learning-path',
   },
   {
-    name: 'Phân tích CV',
+    name: 'Quản lý CV',
     href: '/resumes',
+  },
+  {
+    name: 'Phân tích CV',
+    href: '/resume-analyses',
   },
   {
     name: 'Tình huống & STAR',

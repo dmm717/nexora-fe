@@ -158,8 +158,8 @@ export default function ResumeAnalysisDetailsPage() {
           <h1 className={styles.title}>{pageTitle}</h1>
           <p className={styles.subtitle}>{pageSubtitle}</p>
         </div>
-        <button className={styles.backButton} onClick={() => router.push('/resumes')}>
-          &larr; Tạo phân tích mới
+        <button className={styles.backButton} onClick={() => router.push('/resume-analyses')}>
+          &larr; Quay lại danh sách
         </button>
       </header>
 

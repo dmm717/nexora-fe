@@ -157,7 +157,11 @@ export default function InterviewsIndexPage() {
                   const interviewTypeLabel: Record<string, string> = {
                     technical: 'Kỹ thuật',
                     behavioral: 'Hành vi',
-                    mixed: 'Tổng hợp',
+                    scenario: 'Tình huống',
+                    cv_targeted: 'Theo CV',
+                    jd_targeted: 'Theo JD',
+                    motivation_role_fit: 'Động lực',
+                    self_introduction: 'Giới thiệu',
                   };
                   const typeText = interviewTypeLabel[inv.interviewType] || inv.interviewType;
 
