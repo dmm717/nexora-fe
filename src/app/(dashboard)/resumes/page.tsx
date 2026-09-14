@@ -112,7 +112,7 @@ export default function ResumesManagementPage() {
                       <button
                         type="button"
                         disabled={isSettingPrimary}
-                        onClick={() => setPrimaryResume(null as any)}
+                        onClick={() => setPrimaryResume(null as unknown as string)}
                         style={{
                           padding: '0.5rem 1rem',
                           fontSize: '0.875rem',

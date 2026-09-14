@@ -39,7 +39,9 @@ export const CareerProfileSection = () => {
           <div>
             <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e3a8a', fontSize: '1.125rem' }}>Hoàn thiện Hồ sơ Sự nghiệp</h3>
             <p style={{ margin: 0, color: '#3b82f6', fontSize: '0.875rem' }}>
-              {!onboarding.hasPrimaryResume && !onboarding.hasActiveCareerGoal
+              {!onboarding.hasDisplayName || !onboarding.hasYearsOfExperience
+                ? 'Bạn cần cập nhật Tên hiển thị và Số năm kinh nghiệm trong cài đặt tài khoản.'
+                : !onboarding.hasPrimaryResume && !onboarding.hasActiveCareerGoal
                 ? 'Bạn cần thiết lập Mục tiêu nghề nghiệp và chọn CV chính để chúng tôi gợi ý lộ trình tốt nhất.'
                 : !onboarding.hasPrimaryResume
                 ? 'Vui lòng chọn 1 CV làm CV chính.'
@@ -47,14 +49,19 @@ export const CareerProfileSection = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {!onboarding.hasActiveCareerGoal && (
+            {(!onboarding.hasDisplayName || !onboarding.hasYearsOfExperience) && (
+              <Link href="/settings" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
+                Cập nhật Profile
+              </Link>
+            )}
+            {onboarding.hasDisplayName && onboarding.hasYearsOfExperience && !onboarding.hasActiveCareerGoal && (
               <Link href="/career-goals" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                 Thiết lập Mục tiêu
               </Link>
             )}
-            {!onboarding.hasPrimaryResume && (
+            {onboarding.hasDisplayName && onboarding.hasYearsOfExperience && !onboarding.hasPrimaryResume && (
               <Link href="/resume-analyses" style={{ padding: '0.5rem 1rem', backgroundColor: 'white', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
-                Phân tích lại CV
+                Phân tích CV
               </Link>
             )}
           </div>
@@ -133,6 +140,46 @@ export const CareerProfileSection = () => {
                 {!activeCareerGoal ? 'Vui lòng thiết lập Mục tiêu nghề nghiệp để tạo lộ trình.' : 'Chưa có lộ trình học tập.'}
               </p>
             )}
+          </div>
+          {/* Career Goal Info */}
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#111827' }}>Mục tiêu nghề nghiệp</h3>
+            {activeCareerGoal ? (
+              <div style={{ fontSize: '0.875rem', color: '#4b5563', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 500, color: '#6b7280' }}>Vị trí:</span>
+                  <span style={{ color: '#111827', fontWeight: 500, textAlign: 'right' }}>{activeCareerGoal.targetRole}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 500, color: '#6b7280' }}>Cấp bậc:</span>
+                  <span style={{ color: '#111827', fontWeight: 500, textAlign: 'right' }}>{activeCareerGoal.seniority}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 500, color: '#6b7280' }}>Ngành nghề:</span>
+                  <span style={{ color: '#111827', fontWeight: 500, textAlign: 'right' }}>{activeCareerGoal.industry || <span style={{color: '#9ca3af', fontStyle: 'italic', fontWeight: 'normal'}}>Chưa cập nhật</span>}</span>
+                </div>
+              </div>
+            ) : (
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>Chưa thiết lập Mục tiêu nghề nghiệp.</p>
+            )}
+          </div>
+          {/* Personal Info */}
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#111827' }}>Thông tin cá nhân</h3>
+            <div style={{ fontSize: '0.875rem', color: '#4b5563', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 500, color: '#6b7280' }}>Họ tên:</span>
+                <span style={{ color: '#111827', fontWeight: 500 }}>{profileData.profile.displayName || <span style={{color: '#9ca3af', fontStyle: 'italic', fontWeight: 'normal'}}>Chưa cập nhật</span>}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 500, color: '#6b7280' }}>Email:</span>
+                <span style={{ color: '#111827', fontWeight: 500 }}>{profileData.profile.email}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 500, color: '#6b7280' }}>Kinh nghiệm:</span>
+                <span style={{ color: '#111827', fontWeight: 500 }}>{profileData.profile.yearsOfExperience != null ? `${profileData.profile.yearsOfExperience} năm` : <span style={{color: '#9ca3af', fontStyle: 'italic', fontWeight: 'normal'}}>Chưa cập nhật</span>}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ export interface CareerProfileResponse {
     userId: string;
     email: string;
     displayName?: string;
+    yearsOfExperience?: number | null;
     avatarUrl?: string;
   };
   primaryResume?: {
@@ -50,6 +51,8 @@ export interface CareerProfileResponse {
     completedActivityCount: number;
   };
   onboarding: {
+    hasDisplayName: boolean;
+    hasYearsOfExperience: boolean;
     hasPrimaryResume: boolean;
     hasActiveCareerGoal: boolean;
     isComplete: boolean;

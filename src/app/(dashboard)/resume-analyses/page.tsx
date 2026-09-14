@@ -11,6 +11,8 @@ import { cvAnalysisApi, getUploadContentType } from '@/services/cvAnalysisApi';
 import {
   createResumeAnalysisOperation,
   ResumeAnalysisOperation,
+  JobTargetedAnalysisOperation,
+  FieldBenchmarkAnalysisOperation,
   runResumeAnalysisOperation,
 } from '@/services/resumeAnalysisCoordinator';
 import {
@@ -406,6 +408,7 @@ export default function ResumesPage() {
 
   // Mode selection state
   const [mode, setMode] = useState<ResumeAnalysisMode>('job_targeted');
+  const [useCurrentGoal, setUseCurrentGoal] = useState(true);
 
   // JD state (job_targeted)
   const [jdTitle, setJdTitle] = useState('');
@@ -445,13 +448,15 @@ export default function ResumesPage() {
     // Synchronize visible form state to that exact persisted user intent BEFORE/while resuming it
     if (operation.mode === 'job_targeted') {
       setMode('job_targeted');
-      setJdTitle(operation.jdTitle);
-      setJdContent(operation.jdContent);
+      setJdTitle(operation.jdTitle ?? '');
+      setJdContent(operation.jdContent ?? '');
+      setUseCurrentGoal(!operation.jdTitle && !operation.jobDescriptionId);
     } else if (operation.mode === 'field_benchmark') {
       setMode('field_benchmark');
-      setIndustry(operation.industry);
-      setTargetRole(operation.targetRole);
-      setSeniority(operation.seniority);
+      setIndustry(operation.industry ?? '');
+      setTargetRole(operation.targetRole ?? '');
+      setSeniority(operation.seniority ?? '');
+      setUseCurrentGoal(!operation.industry && !operation.targetRole);
     }
 
     setLoading(true);
@@ -481,6 +486,12 @@ export default function ResumesPage() {
         });
         setPendingAnalysis(null);
         setError(null);
+        return;
+      }
+      if (err instanceof ApiError && err.code === 'RESUME_ANALYSIS_CONTEXT_INVALID') {
+        setQuotaExceededError(null);
+        setPendingAnalysis(null);
+        setError('Mục tiêu nghề nghiệp hiện tại của bạn chưa có đủ thông tin cho phương thức này. Vui lòng thiết lập lại mục tiêu hoặc chọn Phân tích theo mục tiêu khác.');
         return;
       }
       setQuotaExceededError(null);
@@ -636,13 +647,46 @@ export default function ResumesPage() {
       setError('Phiên đăng nhập chưa sẵn sàng. Vui lòng thử lại sau giây lát.');
       return;
     }
+
+    setQuotaExceededError(null);
+    setError(null);
+
+    if (useCurrentGoal) {
+      let isMatchingPending = false;
+      if (pending && pending.userId === currentUser.id && pending.mode === mode && !pending.resumeId) {
+        if (mode === 'job_targeted') {
+          const p = pending as JobTargetedAnalysisOperation;
+          isMatchingPending = !p.jobDescriptionId && !p.jdTitle;
+        } else {
+          const p = pending as FieldBenchmarkAnalysisOperation;
+          isMatchingPending = !p.industry;
+        }
+      }
+      const existingOperation = isMatchingPending ? pending : null;
+
+      const baseOp = {
+        userId: currentUser.id,
+        mode,
+        careerGoalId: careerProfile?.activeCareerGoal?.id,
+        analysisId: null,
+      };
+
+      const operation = existingOperation ?? createResumeAnalysisOperation(
+        mode === 'job_targeted'
+          ? (baseOp as unknown as JobTargetedAnalysisOperation)
+          : (baseOp as unknown as FieldBenchmarkAnalysisOperation)
+      );
+
+      hasResumed.current = true;
+      setPendingAnalysis(operation);
+      startAnalysis(operation);
+      return;
+    }
+
     if (!file || !isResumeReady || !resumeId) {
       setError('Vui lòng tải lên CV và chờ xử lý xong.');
       return;
     }
-
-    setQuotaExceededError(null);
-    setError(null);
 
     if (mode === 'job_targeted') {
       const trimmedTitle = jdTitle.trim();
@@ -710,9 +754,9 @@ export default function ResumesPage() {
   };
 
   const activeMode = activeOperation?.mode ?? mode;
-  const isJobTargetedIncomplete = activeMode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
-  const isFieldBenchmarkIncomplete = activeMode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
-  const isSubmitDisabled = loading || isUploading || !file || !isResumeReady || isJobTargetedIncomplete || isFieldBenchmarkIncomplete;
+  const isJobTargetedIncomplete = !useCurrentGoal && activeMode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
+  const isFieldBenchmarkIncomplete = !useCurrentGoal && activeMode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
+  const isSubmitDisabled = loading || (!useCurrentGoal && (isUploading || !file || !isResumeReady)) || isJobTargetedIncomplete || isFieldBenchmarkIncomplete;
 
   const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
   const stageMessage = visibleStage === 'uploading'
@@ -731,6 +775,37 @@ export default function ResumesPage() {
         <h1 className={styles.title}>Phân tích CV chuyên sâu</h1>
         <p className={styles.subtitle}>Tải lên CV và chọn phương thức phân tích để AI đánh giá chi tiết và đưa ra lộ trình tối ưu.</p>
       </header>
+
+      {/* Intent Selector */}
+      <div className={styles.modeSelectorContainer} style={{ marginBottom: '1.5rem' }}>
+        <div className={styles.modeSelectorLabel}>Nguồn dữ liệu</div>
+        <div className={styles.modeToggleGroup} role="tablist" aria-label="Nguồn dữ liệu">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={useCurrentGoal}
+            className={`${styles.modeToggleButton} ${useCurrentGoal ? styles.modeToggleButtonActive : ''}`}
+            onClick={() => {
+              setUseCurrentGoal(true);
+              setError(null);
+            }}
+          >
+            Mục tiêu hiện tại (Tự động)
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!useCurrentGoal}
+            className={`${styles.modeToggleButton} ${!useCurrentGoal ? styles.modeToggleButtonActive : ''}`}
+            onClick={() => {
+              setUseCurrentGoal(false);
+              setError(null);
+            }}
+          >
+            Mục tiêu khác (Tuỳ chỉnh)
+          </button>
+        </div>
+      </div>
 
       {/* Mode Selector */}
       <div className={styles.modeSelectorContainer}>
@@ -791,40 +866,55 @@ export default function ResumesPage() {
 
       {error && <div className={styles.errorMessage}>{error}</div>}
 
-      <div className={styles.formGrid}>
-        <ResumeUploadPanel
-          file={file}
-          isDragging={isDragging}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          fileInputRef={fileInputRef}
-          onFileChange={onFileChange}
-          handleRemoveFile={handleRemoveFile}
-          onRetry={file && !resumeId ? () => void handleFile(file) : undefined}
-          retryDisabled={isUploading || !!resumeId}
-        />
+      {!useCurrentGoal ? (
+        <div className={styles.formGrid}>
+          <ResumeUploadPanel
+            file={file}
+            isDragging={isDragging}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            fileInputRef={fileInputRef}
+            onFileChange={onFileChange}
+            handleRemoveFile={handleRemoveFile}
+            onRetry={file && !resumeId ? () => void handleFile(file) : undefined}
+            retryDisabled={isUploading || !!resumeId}
+          />
 
-        {mode === 'job_targeted' ? (
-          <JobDescriptionPanel
-            jdTitle={jdTitle}
-            setJdTitle={setJdTitle}
-            jdContent={jdContent}
-            setJdContent={setJdContent}
-            loading={loading}
-          />
-        ) : (
-          <FieldBenchmarkPanel
-            industry={industry}
-            setIndustry={setIndustry}
-            targetRole={targetRole}
-            setTargetRole={setTargetRole}
-            seniority={seniority}
-            setSeniority={setSeniority}
-            loading={loading}
-          />
-        )}
-      </div>
+          {mode === 'job_targeted' ? (
+            <JobDescriptionPanel
+              jdTitle={jdTitle}
+              setJdTitle={setJdTitle}
+              jdContent={jdContent}
+              setJdContent={setJdContent}
+              loading={loading}
+            />
+          ) : (
+            <FieldBenchmarkPanel
+              industry={industry}
+              setIndustry={setIndustry}
+              targetRole={targetRole}
+              setTargetRole={setTargetRole}
+              seniority={seniority}
+              setSeniority={setSeniority}
+              loading={loading}
+            />
+          )}
+        </div>
+      ) : (
+        <div style={{ backgroundColor: '#F3F4F6', border: '1px dashed #D1D5DB', borderRadius: '0.5rem', textAlign: 'center', padding: '3rem 1.5rem', marginBottom: '2rem' }}>
+          <p style={{ margin: '0 0 1rem 0', color: '#4B5563', fontSize: '1.125rem' }}>
+            Hệ thống sẽ tự động sử dụng <strong>CV Chính</strong> và <strong>Mục tiêu nghề nghiệp</strong> hiện tại của bạn.
+          </p>
+          <button 
+            type="button" 
+            onClick={() => setUseCurrentGoal(false)} 
+            style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.875rem' }}
+          >
+            Tải lên CV khác hoặc đổi mục tiêu
+          </button>
+        </div>
+      )}
 
       <div className={styles.actionArea}>
         <button

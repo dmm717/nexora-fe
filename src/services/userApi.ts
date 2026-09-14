@@ -35,13 +35,15 @@ export interface BillingSummaryResponse {
 export interface UserResponse {
   id: string;
   email: string;
-  displayName: string | null;
+  displayName?: string | null;
   roles: string[];
   billing?: BillingSummaryResponse | null;
+  yearsOfExperience?: number | null;
 }
 
 export interface UpdateProfileRequest {
-  displayName: string;
+  displayName?: string | null;
+  yearsOfExperience?: number | null;
 }
 
 export interface ChangePasswordRequest {

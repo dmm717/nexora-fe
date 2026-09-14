@@ -5,7 +5,8 @@ export type ResumeAnalysisMode = 'job_targeted' | 'field_benchmark';
 export interface BaseResumeAnalysisOperation {
   userId: string;
   idempotencyKey: string;
-  resumeId: string;
+  resumeId?: string;
+  careerGoalId?: string;
   analysisId?: string | null;
   timestamp: string | number;
 }
@@ -13,31 +14,33 @@ export interface BaseResumeAnalysisOperation {
 export interface JobTargetedAnalysisOperation extends BaseResumeAnalysisOperation {
   mode: 'job_targeted';
   jobDescriptionId?: string | null;
-  jdTitle: string;
-  jdContent: string;
+  jdTitle?: string;
+  jdContent?: string;
 }
 
 export interface FieldBenchmarkAnalysisOperation extends BaseResumeAnalysisOperation {
   mode: 'field_benchmark';
-  industry: string;
-  targetRole: string;
-  seniority: string;
+  industry?: string;
+  targetRole?: string;
+  seniority?: string;
 }
 
 export type ResumeAnalysisOperation = JobTargetedAnalysisOperation | FieldBenchmarkAnalysisOperation;
 
 export interface CreateJobTargetedAnalysisRequest {
-  resumeId: string;
+  resumeId?: string;
+  careerGoalId?: string;
   mode: 'job_targeted';
-  jobDescriptionId: string;
+  jobDescriptionId?: string;
 }
 
 export interface CreateFieldBenchmarkAnalysisRequest {
-  resumeId: string;
+  resumeId?: string;
+  careerGoalId?: string;
   mode: 'field_benchmark';
-  industry: string;
-  targetRole: string;
-  seniority: string;
+  industry?: string;
+  targetRole?: string;
+  seniority?: string;
 }
 
 export type CreateAnalysisRequest = CreateJobTargetedAnalysisRequest | CreateFieldBenchmarkAnalysisRequest;
@@ -73,30 +76,32 @@ export const DETERMINISTIC_ERROR_CODES = [
  */
 export function buildCreateAnalysisRequest(op: ResumeAnalysisOperation): CreateAnalysisRequest {
   if (op.mode === 'job_targeted') {
-    if (!op.jobDescriptionId) {
-      throw new Error('jobDescriptionId is required for job_targeted analysis');
-    }
-    return {
+    const request: CreateJobTargetedAnalysisRequest = {
       resumeId: op.resumeId,
+      careerGoalId: op.careerGoalId,
       mode: 'job_targeted',
-      jobDescriptionId: op.jobDescriptionId,
     };
+    if (op.jobDescriptionId) {
+      request.jobDescriptionId = op.jobDescriptionId;
+    }
+    return request;
   }
 
   if (op.mode === 'field_benchmark') {
-    const industry = op.industry.trim();
-    const targetRole = op.targetRole.trim();
-    const seniority = op.seniority.trim();
-    if (!industry || !targetRole || !seniority) {
-      throw new Error('industry, targetRole, and seniority are required for field_benchmark analysis');
-    }
-    return {
+    const request: CreateFieldBenchmarkAnalysisRequest = {
       resumeId: op.resumeId,
+      careerGoalId: op.careerGoalId,
       mode: 'field_benchmark',
-      industry,
-      targetRole,
-      seniority,
     };
+    const industry = op.industry?.trim();
+    const targetRole = op.targetRole?.trim();
+    const seniority = op.seniority?.trim();
+    
+    if (industry) request.industry = industry;
+    if (targetRole) request.targetRole = targetRole;
+    if (seniority) request.seniority = seniority;
+    
+    return request;
   }
 
   throw new Error(`Unsupported mode: ${(op as { mode?: string }).mode}`);
@@ -131,9 +136,6 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
   }
 
   if (
-    !op.resumeId ||
-    typeof op.resumeId !== 'string' ||
-    !op.resumeId.trim() ||
     !op.idempotencyKey ||
     typeof op.idempotencyKey !== 'string' ||
     !op.idempotencyKey.trim()
@@ -142,7 +144,8 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
   }
 
   const userId = typeof op.userId === 'string' ? op.userId : (currentUserId ?? '');
-  const resumeId = op.resumeId.trim();
+  const resumeId = typeof op.resumeId === 'string' && op.resumeId.trim() ? op.resumeId.trim() : undefined;
+  const careerGoalId = typeof op.careerGoalId === 'string' && op.careerGoalId.trim() ? op.careerGoalId.trim() : undefined;
   const idempotencyKey = op.idempotencyKey.trim();
   const analysisId = typeof op.analysisId === 'string' ? op.analysisId : null;
   const timestamp = (typeof op.timestamp === 'string' || typeof op.timestamp === 'number') ? op.timestamp : Date.now();
@@ -158,6 +161,7 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
       userId,
       idempotencyKey,
       resumeId,
+      careerGoalId,
       mode: 'job_targeted',
       jobDescriptionId: typeof op.jobDescriptionId === 'string' ? op.jobDescriptionId : null,
       analysisId,
@@ -170,18 +174,21 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
   if (op.mode === 'job_targeted') {
     const trimmedTitle = typeof op.jdTitle === 'string' ? op.jdTitle.trim() : '';
     const trimmedContent = typeof op.jdContent === 'string' ? op.jdContent.trim() : '';
-    if (!trimmedTitle || !trimmedContent) {
+    // If user provided resumeId, they must provide JD info too, otherwise it is an incomplete explicit state.
+    // However, if they omitted both resumeId and jdTitle (Mục tiêu hiện tại mode), it's valid.
+    if (resumeId && (!trimmedTitle || !trimmedContent)) {
       return null;
     }
     return {
       userId,
       idempotencyKey,
       resumeId,
+      careerGoalId,
       mode: 'job_targeted',
       jobDescriptionId: typeof op.jobDescriptionId === 'string' ? op.jobDescriptionId : null,
       analysisId,
-      jdTitle: trimmedTitle,
-      jdContent: trimmedContent,
+      jdTitle: trimmedTitle || undefined,
+      jdContent: trimmedContent || undefined,
       timestamp,
     };
   }
@@ -190,18 +197,21 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
     const trimmedIndustry = typeof op.industry === 'string' ? op.industry.trim() : '';
     const trimmedTargetRole = typeof op.targetRole === 'string' ? op.targetRole.trim() : '';
     const trimmedSeniority = typeof op.seniority === 'string' ? op.seniority.trim() : '';
-    if (!trimmedIndustry || !trimmedTargetRole || !trimmedSeniority) {
+    
+    // Explicit mode requires all fields. Implicit mode (Mục tiêu hiện tại) omits them.
+    if (resumeId && (!trimmedIndustry || !trimmedTargetRole || !trimmedSeniority)) {
       return null;
     }
     return {
       userId,
       idempotencyKey,
       resumeId,
+      careerGoalId,
       mode: 'field_benchmark',
       analysisId,
-      industry: trimmedIndustry,
-      targetRole: trimmedTargetRole,
-      seniority: trimmedSeniority,
+      industry: trimmedIndustry || undefined,
+      targetRole: trimmedTargetRole || undefined,
+      seniority: trimmedSeniority || undefined,
       timestamp,
     };
   }

@@ -141,11 +141,12 @@ async function execute(
   let operation = initialOperation;
   if (operation.mode === 'job_targeted') {
     const jobTargeted = operation;
-    if (!jobTargeted.jobDescriptionId) {
+    // Only create JD if it's missing AND the user explicitly provided jdTitle/jdContent to override
+    if (!jobTargeted.jobDescriptionId && jobTargeted.jdTitle && jobTargeted.jdContent) {
       onStage?.('creating-jd');
       const jobDescription = await withTransportRetry(
         () => cvAnalysisApi.createJobDescription(
-          { title: jobTargeted.jdTitle, content: jobTargeted.jdContent },
+          { title: jobTargeted.jdTitle!, content: jobTargeted.jdContent! },
           jobTargeted.idempotencyKey,
           { signal },
         ),

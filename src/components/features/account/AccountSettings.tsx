@@ -15,7 +15,17 @@ import { useResumes, useSetPrimaryResume, useCareerProfile } from '../../../hook
 import { ClientDate } from '../../ui/ClientDate';
 
 const profileSchema = z.object({
-  displayName: z.string().min(2, 'Tên hiển thị phải có ít nhất 2 ký tự').max(120, 'Tên hiển thị quá dài')
+  displayName: z.string().min(2, 'Tên hiển thị phải có ít nhất 2 ký tự').max(120, 'Tên hiển thị quá dài').trim(),
+  yearsOfExperience: z.any().transform(v => {
+    if (v === '' || v === null || v === undefined) return '';
+    const num = Number(v);
+    return isNaN(num) ? v : num;
+  }).pipe(
+    z.union([
+      z.number().int('Phải là số nguyên').min(0, 'Ít nhất 0 năm').max(60, 'Tối đa 60 năm'),
+      z.literal('')
+    ])
+  ).optional()
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -185,7 +195,10 @@ const AccountSettings = () => {
         const data = await userApi.getCurrentUser();
         if (isMounted) {
           setUser(data);
-          reset({ displayName: data.displayName || '' });
+          reset({ 
+            displayName: data.displayName || '',
+            yearsOfExperience: data.yearsOfExperience ?? ''
+          });
         }
       } catch (err) {
         if (isMounted) {
@@ -205,7 +218,13 @@ const AccountSettings = () => {
     try {
       setError(null);
       setSuccess(null);
-      const updatedUser = await userApi.updateProfile(data);
+      
+      const requestData = {
+        displayName: data.displayName,
+        yearsOfExperience: data.yearsOfExperience === '' ? null : data.yearsOfExperience
+      };
+
+      const updatedUser = await userApi.updateProfile(requestData);
       setUser(updatedUser);
       setSuccess('Cập nhật profile thành công!');
     } catch (err) {
@@ -381,6 +400,16 @@ const AccountSettings = () => {
               label="Tên hiển thị" 
               {...register('displayName')} 
               error={errors.displayName?.message}
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <Input 
+              type="number"
+              label="Số năm kinh nghiệm" 
+              min={0}
+              max={60}
+              {...register('yearsOfExperience')} 
+              error={errors.yearsOfExperience?.message} 
             />
           </div>
           <Button type="submit" isLoading={isSubmitting}>Lưu thay đổi</Button>
