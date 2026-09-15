@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthBootstrapProvider';
 
-export interface RequireAuthProps {
+interface RequireAuthProps {
   children: React.ReactNode;
 }
 

@@ -17,7 +17,7 @@ export type {
 
 export { normalizePendingAnalysis };
 
-export type PendingAnalysis = ResumeAnalysisOperation;
+type PendingAnalysis = ResumeAnalysisOperation;
 export type JobTargetedPendingAnalysis = JobTargetedAnalysisOperation;
 export type FieldBenchmarkPendingAnalysis = FieldBenchmarkAnalysisOperation;
 

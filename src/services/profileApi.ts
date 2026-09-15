@@ -1,7 +1,7 @@
 import { apiClient } from './apiClient';
 import type { ResumeView } from './cvAnalysisApi';
 
-export interface CareerProfileResponse {
+interface CareerProfileResponse {
   profile: {
     userId: string;
     email: string;

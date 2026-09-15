@@ -1,6 +1,6 @@
 export type ScenarioDifficulty = 'easy' | 'medium' | 'hard';
 
-export type ScenarioAttemptStatus = 'draft' | 'queued' | 'processing' | 'completed' | 'failed';
+type ScenarioAttemptStatus = 'draft' | 'queued' | 'processing' | 'completed' | 'failed';
 
 export interface ScenarioCategory {
   id: string;
@@ -54,7 +54,7 @@ export interface ScenarioAttempt {
   completedAt: string | null;
 }
 
-export interface ScenarioAttemptHistoryItem {
+interface ScenarioAttemptHistoryItem {
   id: string;
   attemptNumber: number;
   status: ScenarioAttemptStatus;
@@ -68,7 +68,7 @@ export interface ScenarioAttemptHistoryItem {
   completedAt: string | null;
 }
 
-export interface ScenarioAttemptComparison {
+interface ScenarioAttemptComparison {
   currentScore: number | null;
   previousScore: number | null;
   delta: number | null;
@@ -89,7 +89,7 @@ export interface ScenarioAttemptHistory {
   bestScore: number | null;
 }
 
-export interface ScenarioTrackProgress {
+interface ScenarioTrackProgress {
   categorySlug: string;
   categoryName: string;
   attemptCount: number;
@@ -98,7 +98,7 @@ export interface ScenarioTrackProgress {
   latestScore: number | null;
 }
 
-export interface ScenarioCompetencyProgress {
+interface ScenarioCompetencyProgress {
   competency: string;
   attemptCount: number;
   completedAttempts: number;
@@ -107,7 +107,7 @@ export interface ScenarioCompetencyProgress {
   latestScore: number | null;
 }
 
-export interface ScenarioDifficultyProgress {
+interface ScenarioDifficultyProgress {
   difficulty: string;
   attemptCount: number;
   completedAttempts: number;

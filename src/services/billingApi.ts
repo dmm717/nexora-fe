@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 
-export interface PlanPrice {
+interface PlanPrice {
   id: string;
   amountMinor: number;
   currency: string;
@@ -8,14 +8,14 @@ export interface PlanPrice {
   interviewQuota: number;
 }
 
-export interface PlanView {
+interface PlanView {
   id: string;
   code: string;
   name: string;
   prices: PlanPrice[];
 }
 
-export interface CheckoutSessionResponse {
+interface CheckoutSessionResponse {
   orderId: string;
   status: string;
   amountMinor: number;

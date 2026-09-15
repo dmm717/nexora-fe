@@ -21,10 +21,10 @@ export const LearningPathValues = {
   SupportingMilestone: 'supporting_improvements',
 } as const;
 
-export type LearningPathStatus = typeof LearningPathValues.Active | string;
-export type LearningPathMilestoneStatus = 'pending' | 'completed' | string;
-export type LearningPathActivityStatus = 'pending' | 'completed' | 'obsolete' | string;
-export type LearningPathActivityType =
+type LearningPathStatus = typeof LearningPathValues.Active | string;
+type LearningPathMilestoneStatus = 'pending' | 'completed' | string;
+type LearningPathActivityStatus = 'pending' | 'completed' | 'obsolete' | string;
+type LearningPathActivityType =
   | 'scenario'
   | 'star_drill'
   | 'interview'
@@ -87,7 +87,7 @@ const asNullableString = (value: unknown): string | null =>
 const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
-export function normalizeLearningPathProgress(raw: unknown): LearningPathProgressResponse {
+function normalizeLearningPathProgress(raw: unknown): LearningPathProgressResponse {
   const record = isRecord(raw) ? raw : {};
   return {
     completedActivityCount: asNumber(record.completedActivityCount, 0),
@@ -96,7 +96,7 @@ export function normalizeLearningPathProgress(raw: unknown): LearningPathProgres
   };
 }
 
-export function normalizeLearningPathActivity(raw: unknown): LearningPathActivityResponse {
+function normalizeLearningPathActivity(raw: unknown): LearningPathActivityResponse {
   const record = isRecord(raw) ? raw : {};
   return {
     id: asString(record.id),
@@ -113,7 +113,7 @@ export function normalizeLearningPathActivity(raw: unknown): LearningPathActivit
   };
 }
 
-export function normalizeLearningPathMilestone(raw: unknown): LearningPathMilestoneResponse {
+function normalizeLearningPathMilestone(raw: unknown): LearningPathMilestoneResponse {
   const record = isRecord(raw) ? raw : {};
   const rawActivities = Array.isArray(record.activities) ? record.activities : [];
   const activities = rawActivities

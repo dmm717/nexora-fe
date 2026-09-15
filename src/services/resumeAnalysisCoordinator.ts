@@ -9,7 +9,7 @@ import {
 } from './cvAnalysisContract';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 
-export type ResumeAnalysisStage = 'creating-jd' | 'analyzing' | 'recovering';
+type ResumeAnalysisStage = 'creating-jd' | 'analyzing' | 'recovering';
 
 export type {
   ResumeAnalysisOperation,
@@ -17,7 +17,7 @@ export type {
   FieldBenchmarkAnalysisOperation,
 };
 
-export interface ResumeAnalysisCoordinatorOptions {
+interface ResumeAnalysisCoordinatorOptions {
   signal?: AbortSignal;
   save: (operation: ResumeAnalysisOperation) => void;
   onStage?: (stage: ResumeAnalysisStage) => void;

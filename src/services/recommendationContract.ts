@@ -4,7 +4,7 @@
  * `Nexora.Business.Recommendations.NextPracticeRecommendationView` exactly.
  */
 
-export const RecommendationActivityValues = {
+const RecommendationActivityValues = {
   Scenario: 'scenario',
   StarDrill: 'star_drill',
   Interview: 'interview',

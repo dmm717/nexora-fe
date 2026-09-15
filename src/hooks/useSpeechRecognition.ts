@@ -16,7 +16,7 @@ import {
   type SpeechRecognitionLike,
 } from './speechRecognitionContract';
 
-export interface UseSpeechRecognitionOptions {
+interface UseSpeechRecognitionOptions {
   /**
    * Called once per newly finalized speech segment. Consumers merge this into
    * their editable answer field. Interim text is never passed here, so it can
@@ -25,7 +25,7 @@ export interface UseSpeechRecognitionOptions {
   onFinalSegment?: (segment: string) => void;
 }
 
-export interface UseSpeechRecognitionResult {
+interface UseSpeechRecognitionResult {
   supported: boolean;
   listening: boolean;
   interimTranscript: string;

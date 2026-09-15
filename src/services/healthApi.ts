@@ -1,12 +1,12 @@
 import { apiClient } from './apiClient';
 
-export interface HealthStatus {
+interface HealthStatus {
   status: string;
   totalDuration?: string;
   entries?: Record<string, { data?: unknown; duration?: string; status: string; tags?: string[] }>;
 }
 
-export interface OperationStatus {
+interface OperationStatus {
   status: string;
   activeJobs?: number;
   failedJobs?: number;

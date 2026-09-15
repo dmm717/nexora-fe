@@ -96,7 +96,7 @@ export function getOrCreateScenarioSubmitIntent(
 // Pure State-Transition Helpers for Attempt Workflows
 // ---------------------------------------------------------------------------
 
-export interface ScenarioAttemptFlowState {
+interface ScenarioAttemptFlowState {
   scenarioId: string;
   createIntent: ScenarioCreateIntent | null;
   attemptId: string | null;
@@ -159,7 +159,7 @@ export function recordScenarioSubmitSuccess(
   };
 }
 
-export interface StarFlowState {
+interface StarFlowState {
   intent: StarAttemptIntent | null;
   attemptId: string | null;
 }
@@ -194,7 +194,7 @@ export function recordStarSubmitSuccess(
 
 
 export const SCENARIO_PAGE_SIZE = 20;
-export const SCENARIO_MAX_PAGE_SIZE = 50;
+const SCENARIO_MAX_PAGE_SIZE = 50;
 
 export interface PaginationResult {
   currentPage: number;
@@ -227,9 +227,9 @@ export function calculatePagination(
   };
 }
 
-export type ScoreDeltaType = 'positive' | 'negative' | 'neutral' | 'baseline' | 'none';
+type ScoreDeltaType = 'positive' | 'negative' | 'neutral' | 'baseline' | 'none';
 
-export interface ScoreDeltaDisplay {
+interface ScoreDeltaDisplay {
   type: ScoreDeltaType;
   text: string;
 }
@@ -289,7 +289,7 @@ export function getScenarioErrorMessage(error: unknown, fallback: string): strin
     : fallback;
 }
 
-export type ContentBlock =
+type ContentBlock =
   | { type: 'h3'; content: string }
   | { type: 'h4'; content: string }
   | { type: 'list'; items: string[] }

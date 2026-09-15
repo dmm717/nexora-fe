@@ -8,7 +8,7 @@ import { refreshSession } from '@/services/authSession';
 import { getAccessToken, setAccessToken } from '@/store/authStore';
 import { getRealtimeInvalidationKeys } from '@/utils/scenarioHelpers';
 
-export interface RealtimeState {
+interface RealtimeState {
   isConnected: boolean;
   error: Error | null;
 }

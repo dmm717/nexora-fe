@@ -4,13 +4,13 @@ import Image from 'next/image';
 import { getAvatarColor } from '@/utils/colorUtils';
 import styles from './DashboardLayout.module.css'; // Common sidebar styles
 
-export interface MenuItem {
+interface MenuItem {
   name: string;
   href: string;
   icon: React.ReactNode;
 }
 
-export interface MenuSection {
+interface MenuSection {
   title: string;
   items: MenuItem[];
 }

@@ -16,7 +16,7 @@ const planSchema = z.object({
   isActive: z.boolean().optional(), // only for update
 });
 
-export type PlanFormValues = z.infer<typeof planSchema>;
+type PlanFormValues = z.infer<typeof planSchema>;
 
 interface PlanModalProps {
   isOpen: boolean;

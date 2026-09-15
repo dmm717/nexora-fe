@@ -39,7 +39,7 @@ const asString = (value: unknown): string =>
 const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
-export function normalizeSkillProfileSource(raw: unknown): SkillProfileSourceResponse {
+function normalizeSkillProfileSource(raw: unknown): SkillProfileSourceResponse {
   const record = isRecord(raw) ? raw : {};
   return {
     sourceType: asString(record.sourceType),
@@ -48,7 +48,7 @@ export function normalizeSkillProfileSource(raw: unknown): SkillProfileSourceRes
   };
 }
 
-export function normalizeSkillProfileCompetency(raw: unknown): SkillProfileCompetencyResponse {
+function normalizeSkillProfileCompetency(raw: unknown): SkillProfileCompetencyResponse {
   const record = isRecord(raw) ? raw : {};
   const rawSources = Array.isArray(record.sources) ? record.sources : [];
   return {
@@ -62,7 +62,7 @@ export function normalizeSkillProfileCompetency(raw: unknown): SkillProfileCompe
   };
 }
 
-export function normalizeSkillProfileWeaknessSignal(raw: unknown): SkillProfileWeaknessSignalResponse {
+function normalizeSkillProfileWeaknessSignal(raw: unknown): SkillProfileWeaknessSignalResponse {
   const record = isRecord(raw) ? raw : {};
   return {
     sourceType: asString(record.sourceType),

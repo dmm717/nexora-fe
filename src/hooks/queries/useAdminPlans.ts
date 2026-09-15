@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/services/adminApi';
 import { toast } from 'sonner';
 
-export const adminPlanKeys = {
+const adminPlanKeys = {
   all: ['adminPlans'] as const,
   lists: () => [...adminPlanKeys.all, 'list'] as const,
   details: () => [...adminPlanKeys.all, 'detail'] as const,

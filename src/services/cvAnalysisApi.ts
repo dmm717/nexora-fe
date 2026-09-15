@@ -13,13 +13,13 @@ export type {
   CreateAnalysisRequest,
 };
 
-export interface PresignRequest {
+interface PresignRequest {
   fileName: string;
   contentType: string;
   size: number;
 }
 
-export interface PresignResponse {
+interface PresignResponse {
   token: string;
   uploadUrl: string;
   expiresAt: string;
@@ -38,7 +38,7 @@ export interface ResumeView {
   originalFileName?: string;
 }
 
-export interface CreateJdRequest {
+interface CreateJdRequest {
   title: string;
   content: string;
 }
@@ -50,7 +50,7 @@ export interface JdView {
   createdAt: string;
 }
 
-export interface JobTargetedBreakdown {
+interface JobTargetedBreakdown {
   technicalSkillMatch: number;
   experienceRelevance: number;
   impactEvidence: number;
@@ -58,7 +58,7 @@ export interface JobTargetedBreakdown {
   structure: number;
 }
 
-export interface JobTargetedAnalysisResult {
+interface JobTargetedAnalysisResult {
   mode: 'job_targeted';
   matchScore: number;
   summary: string;
@@ -71,7 +71,7 @@ export interface JobTargetedAnalysisResult {
   breakdown: JobTargetedBreakdown;
 }
 
-export interface FieldBenchmarkBreakdown {
+interface FieldBenchmarkBreakdown {
   technicalFoundation: number;
   projectEvidence: number;
   experiencePresentation: number;
@@ -80,7 +80,7 @@ export interface FieldBenchmarkBreakdown {
   roleAlignment: number;
 }
 
-export interface FieldBenchmarkAnalysisResult {
+interface FieldBenchmarkAnalysisResult {
   mode: 'field_benchmark';
   readinessScore: number;
   summary: string;
@@ -91,11 +91,11 @@ export interface FieldBenchmarkAnalysisResult {
   breakdown: FieldBenchmarkBreakdown;
 }
 
-export type ResumeAnalysisResult =
+type ResumeAnalysisResult =
   | JobTargetedAnalysisResult
   | FieldBenchmarkAnalysisResult;
 
-export interface ResumeAnalysisContextView {
+interface ResumeAnalysisContextView {
   mode: string;
   industry?: string | null;
   targetRole?: string | null;
@@ -168,7 +168,7 @@ export function getUploadContentType(file: Pick<File, 'name' | 'type'>): string 
 }
 
 /** Resolve both absolute provider URLs and API-relative upload URLs safely. */
-export function resolveUploadUrl(uploadUrl: string, baseUrl = API_BASE_URL): string {
+function resolveUploadUrl(uploadUrl: string, baseUrl = API_BASE_URL): string {
   const value = uploadUrl.trim();
   if (!value) throw new ApiError('Địa chỉ upload không hợp lệ.', 'UPLOAD_URL_INVALID');
 

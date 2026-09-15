@@ -2,11 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi } from '@/services/profileApi';
 import { toast } from 'sonner';
 
-export const careerProfileKeys = {
+const careerProfileKeys = {
   all: ['careerProfile'] as const,
 };
 
-export const resumeKeys = {
+const resumeKeys = {
   all: ['resumes'] as const,
 };
 

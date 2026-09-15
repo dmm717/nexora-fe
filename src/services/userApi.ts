@@ -41,17 +41,17 @@ export interface UserResponse {
   yearsOfExperience?: number | null;
 }
 
-export interface UpdateProfileRequest {
+interface UpdateProfileRequest {
   displayName?: string | null;
   yearsOfExperience?: number | null;
 }
 
-export interface ChangePasswordRequest {
+interface ChangePasswordRequest {
   currentPassword?: string;
   newPassword: string;
 }
 
-export interface DeletionRequestView {
+interface DeletionRequestView {
   id: string;
   status: string;
   attempts: number;
@@ -59,7 +59,7 @@ export interface DeletionRequestView {
   completedAt: string | null;
 }
 
-export interface CoreDataExport {
+interface CoreDataExport {
   [key: string]: unknown;
 }
 

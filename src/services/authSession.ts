@@ -2,13 +2,13 @@ import { clearAccessToken, getAccessToken, setAccessToken } from '../store/authS
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
-export interface RefreshSessionResponse {
+interface RefreshSessionResponse {
   data: {
     accessToken: string;
   };
 }
 
-export class AuthRefreshError extends Error {
+class AuthRefreshError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {

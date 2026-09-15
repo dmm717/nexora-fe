@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { bootstrapAuthSession } from '@/services/authSession';
 import { getAccessToken, subscribeAuthState } from '@/store/authStore';
 
-export interface AuthSessionState {
+interface AuthSessionState {
   authReady: boolean;
   sessionInitialized: boolean;
   isAuthenticated: boolean;

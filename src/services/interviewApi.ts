@@ -31,7 +31,7 @@ export interface PracticeAgainCommand {
   reason: 'repeat_question' | 'rubric_weakness' | 'recommendation' | 'manual';
 }
 
-export interface SubmitAnswerRequest {
+interface SubmitAnswerRequest {
   questionId: string;
   content: string;
   durationSeconds?: number;

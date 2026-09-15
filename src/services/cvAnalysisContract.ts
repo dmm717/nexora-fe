@@ -2,7 +2,7 @@
 
 export type ResumeAnalysisMode = 'job_targeted' | 'field_benchmark';
 
-export interface BaseResumeAnalysisOperation {
+interface BaseResumeAnalysisOperation {
   userId: string;
   idempotencyKey: string;
   resumeId?: string;
@@ -45,9 +45,9 @@ export interface CreateFieldBenchmarkAnalysisRequest {
 
 export type CreateAnalysisRequest = CreateJobTargetedAnalysisRequest | CreateFieldBenchmarkAnalysisRequest;
 
-export const OPERATION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const OPERATION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
-export const JOB_TARGETED_BREAKDOWN_KEYS = [
+const JOB_TARGETED_BREAKDOWN_KEYS = [
   'technicalSkillMatch',
   'experienceRelevance',
   'impactEvidence',
@@ -55,7 +55,7 @@ export const JOB_TARGETED_BREAKDOWN_KEYS = [
   'structure',
 ] as const;
 
-export const FIELD_BENCHMARK_BREAKDOWN_KEYS = [
+const FIELD_BENCHMARK_BREAKDOWN_KEYS = [
   'technicalFoundation',
   'projectEvidence',
   'experiencePresentation',
@@ -64,7 +64,7 @@ export const FIELD_BENCHMARK_BREAKDOWN_KEYS = [
   'roleAlignment',
 ] as const;
 
-export const DETERMINISTIC_ERROR_CODES = [
+const DETERMINISTIC_ERROR_CODES = [
   'FEATURE_QUOTA_EXCEEDED',
   'FEATURE_NOT_AVAILABLE',
   'RESUME_ANALYSIS_CONTEXT_INVALID',

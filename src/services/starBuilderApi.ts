@@ -24,7 +24,7 @@ export type { NormalizedStarEvaluation } from './interviewContract';
  * STAR attempts are created as `queued`, then move to `processing`, then
  * `completed` or `failed`. `draft` is included for fail-safety.
  */
-export type StarAttemptStatus = 'draft' | 'queued' | 'processing' | 'completed' | 'failed';
+type StarAttemptStatus = 'draft' | 'queued' | 'processing' | 'completed' | 'failed';
 
 export interface StarAttemptRequest {
   question: string;
@@ -51,7 +51,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * through the shared B8 contract so `detected=false` renders as score 0 with
  * blank evidence and no component is ever fabricated.
  */
-export function normalizeStarAttemptResponse(raw: unknown): StarAttemptResponse {
+function normalizeStarAttemptResponse(raw: unknown): StarAttemptResponse {
   const record = isRecord(raw) ? raw : {};
   return {
     id: typeof record.id === 'string' ? record.id : '',

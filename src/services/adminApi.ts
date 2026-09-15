@@ -1,7 +1,7 @@
 import { apiClient } from './apiClient';
 
 // --- Types ---
-export interface AdminPlanFeatureView {
+interface AdminPlanFeatureView {
   featureDefinitionId: string;
   code: string;
   name: string;
@@ -69,7 +69,7 @@ export interface AdminUserView {
   entitlementEndsAt?: string;
 }
 
-export interface AdminUserPageResponse {
+interface AdminUserPageResponse {
   lastId?: string;
   users: AdminUserView[];
 }
@@ -86,7 +86,7 @@ export interface EntitlementFeatureResponse {
   unlimited: boolean;
 }
 
-export interface EntitlementDetailResponse {
+interface EntitlementDetailResponse {
   id: string;
   planCode: string;
   startsAt: string;
@@ -103,12 +103,12 @@ export interface OrderResponse {
   createdAt: string;
 }
 
-export interface AdminUserDetailView extends AdminUserView {
+interface AdminUserDetailView extends AdminUserView {
   currentEntitlement?: EntitlementDetailResponse;
   recentOrders: OrderResponse[];
 }
 
-export interface AdminRoleView { 
+interface AdminRoleView { 
   id: string;
   name: string; 
   normalizedName: string;

@@ -9,7 +9,7 @@ import {
   type NextPracticeRecommendationResponse,
 } from './recommendationContract.ts';
 
-export interface ProgressDashboardReadinessResponse {
+interface ProgressDashboardReadinessResponse {
   score: number | null;
   assessedCompetencies: number;
   evidenceCount: number;
@@ -18,7 +18,7 @@ export interface ProgressDashboardReadinessResponse {
   latestEvidenceAt: string | null;
 }
 
-export interface ProgressDashboardCompetencyResponse {
+interface ProgressDashboardCompetencyResponse {
   code: string;
   name: string;
   category: string;
@@ -27,7 +27,7 @@ export interface ProgressDashboardCompetencyResponse {
   latestEvidenceAt: string;
 }
 
-export interface ProgressDashboardImprovementResponse {
+interface ProgressDashboardImprovementResponse {
   kind: string;
   resourceId: string;
   previousScore: number;
@@ -36,7 +36,7 @@ export interface ProgressDashboardImprovementResponse {
   at: string;
 }
 
-export interface ProgressDashboardWeeklyActivitiesResponse {
+interface ProgressDashboardWeeklyActivitiesResponse {
   windowStart: string;
   windowEnd: string;
   total: number;
@@ -47,26 +47,26 @@ export interface ProgressDashboardWeeklyActivitiesResponse {
   learningPathActivities: number;
 }
 
-export interface ProgressStarAveragesResponse {
+interface ProgressStarAveragesResponse {
   situation: number;
   task: number;
   action: number;
   result: number;
 }
 
-export interface RecentInterviewScoreResponse {
+interface RecentInterviewScoreResponse {
   interviewId: string;
   score: number;
   completedAt: string;
 }
 
-export interface RecentActivityResponse {
+interface RecentActivityResponse {
   kind: string;
   resourceId: string;
   at: string;
 }
 
-export interface ProgressHistoricalStatsResponse {
+interface ProgressHistoricalStatsResponse {
   completedInterviews: number;
   recentInterviewScores: RecentInterviewScoreResponse[];
   averageInterviewScore: number | null;

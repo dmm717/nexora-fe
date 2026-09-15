@@ -15,7 +15,7 @@ const priceSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export type PriceFormValues = z.infer<typeof priceSchema>;
+type PriceFormValues = z.infer<typeof priceSchema>;
 
 interface PriceModalProps {
   isOpen: boolean;

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { VALIDATION_MESSAGES } from '../constants/messages';
 
-export const passwordComplexityRegex = {
+const passwordComplexityRegex = {
   hasUppercase: /[A-Z]/,
   hasLowercase: /[a-z]/,
   hasDigit: /[0-9]/,

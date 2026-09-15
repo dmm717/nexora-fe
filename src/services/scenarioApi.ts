@@ -32,11 +32,11 @@ export type ScenarioView = ScenarioDetail;
 export type ScenarioAttemptResponse = ScenarioAttempt;
 export type ScenarioEvaluationResult = ScenarioEvaluation;
 
-export interface ScenarioAttemptCreateRequest {
+interface ScenarioAttemptCreateRequest {
   scenarioId: string;
 }
 
-export interface ScenarioAttemptSubmitRequest {
+interface ScenarioAttemptSubmitRequest {
   answer: string;
 }
 

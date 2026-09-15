@@ -11,17 +11,17 @@
 
 // --- Minimal structural Web Speech API types (not present in TS lib.dom) ---
 
-export interface SpeechRecognitionAlternativeLike {
+interface SpeechRecognitionAlternativeLike {
   transcript: string;
 }
 
-export interface SpeechRecognitionResultLike {
+interface SpeechRecognitionResultLike {
   readonly isFinal: boolean;
   readonly length: number;
   [index: number]: SpeechRecognitionAlternativeLike;
 }
 
-export interface SpeechRecognitionResultListLike {
+interface SpeechRecognitionResultListLike {
   readonly length: number;
   [index: number]: SpeechRecognitionResultLike;
 }
@@ -49,11 +49,11 @@ export interface SpeechRecognitionLike {
   onstart: (() => void) | null;
 }
 
-export interface SpeechRecognitionConstructor {
+interface SpeechRecognitionConstructor {
   new (): SpeechRecognitionLike;
 }
 
-export type SpeechErrorKind =
+type SpeechErrorKind =
   | 'unsupported'
   | 'permission'
   | 'no-speech'
@@ -121,7 +121,7 @@ export function mergeFinalTranscript(current: string, segment: string): string {
   return base ? `${base} ${cleanSegment}` : cleanSegment;
 }
 
-export interface FinalTranscriptCollection {
+interface FinalTranscriptCollection {
   finalText: string;
   addedSegments: string[];
   /** Final result indexes newly consumed by this pass (union with prior set). */

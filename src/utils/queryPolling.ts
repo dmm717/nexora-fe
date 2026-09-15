@@ -1,4 +1,4 @@
-export interface QueryWithData {
+interface QueryWithData {
   state: {
     data: unknown;
     status?: string;

@@ -5,7 +5,7 @@ import { SKILL_PROFILE_QUERY_KEY } from './useSkillProfile';
 import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
 import { PROGRESS_DASHBOARD_QUERY_KEY } from './useProgressDashboard';
 
-export const LEARNING_PATH_QUERY_KEY = ['learningPath'] as const;
+const LEARNING_PATH_QUERY_KEY = ['learningPath'] as const;
 
 export type { LearningPathResponse } from '@/services/learningPathApi';
 

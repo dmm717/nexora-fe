@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 
-export interface ProgressResponse {
+interface ProgressResponse {
   completedInterviews: number;
   recentInterviewScores: number[];
   averageInterviewScore: number;

@@ -3,7 +3,7 @@
  * Rule 1: Do not use localStorage or sessionStorage for tokens.
  */
 
-export type AuthStateListener = (token: string | null) => void;
+type AuthStateListener = (token: string | null) => void;
 
 let accessToken: string | null = null;
 const listeners = new Set<AuthStateListener>();

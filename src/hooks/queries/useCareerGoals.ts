@@ -9,7 +9,7 @@ import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
 import { PROGRESS_DASHBOARD_QUERY_KEY } from './useProgressDashboard';
 
-export const CAREER_GOALS_QUERY_KEY = ['careerGoals'] as const;
+const CAREER_GOALS_QUERY_KEY = ['careerGoals'] as const;
 
 export type { CareerGoalFormValues, CareerGoalResponse } from '@/services/careerGoalsApi';
 
