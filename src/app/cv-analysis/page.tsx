@@ -19,7 +19,7 @@ export default function Page() {
     return (
         <>
             <Header />
-            <main className="flex-grow pt-[80px] pb-stack-lg px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+            <main className="flex-grow pt-24 md:pt-28 pb-stack-lg px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
 
 
         {/*  ============== KẾT QUẢ PHÂN TÍCH ==============  */}

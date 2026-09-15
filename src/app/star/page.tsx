@@ -76,7 +76,7 @@ Kết quả, chúng tôi đã hoàn thành và nộp dự án đúng deadline. P
         <div className="bg-background text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
             <Header />
 
-            <main className="flex-grow pt-24 pb-stack-lg max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop grid grid-cols-1 lg:grid-cols-12 gap-gutter" data-nx-stagger>
+            <main className="flex-grow pt-24 md:pt-28 pb-stack-lg max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop grid grid-cols-1 lg:grid-cols-12 gap-gutter" data-nx-stagger>
                 {/* Header */}
                 <div className="lg:col-span-12 mb-stack-md">
                     <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-stack-sm">

@@ -19,7 +19,6 @@ export default function Header() {
     { href: '/interview', label: 'Phỏng vấn AI' },
     { href: '/scenario', label: 'Tình huống' },
     { href: '/star', label: 'STAR' },
-    { href: '/report', label: 'Báo cáo' },
     { href: '/pricing', label: 'Bảng giá' }
   ];
 
@@ -65,7 +64,7 @@ export default function Header() {
   }, []);
 
   return (
-    <>
+    <div id="nexora-header-wrapper" className="w-full">
       <nav className="fixed top-0 w-full h-16 z-50 bg-surface/80 backdrop-blur-md dark:bg-on-background/80 shadow-sm border-b border-outline-variant/30 dark:border-outline/20">
           <div className="flex justify-between items-center h-16 px-margin-desktop max-w-container-max mx-auto">
               {/* Brand Logo */}
@@ -165,6 +164,6 @@ export default function Header() {
             </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

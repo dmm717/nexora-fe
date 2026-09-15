@@ -32,7 +32,7 @@ export default function OverviewPage() {
     const isFiltering = !!searchQuery || categoryFilter !== 'all' || difficultyFilter !== 'all';
 
     return (
-        <main id="main-content" className="mx-auto min-h-[100dvh] w-full max-w-container-max px-margin-mobile pb-12 pt-24 md:px-margin-desktop md:pb-16 md:pt-28">
+        <main id="main-content" className="mx-auto min-h-[100dvh] w-full max-w-container-max px-margin-mobile pb-12 pt-24 md:pt-28 md:px-margin-desktop md:pb-16">
             <header>
                 <h1 className="font-headline-lg text-headline-lg-mobile text-on-surface md:text-headline-lg">
                     Chào mừng trở lại, <span className="text-primary">{user?.displayName || 'bạn'}</span>!

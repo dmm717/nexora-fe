@@ -1889,5 +1889,54 @@ body > :is(nav, header):first-of-type > div {
     100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
+}\n
+/* ============================================
+   ENTERPRISE STRICT PROPORTIONAL SCALING (1:1)
+   ============================================ */
+
+/* 1. Kích hoạt cơ chế Fluid tỷ lệ thuận tuyệt đối (không bị kẹt ở mốc 16px) */
+html {
+  /* 
+    Mốc Design: 1280px. 16px / 1280px = 1.25vw.
+    Lấy laptop nhỏ làm chuẩn 100%. Bất chấp to nhỏ, chỉ phóng to/thu nhỏ đồng dạng.
+  */
+  font-size: clamp(10px, 1.25vw, 60px) !important;
 }
 
+/* 2. Ép tất cả thẻ container giãn nở tỷ lệ thuận theo root rem (không bị gãy mốc px) */
+.container, .max-w-container-max {
+  max-width: 80rem !important; /* 80rem = 1280px ở màn nhỏ, và sẽ tự to ra tương ứng ở màn to */
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+@media (min-width: 640px) { .container { max-width: 80rem !important; } }
+@media (min-width: 768px) { .container { max-width: 80rem !important; } }
+@media (min-width: 1024px) { .container { max-width: 80rem !important; } }
+@media (min-width: 1280px) { .container { max-width: 80rem !important; } }
+@media (min-width: 1536px) { .container { max-width: 80rem !important; } }
+
+/* 3. Đổi toàn bộ các class text fix cứng sang rem để hưởng thụ Fluid System */
+.text-display { font-size: 3rem !important; }
+.text-headline-lg { font-size: 2rem !important; }
+.text-headline-lg-mobile { font-size: 1.5rem !important; }
+.text-headline-md { font-size: 1.5rem !important; }
+.text-body-lg { font-size: 1.125rem !important; }
+.text-body-md { font-size: 1rem !important; }
+.text-label-md { font-size: 0.875rem !important; }
+.text-label-sm { font-size: 0.75rem !important; }
+
+.text-\[10px\] { font-size: 0.625rem !important; }
+.text-\[12px\] { font-size: 0.75rem !important; }
+.text-\[13px\] { font-size: 0.8125rem !important; }
+.text-\[14px\] { font-size: 0.875rem !important; }
+.text-\[16px\] { font-size: 1rem !important; }
+.text-\[18px\] { font-size: 1.125rem !important; }
+.text-\[20px\] { font-size: 1.25rem !important; }
+.text-\[24px\] { font-size: 1.5rem !important; }
+.text-\[28px\] { font-size: 1.75rem !important; }
+.text-\[32px\] { font-size: 2rem !important; }
+.text-\[36px\] { font-size: 2.25rem !important; }
+.text-\[40px\] { font-size: 2.5rem !important; }
+.text-\[48px\] { font-size: 3rem !important; }
+.text-\[64px\] { font-size: 4rem !important; }
