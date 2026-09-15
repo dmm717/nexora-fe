@@ -1,476 +1,212 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import styles from './DashboardPage.module.css';
-import { useDashboardSummary } from '@/hooks/queries/useDashboard';
-import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
-import { ClientDate } from '@/components/ui/ClientDate';
-import { NextPracticeRecommendationContent } from '@/components/features/recommendations/NextPracticeRecommendationCard';
-import { ApiError } from '@/services/apiClient';
-import { CareerProfileSection } from '@/components/features/career/CareerProfileSection';
+import React, { useState, useMemo } from "react";
+import Link from "next/link";
+import { useCurrentUser } from '@/hooks/queries/useUser';
 
-const getStatusBadgeClass = (status: string) => {
-  const s = status.toLowerCase();
-  if (s === 'completed' || s === 'ready') return styles.badgeSuccess;
-  if (s === 'failed') return styles.badgeError;
-  if (s === 'queued' || s === 'processing') return styles.badgeWarning;
-  return styles.badgeInfo;
-};
+const MOCK_ACTIVITIES = [
+    { id: 'act-1', type: 'interview', title: 'Phỏng vấn Business Analyst (VinGroup)', difficulty: 'medium', score: '8.5/10', date: '2 ngày trước', icon: 'videocam', link: '/interviews/1/report' },
+    { id: 'act-2', type: 'interview', title: 'Phỏng vấn Product Manager (Shopee)', difficulty: 'hard', score: '7.8/10', date: '5 ngày trước', icon: 'videocam', link: '/interviews/2/report' },
+    { id: 'act-3', type: 'case', title: 'Case: Tối ưu hóa phễu chuyển đổi E-commerce', difficulty: 'medium', score: 'Đạt', date: '1 tuần trước', icon: 'assignment', link: '/scenarios/ecommerce' },
+    { id: 'act-4', type: 'star', title: 'STAR: Xử lý khủng hoảng truyền thông', difficulty: 'easy', score: 'Hoàn thành', date: '10 ngày trước', icon: 'psychology', link: '/star' },
+    { id: 'act-5', type: 'interview', title: 'Phỏng vấn Business Analyst (Ahamove)', difficulty: 'medium', score: '8.2/10', date: '2 tuần trước', icon: 'videocam', link: '/interviews/3/report' },
+    { id: 'act-6', type: 'case', title: 'Case: Đột phá doanh thu chuỗi trà sữa', difficulty: 'easy', score: 'Đạt', date: '3 tuần trước', icon: 'assignment', link: '/scenarios/milktea' }
+];
 
-const getScoreClass = (score: number) => {
-  if (score >= 80) return styles.scoreExcellent;
-  if (score >= 65) return styles.scoreGood;
-  if (score >= 50) return styles.scoreAverage;
-  return styles.scorePoor;
-};
+export default function OverviewPage() {
+    const { data: user } = useCurrentUser();
+    const [searchQuery, setSearchQuery] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("all");
+    const [difficultyFilter, setDifficultyFilter] = useState("all");
 
-export default function DashboardPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const { data, isLoading: loading, error: queryError } = useDashboardSummary();
-  const {
-    data: progressData,
-    isLoading: progressLoading,
-    error: progressError,
-  } = useProgressDashboard();
+    const filteredActivities = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+        return MOCK_ACTIVITIES.filter(act => {
+            const matchQuery = !query || act.title.toLowerCase().includes(query);
+            const matchCat = categoryFilter === 'all' || act.type === categoryFilter;
+            const matchDiff = difficultyFilter === 'all' || act.difficulty === difficultyFilter;
+            return matchQuery && matchCat && matchDiff;
+        });
+    }, [searchQuery, categoryFilter, difficultyFilter]);
 
-  const error = queryError ? 'Không thể tải dữ liệu Dashboard' : null;
+    const isFiltering = !!searchQuery || categoryFilter !== 'all' || difficultyFilter !== 'all';
 
-  if (loading) {
-    return <div className={styles.container}>Đang tải dữ liệu...</div>;
-  }
-
-  if (error || !data) {
     return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>{error || 'Có lỗi xảy ra'}</div>
-      </div>
-    );
-  }
+        <main id="main-content" className="mx-auto min-h-[100dvh] w-full max-w-container-max px-margin-mobile pb-12 pt-24 md:px-margin-desktop md:pb-16 md:pt-28">
+            <header>
+                <h1 className="font-headline-lg text-headline-lg-mobile text-on-surface md:text-headline-lg">
+                    Chào mừng trở lại, <span className="text-primary">{user?.displayName || 'bạn'}</span>!
+                </h1>
+                <p className="mt-2 max-w-[68ch] text-body-md text-on-surface-variant">
+                    Theo dõi hành trình luyện phỏng vấn và tiếp tục cải thiện từng kỹ năng cùng Nexora.
+                </p>
+            </header>
 
-  // Calculate legacy interview counts (fallback if historicalStats is absent)
-  const totalInterviews =
-    progressData?.historicalStats?.completedInterviews ?? data.interviews.length;
-  const completedInterviews =
-    progressData?.historicalStats?.completedInterviews ??
-    data.interviews.filter((i) => i.status.toLowerCase() === 'completed').length;
-  const totalReports = data.reports.length;
-  const avgScore =
-    progressData?.historicalStats?.averageInterviewScore != null
-      ? Math.round(progressData.historicalStats.averageInterviewScore)
-      : totalReports > 0
-      ? Math.round(data.reports.reduce((acc, r) => acc + r.overallScore, 0) / totalReports)
-      : null;
-
-  const isFeatureNotAvailable =
-    progressError instanceof ApiError &&
-    progressError.code === 'FEATURE_NOT_AVAILABLE';
-
-  return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Tổng quan</h1>
-        <p className={styles.subtitle}>
-          Theo dõi tiến độ phát triển năng lực và luyện tập phỏng vấn của bạn
-        </p>
-      </header>
-
-      {/* Feature Gate Banner for ProgressAnalytics if unentitled */}
-      {isFeatureNotAvailable && (
-        <div className={styles.entitlementBanner} role="alert">
-          <div>
-            <div className={styles.entitlementTitle}>
-              Tính năng Phân tích tiến độ nâng cao (Progress Analytics)
-            </div>
-            <div className={styles.entitlementMsg}>
-              Gói tài khoản hiện tại chưa hỗ trợ xem chỉ số sẵn sàng và phân tích tiến độ tuần.
-            </div>
-          </div>
-          <Link href="/billing" className={styles.badgeInfo} style={{ textDecoration: 'none' }}>
-            Nâng cấp gói cước →
-          </Link>
-        </div>
-      )}
-
-      {/* Career Profile Section (Onboarding, Radar Chart, Primary Resume) */}
-      <CareerProfileSection />
-
-      {/* Stats Cards (combines Readiness & Overall Stats) */}
-      <div className={styles.statsGrid}>
-        {/* Readiness Score (B13) */}
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Chỉ số sẵn sàng (Readiness)</div>
-          <div className={styles.statValue}>
-            {progressData?.readiness?.score != null ? (
-              <>
-                <span className={getScoreClass(progressData.readiness.score)}>
-                  {progressData.readiness.score}
-                </span>
-                <span
-                  style={{
-                    fontSize: '1rem',
-                    fontWeight: 500,
-                    color: '#94a3b8',
-                    marginLeft: '4px',
-                  }}
-                >
-                  / 100
-                </span>
-              </>
-            ) : (
-              <span style={{ color: '#9ca3af', fontSize: '1.25rem' }}>
-                {progressLoading ? 'Đang tải...' : 'Chưa đủ dữ liệu'}
-              </span>
-            )}
-          </div>
-          {progressData?.readiness && (
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
-              {progressData.readiness.assessedCompetencies} năng lực · {progressData.readiness.evidenceCount} bằng chứng
-              {progressData.readiness.priorityGapCount > 0 && (
-                <span> · <strong style={{ color: '#ef4444' }}>{progressData.readiness.priorityGapCount} thiếu sót</strong></span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Tổng Phỏng vấn</div>
-          <div className={styles.statValue}>{totalInterviews}</div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Đã hoàn thành</div>
-          <div className={styles.statValue}>{completedInterviews}</div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Điểm phỏng vấn TB</div>
-          <div className={styles.statValue}>
-            {avgScore != null ? (
-              <>
-                <span className={getScoreClass(avgScore)}>{avgScore}</span>
-                <span
-                  style={{
-                    fontSize: '1rem',
-                    fontWeight: 500,
-                    color: '#94a3b8',
-                    marginLeft: '4px',
-                  }}
-                >
-                  / 100
-                </span>
-              </>
-            ) : (
-              <span style={{ color: '#9ca3af' }}>N/A</span>
-            )}
-          </div>
-        </div>
-
-        {data.billing?.entitlement && (
-          <div className={styles.statCard}>
-            <div className={styles.statTitle}>AI Credits (Còn lại)</div>
-            <div
-              className={styles.statValue}
-              style={{
-                fontSize:
-                  data.billing.entitlement.available == null
-                    ? '1.25rem'
-                    : undefined,
-              }}
-            >
-              {data.billing.entitlement.available != null
-                ? data.billing.entitlement.available.toLocaleString('vi-VN')
-                : 'Không giới hạn'}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* B12 Next Recommendation (Pure presentation component fed from B13 dashboard snapshot to avoid duplicate fetch) */}
-      <NextPracticeRecommendationContent
-        recommendation={progressData?.nextRecommendedPractice}
-        isLoading={progressLoading}
-      />
-
-      {/* Weekly Activities Summary (B13) */}
-      {progressData?.weeklyCompletedActivities && (
-        <section aria-label="Hoạt động trong tuần">
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Hoạt động trong tuần này (UTC)</h2>
-            <p className={styles.sectionSubtitle}>
-              Tổng hợp bài luyện tập và phân tích bạn đã hoàn thành tuần này
-            </p>
-          </div>
-          <div className={styles.weeklyGrid}>
-            <div className={`${styles.weeklyCard} ${styles.weeklyCardTotal}`}>
-              <div className={styles.weeklyLabel}>Tổng hoạt động</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.total}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Phỏng vấn</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.interviews}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Tình huống</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.scenarios}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>STAR Drill</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.starAttempts}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Phân tích CV</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.resumeAnalyses}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Lộ trình học</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.learningPathActivities}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* B13 Weakest Competencies & Recent Improvements Grid */}
-      {progressData && (
-        <div className={styles.contentGrid} style={{ marginBottom: '2rem' }}>
-          {/* Weakest Competencies Panel */}
-          <div className={styles.panel}>
-            <div
-              className={styles.panelHeader}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <h2 className={styles.panelTitle} style={{ margin: 0 }}>
-                Kỹ năng cần ưu tiên cải thiện
-              </h2>
-              <Link
-                href="/skill-profile"
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  color: '#3b82f6',
-                  textDecoration: 'none',
-                }}
-              >
-                Hồ sơ kỹ năng →
-              </Link>
-            </div>
-            {progressData.weakestCompetencies.length === 0 ? (
-              <div className={styles.emptyState}>
-                Chưa ghi nhận điểm yếu kỹ năng nào đáng chú ý
-              </div>
-            ) : (
-              <div className={styles.competencyList}>
-                {progressData.weakestCompetencies.map((comp) => (
-                  <div key={comp.code} className={styles.competencyItem}>
-                    <div>
-                      <div className={styles.competencyName}>{comp.name}</div>
-                      <div className={styles.competencyCategory}>
-                        {comp.category}
-                      </div>
+            <section className="dashboard-stats-grid mt-8" aria-label="Tổng quan luyện tập">
+                <article className="dashboard-stat-card rounded-xl border border-outline-variant/40 bg-surface">
+                    <div className="dashboard-stat-icon grid place-items-center rounded-xl bg-primary text-on-primary">
+                        <span className="material-symbols-outlined" aria-hidden="true">videocam</span>
                     </div>
-                    <div className={styles.competencyScoreGroup}>
-                      <div className={styles.competencyScore}>{comp.score}/100</div>
-                      <div className={styles.competencyEvidence}>
-                        {comp.evidenceCount} bằng chứng
-                      </div>
+                    <div className="dashboard-stat-content">
+                        <p className="dashboard-stat-label text-label-md text-on-surface-variant">Tổng số phỏng vấn</p>
+                        <p className="dashboard-stat-value text-[2rem] font-bold leading-none tabular-nums text-on-surface">12</p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </article>
 
-          {/* Recent Improvements Panel */}
-          <div className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2 className={styles.panelTitle}>Cải thiện gần đây</h2>
-            </div>
-            {progressData.recentImprovements.length === 0 ? (
-              <div className={styles.emptyState}>
-                Chưa có sự tiến bộ điểm số nào được ghi nhận gần đây
-              </div>
-            ) : (
-              <div>
-                {progressData.recentImprovements.map((imp, idx) => (
-                  <div
-                    key={`${imp.resourceId}-${idx}`}
-                    className={styles.improvementItem}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 600, color: '#1e293b' }}>
-                        Phỏng vấn
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.8rem',
-                          color: '#94a3b8',
-                          marginLeft: '0.5rem',
-                        }}
-                      >
-                        <ClientDate date={imp.at} format="date" />
-                      </span>
+                <article className="dashboard-stat-card rounded-xl border border-outline-variant/40 bg-surface">
+                    <div className="dashboard-stat-icon grid place-items-center rounded-xl bg-primary-fixed text-primary">
+                        <span className="material-symbols-outlined" aria-hidden="true">check_circle</span>
                     </div>
-                    <div className={styles.improvementScore}>
-                      <span style={{ color: '#64748b' }}>
-                        {imp.previousScore} → {imp.currentScore}
-                      </span>
-                      <span className={styles.deltaBadge}>+{imp.delta}</span>
-                      <Link
-                        href={`/interviews/${imp.resourceId}`}
-                        style={{
-                          fontSize: '0.8rem',
-                          color: '#3b82f6',
-                          textDecoration: 'none',
-                          fontWeight: 500,
-                        }}
-                      >
-                        Xem →
-                      </Link>
+                    <div className="dashboard-stat-content">
+                        <p className="dashboard-stat-label text-label-md text-on-surface-variant">Phỏng vấn đã hoàn thành</p>
+                        <p className="dashboard-stat-value text-[2rem] font-bold leading-none tabular-nums text-on-surface">8</p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                </article>
 
-      <div className={styles.contentGrid}>
-        {/* Interviews List */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 className={styles.panelTitle} style={{ margin: 0 }}>Phỏng vấn gần đây</h2>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, color: '#3b82f6' }}
-            >
-              Xem tất cả &rarr;
-            </button>
-          </div>
-          {data.interviews.length === 0 ? (
-            <div className={styles.emptyState}>Chưa có bài phỏng vấn nào</div>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Vị trí</th>
-                    <th>Cập nhật</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.interviews.slice(0, 5).map(interview => (
-                    <tr key={interview.id}>
-                      <td style={{ fontWeight: 600 }}>{interview.role}</td>
-                      <td><ClientDate date={interview.updatedAt} format="date" /></td>
-                      <td>
-                        <span className={`${styles.badge} ${getStatusBadgeClass(interview.status)}`}>
-                          {interview.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Reports List */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Kết quả phỏng vấn</h2>
-          </div>
-          {data.reports.length === 0 ? (
-            <div className={styles.emptyState}>Chưa có báo cáo nào</div>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Ngày tạo</th>
-                    <th>Điểm số</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.reports.slice(0, 5).map(report => (
-                    <tr key={report.id}>
-                      <td style={{ fontFamily: 'monospace', color: '#64748b' }}>
-                        #{report.id.slice(0, 8)}
-                      </td>
-                      <td><ClientDate date={report.createdAt} format="date" /></td>
-                      <td>
-                        <span className={getScoreClass(report.overallScore)} style={{ fontWeight: 700 }}>
-                          {report.overallScore}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginLeft: '4px' }}>/ 100</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {isModalOpen && data && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Lịch sử phỏng vấn</h2>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}
-              >
-                &times;
-              </button>
-            </div>
-            <div className={styles.modalBody}>
-              {data.interviews.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>Chưa có bài phỏng vấn nào.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {data.interviews.map(inv => (
-                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '1rem', color: '#111827' }}>{inv.role}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={inv.updatedAt} /></div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span className={`${styles.badge} ${getStatusBadgeClass(inv.status)}`}>
-                          {inv.status}
-                        </span>
-                        <Link href={`/interviews/${inv.id}`} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>
-                          Xem chi tiết &rarr;
-                        </Link>
-                      </div>
+                <article className="dashboard-stat-card rounded-xl border border-outline-variant/40 bg-surface">
+                    <div className="dashboard-stat-icon grid place-items-center rounded-xl bg-surface-container-high text-primary">
+                        <span className="material-symbols-outlined" aria-hidden="true">assignment</span>
                     </div>
-                  ))}
+                    <div className="dashboard-stat-content">
+                        <p className="dashboard-stat-label text-label-md text-on-surface-variant">Case đã hoàn thành</p>
+                        <p className="dashboard-stat-value text-[2rem] font-bold leading-none tabular-nums text-on-surface">4</p>
+                    </div>
+                </article>
+
+                <article className="dashboard-stat-card rounded-xl border border-outline-variant/40 bg-surface">
+                    <div className="dashboard-stat-icon grid place-items-center rounded-xl bg-tertiary-fixed text-tertiary">
+                        <span className="material-symbols-outlined" aria-hidden="true">bar_chart</span>
+                    </div>
+                    <div className="dashboard-stat-content">
+                        <p className="dashboard-stat-label text-label-md text-on-surface-variant">Điểm trung bình</p>
+                        <p className="dashboard-stat-value text-[2rem] font-bold leading-none tabular-nums text-on-surface">8.2</p>
+                    </div>
+                </article>
+            </section>
+
+            <section className="mt-6 rounded-xl border border-outline-variant/40 bg-surface p-4 md:p-5" aria-labelledby="dashboard-search-title">
+                <h2 id="dashboard-search-title" className="sr-only">Tìm kiếm và lọc hoạt động</h2>
+                <label htmlFor="dashboard-search" className="sr-only">Tìm kiếm hoạt động</label>
+                <div className="relative">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-outline" aria-hidden="true">search</span>
+                    <input id="dashboard-search" type="search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="min-h-12 w-full rounded-xl border border-outline-variant/50 bg-surface-container-lowest py-3 pl-12 pr-4 text-body-md text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                        placeholder="Tìm kiếm hoạt động luyện tập..." />
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+                <div className="dashboard-filter-row mt-4">
+                    <div className="dashboard-select-wrap">
+                        <label htmlFor="dashboard-category" className="sr-only">Danh mục</label>
+                        <select id="dashboard-category"
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="dashboard-select border border-outline-variant/50 bg-surface-container-lowest text-label-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+                            <option value="all">Tất cả danh mục</option>
+                            <option value="interview">Phỏng vấn AI</option>
+                            <option value="case">Case tình huống</option>
+                            <option value="star">Luyện tập STAR</option>
+                        </select>
+                        <span className="dashboard-select-icon material-symbols-outlined" aria-hidden="true">expand_more</span>
+                    </div>
+
+                    <div className="dashboard-select-wrap">
+                        <label htmlFor="dashboard-difficulty" className="sr-only">Độ khó</label>
+                        <select id="dashboard-difficulty"
+                            value={difficultyFilter}
+                            onChange={(e) => setDifficultyFilter(e.target.value)}
+                            className="dashboard-select border border-outline-variant/50 bg-surface-container-lowest text-label-md text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+                            <option value="all">Độ khó: Bất kỳ</option>
+                            <option value="easy">Dễ</option>
+                            <option value="medium">Trung bình</option>
+                            <option value="hard">Khó</option>
+                        </select>
+                        <span className="dashboard-select-icon material-symbols-outlined" aria-hidden="true">expand_more</span>
+                    </div>
+                </div>
+            </section>
+
+            <section className="mt-6 overflow-hidden rounded-xl border border-outline-variant/40 bg-surface" aria-labelledby="recent-activity-title">
+                <div className="border-b border-outline-variant/40 px-5 py-4 md:px-6">
+                    <h2 id="recent-activity-title" className="font-headline-md text-headline-md text-on-surface">Hoạt động gần đây</h2>
+                </div>
+
+                {filteredActivities.length === 0 ? (
+                    <div className="flex min-h-72 flex-col items-center justify-center px-5 py-10 text-center">
+                        {isFiltering ? (
+                            <>
+                                <span className="material-symbols-outlined text-[48px] text-outline mb-2">search_off</span>
+                                <h3 className="mt-3 font-headline-md text-headline-md text-on-surface">Không tìm thấy hoạt động phù hợp</h3>
+                                <p className="mt-2 max-w-[52ch] text-body-md text-on-surface-variant">
+                                    Thử thay đổi từ khóa hoặc bộ lọc. Hoạt động mới sẽ xuất hiện sau khi bạn hoàn thành một buổi luyện tập.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <img className="nx-mascot nx-mascot-dashboard" src="/assets/mascot.png" alt="Mascot Nexora chào đón bạn" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement?.querySelector('.material-symbols-outlined')?.classList.remove('hidden'); }} />
+                                <span className="material-symbols-outlined text-[48px] text-outline mb-2 hidden">history</span>
+                                <h3 className="mt-3 font-headline-md text-headline-md text-on-surface">Bắt đầu hành trình cùng Nexora</h3>
+                                <p className="mt-2 max-w-[52ch] text-body-md text-on-surface-variant">
+                                    Các cuộc phỏng vấn và case tình huống bạn hoàn thành sẽ xuất hiện tại đây.
+                                </p>
+                                <Link href="/interview"
+                                    className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 font-label-md text-label-md text-on-primary shadow-[0_4px_8px_rgba(53,37,205,0.22)] hover:bg-primary-container transition">
+                                    Bắt đầu luyện tập
+                                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
+                                </Link>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    <div className="divide-y divide-outline-variant/30">
+                        {filteredActivities.map(act => {
+                            let catClass = 'category-interview';
+                            let tagClass = 'tag-interview';
+                            let badgeClass = 'badge-interview';
+                            let categoryText = 'Phỏng vấn AI';
+
+                            if (act.type === 'case') {
+                                catClass = 'category-case';
+                                tagClass = 'tag-case';
+                                badgeClass = 'badge-case';
+                                categoryText = 'Case tình huống';
+                            } else if (act.type === 'star') {
+                                catClass = 'category-star';
+                                tagClass = 'tag-star';
+                                badgeClass = 'badge-star';
+                                categoryText = 'Luyện tập STAR';
+                            }
+
+                            let difficultyText = 'Dễ';
+                            if (act.difficulty === 'medium') difficultyText = 'Trung bình';
+                            else if (act.difficulty === 'hard') difficultyText = 'Khó';
+
+                            return (
+                                <div key={act.id} className="dashboard-activity-item">
+                                    <div className="dashboard-activity-left">
+                                        <div className={`dashboard-activity-icon-box ${catClass}`}>
+                                            <span className="material-symbols-outlined text-[24px]">{act.icon}</span>
+                                        </div>
+                                        <div className="dashboard-activity-details">
+                                            <h4 className="dashboard-activity-title">{act.title}</h4>
+                                            <div className="dashboard-activity-meta">
+                                                <span className={`dashboard-activity-category-tag ${tagClass}`}>{categoryText}</span>
+                                                <span>&bull; Độ khó: {difficultyText} &bull; {act.date}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="dashboard-activity-right">
+                                        <span className={`dashboard-activity-score-badge ${badgeClass}`}>{act.score}</span>
+                                        <Link href={act.link} className="dashboard-activity-btn transition">
+                                            {act.type === 'interview' ? 'Chi tiết' : 'Luyện lại'}
+                                        </Link>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
+        </main>
+    );
 }
