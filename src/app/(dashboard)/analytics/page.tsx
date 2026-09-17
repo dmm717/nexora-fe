@@ -1,276 +1,316 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import styles from './Analytics.module.css';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { RadialScore } from '@/components/ui/RadialScore';
+import { AnimatedProgressBar } from '@/components/motion/AnimatedProgressBar';
+import {
+  MotionPage,
+  StaggerContainer,
+  StaggerItem,
+} from '@/components/motion';
+import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
+import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { useAnalytics } from '@/hooks/queries/useDashboard';
-import { ClientDate } from '@/components/ui/ClientDate';
-import { getProgressActivityPresentation } from '@/services/progressDashboardContract';
-
-const getScoreClass = (score: number) => {
-  if (score >= 80) return styles.scoreExcellent;
-  if (score >= 65) return styles.scoreGood;
-  if (score >= 50) return styles.scoreAverage;
-  return styles.scorePoor;
-};
-
+import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
 
 export default function AnalyticsPage() {
-  const { data, isLoading: loading, error: queryError } = useAnalytics();
-  const error = queryError ? queryError.message || 'Lỗi tải dữ liệu Analytics' : null;
+  const router = useRouter();
+  const { data: progress, isLoading: loadingProgress } = useProgressDashboard();
+  const { data: careerProfile, isLoading: loadingProfile } = useCareerProfile();
+  const { data: analytics, isLoading: loadingAnalytics } = useAnalytics();
+  const { data: skillProfile } = useSkillProfile();
+
+  const loading = loadingProgress || loadingProfile || loadingAnalytics;
 
   if (loading) {
-    return <div className={styles.container}>Đang tải dữ liệu báo cáo tiến độ...</div>;
-  }
-
-  if (error || !data) {
     return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>{error || 'Không có dữ liệu'}</div>
-      </div>
-    );
-  }
-
-  const isNewUser =
-    data.completedInterviews === 0 &&
-    data.completedScenarios === 0 &&
-    data.completedStarAttempts === 0 &&
-    data.recentActivity.length === 0;
-
-  if (isNewUser) {
-    return (
-      <div className={styles.container}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>Báo cáo Tiến độ (Progress Analytics)</h1>
-          <p className={styles.subtitle}>
-            Phân tích chi tiết quá trình luyện tập và hiệu suất trả lời phỏng vấn của bạn.
-          </p>
-        </header>
-
-        <div className={styles.panel} style={{ padding: '3rem 2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📈</div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
-            Chưa có dữ liệu tiến bộ
-          </h2>
-          <p style={{ color: '#6b7280', maxWidth: '500px', margin: '0 auto 1.5rem auto', fontSize: '0.95rem' }}>
-            Hãy bắt đầu hoàn thành các buổi phỏng vấn AI, giải quyết tình huống thực tế hoặc phân tích CV để hệ thống ghi nhận tiến độ học tập của bạn.
-          </p>
-          <div className={styles.emptyActionLinks}>
-            <Link href="/resumes" className={styles.btnSecondary}>
-              Phân tích CV
-            </Link>
-            <Link href="/interviews/new" className={styles.btnSecondary}>
-              Luyện phỏng vấn
-            </Link>
-            <Link href="/practice/scenarios" className={styles.btnSecondary}>
-              Luyện tình huống
-            </Link>
-            <Link href="/practice/star" className={styles.btnSecondary}>
-              Luyện STAR
-            </Link>
-          </div>
+      <div className="min-h-[60vh] flex items-center justify-center text-on-surface-variant">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span>Đang tải dữ liệu tiến độ...</span>
         </div>
       </div>
     );
   }
+
+  const activeGoal = careerProfile?.activeCareerGoal;
+  const readiness = progress?.readiness;
+  const hasScore = readiness?.score !== null && readiness?.score !== undefined;
+  const evidenceCount = readiness?.evidenceCount ?? 0;
+
+  // Weakest competencies from progress dashboard or skill profile summary
+  const weakestCompetencies = progress?.weakestCompetencies || [];
+  const recentImprovements = progress?.recentImprovements || [];
+
+  // Competencies list from skill profile or careerProfile summary
+  const competencies = skillProfile?.competencies || careerProfile?.skillProfileSummary?.topCompetencies || [];
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Báo cáo Tiến độ (Progress Analytics)</h1>
-        <p className={styles.subtitle}>
-          Phân tích chi tiết quá trình luyện tập và hiệu suất trả lời phỏng vấn của bạn.
-        </p>
-      </header>
-
-      <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Phỏng vấn đã hoàn thành</div>
-          <div className={styles.statValue}>{data.completedInterviews}</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Điểm Phỏng vấn TB</div>
-          <div className={styles.statValue}>
-            {data.averageInterviewScore != null ? (
-              <>
-                <span className={getScoreClass(data.averageInterviewScore)}>
-                  {Math.round(data.averageInterviewScore)}
-                </span>
-                <span style={{ fontSize: '1rem', color: '#6b7280', fontWeight: 500 }}>/100</span>
-              </>
-            ) : (
-              <span style={{ fontSize: '1.25rem', color: '#9ca3af', fontWeight: 500 }}>
-                Chưa có điểm
-              </span>
-            )}
+    <MotionPage className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-primary text-xs font-semibold mb-2">
+            <span className="material-symbols-outlined text-[16px]">trending_up</span>
+            <span>Báo cáo hồ sơ năng lực thực chiến</span>
           </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
+            Chỉ số sẵn sàng & Năng lực cạnh tranh
+          </h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
+            Mục tiêu hiện tại: {activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Chưa thiết lập'}{' '}
+            {activeGoal?.industry ? `(${activeGoal.industry})` : activeGoal ? '(Chưa xác định lĩnh vực)' : ''}
+          </p>
         </div>
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Tình huống (Scenarios)</div>
-          <div className={styles.statValue}>{data.completedScenarios}</div>
-          {data.averageScenarioScore != null && (
-            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem' }}>
-              Điểm TB: <strong>{Math.round(data.averageScenarioScore)}/100</strong>
-            </div>
-          )}
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>STAR Builder đã hoàn thành</div>
-          <div className={styles.statValue}>{data.completedStarAttempts}</div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/learning-path')}
+            icon={<span className="material-symbols-outlined text-[18px]">route</span>}
+          >
+            Xem lộ trình chi tiết
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push('/practice')}
+            icon={<span className="material-symbols-outlined text-[18px]">play_arrow</span>}
+          >
+            Luyện tập ngay
+          </Button>
         </div>
       </div>
 
-      <div className={styles.contentGrid}>
-        {/* STAR Skills Analysis */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Phân tích kỹ năng S-T-A-R</h2>
-          </div>
-          {data.starAverages ? (
-            <div className={styles.starBars}>
-              <div className={styles.barItem}>
-                <div className={styles.barHeader}>
-                  <span className={styles.barLabel}>Situation (Tình huống)</span>
-                  <span className={styles.barScore}>{data.starAverages.situation}/100</span>
-                </div>
-                <div className={styles.barTrack}>
-                  <div
-                    className={styles.barFill}
-                    style={{ width: `${data.starAverages.situation}%`, backgroundColor: '#3b82f6' }}
-                  />
-                </div>
-              </div>
-              <div className={styles.barItem}>
-                <div className={styles.barHeader}>
-                  <span className={styles.barLabel}>Task (Nhiệm vụ)</span>
-                  <span className={styles.barScore}>{data.starAverages.task}/100</span>
-                </div>
-                <div className={styles.barTrack}>
-                  <div
-                    className={styles.barFill}
-                    style={{ width: `${data.starAverages.task}%`, backgroundColor: '#8b5cf6' }}
-                  />
-                </div>
-              </div>
-              <div className={styles.barItem}>
-                <div className={styles.barHeader}>
-                  <span className={styles.barLabel}>Action (Hành động)</span>
-                  <span className={styles.barScore}>{data.starAverages.action}/100</span>
-                </div>
-                <div className={styles.barTrack}>
-                  <div
-                    className={styles.barFill}
-                    style={{ width: `${data.starAverages.action}%`, backgroundColor: '#10b981' }}
-                  />
-                </div>
-              </div>
-              <div className={styles.barItem}>
-                <div className={styles.barHeader}>
-                  <span className={styles.barLabel}>Result (Kết quả)</span>
-                  <span className={styles.barScore}>{data.starAverages.result}/100</span>
-                </div>
-                <div className={styles.barTrack}>
-                  <div
-                    className={styles.barFill}
-                    style={{ width: `${data.starAverages.result}%`, backgroundColor: '#f59e0b' }}
-                  />
-                </div>
-              </div>
-            </div>
+      {/* Top Level Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Readiness Metric */}
+        <Card variant="elevated" padding="lg" className="md:col-span-2 flex flex-col sm:flex-row items-center gap-6">
+          {hasScore ? (
+            <RadialScore score={readiness.score!} size={120} strokeWidth={10} />
           ) : (
-            <div className={styles.emptyState}>
-              <p>Chưa có dữ liệu đánh giá kỹ năng STAR.</p>
-              <div className={styles.emptyActionLinks}>
-                <Link href="/practice/star" className={styles.btnSecondary}>
-                  Luyện kỹ thuật STAR →
-                </Link>
-              </div>
+            <div className="w-28 h-28 rounded-full border-4 border-dashed border-outline-variant flex items-center justify-center text-center p-3">
+              <span className="text-xs font-bold text-on-surface-variant">Chưa đủ dữ liệu</span>
             </div>
           )}
+
+          <div className="space-y-1.5 text-center sm:text-left">
+            <div className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+              Mức độ sẵn sàng tuyển dụng
+            </div>
+            <div className="text-xl font-bold text-on-surface">
+              {hasScore
+                ? readiness.score! >= 75
+                  ? `Khả quan${activeGoal?.seniority ? ` · ${activeGoal.seniority}` : ''}`
+                  : 'Cần bồi đắp'
+                : 'Chưa đủ dữ liệu đánh giá'}
+            </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              {hasScore
+                ? `Tính toán dựa trên ${evidenceCount} bằng chứng từ CV và các phiên phỏng vấn đã hoàn thành.`
+                : 'Thực hiện bài phỏng vấn đầu tiên hoặc tải lên CV để kích hoạt chỉ số sẵn sàng.'}
+            </p>
+          </div>
+        </Card>
+
+        {/* Assessed Competencies */}
+        <Card variant="elevated" padding="md" className="flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-on-surface-variant">Năng lực đã kiểm chứng</span>
+            <span className="material-symbols-outlined text-primary text-[20px]">fact_check</span>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-on-surface">
+              {readiness?.assessedCompetencies ?? competencies.length} / 6
+            </div>
+            <span className="text-[11px] text-on-surface-variant">Trục năng lực trọng tâm</span>
+          </div>
+        </Card>
+
+        {/* Completed Activities */}
+        <Card variant="elevated" padding="md" className="flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-on-surface-variant">Hoạt động tuần này</span>
+            <span className="material-symbols-outlined text-emerald-700 text-[20px]">task_alt</span>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-on-surface">
+              {progress?.weeklyCompletedActivities?.total ??
+                (analytics ? analytics.completedInterviews + analytics.completedScenarios + analytics.completedStarAttempts : 0)}
+            </div>
+            <span className="text-[11px] text-emerald-700 font-medium">
+              Bao gồm {progress?.weeklyCompletedActivities?.interviews ?? analytics?.completedInterviews ?? 0} phiên phỏng vấn
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Next Recommended Practice Banner */}
+      {progress?.nextRecommendedPractice && (
+        <Card variant="elevated" padding="lg" className="border-primary/30 bg-primary-fixed/20 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="primary" size="sm">Đề xuất ưu tiên hàng đầu</Badge>
+                <span className="text-xs text-on-surface-variant">
+                  Ước tính: {progress.nextRecommendedPractice.estimatedMinutes} phút
+                </span>
+              </div>
+              <h3 className="text-sm sm:text-base font-bold text-on-surface">
+                {progress.nextRecommendedPractice.reason}
+              </h3>
+            </div>
+
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/interviews/new')}
+              icon={<span className="material-symbols-outlined text-[18px]">replay</span>}
+              iconPosition="right"
+              className="shrink-0 shadow-md"
+            >
+              Luyện ngay theo đề xuất
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Main Grid: Competency Evidence List & Improvements */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left 7 cols: Competency Evidence List */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">
+              Chi tiết các năng lực đã được định lượng
+            </h3>
+            <span className="text-xs text-on-surface-variant">
+              {activeGoal ? `Theo mục tiêu ${activeGoal.targetRole}` : 'Chưa thiết lập vị trí mục tiêu'}
+            </span>
+          </div>
+
+          <StaggerContainer className="space-y-3">
+            {competencies.length > 0 ? (
+              competencies.map((comp, idx) => {
+                const score = comp.score != null ? Math.round(comp.score) : 0;
+                const evidenceNum = 'evidenceCount' in comp ? comp.evidenceCount : 0;
+                return (
+                  <StaggerItem key={idx}>
+                    <Card variant="elevated" padding="md" className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-on-surface">{comp.name || comp.code}</div>
+                          <div className="text-[11px] text-on-surface-variant">
+                            {comp.category || 'Chuyên môn'} {evidenceNum ? `· ${evidenceNum} dẫn chứng` : ''}
+                          </div>
+                        </div>
+                        <div className="text-xs font-bold text-primary">{score}%</div>
+                      </div>
+
+                      <AnimatedProgressBar
+                        label=""
+                        value={score}
+                        heightClass="h-2"
+                        colorClass={
+                          score >= 80 ? 'bg-emerald-700' : score >= 70 ? 'bg-primary' : 'bg-amber-700'
+                        }
+                        delay={idx * 0.08}
+                      />
+                    </Card>
+                  </StaggerItem>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
+                Chưa có năng lực nào được đánh giá. Hãy hoàn thành phiên phỏng vấn đầu tiên.
+              </div>
+            )}
+          </StaggerContainer>
         </div>
 
-        {/* Recent Interview Scores & Trend */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Điểm phỏng vấn gần đây</h2>
-          </div>
-          {data.recentInterviewScores && data.recentInterviewScores.length > 0 ? (
-            <div className={styles.scoreList}>
-              {data.recentInterviewScores.map((item, idx) => (
-                <div key={item.interviewId || idx} className={styles.scoreRow}>
-                  <div>
-                    <span style={{ fontWeight: 500, color: '#111827' }}>
-                      Phỏng vấn #{idx + 1}
-                    </span>
-                    {item.completedAt && (
-                      <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                        <ClientDate date={item.completedAt} />
-                      </div>
-                    )}
+        {/* Right 5 cols: Weaknesses & Improvements */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Weakness Signals */}
+          <Card variant="elevated" padding="lg" className="space-y-4">
+            <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[18px]">error</span>
+              <span>Tín hiệu yếu điểm cần lưu ý</span>
+            </div>
+
+            <div className="space-y-3">
+              {weakestCompetencies.length > 0 ? (
+                weakestCompetencies.map((w, idx) => (
+                  <div key={idx} className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+                      <span>{w.name}</span>
+                      <span className="text-amber-700">{w.score}%</span>
+                    </div>
+                    <p className="text-[11px] text-amber-900 leading-relaxed">
+                      Năng lực đang dưới ngưỡng kỳ vọng{activeGoal?.seniority ? ` của cấp bậc ${activeGoal.seniority}` : ''}. Cần luyện tập bổ sung số liệu chứng minh.
+                    </p>
+                    <button
+                      onClick={() => router.push('/interviews/new')}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <span>Luyện tập khắc phục</span>
+                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </button>
                   </div>
-                  <span
-                    className={getScoreClass(item.score)}
-                    style={{ fontSize: '1.25rem', fontWeight: 700 }}
-                  >
-                    {item.score}/100
-                  </span>
-                </div>
-              ))}
-              {data.recentInterviewScores.length < 2 && (
-                <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                  Cần ít nhất 2 buổi phỏng vấn để đánh giá xu hướng tiến bộ.
-                </div>
+                ))
+              ) : (
+                <p className="text-xs text-on-surface-variant italic">
+                  Chưa phát hiện tín hiệu yếu điểm đáng lo ngại.
+                </p>
               )}
             </div>
-          ) : (
-            <div className={styles.emptyState}>
-              <p>Chưa có buổi phỏng vấn nào được hoàn thành.</p>
-              <div className={styles.emptyActionLinks}>
-                <Link href="/interviews/new" className={styles.btnSecondary}>
-                  Bắt đầu phỏng vấn ngay →
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
+          </Card>
 
-        {/* Recent Activities Timeline */}
-        <div className={styles.panel} style={{ gridColumn: '1 / -1' }}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Hoạt động gần đây</h2>
-          </div>
-          {data.recentActivity && data.recentActivity.length > 0 ? (
-            <ul className={styles.timeline}>
-              {data.recentActivity.map((activity, idx) => {
-                const { label, deepLink } = getProgressActivityPresentation(activity.kind, activity.resourceId);
-                return (
-                  <li key={`${activity.at}-${activity.kind}-${idx}`} className={styles.timelineItem}>
-                    <div className={styles.timelineDot} />
-                    <div className={styles.timelineContent}>
-                      <div className={styles.timelineType}>
-                        {deepLink ? (
-                          <Link href={deepLink} className={styles.timelineLink}>
-                            {label} →
-                          </Link>
-                        ) : (
-                          label
-                        )}
+          {/* Recent Improvements */}
+          <Card variant="elevated" padding="lg" className="space-y-4">
+            <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[18px]">auto_graph</span>
+              <span>Tiến bộ gần đây</span>
+            </div>
+
+            <div className="space-y-3">
+              {recentImprovements.length > 0 ? (
+                recentImprovements.map((imp, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (imp.kind === 'interview') {
+                        router.push('/interviews');
+                      } else {
+                        router.push('/resume-analyses');
+                      }
+                    }}
+                    className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 hover:border-primary/50 cursor-pointer transition-all"
+                  >
+                    <div>
+                      <div className="font-bold text-on-surface flex items-center gap-1">
+                        <span>{imp.kind === 'interview' ? 'Phiên phỏng vấn kỹ thuật' : 'Phân tích CV đối chiếu JD'}</span>
+                        <span className="material-symbols-outlined text-[13px] text-primary">open_in_new</span>
                       </div>
-                      {activity.at && (
-                        <div className={styles.timelineTime}>
-                          <ClientDate date={activity.at} />
-                        </div>
-                      )}
+                      <div className="text-[11px] text-on-surface-variant">
+                        Điểm tăng từ {imp.previousScore}% lên {imp.currentScore}%
+                      </div>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className={styles.emptyState}>Chưa có hoạt động nào gần đây</div>
-          )}
+                    <Badge variant="success" size="sm">+{imp.delta}%</Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-on-surface-variant italic">
+                  Chưa ghi nhận bước tiến bộ mới trong tuần qua.
+                </p>
+              )}
+            </div>
+          </Card>
         </div>
       </div>
-    </div>
+    </MotionPage>
   );
 }

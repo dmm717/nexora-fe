@@ -1,476 +1,496 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import styles from './DashboardPage.module.css';
+import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useDashboardSummary } from '@/hooks/queries/useDashboard';
 import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
-import { ClientDate } from '@/components/ui/ClientDate';
-import { NextPracticeRecommendationContent } from '@/components/features/recommendations/NextPracticeRecommendationCard';
+import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
+import { useLearningPath } from '@/hooks/queries/useLearningPath';
+import { useNextRecommendation } from '@/hooks/queries/useNextRecommendation';
+import { RadialScore } from '@/components/ui/RadialScore';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
+import {
+  EvidenceCard,
+  InsightPanel,
+  MotionEmptyState,
+  ProductPageHero,
+} from '@/components/product-visual';
+import { resolveNextBestAction } from '@/services/nextBestAction';
+import { hasAvailableLearningPath } from '@/services/learningPathAvailability';
 import { ApiError } from '@/services/apiClient';
-import { CareerProfileSection } from '@/components/features/career/CareerProfileSection';
+import type { CareerProfile, LearningPath, ProgressDashboard } from '@/types/prototype';
 
-const getStatusBadgeClass = (status: string) => {
-  const s = status.toLowerCase();
-  if (s === 'completed' || s === 'ready') return styles.badgeSuccess;
-  if (s === 'failed') return styles.badgeError;
-  if (s === 'queued' || s === 'processing') return styles.badgeWarning;
-  return styles.badgeInfo;
-};
+export default function OverviewPage() {
+  const router = useRouter();
 
-const getScoreClass = (score: number) => {
-  if (score >= 80) return styles.scoreExcellent;
-  if (score >= 65) return styles.scoreGood;
-  if (score >= 50) return styles.scoreAverage;
-  return styles.scorePoor;
-};
+  const { data: dashboardData, isLoading: loadingDashboard } = useDashboardSummary();
+  const { data: progressData, isLoading: loadingProgress, error: progressError } = useProgressDashboard();
+  const { data: careerProfile, isLoading: loadingProfile } = useCareerProfile();
+  const { data: learningPathData } = useLearningPath();
+  const { data: recommendationData } = useNextRecommendation();
 
-export default function DashboardPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const { data, isLoading: loading, error: queryError } = useDashboardSummary();
-  const {
-    data: progressData,
-    isLoading: progressLoading,
-    error: progressError,
-  } = useProgressDashboard();
+  const isFeatureNotAvailable =
+    progressError instanceof ApiError && progressError.code === 'FEATURE_NOT_AVAILABLE';
 
-  const error = queryError ? 'Không thể tải dữ liệu Dashboard' : null;
+  const isNew = progressData?.readiness?.score == null;
+  const activeGoal = careerProfile?.activeCareerGoal;
+  const primaryResume = careerProfile?.primaryResume;
+  const onboarding = careerProfile?.onboarding;
 
-  if (loading) {
-    return <div className={styles.container}>Đang tải dữ liệu...</div>;
+  // Use either next recommendation from progress dashboard or recommendations endpoint
+  const rec = progressData?.nextRecommendedPractice || recommendationData || null;
+
+  const nextAction = resolveNextBestAction({
+    recommendation: rec as any,
+    targetRole: activeGoal?.targetRole,
+    needsFirstEvidence: isNew,
+    scenarioEnabled: true, // Will route cleanly
+  });
+
+  const availablePath = hasAvailableLearningPath(
+    learningPathData as unknown as LearningPath,
+    careerProfile as unknown as CareerProfile,
+    progressData as unknown as ProgressDashboard
+  )
+    ? learningPathData
+    : null;
+
+  const nextMilestone = availablePath?.milestones?.find(
+    (milestone) => (milestone.status as string) === 'in_progress' || (milestone.status as string) === 'pending'
+  );
+
+  // Derive real recent activities
+  const recentActivities: Array<{
+    id: string;
+    kind: 'cv_analysis' | 'interview' | 'scenario' | 'star';
+    title: string;
+    summary: string;
+    createdAt: string;
+    score: number | null;
+    destinationUrl: string;
+  }> = [];
+
+  if (dashboardData?.interviews) {
+    dashboardData.interviews.slice(0, 4).forEach((iv) => {
+      const matchedReport = dashboardData.reports?.find((r) => r.interviewId === iv.id);
+      recentActivities.push({
+        id: `iv-${iv.id}`,
+        kind: 'interview',
+        title: `Phỏng vấn: ${iv.role}`,
+        summary: `Trạng thái: ${iv.status}`,
+        createdAt: matchedReport?.createdAt || iv.updatedAt || new Date().toISOString(),
+        score: matchedReport?.overallScore ?? null,
+        destinationUrl: `/interviews/${iv.id}`,
+      });
+    });
   }
 
-  if (error || !data) {
+  if (loadingDashboard && loadingProgress && loadingProfile) {
     return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>{error || 'Có lỗi xảy ra'}</div>
+      <div className="min-h-[60vh] flex items-center justify-center text-slate-500">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span>Đang tải dữ liệu tổng quan...</span>
+        </div>
       </div>
     );
   }
 
-  // Calculate legacy interview counts (fallback if historicalStats is absent)
-  const totalInterviews =
-    progressData?.historicalStats?.completedInterviews ?? data.interviews.length;
-  const completedInterviews =
-    progressData?.historicalStats?.completedInterviews ??
-    data.interviews.filter((i) => i.status.toLowerCase() === 'completed').length;
-  const totalReports = data.reports.length;
-  const avgScore =
-    progressData?.historicalStats?.averageInterviewScore != null
-      ? Math.round(progressData.historicalStats.averageInterviewScore)
-      : totalReports > 0
-      ? Math.round(data.reports.reduce((acc, r) => acc + r.overallScore, 0) / totalReports)
-      : null;
-
-  const isFeatureNotAvailable =
-    progressError instanceof ApiError &&
-    progressError.code === 'FEATURE_NOT_AVAILABLE';
-
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Tổng quan</h1>
-        <p className={styles.subtitle}>
-          Theo dõi tiến độ phát triển năng lực và luyện tập phỏng vấn của bạn
-        </p>
-      </header>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      {/* 1. Context first: what should I do next? */}
+      <ProductPageHero
+        feature="overview"
+        title={`Xin chào, ${careerProfile?.profile?.displayName || 'ứng viên'}!`}
+        description={
+          isNew
+            ? 'Hệ thống chưa có dữ liệu kiểm chứng. Chọn một bước bắt đầu để Nexora có thể học từ bằng chứng thật của bạn.'
+            : `Hệ thống ghi nhận ${progressData?.readiness?.evidenceCount ?? 0} bằng chứng năng lực thực tế. Đây là bước đi tốt nhất tiếp theo trong hành trình của bạn.`
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+          <EvidenceCard
+            label="Mục tiêu hiện tại"
+            value={activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Chưa thiết lập mục tiêu'}
+            detail={activeGoal ? (activeGoal.industry || 'Đã có mục tiêu, chưa chốt ngành') : 'Thiết lập để kết quả có bối cảnh'}
+            tone={activeGoal ? 'positive' : 'attention'}
+          />
+          <EvidenceCard
+            label="CV chính"
+            value={primaryResume?.fileName || 'Chưa có CV chính'}
+            detail={primaryResume ? 'Đã sẵn sàng để đối chiếu' : 'Thêm CV khi bạn sẵn sàng'}
+            tone={primaryResume ? 'positive' : 'neutral'}
+          />
+        </div>
+        <div className="flex flex-wrap gap-3 mt-4">
+          <Button variant="primary" size="md" onClick={() => router.push(nextAction.destination)}>
+            {nextAction.label}
+          </Button>
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => router.push(primaryResume ? '/career-goals' : '/resume-analyses')}
+          >
+            {primaryResume ? 'Xem hồ sơ nghề nghiệp' : 'Thiết lập bối cảnh'}
+          </Button>
+        </div>
+      </ProductPageHero>
 
       {/* Feature Gate Banner for ProgressAnalytics if unentitled */}
       {isFeatureNotAvailable && (
-        <div className={styles.entitlementBanner} role="alert">
-          <div>
-            <div className={styles.entitlementTitle}>
-              Tính năng Phân tích tiến độ nâng cao (Progress Analytics)
-            </div>
-            <div className={styles.entitlementMsg}>
-              Gói tài khoản hiện tại chưa hỗ trợ xem chỉ số sẵn sàng và phân tích tiến độ tuần.
-            </div>
+        <div className="p-4 rounded-xl bg-amber-50/90 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-amber-900">
+            <span className="material-symbols-outlined text-[20px] text-amber-700">lock</span>
+            <span>
+              <strong>Tính năng Phân tích tiến độ nâng cao:</strong> Gói tài khoản hiện tại chưa hỗ trợ xem chỉ số sẵn sàng và phân tích tiến độ tuần.
+            </span>
           </div>
-          <Link href="/billing" className={styles.badgeInfo} style={{ textDecoration: 'none' }}>
-            Nâng cấp gói cước →
-          </Link>
+          <Button variant="primary" size="sm" onClick={() => router.push('/pricing')}>
+            Nâng cấp gói cước
+          </Button>
         </div>
       )}
 
-      {/* Career Profile Section (Onboarding, Radar Chart, Primary Resume) */}
-      <CareerProfileSection />
+      {/* Onboarding Incomplete Reminder Banner (if applicable) */}
+      {onboarding && !onboarding.isComplete && (
+        <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-amber-900">
+            <span className="material-symbols-outlined text-[20px] text-amber-700">info</span>
+            <span>
+              <strong>Hồ sơ nghề nghiệp chưa đầy đủ:</strong>{' '}
+              {!primaryResume && 'Chưa có CV chính thức · '}
+              {!activeGoal && 'Chưa chọn vị trí mục tiêu · '}
+              Bạn có thể bổ sung trực tiếp khi bắt đầu tính năng hoặc cập nhật trong menu tài khoản.
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/career-goals')}
+          >
+            Hoàn thiện hồ sơ
+          </Button>
+        </div>
+      )}
 
-      {/* Stats Cards (combines Readiness & Overall Stats) */}
-      <div className={styles.statsGrid}>
-        {/* Readiness Score (B13) */}
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Chỉ số sẵn sàng (Readiness)</div>
-          <div className={styles.statValue}>
-            {progressData?.readiness?.score != null ? (
-              <>
-                <span className={getScoreClass(progressData.readiness.score)}>
-                  {progressData.readiness.score}
+      {/* 2. Core 4 Questions Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* QUESTION 4: Tôi nên làm gì tiếp theo? (Spotlight Next Best Action) */}
+        <div className="lg:col-span-7 flex flex-col justify-between relative overflow-hidden rounded-2xl bg-white p-6 sm:p-7 border border-outline-variant/60 shadow-card group">
+          <div className="relative z-10">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-xs font-semibold uppercase tracking-wider">
+                <span className="material-symbols-outlined text-[16px] text-primary">
+                  auto_awesome
                 </span>
-                <span
-                  style={{
-                    fontSize: '1rem',
-                    fontWeight: 500,
-                    color: '#94a3b8',
-                    marginLeft: '4px',
-                  }}
-                >
-                  / 100
-                </span>
-              </>
-            ) : (
-              <span style={{ color: '#9ca3af', fontSize: '1.25rem' }}>
-                {progressLoading ? 'Đang tải...' : 'Chưa đủ dữ liệu'}
+                Hành động tốt nhất tiếp theo (Next Best Action)
               </span>
-            )}
-          </div>
-          {progressData?.readiness && (
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
-              {progressData.readiness.assessedCompetencies} năng lực · {progressData.readiness.evidenceCount} bằng chứng
-              {progressData.readiness.priorityGapCount > 0 && (
-                <span> · <strong style={{ color: '#ef4444' }}>{progressData.readiness.priorityGapCount} thiếu sót</strong></span>
-              )}
+              <span className="text-xs text-on-surface-variant">Ước tính {nextAction.estimatedMinutes} phút</span>
             </div>
-          )}
-        </div>
 
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Tổng Phỏng vấn</div>
-          <div className={styles.statValue}>{totalInterviews}</div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Đã hoàn thành</div>
-          <div className={styles.statValue}>{completedInterviews}</div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statTitle}>Điểm phỏng vấn TB</div>
-          <div className={styles.statValue}>
-            {avgScore != null ? (
-              <>
-                <span className={getScoreClass(avgScore)}>{avgScore}</span>
-                <span
-                  style={{
-                    fontSize: '1rem',
-                    fontWeight: 500,
-                    color: '#94a3b8',
-                    marginLeft: '4px',
-                  }}
-                >
-                  / 100
-                </span>
-              </>
-            ) : (
-              <span style={{ color: '#9ca3af' }}>N/A</span>
-            )}
-          </div>
-        </div>
-
-        {data.billing?.entitlement && (
-          <div className={styles.statCard}>
-            <div className={styles.statTitle}>AI Credits (Còn lại)</div>
-            <div
-              className={styles.statValue}
-              style={{
-                fontSize:
-                  data.billing.entitlement.available == null
-                    ? '1.25rem'
-                    : undefined,
-              }}
-            >
-              {data.billing.entitlement.available != null
-                ? data.billing.entitlement.available.toLocaleString('vi-VN')
-                : 'Không giới hạn'}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* B12 Next Recommendation (Pure presentation component fed from B13 dashboard snapshot to avoid duplicate fetch) */}
-      <NextPracticeRecommendationContent
-        recommendation={progressData?.nextRecommendedPractice}
-        isLoading={progressLoading}
-      />
-
-      {/* Weekly Activities Summary (B13) */}
-      {progressData?.weeklyCompletedActivities && (
-        <section aria-label="Hoạt động trong tuần">
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Hoạt động trong tuần này (UTC)</h2>
-            <p className={styles.sectionSubtitle}>
-              Tổng hợp bài luyện tập và phân tích bạn đã hoàn thành tuần này
-            </p>
-          </div>
-          <div className={styles.weeklyGrid}>
-            <div className={`${styles.weeklyCard} ${styles.weeklyCardTotal}`}>
-              <div className={styles.weeklyLabel}>Tổng hoạt động</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.total}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Phỏng vấn</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.interviews}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Tình huống</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.scenarios}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>STAR Drill</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.starAttempts}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Phân tích CV</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.resumeAnalyses}
-              </div>
-            </div>
-            <div className={styles.weeklyCard}>
-              <div className={styles.weeklyLabel}>Lộ trình học</div>
-              <div className={styles.weeklyValue}>
-                {progressData.weeklyCompletedActivities.learningPathActivities}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* B13 Weakest Competencies & Recent Improvements Grid */}
-      {progressData && (
-        <div className={styles.contentGrid} style={{ marginBottom: '2rem' }}>
-          {/* Weakest Competencies Panel */}
-          <div className={styles.panel}>
-            <div
-              className={styles.panelHeader}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <h2 className={styles.panelTitle} style={{ margin: 0 }}>
-                Kỹ năng cần ưu tiên cải thiện
-              </h2>
-              <Link
-                href="/skill-profile"
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  color: '#3b82f6',
-                  textDecoration: 'none',
-                }}
-              >
-                Hồ sơ kỹ năng →
-              </Link>
-            </div>
-            {progressData.weakestCompetencies.length === 0 ? (
-              <div className={styles.emptyState}>
-                Chưa ghi nhận điểm yếu kỹ năng nào đáng chú ý
-              </div>
-            ) : (
-              <div className={styles.competencyList}>
-                {progressData.weakestCompetencies.map((comp) => (
-                  <div key={comp.code} className={styles.competencyItem}>
-                    <div>
-                      <div className={styles.competencyName}>{comp.name}</div>
-                      <div className={styles.competencyCategory}>
-                        {comp.category}
-                      </div>
-                    </div>
-                    <div className={styles.competencyScoreGroup}>
-                      <div className={styles.competencyScore}>{comp.score}/100</div>
-                      <div className={styles.competencyEvidence}>
-                        {comp.evidenceCount} bằng chứng
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Improvements Panel */}
-          <div className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2 className={styles.panelTitle}>Cải thiện gần đây</h2>
-            </div>
-            {progressData.recentImprovements.length === 0 ? (
-              <div className={styles.emptyState}>
-                Chưa có sự tiến bộ điểm số nào được ghi nhận gần đây
-              </div>
-            ) : (
-              <div>
-                {progressData.recentImprovements.map((imp, idx) => (
-                  <div
-                    key={`${imp.resourceId}-${idx}`}
-                    className={styles.improvementItem}
+            {isNew ? (
+              <div className="space-y-3">
+                <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
+                  {nextAction.label}
+                </h3>
+                <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+                  {nextAction.description}
+                </p>
+                <div className="pt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => router.push(nextAction.destination)}
+                    icon={<span className="material-symbols-outlined text-[18px]">document_scanner</span>}
                   >
-                    <div>
-                      <span style={{ fontWeight: 600, color: '#1e293b' }}>
-                        Phỏng vấn
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.8rem',
-                          color: '#94a3b8',
-                          marginLeft: '0.5rem',
-                        }}
-                      >
-                        <ClientDate date={imp.at} format="date" />
-                      </span>
-                    </div>
-                    <div className={styles.improvementScore}>
-                      <span style={{ color: '#64748b' }}>
-                        {imp.previousScore} → {imp.currentScore}
-                      </span>
-                      <span className={styles.deltaBadge}>+{imp.delta}</span>
-                      <Link
-                        href={`/interviews/${imp.resourceId}`}
-                        style={{
-                          fontSize: '0.8rem',
-                          color: '#3b82f6',
-                          textDecoration: 'none',
-                          fontWeight: 500,
-                        }}
-                      >
-                        Xem →
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                    {nextAction.label}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => router.push('/interviews/new')}
+                    icon={<span className="material-symbols-outlined text-[18px]">mic</span>}
+                  >
+                    Hoặc thử phỏng vấn trước
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
+                  {nextAction.label}
+                </h3>
+                <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+                  {nextAction.description}
+                </p>
+                <div className="pt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => router.push(nextAction.destination)}
+                    icon={<span className="material-symbols-outlined text-[18px]">replay</span>}
+                  >
+                    {nextAction.label}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => router.push('/interviews')}
+                    icon={<span className="material-symbols-outlined text-[18px]">assignment</span>}
+                  >
+                    Xem lại các buổi phỏng vấn
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
-      )}
 
-      <div className={styles.contentGrid}>
-        {/* Interviews List */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 className={styles.panelTitle} style={{ margin: 0 }}>Phỏng vấn gần đây</h2>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, color: '#3b82f6' }}
-            >
-              Xem tất cả &rarr;
-            </button>
-          </div>
-          {data.interviews.length === 0 ? (
-            <div className={styles.emptyState}>Chưa có bài phỏng vấn nào</div>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Vị trí</th>
-                    <th>Cập nhật</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.interviews.slice(0, 5).map(interview => (
-                    <tr key={interview.id}>
-                      <td style={{ fontWeight: 600 }}>{interview.role}</td>
-                      <td><ClientDate date={interview.updatedAt} format="date" /></td>
-                      <td>
-                        <span className={`${styles.badge} ${getStatusBadgeClass(interview.status)}`}>
-                          {interview.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Reports List */}
-        <div className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2 className={styles.panelTitle}>Kết quả phỏng vấn</h2>
-          </div>
-          {data.reports.length === 0 ? (
-            <div className={styles.emptyState}>Chưa có báo cáo nào</div>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Ngày tạo</th>
-                    <th>Điểm số</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.reports.slice(0, 5).map(report => (
-                    <tr key={report.id}>
-                      <td style={{ fontFamily: 'monospace', color: '#64748b' }}>
-                        #{report.id.slice(0, 8)}
-                      </td>
-                      <td><ClientDate date={report.createdAt} format="date" /></td>
-                      <td>
-                        <span className={getScoreClass(report.overallScore)} style={{ fontWeight: 700 }}>
-                          {report.overallScore}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginLeft: '4px' }}>/ 100</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {isModalOpen && data && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>Lịch sử phỏng vấn</h2>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}
+        {/* QUESTION 3: Điểm đáng chú ý nhất hiện tại là gì? (Readiness & Highlights) */}
+        <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl bg-white p-6 border border-outline-variant/60 shadow-card">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+                Chỉ số sẵn sàng ứng tuyển
+              </span>
+              <button
+                onClick={() => router.push('/analytics')}
+                className="text-xs text-primary font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
               >
-                &times;
+                Chi tiết
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
               </button>
             </div>
-            <div className={styles.modalBody}>
-              {data.interviews.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>Chưa có bài phỏng vấn nào.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {data.interviews.map(inv => (
-                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '12px', alignItems: 'center', backgroundColor: '#fff' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '1rem', color: '#111827' }}>{inv.role}</div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}><ClientDate date={inv.updatedAt} /></div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span className={`${styles.badge} ${getStatusBadgeClass(inv.status)}`}>
-                          {inv.status}
-                        </span>
-                        <Link href={`/interviews/${inv.id}`} style={{ color: '#3b82f6', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>
-                          Xem chi tiết &rarr;
-                        </Link>
-                      </div>
+
+            {!isNew && progressData?.readiness?.score != null ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <RadialScore score={progressData.readiness.score} size={88} strokeWidth={8} />
+                  <div>
+                    <div className="text-lg font-bold text-on-surface">
+                      {progressData.readiness.score >= 75 ? 'Khả quan' : 'Cần củng cố'}
+                      {activeGoal?.seniority ? ` · ${activeGoal.seniority}` : ''}
                     </div>
-                  ))}
+                    <p className="text-xs text-on-surface-variant">
+                      Dựa trên {progressData.readiness.evidenceCount} bằng chứng từ CV và các bài luyện tập.
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {progressData.readiness.priorityGapCount > 0 ? (
+                  <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 text-xs space-y-1">
+                    <div className="font-semibold text-on-surface flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-primary text-[16px]">priority_high</span>
+                      Điểm cần chú ý nhất:
+                    </div>
+                    <p className="text-on-surface-variant text-[11px]">
+                      Hệ thống ghi nhận {progressData.readiness.priorityGapCount} khoảng trống năng lực ưu tiên cần bồi đắp.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <MotionEmptyState
+                title="Chưa đủ dữ liệu đánh giá"
+                description="Nexora chỉ đưa ra điểm sẵn sàng dựa trên bằng chứng kiểm chứng được từ hoạt động của bạn."
+                action={
+                  <Button variant="outline" size="sm" onClick={() => router.push('/resume-analyses')}>
+                    Thêm bằng chứng đầu tiên
+                  </Button>
+                }
+              />
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
+            <span>Mục tiêu: {activeGoal?.targetRole || 'Chưa thiết lập'}</span>
+            <span className="font-semibold text-primary">{activeGoal?.industry || 'Chưa chọn ngành'}</span>
           </div>
         </div>
-      )}
+      </div>
+
+      <InsightPanel title="Nexora học gì từ hành trình của bạn?">
+        {isNew
+          ? 'Mỗi CV, câu trả lời và lần luyện lại sẽ trở thành một mảnh bằng chứng. Khi đủ dữ liệu, hệ thống mới đề xuất điểm mạnh và khoảng trống đáng tin cậy.'
+          : 'Bằng chứng mới nhất được nối vào mục tiêu hiện tại để gợi ý một hành động cụ thể, thay vì chỉ đưa ra thêm một bảng điểm.'}
+      </InsightPanel>
+
+      {/* 3. CONTEXTUAL RECENT ACTIVITIES (Hoạt động gần đây) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] text-primary">history</span>
+            <h2 className="text-base sm:text-lg font-bold text-on-surface">Hoạt động gần đây</h2>
+          </div>
+          {recentActivities.length > 0 && (
+            <span className="text-xs text-on-surface-variant font-mono">
+              Hiển thị {Math.min(recentActivities.length, 4)} hoạt động mới nhất
+            </span>
+          )}
+        </div>
+
+        {recentActivities.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recentActivities.slice(0, 4).map((act) => {
+              const iconMap: Record<string, { icon: string; bg: string; text: string }> = {
+                cv_analysis: { icon: 'document_scanner', bg: 'bg-primary-fixed/40', text: 'text-primary' },
+                interview: { icon: 'mic', bg: 'bg-emerald-100', text: 'text-emerald-700' },
+                scenario: { icon: 'psychology', bg: 'bg-indigo-100', text: 'text-indigo-700' },
+                star: { icon: 'star', bg: 'bg-amber-100', text: 'text-amber-700' },
+              };
+              const theme = iconMap[act.kind] || iconMap.interview;
+              const dateStr = new Date(act.createdAt).toLocaleDateString('vi-VN', {
+                month: 'numeric',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <div
+                  key={act.id}
+                  onClick={() => router.push(act.destinationUrl)}
+                  className="p-4 rounded-xl bg-white border border-outline-variant/60 shadow-subtle hover:border-primary hover:shadow-card cursor-pointer transition-all flex flex-col justify-between space-y-3 group"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-7 h-7 rounded-lg ${theme.bg} ${theme.text} flex items-center justify-center`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{theme.icon}</span>
+                        </span>
+                        <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                          {act.kind === 'cv_analysis'
+                            ? 'Phân tích CV'
+                            : act.kind === 'interview'
+                            ? 'Phỏng vấn'
+                            : act.kind === 'scenario'
+                            ? 'Tình huống'
+                            : 'Luyện STAR'}
+                        </span>
+                      </div>
+                      {act.score != null && (
+                        <Badge variant="primary" size="sm">
+                          {act.score}/100
+                        </Badge>
+                      )}
+                    </div>
+
+                    <h4 className="text-xs sm:text-sm font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors">
+                      {act.title}
+                    </h4>
+
+                    <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed">
+                      {act.summary}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-outline-variant/30 flex items-center justify-between text-[10px] text-on-surface-variant">
+                    <span className="font-mono">{dateStr}</span>
+                    <span className="font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                      Xem chi tiết
+                      <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Card variant="flat" padding="md" className="text-center py-6 border-dashed">
+            <div className="w-10 h-10 mx-auto rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-2">
+              <span className="material-symbols-outlined text-[20px]">history_toggle_off</span>
+            </div>
+            <div className="text-xs font-bold text-on-surface">Chưa có hoạt động thực hành nào</div>
+            <p className="text-[11px] text-on-surface-variant max-w-sm mx-auto mt-1">
+              Các lượt phân tích CV, mock interview và bài tập phản xạ của bạn sẽ được lưu vết trực tiếp tại đây.
+            </p>
+          </Card>
+        )}
+      </section>
+
+      {/* 4. QUESTION 1 & 2: Hồ sơ của tôi đang ở đâu & Tôi đang chuẩn bị cho mục tiêu nào? */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Card 1: Hồ sơ hiện tại */}
+        <Card variant="elevated" padding="md" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+              1. Hồ sơ của tôi
+            </span>
+            <span className="material-symbols-outlined text-primary text-[20px]">badge</span>
+          </div>
+          <div className="text-sm font-bold text-on-surface">
+            {careerProfile?.profile?.displayName || 'Chưa đặt tên'}
+          </div>
+          <div className="text-xs text-on-surface-variant space-y-1">
+            <div>Kinh nghiệm: {careerProfile?.profile?.yearsOfExperience != null ? `${careerProfile.profile.yearsOfExperience} năm` : 'Chưa cập nhật'}</div>
+            <div>CV chính: {primaryResume ? primaryResume.fileName : 'Chưa chọn'}</div>
+          </div>
+          <button
+            onClick={() => router.push('/career-goals')}
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
+          >
+            Xem Hồ sơ nghề nghiệp
+            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          </button>
+        </Card>
+
+        {/* Card 2: Mục tiêu chuẩn bị */}
+        <Card variant="elevated" padding="md" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+              2. Mục tiêu nghề nghiệp
+            </span>
+            <span className="material-symbols-outlined text-primary text-[20px]">ads_click</span>
+          </div>
+          <div className="text-sm font-bold text-on-surface">
+            {activeGoal ? `${activeGoal.targetRole} (${activeGoal.seniority})` : 'Chưa thiết lập'}
+          </div>
+          <div className="text-xs text-on-surface-variant space-y-1">
+            <div>Ngành: {activeGoal?.industry || 'Chưa chọn ngành'}</div>
+            <div>Công ty mục tiêu: {activeGoal?.targetCompany || 'Chưa chọn công ty mục tiêu'}</div>
+          </div>
+          <button
+            onClick={() => router.push('/career-goals')}
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
+          >
+            Điều chỉnh mục tiêu
+            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          </button>
+        </Card>
+
+        {/* Card 3: Lộ trình phát triển */}
+        <Card variant="elevated" padding="md" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
+              3. Lộ trình học tập
+            </span>
+            <span className="material-symbols-outlined text-primary text-[20px]">route</span>
+          </div>
+          <div className="text-sm font-bold text-on-surface">
+            {!availablePath
+              ? 'Chưa đủ dữ liệu để tạo lộ trình'
+              : `Hoàn thành ${availablePath.progress.completedActivityCount}/${availablePath.progress.totalActivityCount} hoạt động (${availablePath.progress.percentage}%)`}
+          </div>
+          <div className="text-xs text-on-surface-variant">
+            {!availablePath
+              ? 'Thiết lập mục tiêu và thêm bằng chứng từ CV hoặc hoạt động luyện tập.'
+              : nextMilestone
+              ? `Cột mốc tiếp theo: ${nextMilestone.title}`
+              : 'Chưa có cột mốc tiếp theo.'}
+          </div>
+          <button
+            onClick={() => router.push(availablePath ? '/learning-path' : '/resume-analyses')}
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
+          >
+            {availablePath ? 'Mở lộ trình chi tiết' : 'Thiết lập mục tiêu & CV'}
+            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          </button>
+        </Card>
+      </div>
     </div>
   );
 }
