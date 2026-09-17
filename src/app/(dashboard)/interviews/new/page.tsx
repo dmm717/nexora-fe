@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { interviewApi, type StartInterviewCommand } from '@/services/interviewApi';
@@ -9,18 +9,38 @@ import {
   generateIdempotencyKey,
   buildInterviewPreflightPayload,
   resolveCvTargetedResumeId,
+  isReadyResumeSelection,
   type StartIntent,
+  type InterviewType,
 } from '@/services/interviewContract';
 import { ApiError } from '@/services/apiClient';
-import { useCareerGoals, useUpdateCareerGoal } from '@/hooks/queries/useCareerGoals';
-import { useCareerProfile, useResumes, useSetPrimaryResume } from '@/hooks/queries/useCareerProfile';
+import { useCareerGoals } from '@/hooks/queries/useCareerGoals';
+import { useCareerProfile, useResumes } from '@/hooks/queries/useCareerProfile';
 import { useJobDescriptions } from '@/hooks/queries/useJobDescriptions';
 import { cvAnalysisApi } from '@/services/cvAnalysisApi';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProductPageHero } from '@/components/product-visual';
-import { DIFFICULTY_LABELS, type InterviewDifficulty, type SeniorityLevel } from '@/types/prototype';
+
+type InterviewDifficultyVisual = 'Standard' | 'Challenging' | 'Expert';
+type SeniorityLevel = 'Intern' | 'Fresher' | 'Junior' | 'Middle' | 'Senior' | 'Lead' | 'Principal';
+
+const DIFFICULTY_LABELS: Record<InterviewDifficultyVisual, { labelVi: string; machineValue: string }> = {
+  Standard: { labelVi: 'Dễ', machineValue: 'easy' },
+  Challenging: { labelVi: 'Trung bình', machineValue: 'medium' },
+  Expert: { labelVi: 'Khó', machineValue: 'hard' },
+};
+
+const INTERVIEW_TYPES: Array<{ type: InterviewType; title: string; desc: string }> = [
+  { type: 'technical', title: 'Kỹ thuật', desc: 'Đào sâu kiến thức và cách giải quyết vấn đề chuyên môn.' },
+  { type: 'behavioral', title: 'Hành vi', desc: 'Khai thác trải nghiệm, hợp tác và phản xạ theo cấu trúc STAR.' },
+  { type: 'scenario', title: 'Tình huống', desc: 'Xử lý một bối cảnh thực tế phù hợp với vai trò mục tiêu.' },
+  { type: 'cv_targeted', title: 'Theo CV', desc: 'Tạo câu hỏi từ một CV thật đang ở trạng thái sẵn sàng.' },
+  { type: 'jd_targeted', title: 'Theo Job Description', desc: 'Tạo câu hỏi từ một Job Description đã lưu hoặc vừa tạo.' },
+  { type: 'motivation_role_fit', title: 'Động lực & phù hợp vai trò', desc: 'Làm rõ động lực, định hướng và mức độ phù hợp với vai trò.' },
+  { type: 'self_introduction', title: 'Giới thiệu bản thân', desc: 'Luyện phần mở đầu và cách trình bày hồ sơ ngắn gọn.' },
+];
 
 export default function NewInterviewPage() {
   const router = useRouter();
@@ -28,12 +48,10 @@ export default function NewInterviewPage() {
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
 
   // Queries
-  const { data: careerGoals, isLoading: loadingGoals } = useCareerGoals();
+  const { data: careerGoals } = useCareerGoals();
   const { data: careerProfile } = useCareerProfile();
   const { data: resumes = [], isLoading: loadingResumes } = useResumes();
   const { data: jobDescriptions = [], isLoading: loadingJds } = useJobDescriptions();
-  const setPrimaryResumeMutation = useSetPrimaryResume();
-  const updateCareerGoalMutation = useUpdateCareerGoal();
 
   const activeGoals = useMemo(() => careerGoals?.filter((g) => g.active) || [], [careerGoals]);
   const defaultGoal = activeGoals[0] || null;
@@ -41,46 +59,22 @@ export default function NewInterviewPage() {
   const readyResumeIds = useMemo(() => readyResumes.map((resume) => resume.id), [readyResumes]);
 
   // Defaults derived from profile/goals
-  const resolvedDefaultRole = defaultGoal?.targetRole || careerProfile?.activeCareerGoal?.targetRole || 'Backend Engineer';
+  const resolvedDefaultRole = defaultGoal?.targetRole || careerProfile?.activeCareerGoal?.targetRole || '';
   const resolvedDefaultSeniority = (defaultGoal?.seniority || careerProfile?.activeCareerGoal?.seniority || 'Middle') as SeniorityLevel;
-  const resolvedDefaultResume = readyResumes.find((r) => r.id === careerProfile?.primaryResume?.id) || readyResumes[0] || null;
-
   // Session-specific editable overrides
   const [sessionRole, setSessionRole] = useState<string>('');
-  const [sessionSeniority, setSessionSeniority] = useState<string>('Middle');
+  const [sessionSeniority, setSessionSeniority] = useState<string>('');
   const [selectedGoalId, setSelectedGoalId] = useState<string>('');
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
-  const [sessionJd, setSessionJd] = useState<string>('');
+  const [jdSource, setJdSource] = useState<'existing' | 'new'>('existing');
+  const [selectedJdId, setSelectedJdId] = useState<string>('');
+  const [newJdTitle, setNewJdTitle] = useState<string>('');
+  const [newJdContent, setNewJdContent] = useState<string>('');
   const [isEditingContext, setIsEditingContext] = useState<boolean>(false);
 
-  // Synchronize initial values once query resolves
-  useEffect(() => {
-    if (resolvedDefaultRole && !sessionRole) {
-      setSessionRole(resolvedDefaultRole);
-    }
-  }, [resolvedDefaultRole, sessionRole]);
-
-  useEffect(() => {
-    if (resolvedDefaultSeniority && sessionSeniority === 'Middle') {
-      setSessionSeniority(resolvedDefaultSeniority);
-    }
-  }, [resolvedDefaultSeniority, sessionSeniority]);
-
-  useEffect(() => {
-    if (resolvedDefaultResume?.id && !selectedResumeId) {
-      setSelectedResumeId(resolvedDefaultResume.id);
-    }
-  }, [resolvedDefaultResume, selectedResumeId]);
-
-  useEffect(() => {
-    if (defaultGoal?.id && !selectedGoalId) {
-      setSelectedGoalId(defaultGoal.id);
-    }
-  }, [defaultGoal, selectedGoalId]);
-
   // Interview setup
-  const [interviewType, setInterviewType] = useState<string>('technical');
-  const [difficulty, setDifficulty] = useState<InterviewDifficulty>('Challenging');
+  const [interviewType, setInterviewType] = useState<InterviewType>('technical');
+  const [difficulty, setDifficulty] = useState<InterviewDifficultyVisual>('Challenging');
 
   // Mic detection & testing state (user-initiated only, no mount detection)
   const [hasMic, setHasMic] = useState<boolean | null>(null);
@@ -95,7 +89,17 @@ export default function NewInterviewPage() {
   const createdJdIdRef = useRef<string | null>(null);
   const jdIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
 
-  const activeResumeObj = readyResumes.find((r) => r.id === selectedResumeId) || resolvedDefaultResume;
+  const effectiveSelectedGoalId = selectedGoalId || defaultGoal?.id || '';
+  const effectiveSessionRole = sessionRole || resolvedDefaultRole;
+  const effectiveSessionSeniority = sessionSeniority || resolvedDefaultSeniority;
+  const effectiveSelectedResumeId = resolveCvTargetedResumeId({
+    selectedResumeId,
+    primaryResumeId: careerProfile?.primaryResume?.id,
+    readyResumeIds,
+  });
+  const activeResumeObj = readyResumes.find((r) => r.id === effectiveSelectedResumeId) || null;
+  const selectedGoal = activeGoals.find((goal) => goal.id === effectiveSelectedGoalId) || null;
+  const effectiveJdId = selectedJdId || jobDescriptions[0]?.id || '';
 
   // Toggle text-only vs voice mode
   const handleToggleMode = () => {
@@ -190,29 +194,50 @@ export default function NewInterviewPage() {
 
     // If CV-targeted, ensure ready resume
     const effectiveResumeId = resolveCvTargetedResumeId({
-      selectedResumeId,
+      selectedResumeId: effectiveSelectedResumeId,
       primaryResumeId: careerProfile?.primaryResume?.id,
       readyResumeIds,
     });
 
-    if (interviewType === 'cv_targeted' && !effectiveResumeId) {
+    if (
+      interviewType === 'cv_targeted' &&
+      !isReadyResumeSelection(effectiveResumeId, readyResumeIds)
+    ) {
       setError({
         message: 'Chủ đề phỏng vấn theo CV yêu cầu bạn phải chọn một bản CV ở trạng thái Sẵn sàng (Ready).',
       });
       return;
     }
 
+    if (!effectiveSessionRole.trim()) {
+      setError({ message: 'Vui lòng nhập vai trò mục tiêu cho phiên phỏng vấn.' });
+      return;
+    }
+
     setLoading(true);
 
-    // If custom JD provided, create it
     let finalJdId: string | undefined = undefined;
-    if (sessionJd.trim()) {
+    if (interviewType === 'jd_targeted' && jdSource === 'existing') {
+      if (!effectiveJdId || !jobDescriptions.some((jd) => jd.id === effectiveJdId)) {
+        setError({ message: 'Vui lòng chọn một Job Description đã lưu hoặc tạo JD mới.' });
+        setLoading(false);
+        return;
+      }
+      finalJdId = effectiveJdId;
+    }
+
+    if (interviewType === 'jd_targeted' && jdSource === 'new') {
+      if (!newJdTitle.trim() || !newJdContent.trim()) {
+        setError({ message: 'JD mới cần có tiêu đề và nội dung đầy đủ trước khi bắt đầu.' });
+        setLoading(false);
+        return;
+      }
       try {
         if (!createdJdIdRef.current) {
           const created = await cvAnalysisApi.createJobDescription(
             {
-              title: `JD - ${sessionRole || 'Phỏng vấn'}`,
-              content: sessionJd.trim(),
+              title: newJdTitle.trim(),
+              content: newJdContent.trim(),
             },
             jdIdempotencyKeyRef.current
           );
@@ -231,19 +256,18 @@ export default function NewInterviewPage() {
 
     // Determine mode
     const isMatchingActiveGoal =
-      selectedGoalId &&
-      defaultGoal?.id === selectedGoalId &&
-      sessionRole.trim().toLowerCase() === (defaultGoal.targetRole || '').trim().toLowerCase() &&
-      sessionSeniority === defaultGoal.seniority;
+      selectedGoal &&
+      effectiveSessionRole.trim().toLowerCase() === (selectedGoal.targetRole || '').trim().toLowerCase() &&
+      effectiveSessionSeniority === selectedGoal.seniority;
 
     const mode = isMatchingActiveGoal ? 'career_goal' : 'manual';
     const effectiveDifficulty = DIFFICULTY_LABELS[difficulty]?.machineValue || 'Medium';
 
     const candidatePayload: StartInterviewCommand = buildInterviewPreflightPayload({
       mode,
-      careerGoalId: mode === 'career_goal' ? selectedGoalId : undefined,
-      manualRole: sessionRole.trim(),
-      manualSeniority: sessionSeniority,
+      careerGoalId: mode === 'career_goal' ? effectiveSelectedGoalId : undefined,
+      manualRole: effectiveSessionRole.trim(),
+      manualSeniority: effectiveSessionSeniority,
       interviewType,
       difficulty: effectiveDifficulty,
       cvTargetedResumeId: interviewType === 'cv_targeted' ? effectiveResumeId : undefined,
@@ -328,27 +352,31 @@ export default function NewInterviewPage() {
             {/* Compact View */}
             {!isEditingContext ? (
               <div className="bg-surface-container-low p-3.5 rounded-xl space-y-2 text-xs">
-                <div className="flex items-center justify-between">
+                {interviewType === 'cv_targeted' && <div className="flex items-center justify-between">
                   <span className="text-on-surface-variant text-[11px]">CV:</span>
                   <span className="font-semibold text-on-surface truncate max-w-[240px]" title={activeResumeObj?.fileName || 'Chưa gắn CV'}>
                     {activeResumeObj?.fileName || (loadingResumes ? 'Đang tải danh sách CV...' : 'Chưa chọn CV')}
                   </span>
-                </div>
+                </div>}
 
                 <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant/20">
                   <span className="text-on-surface-variant text-[11px]">Vị trí:</span>
-                  <span className="font-bold text-on-surface">{sessionRole || resolvedDefaultRole}</span>
+                  <span className="font-bold text-on-surface">{effectiveSessionRole || 'Chưa chọn vị trí'}</span>
                 </div>
 
                 <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant/20">
                   <span className="text-on-surface-variant text-[11px]">Cấp bậc:</span>
-                  <span className="font-bold text-primary">{sessionSeniority}</span>
+                  <span className="font-bold text-primary">{effectiveSessionSeniority}</span>
                 </div>
 
-                {sessionJd && (
+                {interviewType === 'jd_targeted' && (
                   <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant/20">
                     <span className="text-on-surface-variant text-[11px]">Bản mô tả JD:</span>
-                    <span className="text-on-surface font-medium italic truncate max-w-[220px]">Đã đính kèm</span>
+                    <span className="text-on-surface font-medium truncate max-w-[220px]">
+                      {jdSource === 'existing'
+                        ? jobDescriptions.find((jd) => jd.id === effectiveJdId)?.title || 'Chưa chọn JD'
+                        : newJdTitle || 'Chưa nhập JD mới'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -375,7 +403,7 @@ export default function NewInterviewPage() {
                         Hoặc chọn nhanh từ mục tiêu đã lưu
                       </label>
                       <select
-                        value={selectedGoalId}
+                        value={effectiveSelectedGoalId}
                         onChange={(e) => {
                           const gid = e.target.value;
                           setSelectedGoalId(gid);
@@ -397,12 +425,12 @@ export default function NewInterviewPage() {
                   )}
 
                   {/* CV Selector */}
-                  <div>
+                  {interviewType === 'cv_targeted' && <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
                       CV sử dụng
                     </label>
                     <select
-                      value={selectedResumeId}
+                      value={effectiveSelectedResumeId}
                       onChange={(e) => setSelectedResumeId(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
                     >
@@ -416,7 +444,7 @@ export default function NewInterviewPage() {
                         <option value="">{loadingResumes ? 'Đang tải danh sách CV...' : 'Chưa có CV trong kho lưu trữ'}</option>
                       )}
                     </select>
-                  </div>
+                  </div>}
 
                   {/* Target Role & Seniority Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -426,7 +454,7 @@ export default function NewInterviewPage() {
                       </label>
                       <input
                         type="text"
-                        value={sessionRole}
+                        value={effectiveSessionRole}
                         onChange={(e) => setSessionRole(e.target.value)}
                         placeholder="VD: Backend Engineer"
                         className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary"
@@ -438,7 +466,7 @@ export default function NewInterviewPage() {
                         Cấp bậc
                       </label>
                       <select
-                        value={sessionSeniority}
+                        value={effectiveSessionSeniority}
                         onChange={(e) => setSessionSeniority(e.target.value as SeniorityLevel)}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
                       >
@@ -451,19 +479,74 @@ export default function NewInterviewPage() {
                     </div>
                   </div>
 
-                  {/* Optional Job Description */}
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
-                      Mô tả công việc (JD tuyển dụng) — Tùy chọn
-                    </label>
-                    <textarea
-                      value={sessionJd}
-                      onChange={(e) => setSessionJd(e.target.value)}
-                      rows={2}
-                      placeholder="Dán các yêu cầu chính hoặc nội dung JD bạn đang chuẩn bị ứng tuyển..."
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary placeholder:text-outline-variant"
-                    />
-                  </div>
+                  {interviewType === 'jd_targeted' && (
+                    <div className="space-y-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-3">
+                      <div className="flex flex-wrap gap-2" role="group" aria-label="Nguồn Job Description">
+                        <Button type="button" size="sm" variant={jdSource === 'existing' ? 'primary' : 'outline'} onClick={() => setJdSource('existing')}>
+                          JD đã lưu
+                        </Button>
+                        <Button type="button" size="sm" variant={jdSource === 'new' ? 'primary' : 'outline'} onClick={() => setJdSource('new')}>
+                          Tạo JD mới
+                        </Button>
+                      </div>
+
+                      {jdSource === 'existing' ? (
+                        <div>
+                          <label htmlFor="jobDescriptionSelect" className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+                            Job Description sử dụng
+                          </label>
+                          <select
+                            id="jobDescriptionSelect"
+                            value={effectiveJdId}
+                            onChange={(event) => setSelectedJdId(event.target.value)}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
+                          >
+                            {jobDescriptions.length > 0 ? jobDescriptions.map((jd) => (
+                              <option key={jd.id} value={jd.id}>{jd.title}</option>
+                            )) : (
+                              <option value="">{loadingJds ? 'Đang tải danh sách JD...' : 'Chưa có JD đã lưu'}</option>
+                            )}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <label htmlFor="newJdTitle" className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+                              Tiêu đề JD
+                            </label>
+                            <input
+                              id="newJdTitle"
+                              value={newJdTitle}
+                              onChange={(event) => {
+                                setNewJdTitle(event.target.value);
+                                createdJdIdRef.current = null;
+                                jdIdempotencyKeyRef.current = generateIdempotencyKey();
+                              }}
+                              placeholder="VD: Senior Backend Engineer"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="newJdContent" className="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+                              Nội dung JD
+                            </label>
+                            <textarea
+                              id="newJdContent"
+                              value={newJdContent}
+                              onChange={(event) => {
+                                setNewJdContent(event.target.value);
+                                createdJdIdRef.current = null;
+                                jdIdempotencyKeyRef.current = generateIdempotencyKey();
+                              }}
+                              rows={4}
+                              placeholder="Dán nội dung Job Description đầy đủ..."
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary placeholder:text-outline-variant"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Apply action */}
                   <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-end">
@@ -488,11 +571,7 @@ export default function NewInterviewPage() {
             </h3>
 
             <div className="space-y-2">
-              {[
-                { type: 'technical', title: 'Phỏng vấn Kỹ thuật (Technical & Systems)', desc: 'Xử lý tải, tối ưu Database, transaction locking và kiến trúc phần mềm.' },
-                { type: 'behavioral', title: 'Phỏng vấn Hành vi & Xung đột (STAR Behavioral)', desc: 'Kỹ năng giải quyết bất đồng với đồng nghiệp, áp lực tiến độ và văn hóa team.' },
-                { type: 'cv_targeted', title: 'Chất vấn sâu trên dự án CV (CV-Targeted)', desc: 'Hỏi sâu vào các công nghệ, thành tựu và quyết định kỹ thuật ghi trong CV.' },
-              ].map((item) => (
+              {INTERVIEW_TYPES.map((item) => (
                 <button
                   key={item.type}
                   type="button"
@@ -523,7 +602,7 @@ export default function NewInterviewPage() {
             </h3>
 
             <div className="grid grid-cols-3 gap-2">
-              {(['Standard', 'Challenging', 'Expert'] as InterviewDifficulty[]).map((d) => {
+              {(['Standard', 'Challenging', 'Expert'] as InterviewDifficultyVisual[]).map((d) => {
                 const localized = DIFFICULTY_LABELS[d];
                 return (
                   <button
@@ -677,10 +756,10 @@ export default function NewInterviewPage() {
           {/* Start CTA Card */}
           <div className="p-6 rounded-2xl bg-white border border-primary/40 shadow-card space-y-4">
             <div>
-              <Badge variant="primary" size="sm" className="mb-2">Gói Miễn phí: 3 câu chuẩn hóa</Badge>
+              <Badge variant="primary" size="sm" className="mb-2">Q1–Q3 thuộc phạm vi miễn phí</Badge>
               <h4 className="font-bold text-base text-on-surface">Sẵn sàng bước vào phòng?</h4>
               <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                Sau câu hỏi số 2 bạn có quyền kết thúc sớm hoặc đi tiếp. Hết 3 câu bạn luôn được nhận báo cáo đầy đủ miễn phí.
+                Máy chủ quyết định khả năng kết thúc hoặc tiếp tục cùng phiên sau ranh giới miễn phí, dựa trên quyền hiện tại của bạn.
               </p>
             </div>
 

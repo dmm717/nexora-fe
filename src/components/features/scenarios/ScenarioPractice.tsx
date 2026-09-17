@@ -22,6 +22,7 @@ import {
 } from '@/utils/scenarioHelpers';
 import type { ScenarioDetail } from '@/types/scenario';
 import { ApiError } from '@/services/apiClient';
+import { useFocusedPracticeShell } from '@/components/layouts/FocusedPracticeShellContext';
 
 interface ScenarioPracticeProps {
   scenario: ScenarioDetail;
@@ -164,6 +165,20 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
       : diff === 'medium'
       ? styles.badgeMedium
       : styles.badgeEasy;
+
+  useFocusedPracticeShell({
+    title: scenario.title,
+    subtitle: [scenario.categoryName, scenario.competency].filter(Boolean).join(' · ') || undefined,
+    statusLabel:
+      attemptStatus === 'queued'
+        ? 'Đang chờ đánh giá'
+        : attemptStatus === 'processing'
+          ? 'AI đang phân tích phương án'
+          : attemptStatus === 'draft'
+            ? 'Đang soạn phương án'
+            : undefined,
+    exitTo: '/practice/scenarios',
+  });
 
   // Handler: Start a fresh attempt
   const handleStartAttempt = async () => {

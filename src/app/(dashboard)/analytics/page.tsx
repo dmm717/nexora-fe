@@ -126,9 +126,9 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <div className="text-2xl font-bold text-on-surface">
-              {readiness?.assessedCompetencies ?? competencies.length} / 6
+              {readiness?.assessedCompetencies ?? competencies.filter((item) => item.evidenceCount > 0).length}
             </div>
-            <span className="text-[11px] text-on-surface-variant">Trục năng lực trọng tâm</span>
+            <span className="text-[11px] text-on-surface-variant">Năng lực đã có bằng chứng</span>
           </div>
         </Card>
 
@@ -196,7 +196,7 @@ export default function AnalyticsPage() {
           <StaggerContainer className="space-y-3">
             {competencies.length > 0 ? (
               competencies.map((comp, idx) => {
-                const score = comp.score != null ? Math.round(comp.score) : 0;
+                const score = comp.score != null ? Math.round(comp.score) : null;
                 const evidenceNum = 'evidenceCount' in comp ? comp.evidenceCount : 0;
                 return (
                   <StaggerItem key={idx}>
@@ -208,10 +208,12 @@ export default function AnalyticsPage() {
                             {comp.category || 'Chuyên môn'} {evidenceNum ? `· ${evidenceNum} dẫn chứng` : ''}
                           </div>
                         </div>
-                        <div className="text-xs font-bold text-primary">{score}%</div>
+                        <div className="text-xs font-bold text-primary">
+                          {score === null ? 'Chưa chấm' : `${score}%`}
+                        </div>
                       </div>
 
-                      <AnimatedProgressBar
+                      {score !== null && <AnimatedProgressBar
                         label=""
                         value={score}
                         heightClass="h-2"
@@ -219,7 +221,7 @@ export default function AnalyticsPage() {
                           score >= 80 ? 'bg-emerald-700' : score >= 70 ? 'bg-primary' : 'bg-amber-700'
                         }
                         delay={idx * 0.08}
-                      />
+                      />}
                     </Card>
                   </StaggerItem>
                 );
@@ -250,7 +252,7 @@ export default function AnalyticsPage() {
                       <span className="text-amber-700">{w.score}%</span>
                     </div>
                     <p className="text-[11px] text-amber-900 leading-relaxed">
-                      Năng lực đang dưới ngưỡng kỳ vọng{activeGoal?.seniority ? ` của cấp bậc ${activeGoal.seniority}` : ''}. Cần luyện tập bổ sung số liệu chứng minh.
+                      Tín hiệu này được máy chủ tổng hợp từ bằng chứng hiện có. Hãy mở hồ sơ kỹ năng để xem nguồn và chọn bài luyện phù hợp.
                     </p>
                     <button
                       onClick={() => router.push('/interviews/new')}

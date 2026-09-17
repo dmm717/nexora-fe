@@ -104,11 +104,6 @@ export const AVATAR_MENU_ITEMS: AvatarMenuItem[] = [
     actionKey: 'settings',
   },
   {
-    label: 'Quyền riêng tư',
-    icon: 'lock',
-    actionKey: 'privacy',
-  },
-  {
     label: 'Đăng xuất',
     icon: 'logout',
     actionKey: 'logout',

@@ -1,24 +1,17 @@
-export interface NextPracticeRecommendationLike {
-  activityType?: string;
-  reason?: string;
-  estimatedMinutes?: number;
-  action?: {
-    type?: string;
-    sourceInterviewId?: string;
-    sourceQuestionId?: string;
-  } | null;
-}
+import {
+  getRecommendationDeepLink,
+  RecommendationActivityValues,
+  type NextPracticeRecommendationResponse,
+} from './recommendationContract.ts';
 
 export function resolveNextBestAction({
   recommendation,
   targetRole,
   needsFirstEvidence,
-  scenarioEnabled,
 }: {
-  recommendation?: NextPracticeRecommendationLike | null;
+  recommendation?: NextPracticeRecommendationResponse | null;
   targetRole?: string | null;
   needsFirstEvidence: boolean;
-  scenarioEnabled: boolean;
 }) {
   if (!targetRole || needsFirstEvidence) {
     return {
@@ -26,24 +19,34 @@ export function resolveNextBestAction({
       description: 'Chọn vị trí bạn đang hướng tới và thêm CV để bắt đầu xây dựng bằng chứng của riêng bạn.',
       destination: '/resume-analyses',
       activityType: 'cv_analysis',
-      estimatedMinutes: 15,
+      estimatedMinutes: undefined,
     };
   }
 
   const base = {
     description: recommendation?.reason || 'Chọn bài luyện phù hợp với điều bạn muốn cải thiện tiếp theo.',
-    estimatedMinutes: recommendation?.estimatedMinutes ?? 15,
+    estimatedMinutes:
+      recommendation && recommendation.estimatedMinutes > 0
+        ? recommendation.estimatedMinutes
+        : undefined,
+    destination: getRecommendationDeepLink(recommendation || null),
   };
-  if (recommendation?.activityType === 'star') {
-    return { ...base, label: 'Luyện phản xạ STAR', destination: '/practice/star', activityType: 'star' };
+  if (recommendation?.activityType === RecommendationActivityValues.StarDrill) {
+    return { ...base, label: 'Luyện phản xạ STAR', activityType: RecommendationActivityValues.StarDrill };
   }
-  if (recommendation?.activityType === 'scenario') {
-    return { ...base, label: 'Luyện tình huống thực tế', destination: scenarioEnabled ? '/practice/scenarios' : '/pricing', activityType: 'scenario' };
+  if (recommendation?.activityType === RecommendationActivityValues.Scenario) {
+    return { ...base, label: 'Luyện tình huống thực tế', activityType: RecommendationActivityValues.Scenario };
   }
-  if (recommendation?.activityType === 'interview') {
+  if (recommendation?.activityType === RecommendationActivityValues.Interview) {
     const retry = recommendation.action?.type === 'repeat_question' &&
       recommendation.action.sourceInterviewId && recommendation.action.sourceQuestionId;
-    return { ...base, label: retry ? 'Luyện lại câu hỏi phỏng vấn' : 'Luyện phỏng vấn AI', destination: retry ? '/interviews/new' : '/interviews/new', activityType: 'interview' };
+    return { ...base, label: retry ? 'Luyện lại câu hỏi phỏng vấn' : 'Luyện phỏng vấn AI', activityType: RecommendationActivityValues.Interview };
   }
-  return { ...base, label: 'Chọn bước luyện tiếp theo', destination: '/practice', activityType: 'practice' };
+  if (recommendation?.activityType === RecommendationActivityValues.ResumeImprovement) {
+    return { ...base, label: 'Cải thiện CV', activityType: RecommendationActivityValues.ResumeImprovement };
+  }
+  if (recommendation?.activityType === RecommendationActivityValues.ExternalLearning) {
+    return { ...base, label: 'Tài liệu học bên ngoài', activityType: RecommendationActivityValues.ExternalLearning };
+  }
+  return { ...base, label: 'Bước tiếp theo chưa khả dụng', activityType: 'unknown' };
 }

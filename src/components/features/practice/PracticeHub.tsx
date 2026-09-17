@@ -48,18 +48,18 @@ export default function PracticeHub() {
   const { data: learningPath } = useLearningPath();
 
   const [historyFilter, setHistoryFilter] = useState<'all' | 'interview' | 'scenario' | 'star'>('all');
+  const historyLoading = interviews.isLoading || scenarios.isLoading || stars.isLoading;
+  const historyError = interviews.error || scenarios.error || stars.error;
 
   const features = currentUser.data?.billing?.entitlement?.features;
   const scenarioState = getFeatureState(features, 'scenario');
   const starState = getFeatureState(features, 'star_builder');
-  const scenarioEnabled = scenarioState === 'enabled';
 
   // Resolve Next Best Action
   const nextAction = resolveNextBestAction({
     recommendation: recommendation ?? null,
     targetRole: careerProfile?.activeCareerGoal?.targetRole,
     needsFirstEvidence: progress?.readiness?.score === null || progress?.readiness?.score === undefined,
-    scenarioEnabled,
   });
 
   // Check learning path availability
@@ -83,7 +83,7 @@ export default function PracticeHub() {
     // 1. Interviews
     const interviewItems = (interviews.data?.pages.flatMap((page) => page.items) || []);
     interviewItems.forEach((iv) => {
-      const isRepeat = iv.role?.toLowerCase().includes('luyện lại') || false;
+      const isRepeat = Boolean(iv.sourceInterviewId || iv.sourceQuestionId || iv.practiceReason);
       list.push({
         id: `iv-${iv.id}`,
         type: 'interview',
@@ -172,9 +172,9 @@ export default function PracticeHub() {
                 <Badge variant="primary" size="sm">
                   Hành động tốt nhất tiếp theo
                 </Badge>
-                <span className="text-xs text-on-surface-variant font-mono">
+                {nextAction.estimatedMinutes && <span className="text-xs text-on-surface-variant font-mono">
                   {nextAction.estimatedMinutes} phút
-                </span>
+                </span>}
               </div>
               <h3 className="font-bold text-base sm:text-lg text-on-surface">
                 {nextAction.label}
@@ -189,7 +189,8 @@ export default function PracticeHub() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => router.push(nextAction.destination)}
+              onClick={() => nextAction.destination && router.push(nextAction.destination)}
+              disabled={!nextAction.destination}
               icon={<span className="material-symbols-outlined text-[18px]">play_arrow</span>}
               iconPosition="right"
               className="w-full md:w-auto shadow-sm"
@@ -234,7 +235,7 @@ export default function PracticeHub() {
             <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Thời lượng: 10 - 15 phút (3 câu hỏi)</span>
+                <span>Q1–Q3 thuộc phạm vi miễn phí; quyền tiếp tục do máy chủ xác nhận</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
@@ -242,7 +243,7 @@ export default function PracticeHub() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Không giới hạn xem báo cáo miễn phí</span>
+                <span>Lịch sử và báo cáo lấy từ các phiên đã lưu</span>
               </div>
             </div>
           </div>
@@ -281,7 +282,7 @@ export default function PracticeHub() {
             <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Kho bài toán Deadlock, Queue, Idempotency, JWT</span>
+                <span>Danh mục và nội dung tình huống lấy trực tiếp từ máy chủ</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
@@ -289,7 +290,7 @@ export default function PracticeHub() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Chấm điểm rubric Senior & Architect</span>
+                <span>Điểm và bằng chứng chỉ hiển thị khi backend trả về</span>
               </div>
             </div>
           </div>
@@ -336,7 +337,7 @@ export default function PracticeHub() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Ngân hàng câu hỏi hành vi thường gặp</span>
+                <span>Lịch sử luyện tập được lưu theo từng lượt thật</span>
               </div>
             </div>
           </div>
@@ -433,7 +434,32 @@ export default function PracticeHub() {
         </div>
 
         {/* List of attempts */}
-        {filteredHistory.length > 0 ? (
+        {historyLoading ? (
+          <div className="grid gap-3" aria-live="polite" aria-label="Đang tải lịch sử luyện tập">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-xl border border-outline-variant/40 bg-surface-container-low" />
+            ))}
+          </div>
+        ) : historyError ? (
+          <Card variant="flat" padding="md" className="text-center py-8 border-dashed">
+            <div className="text-sm font-bold text-on-surface">Chưa thể tải lịch sử luyện tập</div>
+            <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1">
+              Dữ liệu lịch sử đang lỗi hoặc mất kết nối; đây không phải trạng thái trống.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => {
+                void interviews.refetch();
+                void scenarios.refetch();
+                void stars.refetch();
+              }}
+            >
+              Thử tải lại
+            </Button>
+          </Card>
+        ) : filteredHistory.length > 0 ? (
           <div className="space-y-3">
             {filteredHistory.map((item) => {
               const iconMap: Record<string, { icon: string; bg: string; text: string; badgeText: string }> = {

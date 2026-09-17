@@ -19,11 +19,10 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   prefix = '',
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const [displayValue, setDisplayValue] = useState<number>(shouldReduceMotion ? value : 0);
+  const [displayValue, setDisplayValue] = useState<number>(0);
 
   useEffect(() => {
     if (shouldReduceMotion) {
-      setDisplayValue(value);
       return;
     }
 
@@ -42,9 +41,8 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   return (
     <span className={className}>
       {prefix}
-      {displayValue}
+      {shouldReduceMotion ? value : displayValue}
       {suffix}
     </span>
   );
 };
-

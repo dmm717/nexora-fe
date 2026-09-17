@@ -107,7 +107,7 @@ export function normalizeLearningPathActivity(raw: unknown): LearningPathActivit
     resourceId: asNullableString(record.resourceId),
     externalUrl: asNullableString(record.externalUrl),
     priority: asNumber(record.priority, 1),
-    status: asString(record.status, LearningPathValues.Pending),
+    status: asString(record.status, 'unknown'),
     order: asNumber(record.order, 0),
     completedAt: asNullableString(record.completedAt),
   };
@@ -168,4 +168,32 @@ export function getActivityDeepLink(activity: LearningPathActivityResponse): str
     default:
       return null;
   }
+}
+
+export type LearningPathActivityDisposition = 'pending' | 'completed' | 'obsolete' | 'unknown';
+
+export function getLearningPathActivityDisposition(
+  status: string
+): LearningPathActivityDisposition {
+  if (status === LearningPathValues.Pending) return 'pending';
+  if (status === LearningPathValues.Completed) return 'completed';
+  if (status === LearningPathValues.Obsolete) return 'obsolete';
+  return 'unknown';
+}
+
+export function getActiveLearningPathProgress(milestones: LearningPathMilestoneResponse[]) {
+  const activities = milestones.flatMap((milestone) => milestone.activities);
+  const active = activities.filter((activity) => {
+    const disposition = getLearningPathActivityDisposition(activity.status);
+    return disposition === 'pending' || disposition === 'completed';
+  });
+  const completed = active.filter(
+    (activity) => getLearningPathActivityDisposition(activity.status) === 'completed'
+  ).length;
+
+  return {
+    completedActivityCount: completed,
+    totalActivityCount: active.length,
+    percentage: active.length === 0 ? 0 : Math.round((completed / active.length) * 100),
+  };
 }

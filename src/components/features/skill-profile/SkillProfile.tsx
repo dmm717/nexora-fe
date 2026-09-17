@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -181,7 +180,7 @@ export default function SkillProfile() {
             {profile.weaknessSignals.length === 0 ? (
               <Card variant="subtle" padding="md" className="text-center py-6 text-xs text-on-surface-variant">
                 {profile.competencies.some((c) => c.evidenceCount > 0)
-                  ? 'Chưa ghi nhận tín hiệu yếu điểm đáng lo ngại từ các bằng chứng hiện có.'
+                  ? 'Đã có bằng chứng năng lực, nhưng máy chủ chưa trả về tín hiệu điểm cần cải thiện.'
                   : 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'}
               </Card>
             ) : (

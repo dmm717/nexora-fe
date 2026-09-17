@@ -20,6 +20,8 @@ export {
   LearningPathValues,
   normalizeLearningPathResponse,
   getActivityDeepLink,
+  getLearningPathActivityDisposition,
+  getActiveLearningPathProgress,
 } from './learningPathContract';
 
 export const learningPathApi = {

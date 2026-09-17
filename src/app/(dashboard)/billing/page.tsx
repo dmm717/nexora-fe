@@ -12,6 +12,12 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
+import {
+  describePlanFeature,
+  formatFeatureAvailability,
+  formatInterviewQuestionLimit,
+  getExactEntitlementFeature,
+} from '@/services/billingPresentation';
 
 export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
@@ -185,29 +191,23 @@ export default function BillingPage() {
 
   const entitlement = user?.billing?.entitlement;
   const orders = user?.billing?.orders || [];
-  const planName = entitlement?.planCode ? entitlement.planCode.toUpperCase() : 'FREE TIER';
+  const planName = entitlement?.planCode ? entitlement.planCode.toUpperCase() : 'Chưa có thông tin gói';
   const expiresAtText = entitlement?.endsAt
     ? new Date(entitlement.endsAt).toLocaleDateString('vi-VN')
-    : 'Không giới hạn thời gian';
+    : entitlement
+      ? 'Không có ngày hết hạn'
+      : 'Chưa có thông tin';
 
-  const interviewFeature = entitlement?.features?.find((f) => f.code.toLowerCase().includes('interview'));
-  const cvFeature = entitlement?.features?.find((f) => f.code.toLowerCase().includes('cv'));
+  const interviewFeature = getExactEntitlementFeature(entitlement?.features, 'interview');
+  const cvFeature = getExactEntitlementFeature(entitlement?.features, 'cv_analysis');
+  const questionLimitFeature = getExactEntitlementFeature(
+    entitlement?.features,
+    'interview_question_limit'
+  );
 
-  const interviewQuotaText =
-    entitlement?.available !== null && entitlement?.available !== undefined
-      ? `${entitlement.available} phiên`
-      : interviewFeature?.available !== null && interviewFeature?.available !== undefined
-      ? `${interviewFeature.available} phiên`
-      : entitlement?.limit !== null && entitlement?.limit !== undefined
-      ? `${Math.max(0, entitlement.limit - (entitlement.consumed || 0))} phiên`
-      : 'Không giới hạn';
-
-  const cvAnalysisText =
-    cvFeature?.available !== null && cvFeature?.available !== undefined
-      ? `${cvFeature.available} lần`
-      : cvFeature?.unlimited
-      ? 'Không giới hạn'
-      : 'Theo gói cơ bản';
+  const interviewQuotaText = formatFeatureAvailability(interviewFeature, 'phiên');
+  const cvAnalysisText = formatFeatureAvailability(cvFeature, 'lần');
+  const interviewQuestionLimitText = formatInterviewQuestionLimit(questionLimitFeature);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
@@ -271,7 +271,7 @@ export default function BillingPage() {
           <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30">
             <div className="text-xs text-on-surface-variant font-medium">Giới hạn câu hỏi / phiên</div>
             <div className="text-xl font-extrabold text-on-surface mt-1">
-              {planName.toLowerCase().includes('pro') ? 'Không giới hạn (Pro)' : 'Chuẩn lộ trình'}
+              {interviewQuestionLimitText}
             </div>
           </div>
         </div>
@@ -295,7 +295,8 @@ export default function BillingPage() {
 
             const isCurrentPlan = currentPlanCode === plan.code;
             const isFree = price.amountMinor === 0;
-            const isPro = plan.code.toLowerCase().includes('pro');
+            const isHighlighted = plan.isHighlighted;
+            const featureDescriptions = price.features.map(describePlanFeature).filter(Boolean) as string[];
 
             return (
               <Card
@@ -303,12 +304,12 @@ export default function BillingPage() {
                 variant="elevated"
                 padding="lg"
                 className={`flex flex-col justify-between relative bg-white transition-all ${
-                  isPro
+                  isHighlighted
                     ? 'border-2 border-primary shadow-card ring-1 ring-primary/20'
                     : 'border border-outline-variant/60 shadow-subtle'
                 }`}
               >
-                {isPro && (
+                {isHighlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-primary text-white shadow-sm">
                       Phổ biến nhất
@@ -324,9 +325,7 @@ export default function BillingPage() {
                     )}
                   </div>
                   <p className="text-xs text-on-surface-variant min-h-[32px] leading-relaxed">
-                    {plan.code.toLowerCase().includes('pro')
-                      ? 'Mở khóa toàn bộ tính năng phân tích nâng cao, câu hỏi chuyên sâu và không giới hạn lưu trữ.'
-                      : 'Gói khởi động giúp bạn làm quen với nhịp phỏng vấn và đánh giá phản hồi cơ bản.'}
+                    {plan.description || 'Thông tin quyền lợi chi tiết được máy chủ cung cấp theo từng mức giá.'}
                   </p>
                   <div className="pt-2 pb-2 border-b border-outline-variant/30">
                     <div className="flex items-baseline gap-1">
@@ -342,35 +341,34 @@ export default function BillingPage() {
                   </div>
 
                   <ul className="space-y-2.5 pt-2 text-xs text-on-surface">
-                    <li className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                      <span><strong>{price.interviewQuota}</strong> lượt AI Phỏng vấn & Phân tích</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                      <span>Phân tích CV chuyên sâu theo JD</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                      <span>Báo cáo đánh giá chi tiết (Rubric)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                      <span>Lịch sử luyện tập lưu trữ {isPro ? 'không giới hạn' : '30 ngày'}</span>
-                    </li>
+                    {price.interviewQuota !== null && (
+                      <li className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        <span>Hạn mức giá: {price.interviewQuota} lượt phỏng vấn</span>
+                      </li>
+                    )}
+                    {featureDescriptions.map((description) => (
+                      <li key={description} className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        <span>{description}</span>
+                      </li>
+                    ))}
+                    {featureDescriptions.length === 0 && price.interviewQuota === null && (
+                      <li className="text-on-surface-variant">Chưa có thông tin tính năng cho mức giá này.</li>
+                    )}
                   </ul>
                 </div>
 
                 <div className="pt-6 mt-4 border-t border-outline-variant/20">
                   <Button
-                    variant={isPro ? 'primary' : 'outline'}
+                    variant={isHighlighted ? 'primary' : 'outline'}
                     size="md"
                     fullWidth
                     onClick={() => handleBuyPlan(price.id)}
                     disabled={createCheckoutMutation.isPending || isCurrentPlan}
                     loading={createCheckoutMutation.isPending && createCheckoutMutation.variables === price.id}
                   >
-                    {isCurrentPlan ? 'Gói hiện tại' : isPro ? 'Nâng cấp ngay' : 'Chọn gói này'}
+                    {isCurrentPlan ? 'Gói hiện tại' : isHighlighted ? 'Nâng cấp ngay' : 'Chọn gói này'}
                   </Button>
                 </div>
               </Card>

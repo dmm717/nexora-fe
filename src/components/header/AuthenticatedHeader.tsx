@@ -28,24 +28,22 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { data: user } = useCurrentUser();
+  const { data: user, isLoading: userLoading } = useCurrentUser();
   const { data: careerProfile } = useCareerProfile();
 
-  const userEmail = propUserEmail || user?.email || 'candidate@nexora.ai';
+  const userEmail = propUserEmail || user?.email || '';
   const userName =
     propUserName ||
     careerProfile?.profile?.displayName ||
     user?.displayName ||
-    userEmail.split('@')[0] ||
-    'Ứng viên';
+    (userEmail ? userEmail.split('@')[0] : '') ||
+    (userLoading ? '' : 'Ứng viên');
 
   const activeGoal = careerProfile?.activeCareerGoal;
   const targetRole = propTargetRole !== undefined ? propTargetRole : activeGoal?.targetRole;
   const targetSeniority = propTargetSeniority !== undefined ? propTargetSeniority : activeGoal?.seniority;
 
-  const planCode = user?.billing?.entitlement?.planCode
-    ? user.billing.entitlement.planCode.toUpperCase()
-    : 'FREE';
+  const planCode = user?.billing?.entitlement?.planCode?.toUpperCase() || null;
 
   const isAdmin = user?.roles?.some((role) => role.toLowerCase() === 'admin') || false;
 
@@ -67,9 +65,6 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
     if (item.href) {
       router.push(item.href);
       return;
-    }
-    if (item.actionKey === 'privacy') {
-      router.push('/status');
     }
   };
 
@@ -163,9 +158,9 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
             >
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                style={{ backgroundColor: getAvatarColor(userEmail) }}
+                style={{ backgroundColor: getAvatarColor(userEmail || userName || 'neutral-user') }}
               >
-                {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                {userName ? userName.charAt(0).toUpperCase() : '·'}
               </div>
               <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-variant hidden sm:inline">
                 expand_more
@@ -183,12 +178,14 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
                 <div id="account-menu" role="menu" aria-label="Menu tài khoản" className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-floating border border-outline-variant/40 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-4 py-3 border-b border-outline-variant/30">
                     <p className="text-xs text-on-surface-variant">Tài khoản đang đăng nhập</p>
-                    <p className="text-sm font-semibold text-on-surface truncate">{userName}</p>
-                    <p className="text-xs text-on-surface-variant truncate mt-0.5">{userEmail}</p>
+                    <p className="text-sm font-semibold text-on-surface truncate">
+                      {userName || 'Đang tải thông tin tài khoản...'}
+                    </p>
+                    {userEmail && <p className="text-xs text-on-surface-variant truncate mt-0.5">{userEmail}</p>}
                     <div className="mt-1.5 flex items-center gap-1.5">
-                      <Badge variant="primary" size="sm">
+                      {planCode && <Badge variant="primary" size="sm">
                         Gói {planCode}
-                      </Badge>
+                      </Badge>}
                       {isAdmin && (
                         <Badge variant="secondary" size="sm">
                           Admin

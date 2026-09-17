@@ -8,13 +8,15 @@ export interface FocusedPracticeHeaderProps {
   title?: string;
   subtitle?: string;
   stepInfo?: string;
+  statusLabel?: string;
   onExit: () => void;
 }
 
 export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
-  title = 'Phòng phỏng vấn tập trung',
-  subtitle = 'Backend Engineer · Middle',
-  stepInfo = 'Câu 1/3',
+  title,
+  subtitle,
+  stepInfo,
+  statusLabel,
   onExit,
 }) => {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -53,12 +55,12 @@ export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
           </div>
 
           {/* Right: AI Coaching Indicator */}
-          <div className="flex items-center gap-3">
+          {statusLabel && <div className="flex items-center gap-3">
             <div role="status" aria-live="polite" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low border border-outline-variant/30 text-xs text-on-surface">
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-              <span className="hidden sm:inline font-medium">Phiên AI đang hoạt động</span>
+              <span className="hidden sm:inline font-medium">{statusLabel}</span>
             </div>
-          </div>
+          </div>}
         </div>
       </header>
 

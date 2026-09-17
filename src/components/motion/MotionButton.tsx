@@ -1,16 +1,16 @@
 'use client';
 
 import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 
-interface MotionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+type MotionButtonProps = Omit<HTMLMotionProps<'button'>, 'children'> & {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
   children: React.ReactNode;
-}
+};
 
 export const MotionButton: React.FC<MotionButtonProps> = ({
   variant = 'primary',
@@ -46,7 +46,7 @@ export const MotionButton: React.FC<MotionButtonProps> = ({
       disabled={disabled || loading}
       aria-busy={loading ? 'true' : undefined}
       className={`inline-flex items-center justify-center font-sans font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
-      {...(props as any)}
+      {...props}
     >
       {loading ? (
         <>

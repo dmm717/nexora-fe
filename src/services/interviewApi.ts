@@ -11,6 +11,7 @@ import {
   type InterviewHistoryItem,
   type AnswerResult,
   type ReportView,
+  type InterviewType,
 } from './interviewContract';
 
 export * from './interviewContract';
@@ -18,7 +19,7 @@ export * from './interviewContract';
 export interface StartInterviewCommand {
   role?: string;
   seniority?: string;
-  interviewType: string;
+  interviewType: InterviewType;
   difficulty: string;
   resumeId?: string;
   jobDescriptionId?: string;

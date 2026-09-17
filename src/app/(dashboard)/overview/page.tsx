@@ -20,7 +20,6 @@ import {
 import { resolveNextBestAction } from '@/services/nextBestAction';
 import { hasAvailableLearningPath } from '@/services/learningPathAvailability';
 import { ApiError } from '@/services/apiClient';
-import type { CareerProfile, LearningPath, ProgressDashboard } from '@/types/prototype';
 
 export default function OverviewPage() {
   const router = useRouter();
@@ -43,16 +42,15 @@ export default function OverviewPage() {
   const rec = progressData?.nextRecommendedPractice || recommendationData || null;
 
   const nextAction = resolveNextBestAction({
-    recommendation: rec as any,
+    recommendation: rec,
     targetRole: activeGoal?.targetRole,
     needsFirstEvidence: isNew,
-    scenarioEnabled: true, // Will route cleanly
   });
 
   const availablePath = hasAvailableLearningPath(
-    learningPathData as unknown as LearningPath,
-    careerProfile as unknown as CareerProfile,
-    progressData as unknown as ProgressDashboard
+    learningPathData,
+    careerProfile,
+    progressData
   )
     ? learningPathData
     : null;
@@ -125,7 +123,7 @@ export default function OverviewPage() {
           />
         </div>
         <div className="flex flex-wrap gap-3 mt-4">
-          <Button variant="primary" size="md" onClick={() => router.push(nextAction.destination)}>
+          <Button variant="primary" size="md" onClick={() => nextAction.destination && router.push(nextAction.destination)} disabled={!nextAction.destination}>
             {nextAction.label}
           </Button>
           <Button
@@ -187,7 +185,7 @@ export default function OverviewPage() {
                 </span>
                 Hành động tốt nhất tiếp theo (Next Best Action)
               </span>
-              <span className="text-xs text-on-surface-variant">Ước tính {nextAction.estimatedMinutes} phút</span>
+              {nextAction.estimatedMinutes && <span className="text-xs text-on-surface-variant">Ước tính {nextAction.estimatedMinutes} phút</span>}
             </div>
 
             {isNew ? (
@@ -202,7 +200,8 @@ export default function OverviewPage() {
                   <Button
                     variant="primary"
                     size="md"
-                    onClick={() => router.push(nextAction.destination)}
+                    onClick={() => nextAction.destination && router.push(nextAction.destination)}
+                    disabled={!nextAction.destination}
                     icon={<span className="material-symbols-outlined text-[18px]">document_scanner</span>}
                   >
                     {nextAction.label}
@@ -229,7 +228,8 @@ export default function OverviewPage() {
                   <Button
                     variant="primary"
                     size="md"
-                    onClick={() => router.push(nextAction.destination)}
+                    onClick={() => nextAction.destination && router.push(nextAction.destination)}
+                    disabled={!nextAction.destination}
                     icon={<span className="material-symbols-outlined text-[18px]">replay</span>}
                   >
                     {nextAction.label}

@@ -5,13 +5,25 @@ export interface PlanPrice {
   amountMinor: number;
   currency: string;
   durationDays: number | null;
-  interviewQuota: number;
+  interviewQuota: number | null;
+  features: PlanFeature[];
+}
+
+export interface PlanFeature {
+  code: string;
+  name: string;
+  enabled: boolean;
+  limit: number | null;
+  unlimited: boolean;
 }
 
 export interface PlanView {
   id: string;
   code: string;
   name: string;
+  description: string;
+  badge: string | null;
+  isHighlighted: boolean;
   prices: PlanPrice[];
 }
 

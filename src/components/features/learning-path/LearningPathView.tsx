@@ -17,6 +17,8 @@ import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import {
   LearningPathValues,
   getActivityDeepLink,
+  getLearningPathActivityDisposition,
+  getActiveLearningPathProgress,
   type LearningPathActivityResponse,
 } from '@/services/learningPathApi';
 import { ApiError } from '@/services/apiClient';
@@ -81,10 +83,7 @@ export default function LearningPathView() {
 
   const handleStartActivity = (activity: LearningPathActivityResponse) => {
     const link = getActivityDeepLink(activity);
-    if (!link) {
-      void handleCompleteActivity(activity.id);
-      return;
-    }
+    if (!link || getLearningPathActivityDisposition(activity.status) !== 'pending') return;
     if (link.startsWith('http://') || link.startsWith('https://')) {
       window.open(link, '_blank', 'noopener,noreferrer');
     } else {
@@ -124,7 +123,7 @@ export default function LearningPathView() {
     );
   }
 
-  if (isNotCreated || !path) {
+  if (isNotCreated) {
     return (
       <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
         <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
@@ -155,8 +154,29 @@ export default function LearningPathView() {
     );
   }
 
+  if (error || !path) {
+    return (
+      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-error/10 text-error flex items-center justify-center">
+            <span className="material-symbols-outlined text-[28px]">cloud_off</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Chưa thể tải lộ trình học</h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-xl mx-auto leading-relaxed">
+            Đây là lỗi kết nối hoặc máy chủ, không phải trạng thái “chưa tạo”. Hãy thử tải lại dữ liệu.
+          </p>
+          <div className="flex justify-center">
+            <Button variant="primary" size="md" onClick={() => void refetch()} disabled={isFetching}>
+              {isFetching ? 'Đang tải lại...' : 'Thử tải lại'}
+            </Button>
+          </div>
+        </Card>
+      </MotionPage>
+    );
+  }
+
   const activeGoal = careerProfile?.activeCareerGoal;
-  const progress = path.progress;
+  const progress = getActiveLearningPathProgress(path.milestones);
 
   return (
     <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8">
@@ -265,7 +285,11 @@ export default function LearningPathView() {
               {/* Milestone Activities List */}
               <div className="space-y-3">
                 {milestone.activities.map((activity) => {
-                  const isActDone = activity.status === 'completed';
+                  const disposition = getLearningPathActivityDisposition(activity.status);
+                  const isActDone = disposition === 'completed';
+                  const isPending = disposition === 'pending';
+                  const isObsolete = disposition === 'obsolete';
+                  const activityLink = getActivityDeepLink(activity);
 
                   return (
                     <Card
@@ -287,7 +311,7 @@ export default function LearningPathView() {
                               >
                                 task_alt
                               </span>
-                            ) : (
+                            ) : isPending ? (
                               <button
                                 type="button"
                                 onClick={() => handleCompleteActivity(activity.id)}
@@ -299,6 +323,13 @@ export default function LearningPathView() {
                                   radio_button_unchecked
                                 </span>
                               </button>
+                            ) : (
+                              <span
+                                className="material-symbols-outlined text-[22px] text-on-surface-variant"
+                                title={isObsolete ? 'Hoạt động đã lỗi thời' : 'Trạng thái không được hỗ trợ'}
+                              >
+                                {isObsolete ? 'block' : 'help'}
+                              </span>
                             )}
                           </div>
 
@@ -317,6 +348,8 @@ export default function LearningPathView() {
                                   Đã ghi nhận
                                 </span>
                               )}
+                              {isObsolete && <Badge variant="neutral" size="sm">Đã lỗi thời</Badge>}
+                              {disposition === 'unknown' && <Badge variant="warning" size="sm">Không khả dụng</Badge>}
                             </div>
                             <p className="text-xs text-on-surface-variant leading-relaxed">
                               {activity.description}
@@ -326,18 +359,18 @@ export default function LearningPathView() {
 
                         {/* Action CTA */}
                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                          <Button
-                            variant={isActDone ? 'outline' : 'primary'}
-                            size="sm"
-                            onClick={() => handleStartActivity(activity)}
-                            icon={
-                              <span className="material-symbols-outlined text-[16px]">
-                                {isActDone ? 'replay' : 'play_arrow'}
-                              </span>
-                            }
-                          >
-                            {isActDone ? 'Luyện lại' : 'Bắt đầu ngay'}
-                          </Button>
+                          {isPending && activityLink ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleStartActivity(activity)}
+                              icon={<span className="material-symbols-outlined text-[16px]">play_arrow</span>}
+                            >
+                              Bắt đầu ngay
+                            </Button>
+                          ) : isPending ? (
+                            <span className="text-xs font-semibold text-on-surface-variant">Chưa có đích đến khả dụng</span>
+                          ) : null}
                         </div>
                       </div>
                     </Card>

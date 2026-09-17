@@ -1,21 +1,23 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { AuthenticatedHeader } from '@/components/header/AuthenticatedHeader';
-import { ProductMotionBoundary } from '@/components/product-motion/ProductMotionBoundary';
+import {
+  FocusedPracticeShellProvider,
+} from '@/components/layouts/FocusedPracticeShellContext';
+import { isFocusedPracticeRoute } from '@/services/focusedPracticeRoutes';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface antialiased product-app-shell">
-      {/* Top persistent prototype header */}
-      <AuthenticatedHeader />
+  const pathname = usePathname();
+  const focused = isFocusedPracticeRoute(pathname);
 
-      {/* Main Content Area */}
-      <main className="flex-1 pt-16 w-full pb-16 product-main-surface">
-        <ProductMotionBoundary>
-          <div className="product-page-content">{children}</div>
-        </ProductMotionBoundary>
-      </main>
-    </div>
+  return (
+    <>
+      {!focused && <AuthenticatedHeader />}
+      <FocusedPracticeShellProvider>
+        <div className={focused ? '' : 'pt-16'}>{children}</div>
+      </FocusedPracticeShellProvider>
+    </>
   );
 }
