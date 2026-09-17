@@ -27,6 +27,13 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
   const focused = isFocusedPracticeRoute(pathname);
   const contextValue = useMemo(() => ({ setConfig }), []);
 
+  const defaultExit = pathname.startsWith('/interviews') ? '/interviews' : '/practice';
+  const exitDestination = config?.exitTo || defaultExit;
+
+  const handleExit = () => {
+    router.push(exitDestination);
+  };
+
   return (
     <FocusedPracticeShellContext.Provider value={contextValue}>
       <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface antialiased product-app-shell">
@@ -36,7 +43,8 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
             subtitle={config?.subtitle}
             stepInfo={config?.stepInfo}
             statusLabel={config?.statusLabel}
-            onExit={() => router.push(config?.exitTo || '/practice')}
+            exitTo={exitDestination}
+            onExit={handleExit}
           />
         ) : null}
 
@@ -54,9 +62,9 @@ export function useFocusedPracticeShell(config: FocusedPracticeShellConfig) {
   const context = useContext(FocusedPracticeShellContext);
   const { title, subtitle, stepInfo, statusLabel, exitTo } = config;
 
+  // Keep live practice header config synchronized with active session state
   useEffect(() => {
     context?.setConfig({ title, subtitle, stepInfo, statusLabel, exitTo });
-    return () => context?.setConfig(null);
   }, [
     context,
     title,
@@ -65,4 +73,11 @@ export function useFocusedPracticeShell(config: FocusedPracticeShellConfig) {
     statusLabel,
     exitTo,
   ]);
+
+  // Clean up shell configuration only when leaving/unmounting the focused practice room
+  useEffect(() => {
+    return () => {
+      context?.setConfig(null);
+    };
+  }, [context]);
 }

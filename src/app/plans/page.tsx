@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { usePlans } from '@/hooks/queries/useBilling';
+import { formatPriceMinor } from '@/utils/formatters';
 import styles from './PlansPage.module.css';
 import Link from 'next/link';
 
@@ -42,7 +43,7 @@ export default function PlansPage() {
               {plan.prices.map((price) => (
                 <div key={price.id} className={styles.priceItem}>
                   <div className={styles.priceAmount}>
-                    {(price.amountMinor / 100).toLocaleString('vi-VN', { style: 'currency', currency: price.currency })}
+                    {formatPriceMinor(price.amountMinor, price.currency)}
                   </div>
                   <ul className={styles.features}>
                     <li>

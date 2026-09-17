@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 
@@ -9,7 +10,8 @@ export interface FocusedPracticeHeaderProps {
   subtitle?: string;
   stepInfo?: string;
   statusLabel?: string;
-  onExit: () => void;
+  exitTo?: string;
+  onExit?: () => void;
 }
 
 export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
@@ -17,9 +19,20 @@ export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
   subtitle,
   stepInfo,
   statusLabel,
+  exitTo = '/interviews',
   onExit,
 }) => {
+  const router = useRouter();
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    if (onExit) {
+      onExit();
+    } else {
+      router.push(exitTo || '/interviews');
+    }
+  };
 
   return (
     <>
@@ -83,10 +96,7 @@ export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
             <Button
               variant="danger"
               size="sm"
-              onClick={() => {
-                setShowExitConfirm(false);
-                onExit();
-              }}
+              onClick={handleConfirmExit}
             >
               Xác nhận rời phòng
             </Button>

@@ -19,6 +19,7 @@ import {
 } from '@/utils/authIntent';
 import { Check, ArrowUpRight } from 'lucide-react';
 import { describePlanFeature } from '@/services/billingPresentation';
+import { formatPriceMinor } from '@/utils/formatters';
 
 export default function PricingCards() {
   const router = useRouter();
@@ -78,11 +79,7 @@ export default function PricingCards() {
   };
 
   const formatPrice = (amountMinor: number, currency: string) => {
-    if (amountMinor === 0) return 'Miễn phí';
-    return (amountMinor / 100).toLocaleString('vi-VN', {
-      style: 'currency',
-      currency: currency || 'VND',
-    });
+    return formatPriceMinor(amountMinor, currency);
   };
 
   return (
