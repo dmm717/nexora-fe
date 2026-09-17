@@ -76,31 +76,37 @@ export const DETERMINISTIC_ERROR_CODES = [
  */
 export function buildCreateAnalysisRequest(op: ResumeAnalysisOperation): CreateAnalysisRequest {
   if (op.mode === 'job_targeted') {
+    if (!op.jobDescriptionId) {
+      throw new Error('jobDescriptionId is required for job_targeted analysis');
+    }
     const request: CreateJobTargetedAnalysisRequest = {
       resumeId: op.resumeId,
-      careerGoalId: op.careerGoalId,
       mode: 'job_targeted',
+      jobDescriptionId: op.jobDescriptionId,
     };
-    if (op.jobDescriptionId) {
-      request.jobDescriptionId = op.jobDescriptionId;
+    if (op.careerGoalId) {
+      request.careerGoalId = op.careerGoalId;
     }
     return request;
   }
 
   if (op.mode === 'field_benchmark') {
-    const request: CreateFieldBenchmarkAnalysisRequest = {
-      resumeId: op.resumeId,
-      careerGoalId: op.careerGoalId,
-      mode: 'field_benchmark',
-    };
     const industry = op.industry?.trim();
     const targetRole = op.targetRole?.trim();
     const seniority = op.seniority?.trim();
-    
-    if (industry) request.industry = industry;
-    if (targetRole) request.targetRole = targetRole;
-    if (seniority) request.seniority = seniority;
-    
+    if (!industry || !targetRole || !seniority) {
+      throw new Error('industry, targetRole, and seniority are required for field_benchmark analysis');
+    }
+    const request: CreateFieldBenchmarkAnalysisRequest = {
+      resumeId: op.resumeId,
+      mode: 'field_benchmark',
+      industry,
+      targetRole,
+      seniority,
+    };
+    if (op.careerGoalId) {
+      request.careerGoalId = op.careerGoalId;
+    }
     return request;
   }
 

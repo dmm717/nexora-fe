@@ -248,20 +248,37 @@ const ResumeUploadPanel = ({
             <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
               {existingResumes.map((r) => {
                 const isSelected = selectedResumeId === r.id;
+                const isReady = r.status === 'ready';
+                const isProcessing = r.status === 'processing' || r.status === 'pending' || r.status === 'queued';
+                const isFailed = r.status === 'failed';
+
                 return (
                   <button
                     key={r.id}
                     type="button"
+                    disabled={!isReady}
                     onClick={() => onSelectExistingResume(r)}
                     className={`p-2.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between gap-2 ${
-                      isSelected
+                      !isReady
+                        ? 'opacity-60 bg-surface-container-low/50 border-outline-variant/40 cursor-not-allowed text-on-surface-variant'
+                        : isSelected
                         ? 'border-primary bg-primary-fixed/20 text-primary font-bold'
                         : 'border-outline-variant/50 hover:border-primary text-on-surface bg-white'
                     }`}
                   >
                     <span className="truncate font-medium">{r.fileName}</span>
-                    <span className="text-[11px] text-primary flex-shrink-0 font-bold">
-                      {isSelected ? 'Đã chọn' : 'Chọn CV này'}
+                    <span className="text-[11px] flex-shrink-0 font-bold">
+                      {isSelected ? (
+                        <span className="text-primary">Đã chọn</span>
+                      ) : isReady ? (
+                        <span className="text-primary">Chọn CV này</span>
+                      ) : isProcessing ? (
+                        <span className="text-amber-700">Đang xử lý</span>
+                      ) : isFailed ? (
+                        <span className="text-error">Lỗi xử lý</span>
+                      ) : (
+                        <span className="text-on-surface-variant">Chưa sẵn sàng</span>
+                      )}
                     </span>
                   </button>
                 );
@@ -322,13 +339,13 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
         <span className="material-symbols-outlined text-[20px]">work</span>
         <span>2. Mô tả công việc (JD)</span>
       </div>
-      <Badge variant="primary" size="sm">Bắt buộc nội dung</Badge>
+      <Badge variant="primary" size="sm">Bắt buộc tiêu đề & nội dung</Badge>
     </div>
 
     <div className="space-y-3">
       <div>
         <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="jdTitle">
-          Chức danh tuyển dụng (Title) <span className="text-on-surface-variant font-normal">(Tùy chọn)</span>
+          Chức danh tuyển dụng (Title) <span className="text-red-500">*</span>
         </label>
         <input
           id="jdTitle"
@@ -473,6 +490,7 @@ export default function ResumesPage() {
   // File state
   const [file, setFile] = useState<File | null>(null);
   const [resumeId, setResumeId] = useState<string | null>(null);
+  const [selectedResumeView, setSelectedResumeView] = useState<ResumeView | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -656,6 +674,7 @@ export default function ResumesPage() {
     setError(null);
     setFile(fileSnapshot);
     setResumeId(null);
+    setSelectedResumeView(null);
     setStage(reusableUpload ? 'processing' : 'uploading');
     setIsUploading(true);
 
@@ -722,13 +741,19 @@ export default function ResumesPage() {
     completedUpload.current = null;
     setFile(null);
     setResumeId(null);
+    setSelectedResumeView(null);
     setIsUploading(false);
     setStage('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSelectExistingResume = (selected: ResumeView) => {
+    if (selected.status !== 'ready') {
+      setError('Chỉ có thể chọn CV đã hoàn tất xử lý (sẵn sàng).');
+      return;
+    }
     setResumeId(selected.id);
+    setSelectedResumeView(selected);
     setFile(null);
     setError(null);
   };
@@ -744,11 +769,20 @@ export default function ResumesPage() {
     setError(null);
 
     if (useCurrentGoal) {
+      if (mode === 'job_targeted') {
+        const trimmedTitle = jdTitle.trim();
+        const trimmedContent = jdContent.trim();
+        if (!trimmedTitle || !trimmedContent) {
+          setError('Vui lòng nhập đầy đủ Tiêu đề và Nội dung chi tiết của Mô tả công việc (JD).');
+          return;
+        }
+      }
+
       let isMatchingPending = false;
       if (pending && pending.userId === currentUser.id && pending.mode === mode && !pending.resumeId) {
         if (mode === 'job_targeted') {
           const p = pending as JobTargetedAnalysisOperation;
-          isMatchingPending = !p.jobDescriptionId && !p.jdTitle;
+          isMatchingPending = !p.jobDescriptionId && p.jdTitle === jdTitle.trim() && p.jdContent === jdContent.trim();
         } else {
           const p = pending as FieldBenchmarkAnalysisOperation;
           isMatchingPending = !p.industry;
@@ -761,8 +795,12 @@ export default function ResumesPage() {
         mode,
         careerGoalId: careerProfile?.activeCareerGoal?.id,
         analysisId: null,
-        ...(mode === 'job_targeted' && jdContent.trim() ? { jdContent: jdContent.trim(), jdTitle: jdTitle.trim() || undefined } : {}),
-        ...(mode === 'field_benchmark' && (industry.trim() || careerProfile?.activeCareerGoal?.industry) ? { industry: industry.trim() || careerProfile?.activeCareerGoal?.industry } : {}),
+        ...(mode === 'job_targeted' ? { jdContent: jdContent.trim(), jdTitle: jdTitle.trim() } : {}),
+        ...(mode === 'field_benchmark' ? {
+          industry: industry.trim() || careerProfile?.activeCareerGoal?.industry || undefined,
+          targetRole: careerProfile?.activeCareerGoal?.targetRole || undefined,
+          seniority: careerProfile?.activeCareerGoal?.seniority || undefined,
+        } : {}),
       };
 
       const operation = existingOperation ?? createResumeAnalysisOperation(
@@ -778,16 +816,24 @@ export default function ResumesPage() {
     }
 
     const effectiveResumeId = resumeId;
-    if (!effectiveResumeId && (!file || !isResumeReady)) {
+    const selectedResume = selectedResumeView || (userResumes?.find(r => r.id === effectiveResumeId) ?? null);
+    const effectiveResumeReady = file ? isResumeReady : (selectedResume ? selectedResume.status === 'ready' : isResumeReady);
+
+    if (!effectiveResumeId || !effectiveResumeReady) {
       setError('Vui lòng tải lên CV hoặc chọn một CV đã sẵn sàng.');
+      return;
+    }
+
+    if (!file && selectedResume && selectedResume.status !== 'ready') {
+      setError('Chỉ có thể chọn CV đã hoàn tất xử lý (sẵn sàng).');
       return;
     }
 
     if (mode === 'job_targeted') {
       const trimmedTitle = jdTitle.trim();
       const trimmedContent = jdContent.trim();
-      if (!trimmedContent) {
-        setError('Vui lòng nhập nội dung chi tiết của Mô tả công việc (JD).');
+      if (!trimmedTitle || !trimmedContent) {
+        setError('Vui lòng nhập đầy đủ Tiêu đề và Nội dung chi tiết của Mô tả công việc (JD).');
         return;
       }
 
@@ -806,7 +852,7 @@ export default function ResumesPage() {
         mode: 'job_targeted',
         jobDescriptionId: null,
         analysisId: null,
-        jdTitle: trimmedTitle || undefined,
+        jdTitle: trimmedTitle,
         jdContent: trimmedContent,
       });
 
@@ -852,10 +898,12 @@ export default function ResumesPage() {
   const hasPrimaryResume = !!careerProfile?.primaryResume;
   const hasGoal = !!careerProfile?.activeCareerGoal && !!careerProfile.activeCareerGoal.targetRole && !!careerProfile.activeCareerGoal.seniority;
   const isBenchmarkIndustryMissing = useCurrentGoal && activeMode === 'field_benchmark' && !careerProfile?.activeCareerGoal?.industry && !industry.trim();
-  const isJobTargetedIncomplete = activeMode === 'job_targeted' && !jdContent.trim();
+  const isJobTargetedIncomplete = activeMode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
   const isFieldBenchmarkIncomplete = !useCurrentGoal && activeMode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
   const isCurrentGoalIncomplete = useCurrentGoal && (!hasPrimaryResume || !hasGoal || isBenchmarkIndustryMissing);
-  const isCustomResumeIncomplete = !useCurrentGoal && !resumeId && (!file || !isResumeReady || isUploading);
+  const selectedResume = selectedResumeView || (userResumes?.find(r => r.id === resumeId) ?? null);
+  const effectiveResumeReady = file ? isResumeReady : (selectedResume ? selectedResume.status === 'ready' : isResumeReady);
+  const isCustomResumeIncomplete = !useCurrentGoal && (!resumeId || !effectiveResumeReady || isUploading);
   const isSubmitDisabled = loading || isUploading || isJobTargetedIncomplete || isFieldBenchmarkIncomplete || isCurrentGoalIncomplete || isCustomResumeIncomplete;
 
   const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
@@ -1181,23 +1229,41 @@ export default function ResumesPage() {
           </div>
         </div>
 
-        {/* JD Textarea for job_targeted when using current goal */}
+        {/* JD Inputs for job_targeted when using current goal */}
         {mode === 'job_targeted' && useCurrentGoal && (
-          <div className="space-y-2 pt-2 border-t border-outline-variant/30">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-on-surface">
-                Nội dung JD mục tiêu: <span className="text-red-500">*</span>
+          <div className="space-y-3 pt-2 border-t border-outline-variant/30">
+            <div>
+              <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="currentGoalJdTitle">
+                Chức danh tuyển dụng (Title): <span className="text-red-500">*</span>
               </label>
-              <span className="text-[11px] text-on-surface-variant">Dán nội dung tuyển dụng thực tế</span>
+              <input
+                id="currentGoalJdTitle"
+                type="text"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+                placeholder="VD: Senior Frontend Developer (React)"
+                value={jdTitle}
+                onChange={e => setJdTitle(e.target.value)}
+                disabled={loading}
+              />
             </div>
-            <textarea
-              value={jdContent}
-              onChange={(e) => setJdContent(e.target.value)}
-              rows={5}
-              disabled={loading}
-              className="w-full p-3.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm leading-relaxed"
-              placeholder="Dán toàn bộ hoặc các yêu cầu chính trong JD (kỹ năng, trách nhiệm, kinh nghiệm) vào đây để Nexora đối chiếu chi tiết..."
-            />
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-on-surface" htmlFor="currentGoalJdContent">
+                  Nội dung JD mục tiêu: <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-on-surface-variant">Dán nội dung tuyển dụng thực tế</span>
+              </div>
+              <textarea
+                id="currentGoalJdContent"
+                value={jdContent}
+                onChange={(e) => setJdContent(e.target.value)}
+                rows={5}
+                disabled={loading}
+                className="w-full p-3.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm leading-relaxed"
+                placeholder="Dán toàn bộ hoặc các yêu cầu chính trong JD (kỹ năng, trách nhiệm, kinh nghiệm) vào đây để Nexora đối chiếu chi tiết..."
+              />
+            </div>
           </div>
         )}
       </Card>
@@ -1222,11 +1288,11 @@ export default function ResumesPage() {
                 <div className="text-xs text-primary font-semibold">{stageMessage || 'Hệ thống đang đối chiếu dữ liệu...'}</div>
               </div>
             </div>
-            <div className="h-1.5 w-full bg-primary/20 rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+            <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden relative">
+              <div className="h-full bg-primary rounded-full animate-indeterminate w-1/3 absolute" />
             </div>
             <p className="text-[11px] text-on-surface-variant">
-              Quá trình phân tích chuyên sâu đa trục thường mất khoảng 10 - 20 giây. Vui lòng không đóng trình duyệt.
+              Quá trình đang được xử lý bất đồng bộ. Kết quả sẽ xuất hiện khi hoàn tất. Bạn có thể rời trang và quay lại xem kết quả sau.
             </p>
           </div>
         </Card>
@@ -1269,8 +1335,8 @@ export default function ResumesPage() {
           {useCurrentGoal && !hasPrimaryResume && '• Vui lòng bổ sung CV chính trước khi phân tích'}
           {useCurrentGoal && hasPrimaryResume && !hasGoal && '• Vui lòng thiết lập mục tiêu nghề nghiệp'}
           {useCurrentGoal && hasPrimaryResume && hasGoal && mode === 'field_benchmark' && isBenchmarkIndustryMissing && '• Vui lòng bổ sung ngành nghề đối chiếu'}
-          {!useCurrentGoal && !resumeId && (!file || !isResumeReady) && '• Vui lòng chọn hoặc tải lên CV'}
-          {mode === 'job_targeted' && !jdContent.trim() && '• Vui lòng dán nội dung JD'}
+          {!useCurrentGoal && !effectiveResumeReady && '• Vui lòng chọn hoặc tải lên CV đã sẵn sàng'}
+          {mode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim()) && '• Vui lòng nhập tiêu đề và nội dung JD'}
           {mode === 'field_benchmark' && !useCurrentGoal && (!industry.trim() || !targetRole.trim() || !seniority.trim()) && '• Vui lòng điền đủ ngành nghề, vị trí và cấp bậc'}
           {!isSubmitDisabled && '• Sẵn sàng phân tích với dữ liệu hiện tại'}
         </div>

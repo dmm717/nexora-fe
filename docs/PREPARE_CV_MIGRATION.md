@@ -27,14 +27,22 @@ The upload flow follows the production backend contract:
 1. `cvAnalysisApi.presignUpload`: Requests upload token and presigned S3/MinIO upload URL for valid MIME types (PDF: `application/pdf`, DOCX: `application/vnd.openxmlformats-officedocument.wordprocessingml.document`).
 2. `cvAnalysisApi.uploadFile`: Uploads file binary stream with expected size and content type headers directly to the presigned URL.
 3. `cvAnalysisApi.createResume`: Sends the upload token to `POST /resumes` to create the resume entity.
-4. **Resilient Retry & Token Replay**:
+4. **Ready-Only Existing Resume Selection**:
+   - Only resumes with `status === 'ready'` can be selected for analysis.
+   - Resumes in `processing`, `pending`, or `queued` state display status badge "Đang xử lý" and have their selection button disabled.
+   - Resumes in `failed` state display status badge "Lỗi xử lý" and are disabled.
+   - Client handler guards against any non-ready resume selection and rejects it with clear guidance.
+5. **Resilient Retry & Token Replay**:
    - `completedUpload` ref retains the active PUT upload token in memory. If a network blip interrupts the `POST /resumes` call, retry reuses the existing token rather than re-uploading file bytes.
    - If an `UPLOAD_NOT_FOUND` or `UPLOAD_INTENT_INVALID` error is returned, the stale cache is discarded to request a fresh presign URL.
 
 ### Asynchronous Analysis Coordinator
 1. `createResumeAnalysisOperation`: Instantiates an immutable operation object with a unique idempotency key.
 2. `runResumeAnalysisOperation`: Dispatches `POST /resume-analyses` (or resume-specific endpoint) and coordinates polling until completion or failure.
-3. **Recovery & Local Persistence**:
+3. **Indeterminate Progress & Truthful Asynchronous Recovery**:
+   - Replaced fake progress percentages (`w-2/3` with pulse) and duration promises (e.g. "10-20 seconds, do not close browser") with an indeterminate loading animation (`animate-indeterminate`).
+   - Copy accurately reflects asynchronous capabilities: "Quá trình đang được xử lý bất đồng bộ. Kết quả sẽ xuất hiện khi hoàn tất. Bạn có thể rời trang và quay lại xem kết quả sau."
+4. **Recovery & Local Persistence**:
    - Active operation is persisted into `sessionStorage` via `useResumeAnalysisHistory`.
    - On page refresh or unmount/remount, in-flight operations are resumed automatically.
 
@@ -49,13 +57,15 @@ The upload flow follows the production backend contract:
    - When using active career goal, defaults to `activeCareerGoal`. If `industry` is absent, an inline prompt allows quick selection or input before launch.
 2. **Theo JD cụ thể (`job_targeted`)**:
    - Compares CV directly against a job description across 5 axes.
-   - Requires: non-empty `jdContent`.
-   - **Truthful Empty State**: The textarea starts completely empty. No fake default JD text is populated.
+   - Requires BOTH `jdTitle` and `jdContent` to form a valid job description context matching backend contract (`POST /job-descriptions` requires `title` and `content`).
+   - Both `jdTitle` and `jdContent` inputs are required in both custom mode and current-goal mode (`useCurrentGoal`).
+   - Submission is disabled and displays validation feedback if either field is missing.
+   - **Truthful Empty State**: The inputs start completely empty. No fake default JD text or title is populated.
 
 ### Inline Validation & Submit Guardrails
 - Submit CTA button is disabled and displays clear guidance whenever:
-  - Required fields are missing.
-  - CV file is not selected or still processing.
+  - Required fields are missing (e.g. `jdTitle` or `jdContent` for `job_targeted`; `industry`, `targetRole`, or `seniority` for `field_benchmark`).
+  - CV file is not selected, still uploading, or not in `ready` status.
   - Analysis is currently in flight.
 - File validation enforces PDF/DOCX MIME types and a 10MB size limit.
 
@@ -89,7 +99,10 @@ Each analysis record (`GET /resume-analyses`) preserves the exact context under 
   - Matched and missing skills are rendered directly from `matchedKeywordsOrSkills` and `missingKeywordsOrSkills`.
   - Strengths, gaps, recommendations, and section feedback are rendered strictly from server response arrays.
 - **Next Best Action CTA**:
-  - Directly routes user to `/interviews/new?resumeId=...` for authentic mock interview preparation.
+  - Truthful next step: Displays "Luyện tiếp với phỏng vấn AI" linking to `/interviews/new` as a generic forward path to select interview context and start practice.
+  - Does NOT make unsupported claims about automatic interview question/scenario generation from CV analysis results until backend provides that capability.
+- **Hydration Safety**:
+  - `createdAt` is rendered via `ClientDate` (`<ClientDate date={data.createdAt} format="date" />`) to prevent server/client timezone and locale mismatches.
 
 ---
 

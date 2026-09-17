@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { RadialScore } from '@/components/ui/RadialScore';
+import { ClientDate } from '@/components/ui/ClientDate';
 
 function parseResult(raw: unknown): Record<string, unknown> | null {
   if (!raw) return null;
@@ -243,7 +244,7 @@ export default function ResumeAnalysisDetailsPage() {
               <>
                 <span>•</span>
                 <span>
-                  Thời điểm: <strong>{new Date(data.createdAt).toLocaleDateString('vi-VN')}</strong>
+                  Thời điểm: <strong><ClientDate date={data.createdAt} format="date" /></strong>
                 </span>
               </>
             )}
@@ -491,10 +492,10 @@ export default function ResumeAnalysisDetailsPage() {
             Hành động tiếp theo được khuyến nghị
           </Badge>
           <h3 className="text-xl sm:text-2xl font-bold">
-            Thử thách bản thân với các câu hỏi phỏng vấn thực tế
+            Luyện tiếp với phỏng vấn AI
           </h3>
           <p className="text-xs sm:text-sm text-white/80 max-w-xl">
-            Hệ thống sẽ lấy các khoảng trống và kỹ năng từ kết quả phân tích này để xây dựng kịch bản mô phỏng phỏng vấn phù hợp.
+            Chuyển sang phần chuẩn bị phỏng vấn để chọn bối cảnh và bắt đầu phiên luyện.
           </p>
         </div>
 
@@ -506,7 +507,7 @@ export default function ResumeAnalysisDetailsPage() {
             icon={<span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
             iconPosition="right"
           >
-            Vào phòng phỏng vấn ngay
+            Chuyển sang phòng phỏng vấn
           </Button>
         </Link>
       </div>
