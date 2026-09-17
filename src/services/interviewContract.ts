@@ -195,7 +195,7 @@ export interface ReportSampleView {
 export interface ReportView {
   id: string;
   interviewId: string;
-  overallScore: number;
+  overallScore: number | null;
   rubric: RubricScore[];
   strengths: string[];
   gaps: string[];
@@ -391,7 +391,10 @@ export function normalizeReportView(raw: unknown): ReportView {
   return {
     id: asString(record.id),
     interviewId: asString(record.interviewId),
-    overallScore: asNumber(record.overallScore),
+    overallScore:
+      typeof record.overallScore === 'number' && Number.isFinite(record.overallScore)
+        ? record.overallScore
+        : null,
     rubric: normalizeRubricCollection(record.rubric),
     strengths: normalizeStringCollection(record.strengths),
     gaps: normalizeStringCollection(record.gaps),
@@ -476,6 +479,48 @@ export function isMaxQuestionsReached(
   continuation?: InterviewContinuationView | null
 ): boolean {
   return continuation?.state === 'max_questions_reached';
+}
+
+export type InterviewContinuationAction =
+  | 'continue_same_session'
+  | 'upgrade'
+  | 'complete'
+  | 'none';
+
+/**
+ * Maps the canonical server continuation state to the only action the client may take.
+ * `canUpgradeAndContinue` describes upgrade eligibility; it never authorizes /continue.
+ */
+export function getInterviewContinuationAction(params: {
+  continuation?: InterviewContinuationView | null;
+  answeredQuestionCount: number;
+  hasActiveQuestion: boolean;
+}): InterviewContinuationAction {
+  const { continuation, answeredQuestionCount, hasActiveQuestion } = params;
+
+  if (!continuation || hasActiveQuestion || answeredQuestionCount < 3) return 'none';
+  if (continuation.state === 'upgrade_required') return 'upgrade';
+  if (continuation.state === 'max_questions_reached') return 'complete';
+  if (continuation.state === 'in_progress') return 'continue_same_session';
+  return 'none';
+}
+
+export type InterviewRouteState =
+  | 'preparing'
+  | 'active'
+  | 'processing'
+  | 'completed'
+  | 'terminal'
+  | 'unavailable';
+
+/** Keeps draft and unknown lifecycle states out of the active interview room. */
+export function getInterviewRouteState(status?: string | null): InterviewRouteState {
+  if (status === 'starting') return 'preparing';
+  if (status === 'active') return 'active';
+  if (status === 'completing') return 'processing';
+  if (status === 'completed') return 'completed';
+  if (status === 'failed' || status === 'abandoned') return 'terminal';
+  return 'unavailable';
 }
 
 /**
@@ -978,6 +1023,86 @@ export interface CanonicalStartPayload {
   resumeId?: string;
   jobDescriptionId?: string;
   careerGoalId?: string;
+}
+
+export type InterviewPreflightMode = 'career_goal' | 'manual';
+
+export function resolveCvTargetedResumeId(params: {
+  selectedResumeId?: string;
+  primaryResumeId?: string;
+  readyResumeIds: string[];
+}): string {
+  const { selectedResumeId, primaryResumeId, readyResumeIds } = params;
+
+  // Preserve an explicit selection so a resume that later becomes stale fails validation.
+  if (selectedResumeId) return selectedResumeId;
+  if (primaryResumeId && readyResumeIds.includes(primaryResumeId)) return primaryResumeId;
+  return readyResumeIds[0] || '';
+}
+
+export function isReadyResumeSelection(
+  resumeId: string | undefined,
+  readyResumeIds: string[]
+): boolean {
+  return Boolean(resumeId && readyResumeIds.includes(resumeId));
+}
+
+/**
+ * Builds the preflight command without duplicating backend Career Goal/Profile fallbacks.
+ * Role/seniority are explicit only in manual mode; resume is explicit only for CV-targeted.
+ */
+export function buildInterviewPreflightPayload(params: {
+  mode: InterviewPreflightMode;
+  careerGoalId?: string;
+  manualRole?: string;
+  manualSeniority?: string;
+  interviewType: string;
+  difficulty: string;
+  cvTargetedResumeId?: string;
+  jobDescriptionId?: string;
+}): CanonicalStartPayload {
+  const shared = {
+    interviewType: params.interviewType,
+    difficulty: params.difficulty,
+    ...(params.interviewType === 'cv_targeted' && params.cvTargetedResumeId
+      ? { resumeId: params.cvTargetedResumeId }
+      : {}),
+    ...(params.jobDescriptionId ? { jobDescriptionId: params.jobDescriptionId } : {}),
+  };
+
+  if (params.mode === 'career_goal') {
+    return {
+      ...shared,
+      ...(params.careerGoalId ? { careerGoalId: params.careerGoalId } : {}),
+    };
+  }
+
+  return {
+    ...shared,
+    ...(params.manualRole ? { role: params.manualRole.trim() } : {}),
+    ...(params.manualSeniority ? { seniority: params.manualSeniority } : {}),
+  };
+}
+
+export type InterviewReportRenderState =
+  | 'loading'
+  | 'failed'
+  | 'polling_exhausted'
+  | 'processing'
+  | 'ready';
+
+/** Confirmed server failure wins; local polling exhaustion wins over processing. */
+export function getInterviewReportRenderState(params: {
+  loading: boolean;
+  failed: boolean;
+  pollingBoundExhausted: boolean;
+  processing: boolean;
+}): InterviewReportRenderState {
+  if (params.loading) return 'loading';
+  if (params.failed) return 'failed';
+  if (params.pollingBoundExhausted) return 'polling_exhausted';
+  if (params.processing) return 'processing';
+  return 'ready';
 }
 
 export interface StartIntent {

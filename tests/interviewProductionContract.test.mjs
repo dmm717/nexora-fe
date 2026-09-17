@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   SCORE_SCALE,
@@ -9,6 +10,8 @@ import {
   canUpgradeAndContinue,
   isUpgradeRequired,
   isMaxQuestionsReached,
+  getInterviewContinuationAction,
+  getInterviewRouteState,
   shouldAutoComplete,
   getCurrentQuestion,
   getAnsweredQuestions,
@@ -38,6 +41,10 @@ createReportPollingAttemptTracker,
   normalizeReportView,
   applyAnswerResultToInterview,
   createCompleteIntentState,
+  buildInterviewPreflightPayload,
+  resolveCvTargetedResumeId,
+  isReadyResumeSelection,
+  getInterviewReportRenderState,
 } from '../src/services/interviewContract.ts';
 
 // 1. continuation in_progress
@@ -992,4 +999,295 @@ test('30. upgrade_required with nextQuestion=null is NOT auto-complete and never
     canUpgradeAndContinue: false,
   };
   assert.equal(shouldAutoComplete(true, continuationMaxReached, null), true);
+});
+
+test('31. continuation action is authorized only by canonical server state', () => {
+  const base = { canFinishNow: true, canUpgradeAndContinue: false };
+
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'upgrade_required', canUpgradeAndContinue: true },
+      answeredQuestionCount: 3,
+      hasActiveQuestion: false,
+    }),
+    'upgrade'
+  );
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'in_progress' },
+      answeredQuestionCount: 3,
+      hasActiveQuestion: false,
+    }),
+    'continue_same_session'
+  );
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'max_questions_reached' },
+      answeredQuestionCount: 5,
+      hasActiveQuestion: false,
+    }),
+    'complete'
+  );
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'in_progress' },
+      answeredQuestionCount: 3,
+      hasActiveQuestion: true,
+    }),
+    'none'
+  );
+});
+
+test('32. interview route states fail closed for draft and unknown statuses', () => {
+  assert.equal(getInterviewRouteState('starting'), 'preparing');
+  assert.equal(getInterviewRouteState('active'), 'active');
+  assert.equal(getInterviewRouteState('completing'), 'processing');
+  assert.equal(getInterviewRouteState('completed'), 'completed');
+  assert.equal(getInterviewRouteState('failed'), 'terminal');
+  assert.equal(getInterviewRouteState('abandoned'), 'terminal');
+  assert.equal(getInterviewRouteState('draft'), 'unavailable');
+  assert.equal(getInterviewRouteState('future_status'), 'unavailable');
+});
+
+test('33. report normalization preserves null separately from a real zero', () => {
+  assert.equal(normalizeReportView({ overallScore: null }).overallScore, null);
+  assert.equal(normalizeReportView({}).overallScore, null);
+  assert.equal(normalizeReportView({ overallScore: 0 }).overallScore, 0);
+});
+
+test('34. typed answers omit duration while voice retry freezes measured duration', () => {
+  const typed = getOrCreateAnswerIntent(null, { questionId: 'q-typed', content: 'Typed answer' });
+  assert.equal('durationSeconds' in typed.payload, false);
+
+  const voice = getOrCreateAnswerIntent(null, {
+    questionId: 'q-voice',
+    content: 'Voice answer',
+    durationSeconds: 18,
+  });
+  const retry = getOrCreateAnswerIntent(voice, {
+    questionId: 'q-voice',
+    content: 'Voice answer',
+    durationSeconds: 29,
+  });
+  assert.equal(retry.key, voice.key);
+  assert.equal(retry.payload.durationSeconds, 18);
+});
+
+test('35. billing return marker is consumed once before canonical continuation', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /continuationReturnHandledRef\.current = true/);
+  assert.match(source, /router\.replace\(`\/interviews\/\$\{id\}`/);
+  assert.match(source, /const freshInterview = await interviewApi\.getById\(id\)/);
+  assert.match(source, /freshAction !== 'continue_same_session'/);
+  assert.doesNotMatch(source, /if \(canUpgrade\)[\s\S]*interviewApi\.continue/);
+});
+
+test('36. interview room keeps a completion CTA for finite max-question state', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /continuationAction === 'complete'/);
+  assert.match(source, /Hoàn thành & Xem báo cáo/);
+  assert.match(source, /onClick=\{handleFinishEarly\}/);
+});
+
+test('37. JD-targeted preflight persists or selects a real jobDescriptionId', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/new/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /cvAnalysisApi\.createJobDescription/);
+  assert.match(source, /jobDescriptionId: finalJdId/);
+  assert.doesNotMatch(source, /sessionJdContent/);
+  assert.doesNotMatch(source, /saveAsDefault/);
+});
+
+test('38. corrective UI contains no fake duration, unlimited claim, or fabricated STAR action', () => {
+  const audioSource = readFileSync(
+    new URL('../src/components/features/interview/AudioSpeechDock.tsx', import.meta.url),
+    'utf8'
+  );
+  const coachingSource = readFileSync(
+    new URL('../src/components/features/coaching/QuickCoachingDrawer.tsx', import.meta.url),
+    'utf8'
+  );
+  const reportSource = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.doesNotMatch(audioSource, /durationSeconds \|\| 45/);
+  assert.doesNotMatch(coachingSource, /Mở rộng không giới hạn/);
+  assert.doesNotMatch(reportSource, /Luyện tập theo mô hình STAR/);
+  assert.doesNotMatch(reportSource, /Cập nhật &amp; Tối ưu CV/);
+});
+
+test('39. career-goal payload delegates role and seniority resolution to backend', () => {
+  const seniorGoalPayload = buildInterviewPreflightPayload({
+    mode: 'career_goal',
+    careerGoalId: 'goal-senior',
+    manualRole: 'Stale role',
+    manualSeniority: 'Junior',
+    interviewType: 'technical',
+    difficulty: 'Medium',
+  });
+
+  assert.deepEqual(seniorGoalPayload, {
+    careerGoalId: 'goal-senior',
+    interviewType: 'technical',
+    difficulty: 'Medium',
+  });
+  assert.equal('role' in seniorGoalPayload, false);
+  assert.equal('seniority' in seniorGoalPayload, false);
+
+  const switchedGoalPayload = buildInterviewPreflightPayload({
+    mode: 'career_goal',
+    careerGoalId: 'goal-b',
+    manualRole: 'Role from goal A',
+    manualSeniority: 'Senior',
+    interviewType: 'behavioral',
+    difficulty: 'Hard',
+  });
+  assert.equal(switchedGoalPayload.careerGoalId, 'goal-b');
+  assert.equal('role' in switchedGoalPayload, false);
+  assert.equal('seniority' in switchedGoalPayload, false);
+});
+
+test('40. manual payload preserves explicit visible role and seniority', () => {
+  assert.deepEqual(
+    buildInterviewPreflightPayload({
+      mode: 'manual',
+      manualRole: '  Backend Engineer  ',
+      manualSeniority: 'Senior',
+      interviewType: 'technical',
+      difficulty: 'Medium',
+    }),
+    {
+      role: 'Backend Engineer',
+      seniority: 'Senior',
+      interviewType: 'technical',
+      difficulty: 'Medium',
+    }
+  );
+});
+
+test('41. non-CV interviews never attach a hidden ready resume', () => {
+  const careerGoalPayload = buildInterviewPreflightPayload({
+    mode: 'career_goal',
+    careerGoalId: 'goal-1',
+    interviewType: 'technical',
+    difficulty: 'Medium',
+    cvTargetedResumeId: 'ready-resume-1',
+  });
+  const manualPayload = buildInterviewPreflightPayload({
+    mode: 'manual',
+    manualRole: 'Product Manager',
+    manualSeniority: 'Mid-level',
+    interviewType: 'behavioral',
+    difficulty: 'Medium',
+    cvTargetedResumeId: 'ready-resume-1',
+  });
+
+  assert.equal('resumeId' in careerGoalPayload, false);
+  assert.equal('resumeId' in manualPayload, false);
+});
+
+test('42. CV-targeted visible default prefers ready Primary Resume then first ready resume', () => {
+  assert.equal(
+    resolveCvTargetedResumeId({
+      primaryResumeId: 'primary-ready',
+      readyResumeIds: ['other-ready', 'primary-ready'],
+    }),
+    'primary-ready'
+  );
+  assert.equal(
+    resolveCvTargetedResumeId({
+      primaryResumeId: 'primary-processing',
+      readyResumeIds: ['other-ready'],
+    }),
+    'other-ready'
+  );
+});
+
+test('43. stale explicit CV selection fails closed instead of silently falling back', () => {
+  const resolved = resolveCvTargetedResumeId({
+    selectedResumeId: 'stale-resume',
+    primaryResumeId: 'primary-ready',
+    readyResumeIds: ['primary-ready', 'other-ready'],
+  });
+
+  assert.equal(resolved, 'stale-resume');
+  assert.equal(isReadyResumeSelection(resolved, ['primary-ready', 'other-ready']), false);
+});
+
+test('44. report render precedence separates server failure, polling exhaustion, and processing', () => {
+  assert.equal(
+    getInterviewReportRenderState({
+      loading: false,
+      failed: false,
+      pollingBoundExhausted: true,
+      processing: true,
+    }),
+    'polling_exhausted'
+  );
+  assert.equal(
+    getInterviewReportRenderState({
+      loading: false,
+      failed: true,
+      pollingBoundExhausted: true,
+      processing: true,
+    }),
+    'failed'
+  );
+  assert.equal(
+    getInterviewReportRenderState({
+      loading: false,
+      failed: false,
+      pollingBoundExhausted: false,
+      processing: true,
+    }),
+    'processing'
+  );
+});
+
+test('45. polling exhaustion UI only rechecks queries while failure UI owns report retry', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const exhaustedBranch = source.slice(
+    source.indexOf("reportRenderState === 'polling_exhausted'"),
+    source.indexOf("reportRenderState === 'processing'")
+  );
+  const failedBranch = source.slice(
+    source.indexOf("reportRenderState === 'failed'"),
+    source.indexOf("reportRenderState === 'polling_exhausted'")
+  );
+
+  assert.match(exhaustedBranch, /invalidateQueries/);
+  assert.doesNotMatch(exhaustedBranch, /retryReport/);
+  assert.match(failedBranch, /handleRetryReport/);
+});
+
+test('46. pending post-payment entitlement exposes refetch-only action', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const recheckHandler = source.slice(
+    source.indexOf('const handleEntitlementRecheck'),
+    source.indexOf('// Continue action after reviewing coaching drawer')
+  );
+
+  assert.match(source, /Kiểm tra lại quyền tiếp tục/);
+  assert.match(recheckHandler, /interviewApi\.getById\(id\)/);
+  assert.doesNotMatch(recheckHandler, /interviewApi\.continue/);
+  assert.doesNotMatch(recheckHandler, /router\.push\(`\/pricing/);
 });
