@@ -171,3 +171,23 @@ test('AF-AI: focused routes remove global shell and use non-fabricated context',
   assert.doesNotMatch(report, /issuedQuestions \?\? 3/);
   assert.match(report, /totalCount == null/);
 });
+
+test('AJ-AR: remaining derived product semantics are removed', async () => {
+  const [analytics, overview, skills] = await Promise.all([
+    readSource('../src/app/(dashboard)/analytics/page.tsx'),
+    readSource('../src/app/(dashboard)/overview/page.tsx'),
+    readSource('../src/components/features/skill-profile/SkillProfile.tsx'),
+  ]);
+
+  assert.match(analytics, /getRecommendationDeepLink/);
+  assert.match(analytics, /recommendationDestination && router\.push\(recommendationDestination\)/);
+  assert.doesNotMatch(analytics, /nextRecommendedPractice[\s\S]{0,1200}router\.push\('\/interviews\/new'\)/);
+  assert.doesNotMatch(analytics, /readiness\.score!?\s*>=\s*75/);
+  assert.doesNotMatch(overview, /readiness\.score\s*>=\s*75/);
+  assert.match(analytics, /evidenceCount === 0[\s\S]{0,160}Chưa đủ dữ liệu để xác định điểm cần cải thiện/);
+  assert.match(skills, /normalizedScore !== null && \([\s\S]{0,240}<AnimatedProgressBar[\s\S]{0,160}value=\{normalizedScore\}/);
+  assert.doesNotMatch(skills, /value=\{normalizedScore \?\? 0\}/);
+  assert.match(skills, /normalizedScore != null \? `\$\{normalizedScore\}\/100` : 'Chưa chấm'/);
+  assert.doesNotMatch(skills, /normalizedScore[^\n]*>=\s*(?:80|70)|\(normalizedScore \?\? 0\)\s*>=/);
+  assert.doesNotMatch(overview, /new Date\(\)\.toISOString\(\)/);
+});

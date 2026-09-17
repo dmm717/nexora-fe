@@ -48,6 +48,8 @@ Prototype owns presentation. Production frontend and backend own runtime behavio
 - Preflight exposes all seven backend interview types. `cv_targeted` requires a visible ready resume. `jd_targeted` selects a persisted JD or creates one from an explicit title and content. Career-goal mode omits hidden role and seniority overrides.
 - Learning Path treats only `pending` as actionable. `completed`, `obsolete`, and unknown statuses cannot launch or complete. Missing deep links never trigger a mutation. Obsolete/unknown activities are excluded from the active denominator.
 - Analytics and Skill Profile preserve `null` separately from a genuine zero and do not invent a fixed competency denominator or personalized seniority threshold.
+- Analytics recommendation actions use the canonical recommendation deep link, readiness scores stay numeric and source-neutral, and missing weakness evidence is not presented as proof that no weakness exists.
+- Overview recent activity uses only server-owned timestamps; entries without a trustworthy timestamp are omitted instead of being dated as the current time.
 - Recommendation destinations come exclusively from `recommendationContract.ts`; `star_drill` is the STAR machine value.
 - Billing resolves `interview`, `cv_analysis`, and `interview_question_limit` by exact code. Plan capability copy is built from server-returned price features.
 - Practice history differentiates loading, error, and confirmed-empty states. Practice-again identity uses source IDs/reason, never role text.

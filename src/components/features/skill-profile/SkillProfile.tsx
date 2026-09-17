@@ -132,18 +132,14 @@ export default function SkillProfile() {
                         </div>
                       </div>
 
-                      <AnimatedProgressBar
-                        label=""
-                        value={normalizedScore ?? 0}
-                        heightClass="h-2"
-                        colorClass={
-                          (normalizedScore ?? 0) >= 80
-                            ? 'bg-emerald-700'
-                            : (normalizedScore ?? 0) >= 70
-                            ? 'bg-primary'
-                            : 'bg-amber-700'
-                        }
-                      />
+                      {normalizedScore !== null && (
+                        <AnimatedProgressBar
+                          label=""
+                          value={normalizedScore}
+                          heightClass="h-2"
+                          colorClass="bg-primary"
+                        />
+                      )}
 
                       {comp.sources && comp.sources.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-1">

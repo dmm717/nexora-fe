@@ -73,12 +73,14 @@ export default function OverviewPage() {
   if (dashboardData?.interviews) {
     dashboardData.interviews.slice(0, 4).forEach((iv) => {
       const matchedReport = dashboardData.reports?.find((r) => r.interviewId === iv.id);
+      const activityTimestamp = matchedReport?.createdAt || iv.updatedAt;
+      if (!activityTimestamp) return;
       recentActivities.push({
         id: `iv-${iv.id}`,
         kind: 'interview',
         title: `Phỏng vấn: ${iv.role}`,
         summary: `Trạng thái: ${iv.status}`,
-        createdAt: matchedReport?.createdAt || iv.updatedAt || new Date().toISOString(),
+        createdAt: activityTimestamp,
         score: matchedReport?.overallScore ?? null,
         destinationUrl: `/interviews/${iv.id}`,
       });
@@ -270,11 +272,10 @@ export default function OverviewPage() {
                   <RadialScore score={progressData.readiness.score} size={88} strokeWidth={8} />
                   <div>
                     <div className="text-lg font-bold text-on-surface">
-                      {progressData.readiness.score >= 75 ? 'Khả quan' : 'Cần củng cố'}
-                      {activeGoal?.seniority ? ` · ${activeGoal.seniority}` : ''}
+                      Chỉ số hiện tại: {progressData.readiness.score}/100
                     </div>
                     <p className="text-xs text-on-surface-variant">
-                      Dựa trên {progressData.readiness.evidenceCount} bằng chứng từ CV và các bài luyện tập.
+                      Dựa trên {progressData.readiness.evidenceCount} bằng chứng được máy chủ tổng hợp.
                     </p>
                   </div>
                 </div>

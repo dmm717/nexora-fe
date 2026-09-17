@@ -16,6 +16,7 @@ import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { useAnalytics } from '@/hooks/queries/useDashboard';
 import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
+import { getRecommendationDeepLink } from '@/services/recommendationContract';
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -41,6 +42,9 @@ export default function AnalyticsPage() {
   const readiness = progress?.readiness;
   const hasScore = readiness?.score !== null && readiness?.score !== undefined;
   const evidenceCount = readiness?.evidenceCount ?? 0;
+  const recommendationDestination = getRecommendationDeepLink(
+    progress?.nextRecommendedPractice ?? null
+  );
 
   // Weakest competencies from progress dashboard or skill profile summary
   const weakestCompetencies = progress?.weakestCompetencies || [];
@@ -104,16 +108,12 @@ export default function AnalyticsPage() {
               Mức độ sẵn sàng tuyển dụng
             </div>
             <div className="text-xl font-bold text-on-surface">
-              {hasScore
-                ? readiness.score! >= 75
-                  ? `Khả quan${activeGoal?.seniority ? ` · ${activeGoal.seniority}` : ''}`
-                  : 'Cần bồi đắp'
-                : 'Chưa đủ dữ liệu đánh giá'}
+              {hasScore ? `Chỉ số hiện tại: ${readiness.score}/100` : 'Chưa đủ dữ liệu đánh giá'}
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
               {hasScore
-                ? `Tính toán dựa trên ${evidenceCount} bằng chứng từ CV và các phiên phỏng vấn đã hoàn thành.`
-                : 'Thực hiện bài phỏng vấn đầu tiên hoặc tải lên CV để kích hoạt chỉ số sẵn sàng.'}
+                ? `Dựa trên ${evidenceCount} bằng chứng được máy chủ tổng hợp.`
+                : 'Hoàn thành một hoạt động có bằng chứng để hệ thống tổng hợp chỉ số sẵn sàng.'}
             </p>
           </div>
         </Card>
@@ -157,9 +157,11 @@ export default function AnalyticsPage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Badge variant="primary" size="sm">Đề xuất ưu tiên hàng đầu</Badge>
-                <span className="text-xs text-on-surface-variant">
-                  Ước tính: {progress.nextRecommendedPractice.estimatedMinutes} phút
-                </span>
+                {progress.nextRecommendedPractice.estimatedMinutes > 0 && (
+                  <span className="text-xs text-on-surface-variant">
+                    Ước tính: {progress.nextRecommendedPractice.estimatedMinutes} phút
+                  </span>
+                )}
               </div>
               <h3 className="text-sm sm:text-base font-bold text-on-surface">
                 {progress.nextRecommendedPractice.reason}
@@ -169,7 +171,8 @@ export default function AnalyticsPage() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => router.push('/interviews/new')}
+              onClick={() => recommendationDestination && router.push(recommendationDestination)}
+              disabled={!recommendationDestination}
               icon={<span className="material-symbols-outlined text-[18px]">replay</span>}
               iconPosition="right"
               className="shrink-0 shadow-md"
@@ -228,7 +231,7 @@ export default function AnalyticsPage() {
               })
             ) : (
               <div className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
-                Chưa có năng lực nào được đánh giá. Hãy hoàn thành phiên phỏng vấn đầu tiên.
+                Chưa có năng lực nào được đánh giá. Hãy hoàn thành một hoạt động tạo bằng chứng.
               </div>
             )}
           </StaggerContainer>
@@ -255,7 +258,7 @@ export default function AnalyticsPage() {
                       Tín hiệu này được máy chủ tổng hợp từ bằng chứng hiện có. Hãy mở hồ sơ kỹ năng để xem nguồn và chọn bài luyện phù hợp.
                     </p>
                     <button
-                      onClick={() => router.push('/interviews/new')}
+                      onClick={() => router.push('/practice')}
                       className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
                     >
                       <span>Luyện tập khắc phục</span>
@@ -265,7 +268,9 @@ export default function AnalyticsPage() {
                 ))
               ) : (
                 <p className="text-xs text-on-surface-variant italic">
-                  Chưa phát hiện tín hiệu yếu điểm đáng lo ngại.
+                  {evidenceCount === 0
+                    ? 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'
+                    : 'Đã có bằng chứng năng lực, nhưng máy chủ chưa trả về tín hiệu điểm cần cải thiện.'}
                 </p>
               )}
             </div>
