@@ -1,4 +1,4 @@
-# Nexora Final Product Regression & Contract Audit
+# Nexora Technical Baseline Regression & Contract Audit
 
 ## 1. Exact References
 - **Production FE Starting Main SHA**: `e8374d3cbb46590edb62a34ef19137337a926d40` (includes PR #17 @ `e168ff9aa2500b5d721dd01028cb064085e7ae6e`)
@@ -11,12 +11,12 @@
 ## 2. Audited Surfaces
 1. **Design Foundation**: Typography, spacing, colors, badges, buttons, cards, modals, and design tokens.
 2. **Public / Auth Shell**: / , /pricing, /auth, /forgot-password, /reset-password, navbar, mobile navigation drawer, and session persistence.
-3. **Prepare / CV Analysis**: Upload flow (presign -> S3 raw byte PUT -> create resume), extraction status polling, job_targeted vs field_benchmark, quota handling (402 / 429), and reload recovery.
+3. **Prepare / CV Analysis**: Upload flow (presign -> presigned object-storage raw-byte PUT -> create resume), extraction status polling, job_targeted vs field_benchmark, quota handling (402 / 429), and reload recovery.
 4. **Interview Experience**: Preflight setup (career goal, manual, CV-targeted, JD-targeted), real-time answering, Speech recognition (vi-VN), TTS playback, evaluation progress, 3-question free boundary continuation, and report generation/polling.
 5. **Practice Hub**: Practice landing (/practice), mode cards (Interview, Scenario, STAR), recent attempts, and honest zero-state presentation.
 6. **Scenario Academy**: Paginated catalogue, filter preservation, scenario attempt runner, evaluation breakdown, retry immutability, and terminal attempt recovery.
 7. **STAR Method Drill**: Single natural-language input drill, 4-component backend extraction, detected=false zeroing, improved answer drill, and retry handling.
-8. **Competency / Skill Profile**: 13 competencies across 4 categories, server-provided scores and evidence counts, evidence provenance (CV, Interview, Scenario, STAR), and sparse radar safety.
+8. **Competency / Skill Profile**: Server-derived competency profile grouped from available evidence, server-provided scores and evidence counts, evidence provenance (CV, Interview, Scenario, STAR), and sparse radar safety.
 9. **Progress Analytics**: Real-time progress counters, averages preservation (null != 0), recent activities deep-linking, and truthful trend visualizations.
 10. **Learning Path**: Milestones, activities, server-generated ordering, status lifecycle (pending, completed, obsolete), safe external links, and manual regeneration.
 11. **Next Practice Recommendation**: Server-canonical recommendation, action execution, and fail-closed navigation.
@@ -70,31 +70,54 @@
 
 ---
 
-## 4. Contract Matrix
+## 4. Contract Matrix (Rechecked against Backend Main)
 
-| Frontend Service / Hook | FE Route | Backend Controller / Route | Backend DTO | Status |
+| Frontend Service / Function | FE Route | Backend Controller & Endpoint | Backend DTO | Status |
 |---|---|---|---|---|
-| authApi.login / register | /auth | POST /api/v1/auth/login / register | AuthResponse | MATCH |
-| authApi.bootstrap | Root / Layout | GET /api/v1/auth/me | CurrentUserResponse | MATCH |
-| cvAnalysisApi.presignUpload | /resumes | POST /api/v1/resumes/presign | PresignUploadResponse | MATCH |
-| cvAnalysisApi.createResume | /resumes | POST /api/v1/resumes | ResumeView | MATCH |
-| cvAnalysisApi.analyzeResume | /resume-analyses | POST /api/v1/cv-analysis/analyze | AnalyzeResumeResponse | MATCH |
-| cvAnalysisApi.getAnalysis | /resume-analyses/[id] | GET /api/v1/cv-analysis/{id} | ResumeAnalysisDetailResponse | MATCH |
-| interviewApi.startSession | /interviews/new | POST /api/v1/interviews/start | InterviewSessionStartResponse | MATCH |
-| interviewApi.submitAnswer | /interviews/[id] | POST /api/v1/interviews/{id}/answer | AnswerResponse | MATCH |
-| interviewApi.continueSession | /interviews/[id] | POST /api/v1/interviews/{id}/continue | ContinueResponse | MATCH |
-| interviewApi.getReport | /interviews/[id]/report | GET /api/v1/interviews/{id}/report | InterviewReportResponse | MATCH |
-| scenariosApi.list | /practice/scenarios | GET /api/v1/scenarios | PaginatedList<ScenarioSummaryResponse> | MATCH |
-| scenariosApi.getDetail | /practice/scenarios/[slug] | GET /api/v1/scenarios/{idOrSlug} | ScenarioDetailResponse | MATCH |
-| scenariosApi.startAttempt | /practice/scenarios/[slug] | POST /api/v1/scenarios/{id}/attempts | ScenarioAttemptResponse | MATCH |
-| starApi.startAttempt | /practice/star | POST /api/v1/star/attempts | StarAttemptResponse | MATCH |
-| skillProfileApi.getProfile | /skill-profile | GET /api/v1/competencies/profile | CompetencyProfileResponse | MATCH |
-| learningPathApi.getPath | /learning-path | GET /api/v1/learning-paths/current | LearningPathResponse | MATCH |
-| learningPathApi.completeActivity | /learning-path | PATCH /api/v1/learning-paths/activities/{id} | LearningPathActivityResponse | MATCH |
-| recommendationsApi.getNextPractice | /practice, /analytics | GET /api/v1/recommendations/next-practice | NextPracticeRecommendationResponse | MATCH |
-| progressApi.getDashboard | /analytics, /overview | GET /api/v1/progress/dashboard | ProgressDashboardResponse | MATCH |
-| careerProfileApi.getProfile | /career-goals | GET /api/v1/career-profile | CareerProfileResponse | MATCH |
-| billingApi.getPlans | /billing, /pricing | GET /api/v1/billing/plans | SubscriptionPlanResponse[] | MATCH |
+| authApi.login / register | /auth | AuthController: POST /api/v1/auth/login, POST /api/v1/auth/register | AuthResponse / RegistrationResponse | MATCH |
+| userApi.getCurrentUser | Root Layout / App Shell | MeController: GET /api/v1/me | UserResponse | MATCH |
+| authSession.requestRefresh | Auth bootstrap / 401 interceptor | AuthController: POST /api/v1/auth/refresh | AuthSessionResponse | MATCH |
+| cvAnalysisApi.presignUpload | /resumes | UploadsController: POST /api/v1/uploads/resumes/presign | PresignUploadResponse | MATCH |
+| cvAnalysisApi.createResume | /resumes | ResumesController: POST /api/v1/resumes | ResumeView | MATCH |
+| cvAnalysisApi.analyze | /resume-analyses | ResumeAnalysesController: POST /api/v1/resume-analyses | ResumeAnalysisView | MATCH |
+| cvAnalysisApi.getAnalysis | /resume-analyses/[id] | ResumeAnalysesController: GET /api/v1/resume-analyses/{id} | ResumeAnalysisView | MATCH |
+| cvAnalysisApi.getResumeAnalyses | /resume-analyses | ResumeAnalysesController: GET /api/v1/resume-analyses | ResumeAnalysisHistoryResponse | MATCH |
+| cvAnalysisApi.createJobDescription | /job-descriptions | JobDescriptionsController: POST /api/v1/job-descriptions | JdView | MATCH |
+| cvAnalysisApi.getJobDescriptions | /job-descriptions | JobDescriptionsController: GET /api/v1/job-descriptions | JdView[] | MATCH |
+| cvAnalysisApi.getJobDescriptionDetails | /job-descriptions/[id] | JobDescriptionsController: GET /api/v1/job-descriptions/{id} | JdView | MATCH |
+| interviewApi.start | /interviews/new | InterviewsController: POST /api/v1/interviews | InterviewView | MATCH |
+| interviewApi.getInterviews | /interviews | InterviewsController: GET /api/v1/interviews | InterviewHistoryResponse | MATCH |
+| interviewApi.getById | /interviews/[id] | InterviewsController: GET /api/v1/interviews/{id} | InterviewView | MATCH |
+| interviewApi.submitAnswer | /interviews/[id] | InterviewsController: POST /api/v1/interviews/{id}/answers | AnswerResult | MATCH |
+| interviewApi.continue | /interviews/[id] | InterviewsController: POST /api/v1/interviews/{id}/continue | InterviewView | MATCH |
+| interviewApi.complete | /interviews/[id] | InterviewsController: POST /api/v1/interviews/{id}/complete | InterviewView | MATCH |
+| interviewApi.retryReport | /interviews/[id] | InterviewsController: POST /api/v1/interviews/{id}/report/retry | InterviewView | MATCH |
+| interviewApi.practiceAgain | /interviews/[id]/report | InterviewsController: POST /api/v1/interviews/{id}/practice-again | InterviewView | MATCH |
+| interviewApi.getReport | /interviews/[id]/report | InterviewsController: GET /api/v1/interviews/{id}/report | ReportView | MATCH |
+| scenarioApi.getScenarios | /practice/scenarios | ScenariosController: GET /api/v1/scenarios | ScenarioPageResponse | MATCH |
+| scenarioApi.getCategories | /practice/scenarios | ScenariosController: GET /api/v1/scenarios/categories | ScenarioCategory[] | MATCH |
+| scenarioApi.getScenarioDetails | /practice/scenarios/[slug] | ScenariosController: GET /api/v1/scenarios/{idOrSlug} | ScenarioDetail | MATCH |
+| scenarioApi.createAttempt | /practice/scenarios/[slug] | ScenarioAttemptsController: POST /api/v1/scenario-attempts | ScenarioAttempt | MATCH |
+| scenarioApi.submitAttempt | /practice/scenarios/[slug] | ScenarioAttemptsController: POST /api/v1/scenario-attempts/{id}/submit | ScenarioAttempt | MATCH |
+| scenarioApi.getAttempt | /practice/scenarios/[slug] | ScenarioAttemptsController: GET /api/v1/scenario-attempts/{id} | ScenarioAttempt | MATCH |
+| starBuilderApi.submitAttempt | /practice/star | StarAttemptsController: POST /api/v1/star-attempts | StarAttemptResponse | MATCH |
+| starBuilderApi.getAttempt | /practice/star | StarAttemptsController: GET /api/v1/star-attempts/{id} | StarAttemptResponse | MATCH |
+| starBuilderApi.listRecentAttempts | /practice/star | StarAttemptsController: GET /api/v1/star-attempts | StarAttemptResponse[] | MATCH |
+| skillProfileApi.getProfile | /skill-profile | SkillProfileController: GET /api/v1/skill-profile | SkillProfileResponse | MATCH |
+| learningPathApi.get | /learning-path | LearningPathController: GET /api/v1/learning-path | LearningPathResponse | MATCH |
+| learningPathApi.generate | /learning-path | LearningPathController: POST /api/v1/learning-path | LearningPathResponse | MATCH |
+| learningPathApi.refresh | /learning-path | LearningPathController: POST /api/v1/learning-path/refresh | LearningPathResponse | MATCH |
+| learningPathApi.completeActivity | /learning-path | LearningPathController: PATCH /api/v1/learning-path/activities/{activityId} | LearningPathResponse | MATCH |
+| recommendationsApi.getNext | /practice, /analytics | RecommendationsController: GET /api/v1/recommendations/next | NextPracticeRecommendationResponse | MATCH |
+| progressApi.getProgressAnalytics | /analytics | ProgressController: GET /api/v1/progress | ProgressHistoricalStatsResponse | MATCH |
+| progressDashboardApi.get | /analytics, /overview | ProgressController: GET /api/v1/progress/dashboard | ProgressDashboardResponse | MATCH |
+| careerGoalsApi.list / create | /career-goals | CareerGoalsController: GET /api/v1/career-goals, POST /api/v1/career-goals | CareerGoalResponse | MATCH |
+| careerGoalsApi.get / update | /career-goals | CareerGoalsController: GET /api/v1/career-goals/{id}, PATCH /api/v1/career-goals/{id} | CareerGoalResponse | MATCH |
+| profileApi.getCareerProfile | /career-goals, /overview | CareerProfileController: GET /api/v1/career-profile | CareerProfileResponse | MATCH |
+| billingApi.getPlans | /billing, /pricing | PlansController: GET /api/v1/plans | PlanView[] | MATCH |
+| billingApi.createCheckoutSession | /billing | CheckoutController: POST /api/v1/checkout-sessions | CheckoutSessionResponse | MATCH |
+| billingApi.getOrderStatus | /billing | CheckoutController: GET /api/v1/checkout-sessions/{orderId} | CheckoutSessionResponse | MATCH |
+| billingApi.refreshOrderStatus | /billing | CheckoutController: POST /api/v1/checkout-sessions/{orderId}/refresh | CheckoutSessionResponse | MATCH |
 
 ---
 
@@ -151,12 +174,12 @@
 ## 7. Domain Verdicts
 - **Auth**: VERIFIED — HttpOnly refresh tokens, silent refresh, open-redirect protection with isValidInternalPath.
 - **Billing**: VERIFIED — Authoritative backend plans, entitlement checks via backend error codes, fake payment sandbox callback.
-- **CV Analysis**: VERIFIED — S3 direct upload, job_targeted and field_benchmark workflows, reload and retry idempotency preserved.
+- **CV Analysis**: VERIFIED — Presigned object-storage raw-byte PUT upload flow, job_targeted and field_benchmark workflows, reload and retry idempotency preserved.
 - **Interview**: VERIFIED — Same-session continuation on upgrade, speech recognition (vi-VN), TTS fallback, immutable completed attempts.
 - **Practice Hub**: VERIFIED — Honest empty states for zero-data users, no mock stats, clean route handoffs.
 - **Scenario Academy**: VERIFIED — Server pagination, attempt state machine adherence, immutable source attempts on retry.
 - **STAR Method Drill**: VERIFIED — Single natural text input, 4-component backend extraction, detected=false zeroing.
-- **Competency / Skill Profile**: VERIFIED — 13 backend competencies, score ranges 0-100 preserved, null scores not collapsed to zero.
+- **Competency / Skill Profile**: VERIFIED — Server-derived competency profile grouped dynamically from available evidence, score ranges 0-100 preserved, null scores not collapsed to zero.
 - **Progress Analytics**: VERIFIED — Real historical trends only when >= 2 data points exist, null averages preserved.
 - **Learning Path**: VERIFIED — Server-ordered milestones, status lifecycle (pending, completed, obsolete), safe external links.
 - **Next Recommendation**: VERIFIED — Server-driven recommendation, fail-closed deep links, neutral fallback on empty.
@@ -164,8 +187,8 @@
 - **React Query**: VERIFIED — Scoped cache keys with resource IDs, bounded retry logic, no infinite refetch loops.
 - **Idempotency**: VERIFIED — Deterministic key reuse on transport retry, key regeneration on explicit intent change.
 - **Null vs Zero**: VERIFIED — Genuine zero (0) distinct from unassessed/missing (null) across all models.
-- **Responsive Web**: VERIFIED — Fluid layouts from 390px to 1440px+, internal modal scrolling for 390x700 mobile viewports.
-- **Accessibility**: VERIFIED — Native buttons, aria-live for polling/progress, keyboard navigation, and prefers-reduced-motion support.
+- **Responsive Web**: STATIC_REVIEW_ONLY (no automated browser/rendered headless viewport run performed in this technical baseline pass; fluid layout tokens and CSS media queries reviewed statically).
+- **Accessibility**: STATIC_REVIEW_ONLY for visual/interactive runtime behavior; automated/static semantics (native button tags, aria-live for polling/progress, keyboard navigation handlers, prefers-reduced-motion CSS) verified statically.
 - **Mock / Dead Code**: VERIFIED — No prototype mocks in runtime paths, zero fake delays or simulated user data.
 - **Security-Adjacent**: VERIFIED — All external links use rel="noopener noreferrer", strict internal redirect whitelist, zero client-side secret exposure.
 
@@ -185,8 +208,13 @@
    - In ProgressDashboardResponse.historicalStats.recentActivity, resourceId for scenario activity is ScenarioAttempt.Id, which cannot be used directly in /practice/scenarios/[slug]. The FE safely maps this to /practice/scenarios.
 2. **Backend Gap — Recommendation External URLs**:
    - NextPracticeRecommendationResponse currently omits an externalUrl field for external learning activities. The FE safely fails closed by returning null instead of synthesizing speculative URLs.
+3. **UI/UX Replatform Required**:
+   - As confirmed by product direction, an authenticated Prototype UI/UX replatform is scheduled as the next phase to achieve full design parity. A full product regression audit must be rerun following the UI replatform before production readiness can be declared.
 
 ---
 
 ## 10. Final Recommendation
-**READY_FOR_PRODUCTION** (Pending reviewer sign-off on PR; DO NOT MERGE).
+**TECHNICAL_BASELINE_READY_FOR_UI_REPLATFORM**
+- All underlying backend contracts, route handlers, error mappings, idempotency safeguards, and cross-feature deep links are verified and passing.
+- Final production readiness declaration is intentionally deferred until after the Full Prototype UI Parity phase is complete and verified.
+- DO NOT MERGE PR #18 without reviewer sign-off.
