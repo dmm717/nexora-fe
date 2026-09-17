@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { bootstrapAuthSession } from '@/services/authSession';
 import { getAccessToken, subscribeAuthState } from '@/store/authStore';
+import { useAuthRouteBootstrap } from '@/hooks/useAuthRouteBootstrap';
 
 export interface AuthSessionState {
   authReady: boolean;
@@ -24,9 +25,14 @@ export const useAuth = () => useContext(AuthSessionContext);
 export const useAuthSession = useAuth;
 
 export default function AuthBootstrapProvider({ children }: { children: React.ReactNode }) {
-  const [sessionInitialized, setSessionInitialized] = useState(false);
+  const { pathname, shouldBootstrap } = useAuthRouteBootstrap();
+  const [sessionInitialized, setSessionInitialized] = useState(() => {
+    if (Boolean(getAccessToken())) return true;
+    return !shouldBootstrap;
+  });
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
   const [bootstrapError, setBootstrapError] = useState<Error | null>(null);
+  const hasAttemptedBootstrapRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,17 +42,54 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
     const unsubscribe = subscribeAuthState((token) => {
       if (!cancelled) {
         setIsAuthenticated(Boolean(token));
+        if (token) {
+          setSessionInitialized(true);
+        }
       }
     });
 
-    // 2. Perform initial session restoration if needed
-    const initializeSession = async () => {
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // 2. Perform route-aware session restoration if needed
+    const runBootstrapIfNeeded = async () => {
       if (getAccessToken()) {
         if (!cancelled) {
           setIsAuthenticated(true);
           setSessionInitialized(true);
         }
         return;
+      }
+
+      // If current route does not require eager bootstrap (e.g. public marketing '/' or '/status'),
+      // initialize immediately as anonymous without sending an eager /auth/refresh probe
+      if (!shouldBootstrap) {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          setSessionInitialized(true);
+        }
+        return;
+      }
+
+      // If bootstrap was already performed during this session (and returned false / 401),
+      // we do not repeat the expected 401 on every client navigation unless the token changes
+      if (hasAttemptedBootstrapRef.current) {
+        if (!cancelled) {
+          setIsAuthenticated(Boolean(getAccessToken()));
+          setSessionInitialized(true);
+        }
+        return;
+      }
+
+      hasAttemptedBootstrapRef.current = true;
+      if (!cancelled) {
+        setSessionInitialized(false);
       }
 
       try {
@@ -69,13 +112,12 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
       }
     };
 
-    void initializeSession();
+    void runBootstrapIfNeeded();
 
     return () => {
       cancelled = true;
-      unsubscribe();
     };
-  }, []);
+  }, [pathname, shouldBootstrap]);
 
   const authReady = sessionInitialized;
   const authState: AuthSessionState = {

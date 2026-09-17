@@ -4,8 +4,8 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useAuth } from './AuthBootstrapProvider';
-import { refreshSession } from '@/services/authSession';
-import { getAccessToken, setAccessToken } from '@/store/authStore';
+import { getUsableAccessToken } from '@/services/authSession';
+import { getAccessToken } from '@/store/authStore';
 import { getRealtimeInvalidationKeys } from '@/utils/scenarioHelpers';
 
 export interface RealtimeState {
@@ -214,19 +214,17 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
       let retryAttempt = 0;
 
       while (!disposed) {
+        if (!getAccessToken()) return;
+
         try {
           if (disposed) return;
 
           connection = new signalR.HubConnectionBuilder()
             .withUrl(resolveHubUrl(), {
               accessTokenFactory: async () => {
-                const currentToken = getAccessToken();
-                if (currentToken) return currentToken;
-
                 try {
-                  const response = await refreshSession();
-                  setAccessToken(response.data.accessToken);
-                  return response.data.accessToken;
+                  const token = await getUsableAccessToken({ refreshIfExpiringWithinSeconds: 60 });
+                  return token;
                 } catch {
                   return '';
                 }
@@ -306,6 +304,12 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
           setError(caughtError instanceof Error ? caughtError : new Error('Realtime connection failed'));
 
           if (disposed) return;
+
+          // If the session was invalidated (e.g. 401 refresh failure during negotiate/reconnect),
+          // halt retries immediately instead of entering an infinite reconnect loop.
+          if (!getAccessToken()) {
+            return;
+          }
 
           const delay = getInitialRetryDelay(retryAttempt++);
           await waitForRetry(delay);
