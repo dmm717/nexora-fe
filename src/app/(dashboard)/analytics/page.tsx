@@ -281,27 +281,27 @@ export default function AnalyticsPage() {
         <div className="lg:col-span-5 space-y-6">
           {/* Weakness Signals */}
           <Card variant="elevated" padding="lg" className="space-y-4">
-            <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[18px]">error</span>
-              <span>Tín hiệu yếu điểm cần lưu ý</span>
+            <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[18px]">monitoring</span>
+              <span>Năng lực có điểm thấp nhất hiện tại</span>
             </div>
 
             <div className="space-y-3">
               {weakestCompetencies.length > 0 ? (
                 weakestCompetencies.map((w, idx) => (
-                  <div key={idx} className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+                  <div key={idx} className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/40 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-on-surface">
                       <span>{w.name}</span>
-                      <span className="text-amber-700">{w.score}%</span>
+                      <span className="text-primary">{w.score}%</span>
                     </div>
-                    <p className="text-[11px] text-amber-900 leading-relaxed">
-                      Tín hiệu này được máy chủ tổng hợp từ bằng chứng hiện có. Hãy mở hồ sơ kỹ năng để xem nguồn và chọn bài luyện phù hợp.
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                      Đây là một trong các năng lực có điểm thấp nhất hiện tại, không phải kết luận tự động rằng năng lực này là điểm yếu.
                     </p>
                     <button
                       onClick={() => router.push('/practice')}
                       className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
                     >
-                      <span>Luyện tập khắc phục</span>
+                      <span>Xem bài luyện phù hợp</span>
                       <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
                   </div>
@@ -310,11 +310,11 @@ export default function AnalyticsPage() {
                 <p className="text-xs text-on-surface-variant italic">
                   {!hasProgressData
                     ? progressLocked
-                      ? 'Tín hiệu điểm cần cải thiện không có trong gói hiện tại.'
-                      : 'Không thể tải tín hiệu điểm cần cải thiện từ Progress Dashboard.'
+                      ? 'Danh sách năng lực theo điểm không có trong gói hiện tại.'
+                      : 'Không thể tải danh sách năng lực theo điểm từ Progress Dashboard.'
                     : evidenceCount === 0
                       ? 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'
-                      : 'Đã có bằng chứng năng lực, nhưng máy chủ chưa trả về tín hiệu điểm cần cải thiện.'}
+                      : 'Máy chủ chưa trả về danh sách năng lực có điểm thấp nhất.'}
                 </p>
               )}
             </div>

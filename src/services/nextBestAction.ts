@@ -13,16 +13,6 @@ export function resolveNextBestAction({
   targetRole?: string | null;
   needsFirstEvidence: boolean;
 }) {
-  if (needsFirstEvidence) {
-    return {
-      label: targetRole ? `Phân tích CV theo mục tiêu ${targetRole}` : 'Thiết lập mục tiêu và phân tích CV đầu tiên',
-      description: 'Chọn vị trí bạn đang hướng tới và thêm CV để bắt đầu xây dựng bằng chứng của riêng bạn.',
-      destination: '/resume-analyses',
-      activityType: 'cv_analysis',
-      estimatedMinutes: undefined,
-    };
-  }
-
   const base = {
     description: recommendation?.reason || 'Chọn bài luyện phù hợp với điều bạn muốn cải thiện tiếp theo.',
     estimatedMinutes:
@@ -47,6 +37,18 @@ export function resolveNextBestAction({
   }
   if (recommendation?.activityType === RecommendationActivityValues.ExternalLearning) {
     return { ...base, label: 'Tài liệu học bên ngoài', activityType: RecommendationActivityValues.ExternalLearning };
+  }
+  if (recommendation) {
+    return { ...base, label: 'Bước tiếp theo chưa khả dụng', activityType: 'unknown' };
+  }
+  if (needsFirstEvidence) {
+    return {
+      label: targetRole ? `Phân tích CV theo mục tiêu ${targetRole}` : 'Thiết lập mục tiêu và phân tích CV đầu tiên',
+      description: 'Chọn vị trí bạn đang hướng tới và thêm CV để bắt đầu xây dựng bằng chứng của riêng bạn.',
+      destination: '/resume-analyses',
+      activityType: 'cv_analysis',
+      estimatedMinutes: undefined,
+    };
   }
   if (!targetRole) {
     return {

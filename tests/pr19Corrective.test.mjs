@@ -240,3 +240,42 @@ test('AS-BA: unavailable progress stays distinct from insufficient evidence', as
     '/career-goals'
   );
 });
+
+test('BB-BG: server recommendation priority and truthful progress states', async () => {
+  const starRecommendation = {
+    reason: 'server recommendation',
+    activityType: RecommendationActivityValues.StarDrill,
+    resourceId: null,
+    estimatedMinutes: 10,
+    priority: 1,
+    action: null,
+  };
+  assert.equal(
+    resolveNextBestAction({
+      recommendation: starRecommendation,
+      targetRole: 'Backend Engineer',
+      needsFirstEvidence: true,
+    }).destination,
+    '/practice/star'
+  );
+  assert.equal(
+    resolveNextBestAction({
+      recommendation: null,
+      targetRole: 'Backend Engineer',
+      needsFirstEvidence: true,
+    }).destination,
+    '/resume-analyses'
+  );
+
+  const [analytics, overview] = await Promise.all([
+    readSource('../src/app/(dashboard)/analytics/page.tsx'),
+    readSource('../src/app/(dashboard)/overview/page.tsx'),
+  ]);
+  assert.doesNotMatch(overview, /Hệ thống chưa có dữ liệu kiểm chứng/);
+  assert.match(overview, /Chưa đủ dữ liệu để tính chỉ số sẵn sàng/);
+  assert.doesNotMatch(analytics, /Tín hiệu yếu điểm cần lưu ý|Luyện tập khắc phục/);
+  assert.match(analytics, /Năng lực có điểm thấp nhất hiện tại/);
+  assert.match(analytics, /Xem bài luyện phù hợp/);
+  assert.match(overview, /const progressPending\s*=\s*[\s\S]{0,160}loadingProgress[\s\S]{0,160}progressError == null/);
+  assert.match(overview, /progressPending \? \([\s\S]{0,300}Đang tải chỉ số sẵn sàng/);
+});

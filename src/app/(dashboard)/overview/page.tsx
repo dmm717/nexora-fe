@@ -40,6 +40,8 @@ export default function OverviewPage() {
     progressError instanceof ApiError &&
     (progressError.code === 'FEATURE_NOT_AVAILABLE' || progressError.status === 403);
   const progressUnavailable = Boolean(progressError) && !progressLocked;
+  const progressPending =
+    loadingProgress && progressData === undefined && progressError == null;
   const hasProgressData = progressData !== undefined && progressError == null;
   const hasInsufficientEvidence =
     hasProgressData && progressData.readiness.score === null;
@@ -58,6 +60,7 @@ export default function OverviewPage() {
     targetRole: activeGoal?.targetRole,
     needsFirstEvidence: hasInsufficientEvidence,
   });
+  const showFirstEvidenceOnboarding = hasInsufficientEvidence && rec === null;
 
   const availablePath = hasAvailableLearningPath(
     learningPathData,
@@ -118,7 +121,7 @@ export default function OverviewPage() {
         title={`Xin chào, ${careerProfile?.profile?.displayName || 'ứng viên'}!`}
         description={
           hasInsufficientEvidence
-            ? 'Hệ thống chưa có dữ liệu kiểm chứng. Chọn một bước bắt đầu để Nexora có thể học từ bằng chứng thật của bạn.'
+            ? 'Chưa đủ dữ liệu để tính chỉ số sẵn sàng. Nexora vẫn giữ các đề xuất khác do máy chủ cung cấp.'
             : progressLocked
               ? 'Progress Dashboard chưa có trong gói hiện tại. Các đề xuất độc lập vẫn được giữ nguyên khi có dữ liệu máy chủ.'
               : progressUnavailable
@@ -217,7 +220,7 @@ export default function OverviewPage() {
               {nextAction.estimatedMinutes && <span className="text-xs text-on-surface-variant">Ước tính {nextAction.estimatedMinutes} phút</span>}
             </div>
 
-            {hasInsufficientEvidence ? (
+            {showFirstEvidenceOnboarding ? (
               <div className="space-y-3">
                 <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
                   {nextAction.label}
@@ -321,14 +324,19 @@ export default function OverviewPage() {
               </div>
             ) : hasInsufficientEvidence ? (
               <MotionEmptyState
-                title="Chưa đủ dữ liệu đánh giá"
-                description="Nexora chỉ đưa ra điểm sẵn sàng dựa trên bằng chứng kiểm chứng được từ hoạt động của bạn."
+                title="Chưa đủ dữ liệu để tính chỉ số"
+                description="Điểm sẵn sàng cần thêm bằng chứng năng lực dạng số. Những bằng chứng hoặc đề xuất khác vẫn có thể tồn tại."
                 action={
                   <Button variant="outline" size="sm" onClick={() => router.push('/resume-analyses')}>
-                    Thêm bằng chứng đầu tiên
+                    Bổ sung bằng chứng định lượng
                   </Button>
                 }
               />
+            ) : progressPending ? (
+              <div className="min-h-36 flex items-center justify-center gap-3 text-sm text-on-surface-variant">
+                <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                <span>Đang tải chỉ số sẵn sàng...</span>
+              </div>
             ) : (
               <MotionEmptyState
                 title={progressLocked ? 'Chỉ số chưa có trong gói hiện tại' : 'Chưa thể tải chỉ số sẵn sàng'}

@@ -51,6 +51,7 @@ Prototype owns presentation. Production frontend and backend own runtime behavio
 - Analytics recommendation actions use the canonical recommendation deep link, readiness scores stay numeric and source-neutral, and missing weakness evidence is not presented as proof that no weakness exists.
 - Overview recent activity uses only server-owned timestamps; entries without a trustworthy timestamp are omitted instead of being dated as the current time.
 - Progress Dashboard locked/error states stay distinct from canonical insufficient evidence; historical totals never impersonate weekly metrics, and readiness visuals use a neutral score tone.
+- Server recommendations outrank local onboarding fallbacks, readiness loading is explicit, and lowest-scoring competencies are presented as a neutral ranking rather than guaranteed weaknesses.
 - Recommendation destinations come exclusively from `recommendationContract.ts`; `star_drill` is the STAR machine value.
 - Billing resolves `interview`, `cv_analysis`, and `interview_question_limit` by exact code. Plan capability copy is built from server-returned price features.
 - Practice history differentiates loading, error, and confirmed-empty states. Practice-again identity uses source IDs/reason, never role text.
