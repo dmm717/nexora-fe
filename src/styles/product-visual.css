@@ -1,0 +1,610 @@
+.product-app-shell {
+  --product-ground: #f8f8ff;
+  --product-surface: #ffffff;
+  --product-lavender: #efedff;
+  --product-lavender-strong: #dfe1ff;
+  --product-ink: #172554;
+  --product-muted: #52617e;
+  --product-indigo: #3646c8;
+  --product-violet: #7769df;
+  --product-positive: #087257;
+  --product-attention: #8e6011;
+  background: var(--product-ground);
+}
+
+.product-main-surface {
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 4rem);
+  overflow: hidden;
+  background: var(--product-ground);
+}
+
+.product-main-surface::before,
+.product-main-surface::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(18px);
+  opacity: 0.5;
+}
+
+.product-main-surface::before {
+  width: 280px;
+  height: 280px;
+  top: 2.5rem;
+  right: -120px;
+  background: var(--product-lavender-strong);
+}
+
+.product-main-surface::after {
+  width: 220px;
+  height: 220px;
+  bottom: 6rem;
+  left: -150px;
+  background: #e6f4f0;
+  opacity: 0.32;
+}
+
+.product-page-content {
+  position: relative;
+  z-index: 1;
+}
+
+.product-route-art {
+  position: absolute;
+  top: 0.35rem;
+  right: clamp(-7rem, -3vw, -2rem);
+  width: min(33vw, 30rem);
+  height: 14rem;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.24;
+  mask-image: linear-gradient(to right, transparent 0%, black 30%, black 86%, transparent 100%);
+}
+
+.product-route-art .product-feature-visual {
+  width: 100%;
+  height: 100%;
+  mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
+}
+
+/* Focused workspaces may use route artwork only when no hero owns it. */
+.product-main-surface:has(.product-page-hero) > .product-route-art {
+  display: none;
+}
+
+.product-feature-visual {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  min-height: 8rem;
+}
+
+.product-feature-visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.product-page-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(15rem, 0.75fr);
+  align-items: center;
+  min-height: 17rem;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  margin-bottom: 2rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  overflow: hidden;
+  border: 1px solid #e0e2f2;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 22px 48px -34px rgba(23, 37, 84, 0.42);
+}
+
+.product-page-hero::after {
+  content: '';
+  position: absolute;
+  width: 14rem;
+  height: 14rem;
+  right: -5rem;
+  bottom: -6rem;
+  border-radius: 50%;
+  background: var(--product-lavender);
+  opacity: 0.7;
+  z-index: 0;
+}
+
+.product-page-hero-copy,
+.product-page-hero-art {
+  position: relative;
+  z-index: 1;
+}
+
+.product-page-hero-copy h1 {
+  max-width: 17ch;
+  margin: 0;
+  color: var(--product-ink);
+  font-size: clamp(1.9rem, 4vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.13;
+  letter-spacing: -0.035em;
+}
+
+.product-page-hero-copy p {
+  max-width: 60ch;
+  margin: 1rem 0 0;
+  color: var(--product-muted);
+  font-size: 0.9rem;
+  line-height: 1.75;
+}
+
+.product-page-hero-art {
+  min-height: 11rem;
+  justify-self: end;
+  width: min(100%, 21rem);
+}
+
+.product-page-hero-art img {
+  filter: saturate(0.9) contrast(1.02);
+  mask-image: linear-gradient(to right, transparent, black 14%, black 86%, transparent), linear-gradient(to bottom, transparent, black 12%, black 82%, transparent);
+  mask-composite: intersect;
+}
+
+.product-evidence-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e2e3f0;
+  border-radius: 0.9rem;
+  background: var(--product-surface);
+  box-shadow: 0 12px 22px -20px rgba(23, 37, 84, 0.5);
+}
+
+.product-evidence-card > span {
+  color: var(--product-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.product-evidence-card strong {
+  color: var(--product-ink);
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+
+.product-evidence-card p {
+  margin: 0;
+  color: var(--product-muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.product-evidence-card-positive strong { color: var(--product-positive); }
+.product-evidence-card-attention strong { color: var(--product-attention); }
+
+.product-insight-panel {
+  padding: 1rem 1.1rem;
+  border: 1px solid #dedff0;
+  border-radius: 0.9rem;
+  background: #f7f6ff;
+  box-shadow: 0 14px 30px -24px rgba(23, 37, 84, 0.45);
+}
+
+.product-insight-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--product-ink);
+  font-size: 0.82rem;
+}
+
+.product-insight-heading .material-symbols-outlined { color: var(--product-violet); font-size: 1.05rem; }
+.product-insight-body { margin-top: 0.55rem; color: var(--product-muted); font-size: 0.78rem; line-height: 1.65; }
+.product-insight-action { margin-top: 0.8rem; }
+
+.product-motion-empty {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 12rem;
+  padding: 1.5rem;
+  overflow: hidden;
+  text-align: center;
+  border: 1px dashed #c9cbe0;
+  border-radius: 1rem;
+  background: #fbfbff;
+}
+
+.product-empty-orbit {
+  position: absolute;
+  width: 9rem;
+  height: 9rem;
+  border: 1px solid #d9d7f7;
+  border-radius: 50%;
+  transform: translate(2rem, -2rem) rotate(18deg);
+}
+
+.product-empty-icon { position: relative; color: var(--product-violet); font-size: 2rem; }
+.product-motion-empty strong { position: relative; color: var(--product-ink); font-size: 0.9rem; }
+.product-motion-empty p { position: relative; max-width: 34rem; margin: 0; color: var(--product-muted); font-size: 0.75rem; line-height: 1.6; }
+
+.product-journey-connector {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--product-muted);
+  font-size: 0.72rem;
+}
+
+.product-journey-line {
+  display: inline-block;
+  width: 2.5rem;
+  height: 1px;
+  background: var(--product-violet);
+  opacity: 0.6;
+}
+
+.product-focused-surface {
+  --product-ground: #111a3e;
+  --product-surface: #1b2855;
+  --product-ink: #f3f5ff;
+  --product-muted: #c7cbea;
+  background: var(--product-ground);
+}
+
+.product-focused-surface .product-main-surface {
+  background: var(--product-ground);
+}
+
+.product-focused-surface .product-main-surface::before { background: #303d86; opacity: 0.28; }
+.product-focused-surface .product-main-surface::after { background: #1a6b62; opacity: 0.18; }
+.product-focused-surface .product-route-art { opacity: 0.23; }
+.product-focused-surface .product-route-art img {
+  mix-blend-mode: screen;
+  filter: saturate(1.12) contrast(1.08) brightness(0.82);
+}
+
+.product-interview-room {
+  color: #f3f5ff;
+}
+
+.product-interview-room .bg-white {
+  background: #1b2855 !important;
+}
+
+.product-interview-room .bg-surface-container-low {
+  background: #253361 !important;
+}
+
+.product-interview-room .text-on-surface {
+  color: #f3f5ff !important;
+}
+
+.product-interview-room .text-on-surface-variant {
+  color: #c7cbea !important;
+}
+
+.product-interview-room .border-outline-variant\/30,
+.product-interview-room .border-outline-variant\/40 {
+  border-color: #53649b !important;
+}
+
+.product-interview-room textarea,
+.product-interview-room input {
+  color: #f3f5ff !important;
+  background: #17254d !important;
+  border-color: #53649b !important;
+}
+
+.product-interview-room .text-primary { color: #bcc7ff !important; }
+.product-interview-room .text-secondary { color: #7debd0 !important; }
+.product-interview-room .text-tertiary { color: #ffd98a !important; }
+.product-interview-room .text-emerald-600 { color: #7debd0 !important; }
+.product-interview-room .text-emerald-700 { color: #7debd0 !important; }
+.product-interview-room .text-amber-700 { color: #ffd98a !important; }
+.product-interview-room .text-red-600 { color: #ff9d9d !important; }
+
+/* Keep fixed light badges paired with their dark ink, even in the dark room. */
+.product-interview-room .bg-primary-fixed.text-primary {
+  background: #dfe0ff !important;
+  color: #1b33c7 !important;
+}
+
+.product-interview-room .border-outline-variant\/50,
+.product-interview-room .border-outline-variant\/60 {
+  border-color: #53649b !important;
+}
+
+.product-interview-room .border-primary\/20,
+.product-interview-room .border-primary\/30,
+.product-interview-room .border-primary\/40 {
+  border-color: #7181e4 !important;
+}
+
+.product-interview-room .border-outline,
+.product-interview-room .border-primary {
+  border-color: #7181e4 !important;
+}
+
+.product-interview-room .coaching-rubric-card .bg-primary {
+  background: #8290ff !important;
+}
+
+.product-interview-room .bg-surface-container {
+  background: #314075 !important;
+}
+
+.product-interview-room .bg-surface-container-high {
+  background: #3b4c82 !important;
+}
+
+.product-interview-room .interview-expansion-notice {
+  background: #123f43 !important;
+  border-color: #2d9f8a !important;
+  color: #f1fffb !important;
+}
+
+.product-interview-room .interview-expansion-dismiss {
+  color: #b9f6e7 !important;
+}
+
+.product-interview-room .interview-context-notice,
+.product-interview-room .product-speech-dock .bg-amber-50 {
+  background: #4d391c !important;
+  border-color: #bc8b45 !important;
+  color: #fff8e8 !important;
+}
+
+.product-interview-room .product-speech-dock .bg-amber-100 {
+  background: #74551f !important;
+}
+
+.product-interview-room .product-speech-dock .text-amber-900,
+.product-interview-room .product-speech-dock .text-amber-800,
+.product-interview-room .product-speech-dock .text-amber-700,
+.product-interview-room .interview-context-notice .text-amber-600 {
+  color: #ffd98a !important;
+}
+
+.product-interview-room .product-speech-dock .bg-red-50 {
+  background: #4d2735 !important;
+}
+
+.product-interview-room .product-speech-dock .border-red-200 {
+  border-color: #a45f70 !important;
+}
+
+.product-interview-room .product-speech-dock .text-red-800 {
+  color: #ffd3d3 !important;
+}
+
+.product-interview-room .product-speech-dock .text-red-600 {
+  color: #ffadad !important;
+}
+
+.product-interview-room .product-speech-dock {
+  background: #1b2855 !important;
+  border-color: #53649b !important;
+}
+
+.product-interview-room .product-speech-dock .product-speech-mode-toggle {
+  background: #314075 !important;
+  color: #dce2ff !important;
+}
+
+.product-interview-room .product-speech-dock .product-speech-mode-toggle:hover {
+  background: #3b4c82 !important;
+  color: #ffffff !important;
+}
+
+.product-interview-room .product-speech-dock .bg-primary-fixed\/40 {
+  background: #35447d !important;
+  color: #dce2ff !important;
+}
+
+.product-interview-room .product-speech-dock .bg-primary-fixed\/70 {
+  background: #425493 !important;
+}
+
+.product-interview-room .product-speech-dock .bg-emerald-500 {
+  background: #047857 !important;
+}
+
+.product-interview-room .product-speech-dock .bg-red-500 {
+  background: #b4232d !important;
+}
+
+.product-interview-room .product-speech-dock textarea::placeholder {
+  color: #9faad4 !important;
+  opacity: 1;
+}
+
+.product-interview-room .product-speech-dock textarea:focus {
+  background: #1f2f63 !important;
+}
+
+.product-interview-room .product-speech-dock .bg-primary\/10 {
+  background: #2d3d78 !important;
+}
+
+.product-interview-room .product-speech-dock .border-outline-variant\/20,
+.product-interview-room .product-speech-dock .border-outline-variant\/30,
+.product-interview-room .product-speech-dock .border-outline-variant\/40 {
+  border-color: #53649b !important;
+}
+
+.product-interview-room .product-speech-dock .border-primary\/30,
+.product-interview-room .product-speech-dock .border-primary\/40 {
+  border-color: #7181e4 !important;
+}
+
+/*
+ * Focused-room contrast contract:
+ * every coaching surface stays on a dark tonal scale, while semantic accents
+ * use light text on dark green/amber surfaces. This prevents the old
+ * light-lavender header and translucent accent cards from washing out text.
+ */
+.product-interview-room .coaching-dialog-backdrop {
+  background: rgb(7 13 32 / 0.78) !important;
+}
+
+.product-interview-room .coaching-dialog {
+  background: #182650 !important;
+  border-color: #53649b !important;
+  color: #f3f5ff;
+}
+
+.product-interview-room .coaching-dialog-header {
+  background: #202f60 !important;
+  border-bottom-color: #53649b !important;
+}
+
+.product-interview-room .coaching-dialog-icon {
+  background: #2948dc !important;
+}
+
+.product-interview-room .coaching-dialog-title {
+  color: #f3f5ff !important;
+}
+
+.product-interview-room .coaching-dialog-subtitle,
+.product-interview-room .coaching-dialog-progress {
+  color: #c7cbea !important;
+}
+
+.product-interview-room .coaching-dialog-badge {
+  background: #a7f3d0 !important;
+  color: #064e3b !important;
+}
+
+.product-interview-room .coaching-dialog-close {
+  color: #c7cbea !important;
+}
+
+.product-interview-room .coaching-dialog-close:hover {
+  background: #31427a !important;
+  color: #ffffff !important;
+}
+
+.product-interview-room .coaching-dialog-body {
+  background: #182650 !important;
+}
+
+.product-interview-room .coaching-dialog-feedback-note {
+  background: #253361 !important;
+  border-color: #53649b !important;
+  color: #dce2ff !important;
+}
+
+.product-interview-room .coaching-dialog-strengths {
+  background: #123f43 !important;
+  border-color: #2d9f8a !important;
+}
+
+.product-interview-room .coaching-dialog-strengths-title,
+.product-interview-room .coaching-dialog-strengths-empty {
+  color: #b9f6e7 !important;
+}
+
+.product-interview-room .coaching-dialog-strengths-icon {
+  color: #7debd0 !important;
+}
+
+.product-interview-room .coaching-dialog-strengths-list {
+  color: #f1fffb !important;
+}
+
+.product-interview-room .coaching-dialog-improvements {
+  background: #4d391c !important;
+  border-color: #bc8b45 !important;
+}
+
+.product-interview-room .coaching-dialog-improvements-title,
+.product-interview-room .coaching-dialog-improvements-empty,
+.product-interview-room .coaching-dialog-improvements-icon {
+  color: #ffd98a !important;
+}
+
+.product-interview-room .coaching-dialog-improvements-list {
+  color: #fff8e8 !important;
+}
+
+.product-interview-room .coaching-dialog-improved-answer {
+  background: #22316a !important;
+  border-color: #7181e4 !important;
+}
+
+.product-interview-room .coaching-dialog-improved-answer-title {
+  color: #d5dcff !important;
+}
+
+.product-interview-room .coaching-dialog-improved-answer-copy,
+.product-interview-room .coaching-rubric-evidence,
+.product-interview-room .coaching-star-evidence {
+  background: #17254d !important;
+  border-color: #53649b !important;
+  color: #dce2ff !important;
+}
+
+.product-interview-room .coaching-rubric-item {
+  background: #253361 !important;
+  border-color: #53649b !important;
+}
+
+.product-interview-room .coaching-star-card {
+  background: #1b2855 !important;
+  border-color: #53649b !important;
+}
+
+.product-interview-room .coaching-star-item--detected {
+  background: #253361 !important;
+  border-color: #53649b !important;
+}
+
+.product-interview-room .coaching-star-item--missing,
+.product-interview-room .coaching-star-missing {
+  background: #4d391c !important;
+  border-color: #bc8b45 !important;
+  color: #fff8e8 !important;
+}
+
+.product-interview-room .coaching-star-feedback,
+.product-interview-room .coaching-star-missing .material-symbols-outlined {
+  color: #ffd98a !important;
+}
+
+.product-interview-room .coaching-dialog-footer {
+  background: #121f45 !important;
+  border-top-color: #53649b !important;
+}
+
+@media (max-width: 850px) {
+  .product-route-art { width: 15rem; right: -5rem; opacity: 0.16; }
+  .product-page-hero { grid-template-columns: 1fr; gap: 0.75rem; }
+  .product-page-hero-art { justify-self: start; width: min(100%, 22rem); min-height: 9rem; margin-top: -0.8rem; }
+}
+
+@media (max-width: 560px) {
+  .product-route-art { display: none; }
+  .product-page-hero { padding: 1.25rem; border-radius: 1rem; }
+  .product-page-hero-copy h1 { font-size: 1.9rem; }
+  .product-page-hero-copy p { font-size: 0.8rem; }
+  .product-page-hero-art { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-feature-visual,
+  .product-motion-empty,
+  .product-page-hero { scroll-behavior: auto; }
+}
