@@ -10,6 +10,7 @@ import {
   isDeterministicAnalysisError,
   formatQuotaError,
   extractAnalysisPresentation,
+  isMatchingPendingOperation,
 } from '../src/services/cvAnalysisContract.ts';
 
 // 1. job_targeted request contains explicit mode and JD ID
@@ -390,4 +391,184 @@ test('12. request construction guarantees cross-mode fields are excluded from pa
   assert.equal('jobDescriptionId' in fbPayload, false);
   assert.equal('jdTitle' in fbPayload, false);
   assert.equal('jdContent' in fbPayload, false);
+});
+
+// 13. Idempotent pending operation matching & retry preservation (Cases A-E)
+test('13. Idempotent pending operation matching & retry preservation (Cases A-E)', () => {
+  const userId = 'user-retry-1';
+  const originalKey = 'key-fixed-12345';
+
+  // CASE A: current-goal job_targeted pending: jdTitle/content match, jobDescriptionId is null -> reusable
+  const pendingJtInitial = {
+    userId,
+    idempotencyKey: originalKey,
+    mode: 'job_targeted',
+    jobDescriptionId: null,
+    jdTitle: 'Frontend Engineer',
+    jdContent: 'React Next.js TypeScript',
+    timestamp: Date.now(),
+  };
+
+  const matchCaseA = isMatchingPendingOperation(pendingJtInitial, {
+    userId,
+    mode: 'job_targeted',
+    resumeId: null,
+    jdTitle: 'Frontend Engineer',
+    jdContent: 'React Next.js TypeScript',
+  });
+  assert.equal(matchCaseA, true, 'CASE A: Pending job_targeted with null jobDescriptionId must be reusable');
+
+  // CASE B: same operation after JD creation: jobDescriptionId populated, same JD title/content -> STILL reusable -> same idempotency key
+  const pendingJtAfterJd = {
+    ...pendingJtInitial,
+    jobDescriptionId: 'created-jd-456',
+  };
+
+  const matchCaseB = isMatchingPendingOperation(pendingJtAfterJd, {
+    userId,
+    mode: 'job_targeted',
+    resumeId: null,
+    jdTitle: 'Frontend Engineer',
+    jdContent: 'React Next.js TypeScript',
+  });
+  assert.equal(matchCaseB, true, 'CASE B: Populated jobDescriptionId must remain reusable for identical JD title/content');
+  assert.equal(pendingJtAfterJd.idempotencyKey, originalKey, 'CASE B: Must retain original idempotency key');
+
+  // CASE C: JD title/content changed -> pending not reusable -> new operation required
+  const matchCaseCTitle = isMatchingPendingOperation(pendingJtAfterJd, {
+    userId,
+    mode: 'job_targeted',
+    resumeId: null,
+    jdTitle: 'Senior Frontend Engineer', // Changed
+    jdContent: 'React Next.js TypeScript',
+  });
+  assert.equal(matchCaseCTitle, false, 'CASE C: Title change must invalidate pending operation');
+
+  const matchCaseCContent = isMatchingPendingOperation(pendingJtAfterJd, {
+    userId,
+    mode: 'job_targeted',
+    resumeId: null,
+    jdTitle: 'Frontend Engineer',
+    jdContent: 'Vue Nuxt.js', // Changed
+  });
+  assert.equal(matchCaseCContent, false, 'CASE C: Content change must invalidate pending operation');
+
+  // CASE D: current-goal field_benchmark pending matching resolved goal -> reusable
+  const pendingFb = {
+    userId,
+    idempotencyKey: 'key-fb-789',
+    mode: 'field_benchmark',
+    industry: 'FinTech',
+    targetRole: 'Software Architect',
+    seniority: 'Lead',
+    timestamp: Date.now(),
+  };
+
+  const matchCaseD = isMatchingPendingOperation(pendingFb, {
+    userId,
+    mode: 'field_benchmark',
+    resumeId: null,
+    industry: '  FinTech  ',
+    targetRole: 'Software Architect',
+    seniority: 'Lead',
+  });
+  assert.equal(matchCaseD, true, 'CASE D: Field benchmark matching resolved goal must be reusable');
+
+  // CASE E: field context changed -> pending not reusable
+  const matchCaseE = isMatchingPendingOperation(pendingFb, {
+    userId,
+    mode: 'field_benchmark',
+    resumeId: null,
+    industry: 'HealthTech', // Changed
+    targetRole: 'Software Architect',
+    seniority: 'Lead',
+  });
+  assert.equal(matchCaseE, false, 'CASE E: Changed industry must invalidate pending benchmark operation');
+});
+
+// 14. Strict normalization of pending operations against executable contracts (Cases F-J)
+test('14. Strict normalization of pending operations against executable contracts (Cases F-J)', () => {
+  const userId = 'user-norm-1';
+
+  // CASE F: normalize job_targeted: analysisId absent, jobDescriptionId absent, jdTitle/content absent -> null
+  const caseF = {
+    userId,
+    idempotencyKey: 'key-f',
+    mode: 'job_targeted',
+    timestamp: Date.now(),
+  };
+  assert.equal(normalizePendingAnalysis(caseF, userId), null, 'CASE F: job_targeted without JD ID or text must return null');
+
+  // CASE G: normalize job_targeted: analysisId absent, jdTitle + jdContent present -> valid
+  const caseG = {
+    userId,
+    idempotencyKey: 'key-g',
+    mode: 'job_targeted',
+    jdTitle: 'Product Designer',
+    jdContent: 'Figma Design Systems',
+    timestamp: Date.now(),
+  };
+  const normG = normalizePendingAnalysis(caseG, userId);
+  assert.ok(normG !== null, 'CASE G: job_targeted with jdTitle + jdContent must be valid');
+  assert.equal(normG.mode, 'job_targeted');
+  assert.equal(normG.jdTitle, 'Product Designer');
+  assert.equal(normG.jdContent, 'Figma Design Systems');
+
+  // CASE H: normalize job_targeted: analysisId absent, jobDescriptionId present -> valid even if original JD text is unavailable
+  const caseH = {
+    userId,
+    idempotencyKey: 'key-h',
+    mode: 'job_targeted',
+    jobDescriptionId: 'existing-jd-888',
+    timestamp: Date.now(),
+  };
+  const normH = normalizePendingAnalysis(caseH, userId);
+  assert.ok(normH !== null, 'CASE H: job_targeted with existing jobDescriptionId must be valid');
+  assert.equal(normH.jobDescriptionId, 'existing-jd-888');
+
+  // CASE I: normalize field_benchmark: analysisId absent, one required context field missing -> null
+  const caseIMissingRole = {
+    userId,
+    idempotencyKey: 'key-i',
+    mode: 'field_benchmark',
+    industry: 'EdTech',
+    seniority: 'Senior',
+    // targetRole missing
+    timestamp: Date.now(),
+  };
+  assert.equal(normalizePendingAnalysis(caseIMissingRole, userId), null, 'CASE I: Missing targetRole must return null');
+
+  const caseIBlankSeniority = {
+    userId,
+    idempotencyKey: 'key-i2',
+    mode: 'field_benchmark',
+    industry: 'EdTech',
+    targetRole: 'Developer',
+    seniority: '   ', // Blank
+    timestamp: Date.now(),
+  };
+  assert.equal(normalizePendingAnalysis(caseIBlankSeniority, userId), null, 'CASE I: Blank seniority must return null');
+
+  // CASE J: normalize operation with analysisId present -> remains recoverable even if old pre-analysis context fields are absent
+  const caseJJobTargeted = {
+    userId,
+    idempotencyKey: 'key-j-jt',
+    mode: 'job_targeted',
+    analysisId: 'analysis-rec-111',
+    timestamp: Date.now(),
+  };
+  const normJJobTargeted = normalizePendingAnalysis(caseJJobTargeted, userId);
+  assert.ok(normJJobTargeted !== null, 'CASE J: operation with analysisId must be recoverable');
+  assert.equal(normJJobTargeted.analysisId, 'analysis-rec-111');
+
+  const caseJBenchmark = {
+    userId,
+    idempotencyKey: 'key-j-bm',
+    mode: 'field_benchmark',
+    analysisId: 'analysis-rec-222',
+    timestamp: Date.now(),
+  };
+  const normJBenchmark = normalizePendingAnalysis(caseJBenchmark, userId);
+  assert.ok(normJBenchmark !== null, 'CASE J: benchmark with analysisId must be recoverable even without industry/role');
+  assert.equal(normJBenchmark.analysisId, 'analysis-rec-222');
 });

@@ -29,6 +29,7 @@ export const ALLOWED_PATH_PREFIXES = [
   '/career-goals',
   '/account',
   '/billing',
+  '/resumes',
   '/resume-analyses',
   '/learning-path',
   '/skill-profile',

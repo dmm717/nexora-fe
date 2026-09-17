@@ -59,14 +59,14 @@ export default function CvAnalysisHero() {
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             <Link 
-              href="/cv-analysis/optimize"
-              className="inline-flex items-center justify-center px-7 py-3.5 bg-[#CEFA61] text-white rounded-2xl font-bold text-[15px] shadow-[0_8px_20px_-8px_rgba(206,250,97,0.5)] transition-all duration-300 hover:scale-[1.02] hover:bg-[#c2ef53] whitespace-nowrap"
+              href="/resume-analyses"
+              className="inline-flex items-center justify-center px-7 py-3.5 bg-primary text-white rounded-xl font-bold text-[15px] shadow-md transition-all duration-300 hover:scale-[1.02] hover:bg-primary/90 whitespace-nowrap"
             >
               Tối ưu CV theo vị trí
             </Link>
             <Link 
-              href="/cv-analysis/industry"
-              className="inline-flex items-center justify-center px-7 py-3.5 bg-white text-purple-600 border border-purple-200 rounded-2xl font-bold text-[15px] shadow-sm transition-all duration-300 hover:scale-[1.02] hover:bg-purple-50 hover:text-purple-700 whitespace-nowrap"
+              href="/resume-analyses"
+              className="inline-flex items-center justify-center px-7 py-3.5 bg-white text-primary border border-primary/30 rounded-xl font-bold text-[15px] shadow-sm transition-all duration-300 hover:scale-[1.02] hover:bg-surface-container-low whitespace-nowrap"
             >
               Phân tích theo ngành
             </Link>
