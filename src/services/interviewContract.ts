@@ -24,6 +24,15 @@ export type QuestionTopic =
   | 'jd_targeted'
   | 'scenario';
 
+export type InterviewType =
+  | 'technical'
+  | 'behavioral'
+  | 'scenario'
+  | 'cv_targeted'
+  | 'jd_targeted'
+  | 'motivation_role_fit'
+  | 'self_introduction';
+
 export const SCORE_SCALE = '0-100';
 
 export const DETERMINISTIC_ERROR_CODES = [
@@ -1018,7 +1027,7 @@ export function buildRetryReportRequest(interviewId: string, idempotencyKey?: st
 export interface CanonicalStartPayload {
   role?: string;
   seniority?: string;
-  interviewType: string;
+  interviewType: InterviewType;
   difficulty: string;
   resumeId?: string;
   jobDescriptionId?: string;
@@ -1056,7 +1065,7 @@ export function buildInterviewPreflightPayload(params: {
   careerGoalId?: string;
   manualRole?: string;
   manualSeniority?: string;
-  interviewType: string;
+  interviewType: InterviewType;
   difficulty: string;
   cvTargetedResumeId?: string;
   jobDescriptionId?: string;
@@ -1067,7 +1076,9 @@ export function buildInterviewPreflightPayload(params: {
     ...(params.interviewType === 'cv_targeted' && params.cvTargetedResumeId
       ? { resumeId: params.cvTargetedResumeId }
       : {}),
-    ...(params.jobDescriptionId ? { jobDescriptionId: params.jobDescriptionId } : {}),
+    ...(params.interviewType === 'jd_targeted' && params.jobDescriptionId
+      ? { jobDescriptionId: params.jobDescriptionId }
+      : {}),
   };
 
   if (params.mode === 'career_goal') {

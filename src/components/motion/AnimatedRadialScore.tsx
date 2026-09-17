@@ -1,24 +1,28 @@
-import React from 'react';
+'use client';
 
-export interface RadialScoreProps {
+import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatedNumber } from './AnimatedNumber';
+
+export interface AnimatedRadialScoreProps {
   score: number | null; // null if insufficient evidence
   size?: 'sm' | 'md' | 'lg' | number;
   strokeWidth?: number;
   label?: string;
   sublabel?: string;
-  tone?: 'graded' | 'neutral';
   className?: string;
 }
 
-export const RadialScore: React.FC<RadialScoreProps> = ({
+export const AnimatedRadialScore: React.FC<AnimatedRadialScoreProps> = ({
   score,
   size = 'md',
   strokeWidth,
   label,
   sublabel,
-  tone = 'graded',
   className = '',
 }) => {
+  const shouldReduceMotion = useReducedMotion();
+
   const sizeConfig = {
     sm: { dimension: 64, stroke: 5, fontSize: 'text-lg', labelSize: 'text-[10px]' },
     md: { dimension: 96, stroke: 7, fontSize: 'text-2xl', labelSize: 'text-xs' },
@@ -44,11 +48,10 @@ export const RadialScore: React.FC<RadialScoreProps> = ({
 
   const radius = (dimension - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = score !== null ? circumference - (score / 100) * circumference : circumference;
+  const targetOffset = score !== null ? circumference - (score / 100) * circumference : circumference;
 
   const getScoreColor = (val: number | null) => {
     if (val === null) return 'text-outline-variant';
-    if (tone === 'neutral') return 'text-primary';
     if (val >= 80) return 'text-emerald-700';
     if (val >= 60) return 'text-primary';
     return 'text-amber-700';
@@ -73,19 +76,40 @@ export const RadialScore: React.FC<RadialScoreProps> = ({
             stroke="#eaedff"
             strokeWidth={stroke}
           />
-          {/* Progress circle */}
-          <circle
-            cx={dimension / 2}
-            cy={dimension / 2}
-            r={radius}
-            fill="none"
-            className={`${getScoreColor(score)} transition-all duration-700 ease-out`}
-            stroke="currentColor"
-            strokeWidth={stroke}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-          />
+
+          {/* Animated progress circle */}
+          {score !== null ? (
+            <motion.circle
+              cx={dimension / 2}
+              cy={dimension / 2}
+              r={radius}
+              fill="none"
+              className={getScoreColor(score)}
+              stroke="currentColor"
+              strokeWidth={stroke}
+              strokeDasharray={circumference}
+              initial={shouldReduceMotion ? { strokeDashoffset: targetOffset } : { strokeDashoffset: circumference }}
+              whileInView={{ strokeDashoffset: targetOffset }}
+              viewport={{ once: true }}
+              transition={{
+                duration: shouldReduceMotion ? 0.01 : 1.1,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              strokeLinecap="round"
+            />
+          ) : (
+            <circle
+              cx={dimension / 2}
+              cy={dimension / 2}
+              r={radius}
+              fill="none"
+              className="text-outline-variant"
+              stroke="currentColor"
+              strokeWidth={stroke}
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference}
+            />
+          )}
         </svg>
 
         {/* Inner score or status */}
@@ -93,7 +117,7 @@ export const RadialScore: React.FC<RadialScoreProps> = ({
           {score !== null ? (
             <>
               <span className={`font-bold font-sans ${fontSize} text-on-surface leading-none`}>
-                {score}
+                <AnimatedNumber value={score} durationMs={1100} />
               </span>
               <span className={`font-medium ${labelSize} text-on-surface-variant mt-0.5`}>
                 /100

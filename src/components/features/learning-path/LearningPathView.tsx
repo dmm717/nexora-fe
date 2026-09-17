@@ -1,74 +1,32 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import styles from './LearningPath.module.css';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { AnimatedProgressBar } from '@/components/motion/AnimatedProgressBar';
+import { MotionPage } from '@/components/motion';
 import {
   useLearningPath,
   useGenerateLearningPath,
   useRefreshLearningPath,
   useCompleteLearningPathActivity,
 } from '@/hooks/queries/useLearningPath';
+import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import {
   LearningPathValues,
   getActivityDeepLink,
+  getLearningPathActivityDisposition,
+  getActiveLearningPathProgress,
   type LearningPathActivityResponse,
 } from '@/services/learningPathApi';
 import { ApiError } from '@/services/apiClient';
-import NextPracticeRecommendationCard from '@/components/features/recommendations/NextPracticeRecommendationCard';
-
-function getActivityTypeBadgeClass(type: string): string {
-  switch (type) {
-    case LearningPathValues.Scenario:
-      return styles.typeBadgeScenario;
-    case LearningPathValues.StarDrill:
-      return styles.typeBadgeStar;
-    case LearningPathValues.Interview:
-      return styles.typeBadgeInterview;
-    case LearningPathValues.ResumeImprovement:
-      return styles.typeBadgeResume;
-    case LearningPathValues.ExternalLearning:
-    default:
-      return styles.typeBadgeExternal;
-  }
-}
-
-function getActivityTypeLabel(type: string): string {
-  switch (type) {
-    case LearningPathValues.Scenario:
-      return 'Tình huống';
-    case LearningPathValues.StarDrill:
-      return 'STAR Drill';
-    case LearningPathValues.Interview:
-      return 'Phỏng vấn';
-    case LearningPathValues.ResumeImprovement:
-      return 'Cải thiện CV';
-    case LearningPathValues.ExternalLearning:
-      return 'Tài liệu ngoài';
-    default:
-      return type;
-  }
-}
-
-function getActivityActionText(type: string): string {
-  switch (type) {
-    case LearningPathValues.Scenario:
-      return 'Luyện tình huống →';
-    case LearningPathValues.StarDrill:
-      return 'Luyện STAR →';
-    case LearningPathValues.Interview:
-      return 'Phỏng vấn thử →';
-    case LearningPathValues.ResumeImprovement:
-      return 'Xem CV →';
-    case LearningPathValues.ExternalLearning:
-      return 'Mở tài liệu ↗';
-    default:
-      return 'Bắt đầu →';
-  }
-}
 
 export default function LearningPathView() {
+  const router = useRouter();
   const { data: path, isLoading, error, refetch, isFetching } = useLearningPath();
+  const { data: careerProfile } = useCareerProfile();
   const generateMutation = useGenerateLearningPath();
   const refreshMutation = useRefreshLearningPath();
   const completeMutation = useCompleteLearningPathActivity();
@@ -98,282 +56,331 @@ export default function LearningPathView() {
     }
   };
 
-  const handleCompleteActivity = async (activity: LearningPathActivityResponse) => {
-    if (activity.status === LearningPathValues.Completed) return;
+  const handleCompleteActivity = async (activityId: string) => {
     setActionError(null);
     try {
-      await completeMutation.mutateAsync(activity.id);
+      await completeMutation.mutateAsync(activityId);
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'LEARNING_PATH_ACTIVITY_OBSOLETE') {
-        setActionError('Hoạt động này đã thay đổi hoặc không còn hiệu lực trong lộ trình hiện tại.');
-      } else {
-        setActionError(err instanceof Error ? err.message : 'Không thể đánh dấu hoàn thành hoạt động.');
-      }
+      const msg = err instanceof Error ? err.message : 'Không thể đánh dấu hoàn thành hoạt động.';
+      setActionError(msg);
+    }
+  };
+
+  const getActivityTypeBadge = (type: string) => {
+    switch (type) {
+      case LearningPathValues.Interview:
+        return <Badge variant="primary" size="sm">Phỏng vấn</Badge>;
+      case LearningPathValues.Scenario:
+        return <Badge variant="warning" size="sm">Tình huống</Badge>;
+      case LearningPathValues.StarDrill:
+        return <Badge variant="info" size="sm">STAR Method</Badge>;
+      case LearningPathValues.ResumeImprovement:
+        return <Badge variant="secondary" size="sm">Cải thiện CV</Badge>;
+      default:
+        return <Badge variant="neutral" size="sm">Tài liệu ngoài</Badge>;
+    }
+  };
+
+  const handleStartActivity = (activity: LearningPathActivityResponse) => {
+    const link = getActivityDeepLink(activity);
+    if (!link || getLearningPathActivityDisposition(activity.status) !== 'pending') return;
+    if (link.startsWith('http://') || link.startsWith('https://')) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    } else {
+      router.push(link);
     }
   };
 
   if (isLoading) {
     return (
-      <div className={styles.container}>
-        <p>Đang tải lộ trình học cá nhân hóa...</p>
+      <div className="min-h-[60vh] flex items-center justify-center text-on-surface-variant">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span>Đang tải lộ trình học...</span>
+        </div>
       </div>
     );
   }
 
   if (isNoGoal) {
     return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>
-          <div className={styles.emptyTitle}>Chưa thiết lập mục tiêu nghề nghiệp</div>
-          <p className={styles.emptySubtitle}>
-            Lộ trình học được xây dựng theo mục tiêu công việc và khoảng trống kỹ năng của bạn. Vui lòng tạo mục tiêu nghề nghiệp trước.
-          </p>
-          <div className={styles.emptyActions}>
-            <Link href="/career-goals" className={styles.btnPrimary}>
-              Thiết lập mục tiêu nghề nghiệp →
-            </Link>
+      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+            <span className="material-symbols-outlined text-[28px]">flag</span>
           </div>
-        </div>
-      </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Chưa thiết lập mục tiêu nghề nghiệp</h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-xl mx-auto leading-relaxed">
+            Bạn cần có ít nhất một mục tiêu nghề nghiệp đang kích hoạt để Nexora phân tích và tạo lộ trình học tập cá nhân hóa.
+          </p>
+          <div className="flex justify-center gap-3 pt-2">
+            <Button variant="primary" size="md" onClick={() => router.push('/career-goals')}>
+              Thiết lập mục tiêu ngay
+            </Button>
+          </div>
+        </Card>
+      </MotionPage>
     );
   }
 
-  if (isNotCreated && !path) {
+  if (isNotCreated) {
     return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Lộ Trình Học (Learning Path)</h1>
-            <p className={styles.subtitle}>
-              Xây dựng lộ trình học tập và rèn luyện dựa trên mục tiêu nghề nghiệp và hồ sơ kỹ năng của bạn.
-            </p>
+      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed text-primary flex items-center justify-center">
+            <span className="material-symbols-outlined text-[28px]">route</span>
           </div>
-        </div>
-        {actionError && (
-          <div className={styles.errorBanner} role="alert">
-            <div>{actionError}</div>
-          </div>
-        )}
-        <div className={styles.emptyState}>
-          <div className={styles.emptyTitle}>Chưa có lộ trình học</div>
-          <p className={styles.emptySubtitle}>
-            Hệ thống sẽ tổng hợp các điểm khuyết kỹ năng của bạn để tạo ra kế hoạch gồm các bài tập tình huống, phỏng vấn và tài liệu tự học phù hợp nhất.
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Chưa tạo lộ trình học</h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-xl mx-auto leading-relaxed">
+            Hệ thống sẽ tổng hợp các khoảng trống năng lực từ CV và các phiên phỏng vấn để lập ra lộ trình gồm các cột mốc và hoạt động phù hợp nhất với bạn.
           </p>
-          <div className={styles.emptyActions}>
-            <button
-              type="button"
-              className={styles.btnPrimary}
+          {actionError && (
+            <p className="text-xs text-error font-medium">{actionError}</p>
+          )}
+          <div className="flex justify-center gap-3 pt-2">
+            <Button
+              variant="primary"
+              size="md"
               onClick={handleGenerate}
               disabled={generateMutation.isPending}
+              icon={<span className="material-symbols-outlined text-[18px]">auto_awesome</span>}
+              iconPosition="right"
             >
               {generateMutation.isPending ? 'Đang tạo lộ trình...' : 'Tạo lộ trình học ngay'}
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+        </Card>
+      </MotionPage>
     );
   }
 
-  const errorMessage = actionError || apiError?.message || (error instanceof Error ? error.message : null);
+  if (error || !path) {
+    return (
+      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-error/10 text-error flex items-center justify-center">
+            <span className="material-symbols-outlined text-[28px]">cloud_off</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Chưa thể tải lộ trình học</h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-xl mx-auto leading-relaxed">
+            Đây là lỗi kết nối hoặc máy chủ, không phải trạng thái “chưa tạo”. Hãy thử tải lại dữ liệu.
+          </p>
+          <div className="flex justify-center">
+            <Button variant="primary" size="md" onClick={() => void refetch()} disabled={isFetching}>
+              {isFetching ? 'Đang tải lại...' : 'Thử tải lại'}
+            </Button>
+          </div>
+        </Card>
+      </MotionPage>
+    );
+  }
+
+  const activeGoal = careerProfile?.activeCareerGoal;
+  const progress = getActiveLearningPathProgress(path.milestones);
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
+    <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className={styles.title}>Lộ Trình Học (Learning Path)</h1>
-          <p className={styles.subtitle}>
-            Kế hoạch rèn luyện được cá nhân hóa theo kỹ năng còn thiếu để đạt mục tiêu nghề nghiệp.
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-primary text-xs font-semibold mb-2">
+            <span className="material-symbols-outlined text-[16px]">alt_route</span>
+            <span>Lộ trình thích ứng cá nhân hóa</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
+            Lộ trình chinh phục {activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Mục tiêu'}
+          </h1>
+          <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
+            Lộ trình tự động điều chỉnh theo các khoảng trống phát hiện từ kết quả phỏng vấn và CV của bạn.
           </p>
         </div>
-        <div className={styles.headerActions}>
-          <Link href="/skill-profile" className={styles.btnSecondary}>
-            Xem hồ sơ kỹ năng
-          </Link>
-          <button
-            type="button"
-            className={styles.btnPrimary}
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleRefresh}
-            disabled={refreshMutation.isPending || isFetching}
+            disabled={refreshMutation.isPending}
+            icon={<span className="material-symbols-outlined text-[18px]">refresh</span>}
           >
-            {refreshMutation.isPending ? 'Đang đồng bộ...' : 'Cập nhật lộ trình'}
-          </button>
+            {refreshMutation.isPending ? 'Đang làm mới...' : 'Làm mới'}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push('/practice')}
+            icon={<span className="material-symbols-outlined text-[18px]">play_arrow</span>}
+          >
+            Luyện tập ngay
+          </Button>
         </div>
       </div>
 
-      {errorMessage && (
-        <div className={styles.errorBanner} role="alert">
-          <div>
-            <strong>Thông báo:</strong> {errorMessage}
-            {(apiError?.code || apiError?.requestId) && (
-              <div className={styles.errorDetails}>
-                {apiError.code && <span>Mã lỗi: {apiError.code}</span>}
-                {apiError.code && apiError.requestId && <span> · </span>}
-                {apiError.requestId && <span>Mã yêu cầu: {apiError.requestId}</span>}
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={() => {
-              setActionError(null);
-              refetch();
-            }}
-            disabled={isFetching}
-          >
-            Thử lại
-          </button>
+      {actionError && (
+        <div className="p-3.5 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
+          {actionError}
         </div>
       )}
 
-      {path && (
-        <>
-          <NextPracticeRecommendationCard />
-
-          <div className={styles.progressCard}>
-            <div className={styles.progressHeader}>
-              <span className={styles.progressTitle}>Tiến độ hoàn thành lộ trình</span>
-              <span className={styles.progressStats}>
-                {path.progress.completedActivityCount} / {path.progress.totalActivityCount} hoạt động ({path.progress.percentage}%)
-              </span>
+      {/* Progress Bar Card */}
+      <Card variant="elevated" padding="lg" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+              Tổng tiến độ lộ trình
             </div>
-            <div className={styles.progressBarBg}>
-              <div
-                className={styles.progressBarFill}
-                style={{ width: `${path.progress.percentage}%` }}
-              />
+            <div className="text-lg font-bold text-on-surface">
+              Đã hoàn thành {progress?.completedActivityCount ?? 0} / {progress?.totalActivityCount ?? 0} hoạt động ({progress?.percentage ?? 0}%)
             </div>
           </div>
+          <Badge variant={(progress?.percentage ?? 0) >= 80 ? 'success' : 'primary'} size="lg">
+            {progress?.percentage ?? 0}% Hoàn thành
+          </Badge>
+        </div>
 
-          <div className={styles.milestonesList}>
-            {path.milestones.map((milestone) => {
-              const currentActivities = milestone.activities.filter(
-                (a) => a.status !== LearningPathValues.Obsolete
-              );
-              const completedCurrent = currentActivities.filter(
-                (a) => a.status === LearningPathValues.Completed
-              );
+        <AnimatedProgressBar
+          label=""
+          value={progress?.percentage ?? 0}
+          heightClass="h-3"
+          colorClass="bg-primary"
+        />
+      </Card>
 
-              return (
-                <section key={milestone.id || milestone.code} className={styles.milestoneCard}>
-                  <div className={styles.milestoneHeader}>
-                    <div className={styles.milestoneTitleGroup}>
-                      <span className={styles.milestoneBadge}>Cột mốc {milestone.order}</span>
-                      <h2 className={styles.milestoneTitle}>{milestone.title}</h2>
-                    </div>
-                    <span className={styles.milestoneStatus}>
-                      {completedCurrent.length} / {currentActivities.length} hoàn thành
-                    </span>
-                  </div>
+      {/* Milestones Stepper */}
+      <div className="space-y-6">
+        {path.milestones.map((milestone, mIdx) => {
+          const isDone = milestone.status === 'completed';
+          const isInProgress = milestone.status === 'in_progress';
 
-                  <div className={styles.activitiesList}>
-                    {milestone.activities.map((act) => {
-                      const isCompleted = act.status === LearningPathValues.Completed;
-                      const isPending = act.status === LearningPathValues.Pending;
-                      const isObsolete = act.status === LearningPathValues.Obsolete;
+          return (
+            <div key={milestone.id} className="relative pl-6 sm:pl-8 border-l-2 border-outline-variant/40 space-y-4">
+              {/* Milestone Step Marker */}
+              <div
+                className={`absolute -left-[17px] top-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                  isDone
+                    ? 'bg-emerald-700 text-white'
+                    : isInProgress
+                    ? 'bg-primary text-white ring-4 ring-primary-fixed'
+                    : 'bg-surface-container text-on-surface-variant border border-outline-variant'
+                }`}
+              >
+                {isDone ? (
+                  <span className="material-symbols-outlined text-[18px]">check</span>
+                ) : (
+                  <span>{mIdx + 1}</span>
+                )}
+              </div>
 
-                      const deepLink = isPending ? getActivityDeepLink(act) : null;
-                      const isExternal =
-                        act.type === LearningPathValues.ExternalLearning && Boolean(act.externalUrl);
-                      const isCompleting =
-                        completeMutation.isPending && completeMutation.variables === act.id;
+              {/* Milestone Title */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-on-surface flex items-center gap-2">
+                    <span>{milestone.title}</span>
+                    {isDone && <Badge variant="success" size="sm">Đã hoàn thành</Badge>}
+                    {isInProgress && <Badge variant="primary" size="sm">Đang thực hiện</Badge>}
+                  </h3>
+                </div>
+              </div>
 
-                      let cardClass = styles.activityCard;
-                      if (isCompleted) {
-                        cardClass = `${styles.activityCard} ${styles.activityCardCompleted}`;
-                      } else if (isObsolete) {
-                        cardClass = `${styles.activityCard} ${styles.activityCardObsolete}`;
-                      }
+              {/* Milestone Activities List */}
+              <div className="space-y-3">
+                {milestone.activities.map((activity) => {
+                  const disposition = getLearningPathActivityDisposition(activity.status);
+                  const isActDone = disposition === 'completed';
+                  const isPending = disposition === 'pending';
+                  const isObsolete = disposition === 'obsolete';
+                  const activityLink = getActivityDeepLink(activity);
 
-                      let titleClass = styles.activityTitle;
-                      if (isCompleted) {
-                        titleClass = `${styles.activityTitle} ${styles.activityTitleCompleted}`;
-                      } else if (isObsolete) {
-                        titleClass = `${styles.activityTitle} ${styles.activityTitleObsolete}`;
-                      }
-
-                      return (
-                        <div key={act.id} className={cardClass}>
-                          <div className={styles.activityHeader}>
-                            <div className={styles.activityTitleGroup}>
-                              <span className={`${styles.typeBadge} ${getActivityTypeBadgeClass(act.type)}`}>
-                                {getActivityTypeLabel(act.type)}
+                  return (
+                    <Card
+                      key={activity.id}
+                      variant="elevated"
+                      padding="md"
+                      className={`transition-all ${
+                        isActDone ? 'opacity-75 bg-surface-container-low/40' : 'bg-white'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          {/* Permanent Status Indicator */}
+                          <div className="mt-0.5 shrink-0">
+                            {isActDone ? (
+                              <span
+                                className="material-symbols-outlined text-[22px] text-emerald-700"
+                                title="Đã hoàn thành"
+                              >
+                                task_alt
                               </span>
-                              <span className={styles.priorityPill}>Ưu tiên: {act.priority}</span>
-                              <div className={titleClass}>
-                                {act.title}
-                              </div>
-                            </div>
+                            ) : isPending ? (
+                              <button
+                                type="button"
+                                onClick={() => handleCompleteActivity(activity.id)}
+                                disabled={completeMutation.isPending}
+                                className="text-outline-variant hover:text-primary transition-colors"
+                                title="Đánh dấu đã hoàn thành"
+                              >
+                                <span className="material-symbols-outlined text-[22px]">
+                                  radio_button_unchecked
+                                </span>
+                              </button>
+                            ) : (
+                              <span
+                                className="material-symbols-outlined text-[22px] text-on-surface-variant"
+                                title={isObsolete ? 'Hoạt động đã lỗi thời' : 'Trạng thái không được hỗ trợ'}
+                              >
+                                {isObsolete ? 'block' : 'help'}
+                              </span>
+                            )}
                           </div>
 
-                          {act.description && (
-                            <div className={styles.activityDescription}>{act.description}</div>
-                          )}
-
-                          <div className={styles.activityFooter}>
-                            <div className={styles.activityCompetency}>
-                              {act.competencyCode && (
-                                <span>
-                                  Kỹ năng: <strong>{act.competencyCode}</strong>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {getActivityTypeBadge(activity.type)}
+                              <h4
+                                className={`text-xs sm:text-sm font-bold ${
+                                  isActDone ? 'line-through text-on-surface-variant' : 'text-on-surface'
+                                }`}
+                              >
+                                {activity.title}
+                              </h4>
+                              {isActDone && (
+                                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  Đã ghi nhận
                                 </span>
                               )}
+                              {isObsolete && <Badge variant="neutral" size="sm">Đã lỗi thời</Badge>}
+                              {disposition === 'unknown' && <Badge variant="warning" size="sm">Không khả dụng</Badge>}
                             </div>
-                            <div className={styles.activityActions}>
-                              {isPending && deepLink && (
-                                isExternal ? (
-                                  <a
-                                    href={deepLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={styles.actionLink}
-                                  >
-                                    {getActivityActionText(act.type)}
-                                  </a>
-                                ) : (
-                                  <Link href={deepLink} className={styles.actionLink}>
-                                    {getActivityActionText(act.type)}
-                                  </Link>
-                                )
-                              )}
-
-                              {isPending && (
-                                <button
-                                  type="button"
-                                  className={styles.completeBtn}
-                                  onClick={() => handleCompleteActivity(act)}
-                                  disabled={isCompleting}
-                                >
-                                  {isCompleting ? 'Đang lưu...' : 'Đánh dấu xong'}
-                                </button>
-                              )}
-
-                              {isCompleted && (
-                                <span className={styles.completedLabel}>✓ Đã hoàn thành</span>
-                              )}
-
-                              {isObsolete && (
-                                <span className={styles.obsoleteLabel}>
-                                  Không còn trong lộ trình hiện tại
-                                </span>
-                              )}
-
-                              {!isPending && !isCompleted && !isObsolete && (
-                                <span className={styles.unavailableLabel}>
-                                  Trạng thái không khả dụng
-                                </span>
-                              )}
-                            </div>
+                            <p className="text-xs text-on-surface-variant leading-relaxed">
+                              {activity.description}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
+
+                        {/* Action CTA */}
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          {isPending && activityLink ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleStartActivity(activity)}
+                              icon={<span className="material-symbols-outlined text-[16px]">play_arrow</span>}
+                            >
+                              Bắt đầu ngay
+                            </Button>
+                          ) : isPending ? (
+                            <span className="text-xs font-semibold text-on-surface-variant">Chưa có đích đến khả dụng</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </MotionPage>
   );
 }

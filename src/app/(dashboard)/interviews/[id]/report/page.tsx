@@ -191,7 +191,7 @@ export default function InterviewReportPage() {
   const sample = report.sample;
   const isPartial = sample?.isPartial ?? false;
   const answeredCount = sample?.answeredQuestions ?? report.questionReviews?.length ?? 0;
-  const totalCount = sample?.issuedQuestions ?? 3;
+  const totalCount = sample?.issuedQuestions;
   const hasOverallScore = report.overallScore !== null && report.overallScore !== undefined;
   const overallScore = report.overallScore;
 
@@ -215,7 +215,7 @@ export default function InterviewReportPage() {
             <span>Báo cáo đánh giá Phỏng vấn</span>
             {isPartial ? (
               <Badge variant="warning" size="sm">
-                Báo cáo thu gọn ({answeredCount}/{totalCount} câu hỏi)
+                Báo cáo thu gọn ({totalCount == null ? `${answeredCount} câu hỏi` : `${answeredCount}/${totalCount} câu hỏi`})
               </Badge>
             ) : (
               <Badge variant="success" size="sm">

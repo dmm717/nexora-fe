@@ -18,6 +18,7 @@ import {
   isInterviewRoute,
 } from '@/utils/authIntent';
 import { Check, ArrowUpRight } from 'lucide-react';
+import { describePlanFeature } from '@/services/billingPresentation';
 
 export default function PricingCards() {
   const router = useRouter();
@@ -125,12 +126,13 @@ export default function PricingCards() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-          {plans.map((plan, index) => {
+          {plans.map((plan) => {
             const price = plan.prices && plan.prices.length > 0 ? plan.prices[0] : null;
             if (!price) return null;
 
             const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
-            const isHighlight = index === 1;
+            const isHighlight = plan.isHighlighted;
+            const featureDescriptions = price.features.map(describePlanFeature).filter(Boolean) as string[];
 
             return (
               <Card
@@ -160,9 +162,7 @@ export default function PricingCards() {
                   <div>
                     <h3 className="font-bold text-lg text-on-surface">{plan.name}</h3>
                     <p className="text-xs text-on-surface-variant mt-1 min-h-[36px] leading-relaxed">
-                      {price.amountMinor === 0
-                        ? 'Trải nghiệm phương pháp luyện phỏng vấn và phân tích hồ sơ'
-                        : `Gói luyện tập chuyên sâu cho mục tiêu ${plan.name}`}
+                      {plan.description || 'Thông tin quyền lợi được cung cấp trực tiếp từ cấu hình gói.'}
                     </p>
                   </div>
 
@@ -180,38 +180,16 @@ export default function PricingCards() {
                       Tính năng bao gồm:
                     </div>
                     <div className="text-xs font-semibold text-primary">
-                      Hạn mức: {price.interviewQuota ? `${price.interviewQuota} lượt phỏng vấn` : 'Luyện phỏng vấn linh hoạt'}
+                      Hạn mức phỏng vấn: {price.interviewQuota !== null ? `${price.interviewQuota} lượt` : 'Chưa có thông tin'}
                     </div>
-
-                    <div className="flex items-start gap-2 text-xs">
-                      <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
-                      <span className="text-on-surface">
-                        {price.amountMinor === 0
-                          ? '01 Phiên phỏng vấn AI mẫu (3 câu/phiên)'
-                          : 'Phiên phỏng vấn AI đầy đủ câu hỏi'}
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2 text-xs">
-                      <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
-                      <span className="text-on-surface">
-                        {price.amountMinor === 0
-                          ? 'Phân tích CV từ khóa cơ bản'
-                          : 'Phân tích CV chuyên sâu theo vị trí'}
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2 text-xs">
-                      <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
-                      <span className="text-on-surface">
-                        Báo cáo điểm số & gợi ý cải thiện
-                      </span>
-                    </div>
-                    {price.amountMinor > 0 && (
-                      <div className="flex items-start gap-2 text-xs">
+                    {featureDescriptions.map((description) => (
+                      <div key={description} className="flex items-start gap-2 text-xs">
                         <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
-                        <span className="text-on-surface font-medium text-primary">
-                          Tiếp tục ngay câu 4+ trong cùng phiên
-                        </span>
+                        <span className="text-on-surface">{description}</span>
                       </div>
+                    ))}
+                    {featureDescriptions.length === 0 && (
+                      <div className="text-xs text-on-surface-variant">Chưa có thông tin tính năng cho mức giá này.</div>
                     )}
                   </div>
                 </div>

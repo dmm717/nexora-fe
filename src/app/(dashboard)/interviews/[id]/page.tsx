@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ApiError } from '@/services/apiClient';
+import { useFocusedPracticeShell } from '@/components/layouts/FocusedPracticeShellContext';
 
 // Feature components
 import { AiInterviewerPresence, type InterviewPresenceState } from '@/components/features/interview/AiInterviewerPresence';
@@ -204,10 +205,27 @@ export default function InterviewRoomPage() {
 
   // Question sequence & header text
   const currentSequence = activeQuestion?.sequence ?? (answeredPairs.length + 1);
-  const isPaidPhase = answeredPairs.length >= 3;
-  const headerQuestionLabel = isPaidPhase
-    ? `Câu hỏi ${currentSequence}`
-    : `Câu hỏi ${currentSequence}/3`;
+  const isBeyondFreeBoundary = currentSequence > 3 || answeredPairs.length >= 3;
+  const headerQuestionLabel = `Câu ${currentSequence}`;
+
+  useFocusedPracticeShell({
+    title: interview?.role ? `Phỏng vấn ${interview.role}` : 'Phỏng vấn AI',
+    subtitle: interview?.seniority
+      ? `${interview.seniority} · ${interview.interviewType}`
+      : undefined,
+    stepInfo: activeQuestion ? headerQuestionLabel : undefined,
+    statusLabel:
+      isEvaluating || submitting
+        ? 'AI đang đánh giá câu trả lời'
+        : candidateState.listening
+          ? 'Đang lắng nghe câu trả lời'
+          : isAiSpeaking
+            ? 'AI đang đọc câu hỏi'
+            : interview?.status === 'active'
+              ? 'Phiên phỏng vấn đang hoạt động'
+              : undefined,
+    exitTo: '/interviews',
+  });
 
   // Submit Answer handler
   const handleSubmitAnswer = async (content: string, durationSec?: number) => {
@@ -711,7 +729,7 @@ export default function InterviewRoomPage() {
             isOpen={showCoaching}
             coaching={latestEvaluation}
             questionSequence={latestEvaluatedSeq}
-            totalQuestions={isPaidPhase ? null : 3}
+            totalQuestions={isBeyondFreeBoundary ? null : 3}
             canContinueQuestion={
               Boolean(activeQuestion) ||
               latestEvaluatedSeq < 3 ||

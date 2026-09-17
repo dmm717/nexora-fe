@@ -36,6 +36,7 @@ import {
   type NormalizedStarEvaluation,
 } from '@/services/interviewContract';
 import { readStatus } from '@/utils/queryPolling';
+import { useFocusedPracticeShell } from '@/components/layouts/FocusedPracticeShellContext';
 
 const componentHints = [
   ['S', 'Situation', 'Bối cảnh thực tế của câu chuyện.'],
@@ -110,6 +111,13 @@ export default function StarPractice() {
   const active = attempt.data && 'question' in attempt.data ? attempt.data : undefined;
   const isProcessing = active?.status === 'queued' || active?.status === 'processing';
   const displayError = error || attempt.error;
+
+  useFocusedPracticeShell({
+    title: 'Luyện phản xạ STAR',
+    subtitle: active?.question || undefined,
+    statusLabel: isProcessing ? 'AI đang phân tích câu trả lời' : undefined,
+    exitTo: '/practice',
+  });
 
   const handleSubmit = () => {
     if (!question.trim() || !answer.trim() || submit.isPending || isKnownLocked) return;

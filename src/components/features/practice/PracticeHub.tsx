@@ -1,28 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ArrowRight,
-  BriefcaseBusiness,
-  Check,
-  Clock3,
-  History,
-  MessageSquareText,
-  Mic2,
-  RefreshCw,
-  Sparkles,
-  Target,
-} from 'lucide-react';
-import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { ProductPageHero } from '@/components/product-visual';
 import { useInterviewsHistory } from '@/hooks/queries/useInterviews';
 import { useScenarioAttempts } from '@/hooks/queries/useScenarios';
 import { useStarAttempts } from '@/hooks/queries/useStarAttempts';
 import { useCurrentUser } from '@/hooks/queries/useUser';
+import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
+import { useNextRecommendation } from '@/hooks/queries/useNextRecommendation';
+import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
+import { useLearningPath } from '@/hooks/queries/useLearningPath';
+import { resolveNextBestAction } from '@/services/nextBestAction';
+import { hasAvailableLearningPath } from '@/services/learningPathAvailability';
 
 type PracticeFeatureState = 'enabled' | 'locked' | 'unknown';
 
@@ -43,296 +36,515 @@ function getFeatureState(
   return 'enabled';
 }
 
-const statusLabels: Record<string, string> = {
-  draft: 'Bản nháp',
-  queued: 'Đang chờ',
-  processing: 'Đang đánh giá',
-  completed: 'Đã hoàn thành',
-  failed: 'Đánh giá thất bại',
-  active: 'Đang thực hiện',
-  completing: 'Đang tạo báo cáo',
-};
-
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-
 export default function PracticeHub() {
   const router = useRouter();
   const currentUser = useCurrentUser();
   const interviews = useInterviewsHistory(8);
   const scenarios = useScenarioAttempts();
   const stars = useStarAttempts();
+  const { data: careerProfile } = useCareerProfile();
+  const { data: recommendation } = useNextRecommendation();
+  const { data: progress } = useProgressDashboard();
+  const { data: learningPath } = useLearningPath();
+
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'interview' | 'scenario' | 'star'>('all');
+  const historyLoading = interviews.isLoading || scenarios.isLoading || stars.isLoading;
+  const historyError = interviews.error || scenarios.error || stars.error;
 
   const features = currentUser.data?.billing?.entitlement?.features;
   const scenarioState = getFeatureState(features, 'scenario');
   const starState = getFeatureState(features, 'star_builder');
 
-  const activity = useMemo(() => {
-    const interviewItems = (interviews.data?.pages.flatMap((page) => page.items) || []).map((item) => ({
-      id: `interview-${item.id}`,
-      mode: 'Phỏng vấn AI',
-      title: `${item.role || 'Phỏng vấn'} · ${item.interviewType}`,
-      status: item.status,
-      createdAt: item.createdAt,
-      href: item.reportAvailable ? `/interviews/${item.id}/report` : `/interviews/${item.id}`,
-      score: null as number | null,
-    }));
-    const scenarioItems = (scenarios.data || []).map((item) => ({
-      id: `scenario-${item.id}`,
-      mode: 'Tình huống',
-      title: item.scenarioTitle,
-      status: item.status,
-      createdAt: item.createdAt,
-      href: '/practice/scenarios',
-      score: item.evaluation?.overallScore ?? null,
-    }));
-    const starItems = (stars.data || []).map((item) => ({
-      id: `star-${item.id}`,
-      mode: 'STAR',
-      title: item.question,
-      status: item.status,
-      createdAt: item.createdAt,
-      href: `/practice/star?attempt=${encodeURIComponent(item.id)}`,
-      score: item.evaluation?.overallScore ?? null,
-    }));
+  // Resolve Next Best Action
+  const nextAction = resolveNextBestAction({
+    recommendation: recommendation ?? null,
+    targetRole: careerProfile?.activeCareerGoal?.targetRole,
+    needsFirstEvidence: progress?.readiness?.score === null || progress?.readiness?.score === undefined,
+  });
 
-    return [...interviewItems, ...scenarioItems, ...starItems]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 8);
+  // Check learning path availability
+  const hasLearningPath = hasAvailableLearningPath(learningPath ?? null, careerProfile, progress);
+
+  // Unified practice history
+  const allPracticeHistory = useMemo(() => {
+    const list: Array<{
+      id: string;
+      type: 'interview' | 'scenario' | 'star';
+      title: string;
+      subtitle: string;
+      date: string;
+      score?: number | null;
+      isPracticeAgain?: boolean;
+      actionUrl: string;
+      actionLabel: string;
+      actionIcon: string;
+    }> = [];
+
+    // 1. Interviews
+    const interviewItems = (interviews.data?.pages.flatMap((page) => page.items) || []);
+    interviewItems.forEach((iv) => {
+      const isRepeat = Boolean(iv.sourceInterviewId || iv.sourceQuestionId || iv.practiceReason);
+      list.push({
+        id: `iv-${iv.id}`,
+        type: 'interview',
+        title: isRepeat
+          ? iv.role
+          : iv.interviewType === 'behavioral'
+          ? `Phỏng vấn ứng xử: ${iv.role || 'Chuyên môn'}`
+          : `Phỏng vấn kỹ thuật: ${iv.role || 'Chuyên môn'}`,
+        subtitle: `${iv.role || 'Ứng viên'}${iv.seniority ? ` (${iv.seniority})` : ''} • ${iv.interviewType || 'technical'}`,
+        date: iv.createdAt,
+        score: null,
+        isPracticeAgain: isRepeat,
+        actionUrl: iv.reportAvailable ? `/interviews/${iv.id}/report` : `/interviews/${iv.id}`,
+        actionLabel: iv.reportAvailable ? 'Xem báo cáo' : 'Vào lại phòng',
+        actionIcon: iv.reportAvailable ? 'assessment' : 'play_arrow',
+      });
+    });
+
+    // 2. Scenarios
+    (scenarios.data || []).forEach((sc) => {
+      list.push({
+        id: `sc-${sc.id}`,
+        type: 'scenario',
+        title: `Tình huống: ${sc.scenarioTitle}`,
+        subtitle: `${sc.status === 'completed' ? 'Đã hoàn thành' : 'Đang xử lý'} • ${sc.scenarioTitle}`,
+        date: sc.createdAt,
+        score: sc.evaluation?.overallScore ?? null,
+        actionUrl: `/practice/scenarios`,
+        actionLabel: 'Xem bài giải',
+        actionIcon: 'description',
+      });
+    });
+
+    // 3. STAR Attempts
+    (stars.data || []).forEach((st) => {
+      list.push({
+        id: `star-${st.id}`,
+        type: 'star',
+        title: 'Luyện phản xạ STAR',
+        subtitle: st.question,
+        date: st.createdAt,
+        score: st.evaluation?.overallScore ?? null,
+        actionUrl: `/practice/star?attempt=${encodeURIComponent(st.id)}`,
+        actionLabel: 'Xem chi tiết STAR',
+        actionIcon: 'replay',
+      });
+    });
+
+    return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [interviews.data, scenarios.data, stars.data]);
 
-  const historyLoading = interviews.isLoading || scenarios.isLoading || stars.isLoading;
-  const historyError = interviews.isError || scenarios.isError || stars.isError;
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'all') return allPracticeHistory;
+    return allPracticeHistory.filter((item) => item.type === historyFilter);
+  }, [allPracticeHistory, historyFilter]);
 
-  const goToFeature = (state: PracticeFeatureState, destination: string) => {
-    if (state === 'locked') {
-      router.push(`/billing?returnTo=${encodeURIComponent(destination)}`);
-      return;
+  const goToTrack = (destination: string, isLocked: boolean) => {
+    if (isLocked) {
+      router.push(`/pricing?returnTo=${encodeURIComponent(destination)}`);
+    } else {
+      router.push(destination);
     }
-    router.push(destination);
   };
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
-      <section className="relative overflow-hidden rounded-2xl bg-[#111b3b] px-5 py-8 text-white shadow-floating sm:px-8 sm:py-10 lg:px-12">
-        <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-[#6cf8bb]/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-[#bcc3ff]/20 blur-3xl" />
-        <div className="relative max-w-3xl">
-          <h1 className="text-2xl font-bold tracking-[-0.025em] sm:text-3xl">
-            Luyện đúng kỹ năng, tiến bộ bằng bằng chứng thật
-          </h1>
-          <p className="mt-3 max-w-[68ch] text-sm leading-6 text-[#dfe5ff] sm:text-base">
-            Chọn một chế độ luyện tập phù hợp với mục tiêu hiện tại. Mỗi kết quả chỉ được hiển thị
-            khi hệ thống đã ghi nhận và đánh giá lượt làm thật của bạn.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      <ProductPageHero
+        feature="practice"
+        title="Trung tâm Luyện tập & Thử thách thực chiến"
+        description="Mỗi buổi thực hành ghi nhận bằng chứng vào hồ sơ năng lực, để bạn luôn biết mình nên luyện điều gì tiếp theo."
+      />
+
+      {/* Primary Recommendation: Next Best Action */}
+      <Card
+        variant="elevated"
+        padding="lg"
+        className="relative overflow-hidden border-2 border-primary/40 bg-gradient-to-r from-primary-fixed/30 via-white to-white shadow-card"
+      >
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shrink-0">
+              <span className="material-symbols-outlined text-[24px]">recommend</span>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="primary" size="sm">
+                  Hành động tốt nhất tiếp theo
+                </Badge>
+                {nextAction.estimatedMinutes && <span className="text-xs text-on-surface-variant font-mono">
+                  {nextAction.estimatedMinutes} phút
+                </span>}
+              </div>
+              <h3 className="font-bold text-base sm:text-lg text-on-surface">
+                {nextAction.label}
+              </h3>
+              <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed max-w-2xl">
+                {nextAction.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 w-full md:w-auto">
             <Button
-              size="lg"
-              onClick={() => router.push('/interviews/new')}
-              icon={<Mic2 size={18} />}
-              className="bg-[#6cf8bb] text-[#003824] hover:bg-[#8dffca] focus:ring-[#6cf8bb]"
+              variant="primary"
+              size="md"
+              onClick={() => nextAction.destination && router.push(nextAction.destination)}
+              disabled={!nextAction.destination}
+              icon={<span className="material-symbols-outlined text-[18px]">play_arrow</span>}
+              iconPosition="right"
+              className="w-full md:w-auto shadow-sm"
             >
-              Bắt đầu phỏng vấn
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => router.push('/practice/scenarios')}
-              className="border-white/30 bg-white/10 text-white hover:border-white/50 hover:bg-white/15 hover:text-white"
-            >
-              Khám phá tình huống
+              Thực hiện ngay
             </Button>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section aria-labelledby="practice-modes-title" className="space-y-4">
-        <div>
-          <h2 id="practice-modes-title" className="text-xl font-bold text-on-surface sm:text-2xl">
-            Chọn cách bạn muốn luyện
-          </h2>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Ba chế độ độc lập cho ba mục tiêu khác nhau trong hành trình chuẩn bị phỏng vấn.
-          </p>
-        </div>
+      {/* Section Title: Chọn cách bạn muốn luyện */}
+      <div className="space-y-2">
+        <h2 className="text-lg sm:text-xl font-bold text-on-surface">
+          Chọn cách bạn muốn luyện
+        </h2>
+        <p className="text-xs text-on-surface-variant">
+          Ba chế độ rèn luyện độc lập phục vụ từng mục tiêu năng lực cụ thể.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <PracticeModeCard
-            icon={<Mic2 size={24} />}
-            title="Phỏng vấn AI"
-            description="Thực hành một phiên phỏng vấn đầy đủ, trả lời bằng giọng nói hoặc văn bản và nhận báo cáo theo rubric."
-            points={['Luồng phỏng vấn production hiện tại', 'Câu hỏi theo mục tiêu và bối cảnh', 'Báo cáo sau phiên']}
-            action="Vào phòng phỏng vấn"
-            onAction={() => router.push('/interviews/new')}
-            badge="Phiên luyện đầy đủ"
-            tone="primary"
-          />
-          <PracticeModeCard
-            icon={<BriefcaseBusiness size={24} />}
-            title="Kho tình huống"
-            description="Rèn cách phân tích và xử lý các bài toán nghề nghiệp theo độ khó, lĩnh vực và năng lực."
-            points={['Đề bài từ hệ thống', 'Một câu trả lời tự nhiên', 'Đánh giá và lịch sử từng lượt']}
-            action={scenarioState === 'locked' ? 'Xem gói để mở khóa' : 'Khám phá tình huống'}
-            onAction={() => goToFeature(scenarioState, '/practice/scenarios')}
-            badge={scenarioState === 'locked' ? 'Cần quyền truy cập' : 'Thực hành tập trung'}
-            tone="secondary"
-          />
-          <PracticeModeCard
-            icon={<MessageSquareText size={24} />}
-            title="Luyện phản xạ STAR"
-            description="Kể một trải nghiệm như khi phỏng vấn. AI bóc tách Situation, Task, Action và Result từ câu trả lời thật."
-            points={['Một ô trả lời tự nhiên', 'Bằng chứng theo từng thành phần', 'Coaching từ đánh giá backend']}
-            action={starState === 'locked' ? 'Xem gói để mở khóa' : 'Luyện STAR'}
-            onAction={() => goToFeature(starState, '/practice/star')}
-            badge={starState === 'locked' ? 'Cần quyền truy cập' : 'Cấu trúc & bằng chứng'}
-            tone="tertiary"
-          />
-        </div>
-      </section>
+      {/* 3 Main Practice Tracks */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Track 1: Mock Interview */}
+        <Card variant="elevated" padding="lg" className="flex flex-col justify-between relative overflow-hidden border-primary/30 group hover:border-primary">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full pointer-events-none" />
 
-      <section aria-labelledby="practice-history-title" className="space-y-4 border-t border-outline-variant/50 pt-7">
-        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="practice-history-title" className="flex items-center gap-2 text-lg font-bold text-on-surface sm:text-xl">
-              <History size={20} aria-hidden="true" />
-              Hoạt động gần đây
-            </h2>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              Chỉ gồm các lượt luyện đã được lưu trên máy chủ.
-            </p>
-          </div>
-          {activity.length > 0 && <Badge variant="outline">{activity.length} hoạt động gần nhất</Badge>}
-        </div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-md">
+                <span className="material-symbols-outlined text-[26px]">record_voice_over</span>
+              </span>
+              <Badge variant="primary" size="sm">Phổ biến nhất</Badge>
+            </div>
 
-        {historyLoading ? (
-          <div className="grid gap-3" role="status" aria-live="polite" aria-label="Đang tải hoạt động luyện tập">
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="h-24 animate-pulse rounded-xl bg-surface-container" />
-            ))}
+            <h3 className="font-bold text-lg text-on-surface mb-2">
+              Phỏng vấn AI
+            </h3>
+            <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
+              Trả lời bằng giọng nói hoặc văn bản, chỉnh transcript trước khi nộp. Nhận phản hồi theo Rubric 4 tiêu chí trong phiên phỏng vấn 1-1.
+            </p>
+
+            <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Q1–Q3 thuộc phạm vi miễn phí; quyền tiếp tục do máy chủ xác nhận</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Báo cáo đánh giá sau phiên phỏng vấn</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Lịch sử và báo cáo lấy từ các phiên đã lưu</span>
+              </div>
+            </div>
           </div>
-        ) : historyError ? (
-          <Alert
-            variant="warning"
-            title="Chưa thể tải đầy đủ hoạt động"
-            action={
-              <Button
-                size="sm"
-                variant="outline"
-                icon={<RefreshCw size={15} />}
-                onClick={() => {
-                  void interviews.refetch();
-                  void scenarios.refetch();
-                  void stars.refetch();
-                }}
-              >
-                Thử lại
-              </Button>
-            }
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => router.push('/interviews/new')}
+            className="mt-6 w-full shadow-sm"
+            icon={<span className="material-symbols-outlined text-[18px]">play_arrow</span>}
+            iconPosition="right"
           >
-            Một hoặc nhiều nguồn lịch sử đang tạm thời không khả dụng.
-          </Alert>
-        ) : activity.length === 0 ? (
-          <EmptyState
-            icon={<Target size={34} />}
-            title="Chưa có hoạt động luyện tập"
-            description="Bắt đầu bằng một phiên phỏng vấn, tình huống hoặc câu trả lời STAR. Lượt làm thật sẽ xuất hiện tại đây."
-            action={<Button onClick={() => router.push('/interviews/new')}>Bắt đầu lần đầu</Button>}
-          />
-        ) : (
-          <div className="grid gap-3">
-            {activity.map((item) => (
+            Vào phòng phỏng vấn
+          </Button>
+        </Card>
+
+        {/* Track 2: Scenario Practice */}
+        <Card variant="elevated" padding="lg" className="flex flex-col justify-between border-outline-variant/60 hover:border-secondary transition-colors">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">terminal</span>
+              </span>
+              <Badge variant={scenarioState === 'locked' ? 'warning' : 'secondary'} size="sm">
+                {scenarioState === 'locked' ? 'Đang khóa · Nâng cấp' : 'Hệ thống thực tế'}
+              </Badge>
+            </div>
+
+            <h3 className="font-bold text-lg text-on-surface mb-2">
+              Kho tình huống
+            </h3>
+            <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
+              Luyện cách xử lý các tình huống thực tế theo vai trò, mức độ và năng lực bạn muốn cải thiện.
+            </p>
+
+            <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Danh mục và nội dung tình huống lấy trực tiếp từ máy chủ</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Đánh giá phương án xử lý ngắn hạn & dài hạn</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Điểm và bằng chứng chỉ hiển thị khi backend trả về</span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => goToTrack('/practice/scenarios', scenarioState === 'locked')}
+            className="mt-6 w-full"
+            icon={<span className="material-symbols-outlined text-[18px]">arrow_forward</span>}
+            iconPosition="right"
+          >
+            {scenarioState === 'locked' ? 'Xem gói để mở khóa' : 'Khám phá kho tình huống'}
+          </Button>
+        </Card>
+
+        {/* Track 3: STAR Mastery */}
+        <Card variant="elevated" padding="lg" className="flex flex-col justify-between border-outline-variant/60 hover:border-tertiary transition-colors">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="w-12 h-12 rounded-2xl bg-tertiary-container flex items-center justify-center text-on-tertiary-container shadow-sm">
+                <span className="material-symbols-outlined text-[26px]">psychology_alt</span>
+              </span>
+              <Badge variant={starState === 'locked' ? 'warning' : 'tertiary'} size="sm">
+                {starState === 'locked' ? 'Đang khóa · Nâng cấp' : 'Cấu trúc STAR'}
+              </Badge>
+            </div>
+
+            <h3 className="font-bold text-lg text-on-surface mb-2">
+              Luyện STAR
+            </h3>
+            <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
+              Bẻ gãy thói quen kể chuyện lan man. Rèn luyện phản xạ đưa số liệu định lượng vào thành phần Kết quả (Result) để thuyết phục nhà tuyển dụng.
+            </p>
+
+            <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Phân tích tức thời 4 thành phần S-T-A-R</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Cảnh báo thành phần bị khuyết thiếu</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
+                <span>Lịch sử luyện tập được lưu theo từng lượt thật</span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => goToTrack('/practice/star', starState === 'locked')}
+            className="mt-6 w-full"
+            icon={<span className="material-symbols-outlined text-[18px]">arrow_forward</span>}
+            iconPosition="right"
+          >
+            {starState === 'locked' ? 'Xem gói để mở khóa' : 'Luyện phản xạ STAR'}
+          </Button>
+        </Card>
+      </div>
+
+      {/* Learning Path Banner */}
+      <Card variant="elevated" padding="lg" className="bg-surface-container-low border-primary/20">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-white text-2xl font-bold shadow-md flex-shrink-0">
+              <span className="material-symbols-outlined text-[28px]">route</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base text-on-surface">
+                  {hasLearningPath
+                    ? 'Lộ trình học tập & phát triển cá nhân'
+                    : 'Chưa có lộ trình cá nhân hóa'}
+                </h3>
+                {hasLearningPath && learningPath?.progress && (
+                  <Badge variant="primary" size="sm">
+                    {learningPath.progress.percentage}% hoàn thành
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-on-surface-variant mt-1">
+                {hasLearningPath ? (
+                  <>
+                    Đã hoàn thành {learningPath?.progress?.completedActivityCount ?? 0}/{learningPath?.progress?.totalActivityCount ?? 0} hoạt động được cá nhân hóa cho bạn.
+                  </>
+                ) : (
+                  'Thiết lập mục tiêu và thêm bằng chứng từ CV hoặc hoạt động luyện tập để Nexora có thể đề xuất lộ trình cá nhân hóa.'
+                )}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => router.push(hasLearningPath ? '/learning-path' : '/resume-analyses')}
+            className="w-full sm:w-auto flex-shrink-0"
+            icon={<span className="material-symbols-outlined text-[18px]">map</span>}
+            iconPosition="right"
+          >
+            {hasLearningPath ? 'Khám phá lộ trình' : 'Thiết lập mục tiêu & CV'}
+          </Button>
+        </div>
+      </Card>
+
+      {/* LỊCH SỬ LUYỆN TẬP / PRACTICE HISTORY */}
+      <section className="space-y-4 pt-4 border-t border-outline-variant/30">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] text-primary">history</span>
+            <h2 className="text-base sm:text-lg font-bold text-on-surface">Lịch sử luyện tập</h2>
+          </div>
+
+          {/* Filter Chips */}
+          <div className="flex items-center gap-1.5 p-1 bg-surface-container rounded-xl border border-outline-variant/40 flex-wrap">
+            {(
+              [
+                { id: 'all', label: 'Tất cả' },
+                { id: 'interview', label: 'Phỏng vấn' },
+                { id: 'scenario', label: 'Tình huống' },
+                { id: 'star', label: 'Luyện STAR' },
+              ] as const
+            ).map((tab) => (
               <button
-                key={item.id}
-                type="button"
-                onClick={() => router.push(item.href)}
-                className="group flex w-full flex-col gap-3 rounded-xl border border-outline-variant/60 bg-white p-4 text-left shadow-subtle transition hover:border-primary/40 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-row sm:items-center"
+                key={tab.id}
+                onClick={() => setHistoryFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  historyFilter === tab.id
+                    ? 'bg-white text-primary shadow-subtle'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
               >
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary">
-                    <Sparkles size={19} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <Badge variant="neutral" size="sm">{item.mode}</Badge>
-                      <span className="text-xs font-medium text-on-surface-variant">
-                        {statusLabels[item.status] || item.status}
-                      </span>
-                    </span>
-                    <span className="mt-1 block line-clamp-2 text-sm font-semibold text-on-surface">
-                      {item.title}
-                    </span>
-                    <span className="mt-1 flex items-center gap-1 text-xs text-on-surface-variant">
-                      <Clock3 size={13} aria-hidden="true" /> {formatDate(item.createdAt)}
-                    </span>
-                  </span>
-                </div>
-                <span className="flex items-center justify-between gap-4 sm:justify-end">
-                  {item.score !== null && (
-                    <span className="text-sm font-bold tabular-nums text-primary">{item.score}/100</span>
-                  )}
-                  <ArrowRight size={18} className="text-outline transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </span>
+                {tab.label}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* List of attempts */}
+        {historyLoading ? (
+          <div className="grid gap-3" aria-live="polite" aria-label="Đang tải lịch sử luyện tập">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-xl border border-outline-variant/40 bg-surface-container-low" />
+            ))}
+          </div>
+        ) : historyError ? (
+          <Card variant="flat" padding="md" className="text-center py-8 border-dashed">
+            <div className="text-sm font-bold text-on-surface">Chưa thể tải lịch sử luyện tập</div>
+            <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1">
+              Dữ liệu lịch sử đang lỗi hoặc mất kết nối; đây không phải trạng thái trống.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => {
+                void interviews.refetch();
+                void scenarios.refetch();
+                void stars.refetch();
+              }}
+            >
+              Thử tải lại
+            </Button>
+          </Card>
+        ) : filteredHistory.length > 0 ? (
+          <div className="space-y-3">
+            {filteredHistory.map((item) => {
+              const iconMap: Record<string, { icon: string; bg: string; text: string; badgeText: string }> = {
+                interview: { icon: 'mic', bg: 'bg-emerald-100', text: 'text-emerald-700', badgeText: 'Phỏng vấn AI' },
+                scenario: { icon: 'psychology', bg: 'bg-indigo-100', text: 'text-indigo-700', badgeText: 'Kho tình huống' },
+                star: { icon: 'star', bg: 'bg-amber-100', text: 'text-amber-700', badgeText: 'Luyện STAR' },
+              };
+              const theme = iconMap[item.type] || iconMap.interview;
+              const dateStr = new Date(item.date).toLocaleDateString('vi-VN', {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-xl bg-white border border-outline-variant/60 shadow-subtle hover:border-primary/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl ${theme.bg} ${theme.text} flex items-center justify-center shrink-0 mt-0.5 sm:mt-0`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">{theme.icon}</span>
+                    </div>
+
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" size="sm">
+                          {theme.badgeText}
+                        </Badge>
+                        {item.isPracticeAgain && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-fixed/50 text-primary">
+                            Luyện lại phản xạ
+                          </span>
+                        )}
+                        <span className="font-mono text-[11px] text-on-surface-variant">{dateStr}</span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-on-surface truncate">
+                        {item.title}
+                      </h4>
+
+                      <p className="text-xs text-on-surface-variant line-clamp-1">
+                        {item.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                    {item.score != null && (
+                      <div className="text-right">
+                        <div className="text-[10px] text-on-surface-variant uppercase font-medium">Điểm đánh giá</div>
+                        <div className="text-sm font-bold text-primary">{item.score}/100</div>
+                      </div>
+                    )}
+
+                    <Button
+                      variant={item.type === 'interview' ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => router.push(item.actionUrl)}
+                      icon={<span className="material-symbols-outlined text-[16px]">{item.actionIcon}</span>}
+                      iconPosition="right"
+                    >
+                      {item.actionLabel}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Card variant="flat" padding="md" className="text-center py-8 border-dashed">
+            <div className="w-12 h-12 mx-auto rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-2">
+              <span className="material-symbols-outlined text-[24px]">history_toggle_off</span>
+            </div>
+            <div className="text-sm font-bold text-on-surface">Chưa có lịch sử luyện tập</div>
+            <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1">
+              Các bài tập phỏng vấn giả lập, giải quyết tình huống kỹ thuật và phản xạ STAR của bạn sẽ được lưu vết đầy đủ tại đây.
+            </p>
+          </Card>
         )}
       </section>
-    </main>
-  );
-}
-
-function PracticeModeCard({
-  icon,
-  title,
-  description,
-  points,
-  action,
-  onAction,
-  badge,
-  tone,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  points: string[];
-  action: string;
-  onAction: () => void;
-  badge: string;
-  tone: 'primary' | 'secondary' | 'tertiary';
-}) {
-  const toneClasses = {
-    primary: 'bg-primary-fixed text-primary',
-    secondary: 'bg-secondary-container text-on-secondary-container',
-    tertiary: 'bg-tertiary-container text-on-tertiary-container',
-  };
-
-  return (
-    <Card variant="elevated" padding="lg" className="flex min-h-full flex-col">
-      <div className="flex items-start justify-between gap-3">
-        <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClasses[tone]}`}>
-          {icon}
-        </span>
-        <Badge variant={tone} size="sm">{badge}</Badge>
-      </div>
-      <h3 className="mt-5 text-lg font-bold text-on-surface">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-on-surface-variant">{description}</p>
-      <ul className="mt-5 flex-1 space-y-2 border-t border-outline-variant/40 pt-4">
-        {points.map((point) => (
-          <li key={point} className="flex items-start gap-2 text-xs leading-5 text-on-surface-variant">
-            <Check size={15} className="mt-0.5 shrink-0 text-secondary" aria-hidden="true" />
-            <span>{point}</span>
-          </li>
-        ))}
-      </ul>
-      <Button fullWidth className="mt-6" variant={tone === 'primary' ? 'primary' : 'outline'} onClick={onAction}>
-        {action}
-      </Button>
-    </Card>
+    </div>
   );
 }
