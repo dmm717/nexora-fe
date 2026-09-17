@@ -27,7 +27,7 @@
 ## 5. Endpoint Mapping
 | Feature / Action | Backend Endpoint | Method | Idempotency |
 |---|---|---|---|
-| Create / Start Session | `/api/v1/interviews/start` | POST | `Idempotency-Key` header |
+| Create / Start Session | `/api/v1/interviews` | POST | `Idempotency-Key` header |
 | Fetch Session State | `/api/v1/interviews/{id}` | GET | — |
 | Submit Text Answer | `/api/v1/interviews/{id}/answers` | POST | `Idempotency-Key` header |
 | Continue Session (Q4+) | `/api/v1/interviews/{id}/continue` | POST | `Idempotency-Key` header |
@@ -66,7 +66,7 @@ The system strictly supports the 7 backend-supported interview types:
 - This migration does not expose a "Save as default" control; preflight edits remain session-only and never mutate Career Goals.
 
 ## 9. Session Creation Contract
-- Initiated via `POST /api/v1/interviews/start` with payload `{ role, seniority, interviewType, difficulty, resumeId, jobDescriptionId, careerGoalId }`.
+- Initiated via `POST /api/v1/interviews` with the applicable subset of `{ role, seniority, interviewType, difficulty, resumeId, jobDescriptionId, careerGoalId }`.
 - Protected by `Idempotency-Key` header generated via crypto UUID. Retrying unchanged payloads reuses the key; changing inputs mints a new key.
 - Server returns canonical `InterviewView` containing unique session ID.
 
@@ -142,7 +142,7 @@ The system strictly supports the 7 backend-supported interview types:
 ## 21. Realtime Strategy
 - SignalR triggers invalidation of REST queries (`interview`, `interviewReport`) on resource updates.
 - REST API is the canonical source of truth for entity state.
-- Bounded fallback polling with exponential backoff prevents infinite background loops.
+- Bounded fallback polling at the configured interval prevents infinite background loops.
 
 ## 22. Prototype Mock Behaviors Intentionally Rejected
 - `PrototypeContext` was completely rejected.
