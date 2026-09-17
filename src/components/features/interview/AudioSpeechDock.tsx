@@ -14,7 +14,7 @@ export interface AudioSpeechState {
 
 export interface AudioSpeechDockProps {
   initialContent?: string;
-  onSubmit?: (content: string, durationSeconds: number) => void;
+  onSubmit?: (content: string, durationSeconds?: number) => void;
   isSubmitting?: boolean;
   onTranscriptChange?: (transcript: string) => void;
   onDurationUpdate?: (seconds: number) => void;
@@ -130,7 +130,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
 
     const trimmed = content.trim();
     if (!trimmed || !onSubmit) return;
-    onSubmit(trimmed, durationSeconds || 45);
+    onSubmit(trimmed, durationSeconds > 0 ? durationSeconds : undefined);
   };
 
   const formatTimer = (secs: number) => {

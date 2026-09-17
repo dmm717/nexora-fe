@@ -12,15 +12,15 @@ import {
   getAnsweredQuestions,
   canFinishInterview,
   canSubmitInterviewAnswer,
-  canUpgradeAndContinue,
   isUpgradeRequired,
+  getInterviewContinuationAction,
+  getInterviewRouteState,
   generateIdempotencyKey,
   getOrCreateAnswerIntent,
   applyAnswerResultToInterview,
   createCompleteIntentState,
   type AnswerIntent,
   type CompleteIntentState,
-  shouldRunAnswerTimer,
   type AnswerEvaluation,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
@@ -50,7 +50,6 @@ export default function InterviewRoomPage() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [completing, setCompleting] = useState<boolean>(false);
   const [continuing, setContinuing] = useState<boolean>(false);
-  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
 
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const [candidateState, setCandidateState] = useState<AudioSpeechState>({
@@ -82,12 +81,12 @@ export default function InterviewRoomPage() {
     code?: string;
   } | null>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
   // Stable idempotency intents
   const pendingAnswerIntentRef = useRef<AnswerIntent | null>(null);
   const continueKeyRef = useRef<string>(generateIdempotencyKey());
   const completeIntentRef = useRef<CompleteIntentState>(createCompleteIntentState());
+  const continuationReturnHandledRef = useRef<boolean>(false);
+  const continueInFlightRef = useRef<boolean>(false);
 
   const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
@@ -103,67 +102,81 @@ export default function InterviewRoomPage() {
   const continuation = interview?.continuation;
   const canFinish = canFinishInterview(continuation);
   const upgradeRequired = isUpgradeRequired(continuation);
-  const canUpgrade = canUpgradeAndContinue(continuation);
+  const continuationAction = getInterviewContinuationAction({
+    continuation,
+    answeredQuestionCount: answeredPairs.length,
+    hasActiveQuestion: Boolean(activeQuestion),
+  });
 
   const canAnswer = canSubmitInterviewAnswer({
     status: interview?.status,
     hasQuestion: Boolean(activeQuestion),
     upgradeRequired,
   });
-  const hasActiveQuestion = Boolean(activeQuestion);
   const activeQuestionId = activeQuestion?.id;
 
-  // Handle automatic continuation when returning from billing with sessionContinuation=true
+  // Consume the billing return marker once, then re-check canonical server entitlement.
   useEffect(() => {
     const isContinuationReturn = searchParams.get('sessionContinuation') === 'true';
-    if (isContinuationReturn && interview && interview.status === 'active' && !continuing) {
+    if (isContinuationReturn && !continuationReturnHandledRef.current) {
+      continuationReturnHandledRef.current = true;
+      router.replace(`/interviews/${id}`, { scroll: false });
+
       const runContinuation = async () => {
         try {
+          if (continueInFlightRef.current) return;
+          continueInFlightRef.current = true;
           setContinuing(true);
+          setActionError(null);
+          await queryClient.invalidateQueries({ queryKey: ['interview', id] });
+          const freshInterview = await interviewApi.getById(id);
+          queryClient.setQueryData(['interview', id], freshInterview);
+
+          const freshAction = getInterviewContinuationAction({
+            continuation: freshInterview.continuation,
+            answeredQuestionCount: getAnsweredQuestions(
+              freshInterview.questions,
+              freshInterview.answers
+            ).length,
+            hasActiveQuestion: Boolean(
+              getCurrentQuestion(freshInterview.questions, freshInterview.answers)
+            ),
+          });
+
+          if (freshInterview.status !== 'active' || freshAction !== 'continue_same_session') {
+            if (freshAction === 'upgrade') {
+              setActionError({
+                message:
+                  'Gói nâng cấp chưa được xác nhận cho phiên này. Vui lòng kiểm tra thanh toán rồi thử lại.',
+              });
+            }
+            return;
+          }
+
           const updated = await interviewApi.continue(id, continueKeyRef.current);
           queryClient.setQueryData(['interview', id], updated);
           continueKeyRef.current = generateIdempotencyKey();
-        } catch {
-          // Non-blocking if already unlocked or pending
+        } catch (err: unknown) {
+          setActionError({
+            message:
+              err instanceof ApiError
+                ? err.message
+                : 'Không thể kiểm tra trạng thái nâng cấp. Vui lòng thử lại.',
+            requestId: err instanceof ApiError ? err.requestId : undefined,
+            code: err instanceof ApiError ? err.code : undefined,
+          });
         } finally {
+          continueInFlightRef.current = false;
           setContinuing(false);
         }
       };
       runContinuation();
     }
-  }, [searchParams, interview, id, continuing, queryClient]);
-
-  // Answer timer effect
-  useEffect(() => {
-    if (
-      shouldRunAnswerTimer({
-        status: interview?.status,
-        hasQuestion: hasActiveQuestion,
-        canSubmitAnswer: canAnswer,
-        submitting: submitting || isEvaluating,
-      })
-    ) {
-      timerRef.current = setInterval(() => {
-        setSecondsElapsed((prev) => prev + 1);
-      }, 1000);
-    }
-
-    if (interview?.status === 'completed') {
-      router.push(`/interviews/${id}/report`);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [interview?.status, hasActiveQuestion, canAnswer, submitting, isEvaluating, id, router]);
+  }, [searchParams, id, queryClient, router]);
 
   // Reset timer on question change
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSecondsElapsed(0);
     setCurrentDraftContent('');
   }, [activeQuestionId]);
 
@@ -195,22 +208,17 @@ export default function InterviewRoomPage() {
     : `Câu hỏi ${currentSequence}/3`;
 
   // Submit Answer handler
-  const handleSubmitAnswer = async (content: string, durationSec: number) => {
+  const handleSubmitAnswer = async (content: string, durationSec?: number) => {
     if (!canAnswer || !activeQuestion || submitting || isEvaluating) return;
 
     setSubmitting(true);
     setIsEvaluating(true);
     setActionError(null);
 
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
     const intent = getOrCreateAnswerIntent(pendingAnswerIntentRef.current, {
       questionId: activeQuestion.id,
       content,
-      durationSeconds: durationSec || secondsElapsed,
+      ...(durationSec !== undefined ? { durationSeconds: durationSec } : {}),
     });
     pendingAnswerIntentRef.current = intent;
 
@@ -224,7 +232,6 @@ export default function InterviewRoomPage() {
 
       pendingAnswerIntentRef.current = null;
       setCurrentDraftContent('');
-      setSecondsElapsed(0);
 
       // Extract evaluation
       const evalData = (result.answer.evaluation as AnswerEvaluation) || null;
@@ -260,11 +267,16 @@ export default function InterviewRoomPage() {
       return;
     }
 
-    if (activeQuestion) {
+    if (continuationAction === 'complete') {
+      await handleFinishEarly();
       return;
     }
 
+    if (continuationAction !== 'continue_same_session') return;
+
     try {
+      if (continueInFlightRef.current) return;
+      continueInFlightRef.current = true;
       setContinuing(true);
       const updated = await interviewApi.continue(id, continueKeyRef.current);
       queryClient.setQueryData(['interview', id], updated);
@@ -278,6 +290,7 @@ export default function InterviewRoomPage() {
         requestId: err instanceof ApiError ? err.requestId : undefined,
       });
     } finally {
+      continueInFlightRef.current = false;
       setContinuing(false);
     }
   };
@@ -313,9 +326,16 @@ export default function InterviewRoomPage() {
 
   // Upgrade & Continue into Q4+ in the SAME session
   const handleUpgradeAndContinue = async () => {
-    if (canUpgrade) {
+    if (activeQuestion) {
+      setShowQ3BoundaryModal(false);
+      return;
+    }
+
+    if (continuationAction === 'continue_same_session') {
       setShowQ3BoundaryModal(false);
       try {
+        if (continueInFlightRef.current) return;
+        continueInFlightRef.current = true;
         setContinuing(true);
         const updated = await interviewApi.continue(id, continueKeyRef.current);
         queryClient.setQueryData(['interview', id], updated);
@@ -326,10 +346,13 @@ export default function InterviewRoomPage() {
           requestId: err instanceof ApiError ? err.requestId : undefined,
         });
       } finally {
+        continueInFlightRef.current = false;
         setContinuing(false);
       }
-    } else {
+    } else if (continuationAction === 'upgrade') {
       router.push(`/pricing?returnTo=${encodeURIComponent(`/interviews/${id}?sessionContinuation=true`)}`);
+    } else if (continuationAction === 'complete') {
+      await handleFinishEarly();
     }
   };
 
@@ -360,8 +383,10 @@ export default function InterviewRoomPage() {
 
   if (!interview) return null;
 
+  const routeState = getInterviewRouteState(interview.status);
+
   // Status transitions
-  if (interview.status === 'starting') {
+  if (routeState === 'preparing') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -373,11 +398,13 @@ export default function InterviewRoomPage() {
     );
   }
 
-  if (interview.status === 'completing') {
+  if (routeState === 'processing' || routeState === 'completed') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-        <h2 className="text-xl font-bold text-slate-900">Đang chấm điểm &amp; Tổng hợp báo cáo...</h2>
+        <h2 className="text-xl font-bold text-slate-900">
+          {routeState === 'completed' ? 'Báo cáo phỏng vấn đã sẵn sàng' : 'Đang chấm điểm & Tổng hợp báo cáo...'}
+        </h2>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
           AI đang hoàn tất đánh giá 4 trục Rubric và mô hình STAR cho buổi phỏng vấn.
         </p>
@@ -393,7 +420,7 @@ export default function InterviewRoomPage() {
     );
   }
 
-  if (interview.status === 'failed' || interview.status === 'abandoned') {
+  if (routeState === 'terminal') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <h2 className="text-xl font-bold text-red-600">
@@ -402,6 +429,20 @@ export default function InterviewRoomPage() {
         <p className="text-xs text-slate-500">Phiên phỏng vấn này không còn hoạt động.</p>
         <Link href="/interviews" className="inline-block mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm">
           Trở về Danh sách phỏng vấn
+        </Link>
+      </div>
+    );
+  }
+
+  if (routeState !== 'active') {
+    return (
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <h2 className="text-xl font-bold text-slate-900">Phiên phỏng vấn chưa khả dụng</h2>
+        <p className="text-xs text-slate-500">
+          Trạng thái hiện tại chưa được hỗ trợ. Phòng phỏng vấn sẽ không mở cho đến khi máy chủ xác nhận phiên đang hoạt động.
+        </p>
+        <Link href="/interviews" className="inline-block text-indigo-600 font-semibold underline">
+          Quay lại danh sách phỏng vấn
         </Link>
       </div>
     );
@@ -460,7 +501,7 @@ export default function InterviewRoomPage() {
                 <span aria-hidden="true" className="material-symbols-outlined">
                   tips_and_updates
                 </span>{' '}
-                Gợi ý từ Coach
+                Mẹo trả lời chung
               </summary>
               <p>
                 {currentSequence === 1 &&
@@ -565,6 +606,50 @@ export default function InterviewRoomPage() {
           </div>
         )}
 
+        {!activeQuestion && answeredPairs.length >= 3 && (
+          <Card variant="elevated" padding="md" className="space-y-3">
+            <div>
+              <h2 className="font-bold text-sm text-slate-900">
+                {continuationAction === 'complete'
+                  ? 'Bạn đã hoàn thành số câu hỏi của phiên này'
+                  : continuationAction === 'upgrade'
+                  ? 'Bạn đã hoàn thành 3 câu hỏi miễn phí'
+                  : 'Sẵn sàng cho câu hỏi tiếp theo'}
+              </h2>
+              <p className="text-xs text-slate-600 mt-1">
+                Bạn luôn có thể kết thúc phiên và nhận báo cáo từ các câu trả lời đã hoàn thành.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {canFinish && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleFinishEarly}
+                  disabled={completing}
+                >
+                  {completing ? 'Đang tổng hợp...' : 'Hoàn thành & Xem báo cáo'}
+                </Button>
+              )}
+              {(continuationAction === 'upgrade' ||
+                continuationAction === 'continue_same_session') && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleUpgradeAndContinue}
+                  disabled={continuing}
+                >
+                  {continuing
+                    ? 'Đang kiểm tra...'
+                    : continuationAction === 'upgrade'
+                    ? 'Nâng cấp để tiếp tục'
+                    : 'Tiếp tục cùng phiên'}
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Session Transcript Accordion (Only submitted answers) */}
         <details className="interview-session-transcript">
           <summary>
@@ -593,7 +678,11 @@ export default function InterviewRoomPage() {
             coaching={latestEvaluation}
             questionSequence={latestEvaluatedSeq}
             totalQuestions={isPaidPhase ? null : 3}
-            canContinueQuestion={Boolean(activeQuestion) || latestEvaluatedSeq < 3 || canUpgrade}
+            canContinueQuestion={
+              Boolean(activeQuestion) ||
+              latestEvaluatedSeq < 3 ||
+              continuationAction === 'continue_same_session'
+            }
             onContinue={handleContinueAfterCoaching}
             onFinishEarly={latestEvaluatedSeq >= 2 ? handleFinishEarly : undefined}
             finishEarlyLabel={latestEvaluatedSeq === 2 ? 'Kết thúc sớm & nhận báo cáo 2 câu' : undefined}
@@ -629,8 +718,7 @@ export default function InterviewRoomPage() {
               <Card
                 variant="elevated"
                 padding="md"
-                className="border-indigo-300 hover:border-indigo-600 cursor-pointer transition-all flex flex-col justify-between"
-                onClick={handleFinishEarly}
+                className="border-indigo-300 hover:border-indigo-600 transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -657,8 +745,7 @@ export default function InterviewRoomPage() {
               <Card
                 variant="elevated"
                 padding="md"
-                className="border-slate-200 hover:border-slate-400 cursor-pointer transition-all flex flex-col justify-between"
-                onClick={handleUpgradeAndContinue}
+                className="border-slate-200 hover:border-slate-400 transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -666,7 +753,11 @@ export default function InterviewRoomPage() {
                       Tiếp tục phỏng vấn chuyên sâu
                     </span>
                     <Badge variant="neutral" size="sm">
-                      {canUpgrade ? 'Đã kích hoạt' : 'Nâng cấp gói'}
+                      {activeQuestion || continuationAction === 'continue_same_session'
+                        ? 'Đã kích hoạt'
+                        : continuationAction === 'complete'
+                        ? 'Đã đạt giới hạn'
+                        : 'Nâng cấp gói'}
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
@@ -683,8 +774,10 @@ export default function InterviewRoomPage() {
                 >
                   {continuing
                     ? 'Đang kết nối...'
-                    : canUpgrade
+                    : activeQuestion || continuationAction === 'continue_same_session'
                     ? 'Tiếp tục Câu 4+ ngay'
+                    : continuationAction === 'complete'
+                    ? 'Hoàn thành & Xem báo cáo'
                     : 'Nâng cấp & Tiếp tục phiên'}
                 </Button>
               </Card>

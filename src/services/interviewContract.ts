@@ -195,7 +195,7 @@ export interface ReportSampleView {
 export interface ReportView {
   id: string;
   interviewId: string;
-  overallScore: number;
+  overallScore: number | null;
   rubric: RubricScore[];
   strengths: string[];
   gaps: string[];
@@ -391,7 +391,10 @@ export function normalizeReportView(raw: unknown): ReportView {
   return {
     id: asString(record.id),
     interviewId: asString(record.interviewId),
-    overallScore: asNumber(record.overallScore),
+    overallScore:
+      typeof record.overallScore === 'number' && Number.isFinite(record.overallScore)
+        ? record.overallScore
+        : null,
     rubric: normalizeRubricCollection(record.rubric),
     strengths: normalizeStringCollection(record.strengths),
     gaps: normalizeStringCollection(record.gaps),
@@ -476,6 +479,48 @@ export function isMaxQuestionsReached(
   continuation?: InterviewContinuationView | null
 ): boolean {
   return continuation?.state === 'max_questions_reached';
+}
+
+export type InterviewContinuationAction =
+  | 'continue_same_session'
+  | 'upgrade'
+  | 'complete'
+  | 'none';
+
+/**
+ * Maps the canonical server continuation state to the only action the client may take.
+ * `canUpgradeAndContinue` describes upgrade eligibility; it never authorizes /continue.
+ */
+export function getInterviewContinuationAction(params: {
+  continuation?: InterviewContinuationView | null;
+  answeredQuestionCount: number;
+  hasActiveQuestion: boolean;
+}): InterviewContinuationAction {
+  const { continuation, answeredQuestionCount, hasActiveQuestion } = params;
+
+  if (!continuation || hasActiveQuestion || answeredQuestionCount < 3) return 'none';
+  if (continuation.state === 'upgrade_required') return 'upgrade';
+  if (continuation.state === 'max_questions_reached') return 'complete';
+  if (continuation.state === 'in_progress') return 'continue_same_session';
+  return 'none';
+}
+
+export type InterviewRouteState =
+  | 'preparing'
+  | 'active'
+  | 'processing'
+  | 'completed'
+  | 'terminal'
+  | 'unavailable';
+
+/** Keeps draft and unknown lifecycle states out of the active interview room. */
+export function getInterviewRouteState(status?: string | null): InterviewRouteState {
+  if (status === 'starting') return 'preparing';
+  if (status === 'active') return 'active';
+  if (status === 'completing') return 'processing';
+  if (status === 'completed') return 'completed';
+  if (status === 'failed' || status === 'abandoned') return 'terminal';
+  return 'unavailable';
 }
 
 /**

@@ -53,17 +53,17 @@ The system strictly supports the 7 backend-supported interview types:
 - Default difficulty is set to `Medium`.
 - Honest validation:
   - `cv_targeted` requires a ready resume (`status === 'ready'`).
-  - `jd_targeted` requires non-empty Job Description text.
+  - `jd_targeted` requires a persisted Job Description ID. Users may select an existing JD or create one from title + content before the interview starts.
   - Manual mode requires a non-empty role title.
 - Double-click protection is enforced through `getOrCreateStartIntent`.
 
 ## 8. Career Goal Mutation Policy
 - Editing values in Preflight is **session-scoped by default**.
 - It does **NOT** silently mutate the user's persistent Career Profile or Career Goal.
-- An explicit opt-in checkbox ("Lưu thông tin vị trí & cấp bậc này làm mục tiêu mặc định cho hồ sơ sự nghiệp") must be checked for the profile to be updated.
+- This migration does not expose a "Save as default" control; preflight edits remain session-only and never mutate Career Goals.
 
 ## 9. Session Creation Contract
-- Initiated via `POST /api/v1/interviews/start` with payload `{ role, seniority, interviewType, difficulty, resumeId, careerGoalId }`.
+- Initiated via `POST /api/v1/interviews/start` with payload `{ role, seniority, interviewType, difficulty, resumeId, jobDescriptionId, careerGoalId }`.
 - Protected by `Idempotency-Key` header generated via crypto UUID. Retrying unchanged payloads reuses the key; changing inputs mints a new key.
 - Server returns canonical `InterviewView` containing unique session ID.
 
@@ -102,26 +102,27 @@ The system strictly supports the 7 backend-supported interview types:
 - For users continuing into deep interview questions (Q4+):
   - Continuation operates within the **SAME session ID** via `interviewApi.continue(id)`.
   - No duplicate sessions or cloned database entities are created.
-  - If user upgrades, they return with `sessionContinuation=true` to resume the existing session directly.
+  - If user upgrades, the return marker is consumed once and removed from the URL before the frontend refetches canonical interview state. `/continue` is called at most once, and only when the fresh state is `in_progress` with no pending question.
   - Continuation is gated on server-verified entitlement, never client-only state.
 
 ## 15. Entitlement Source
-- Derived from server `InterviewContinuationView` (`canFinishNow`, `canUpgradeAndContinue`, `state`).
+- Derived from server `InterviewContinuationView` (`canFinishNow`, `canUpgradeAndContinue`, `state`). `canUpgradeAndContinue` means the user may upgrade; only `state === 'in_progress'` authorizes `/continue`.
 - Does not rely on hardcoded plan codes (`PRO`, `FREE`).
 
 ## 16. Unlimited Presentation Behavior
-- If question limit is unlimited: displays natural count ("Câu hỏi 4", "Câu hỏi 5", etc.).
+- Q4+ displays a natural count ("Câu hỏi 4", "Câu hỏi 5", etc.) without claiming unlimited entitlement.
 - Never displays artificial caps like "4/10" when the entitlement is unlimited.
 
 ## 17. Early Finish
 - When eligible (`canFinishNow === true`), candidate can finish early after Q2 or during Q4+.
 - Calls `POST /api/v1/interviews/{id}/complete`.
 - The resulting report only scores answered questions. Unanswered questions are not fabricated with fake 0 scores.
+- `max_questions_reached` never calls `/continue`; the room exposes an idempotent completion/report action even after a reload with no active question.
 
 ## 18. Retry Semantics
 - Transport/network retries reuse the frozen `AnswerIntent` (same `idempotencyKey`, same `durationSeconds`, same trimmed content).
 - Retries do not consume extra quota or create duplicate question slots.
-- Report retry (`POST /api/v1/interviews/{id}/report/retry`) uses an idempotent key and resets polling attempt trackers.
+- Confirmed `INTERVIEW_REPORT_FAILED` may call report retry. Local polling exhaustion only offers a canonical state refetch and never enqueues a new report job.
 
 ## 19. Report Semantics
 - `null != 0` is strictly respected:
@@ -146,19 +147,20 @@ The system strictly supports the 7 backend-supported interview types:
 - Fake AI delays (`setTimeout(..., 2500)`) were rejected.
 - Mock entitlement overrides were rejected in favor of real billing/entitlement API.
 
-## 23. Responsive Verification
+## 23. Responsive Implementation Targets
 - Desktop (1440px): full dual-tile layout with center AI avatar, candidate status tile, full controls tray.
 - Tablet (1024px, 820px): adapted stage center padding, resized candidate tile, responsive drawer.
 - Mobile (390px, 390x700): candidate tile rests inline above controls tray, buttons in 2-column grid, controls remain in reachable viewport area without overflowing.
 - Safe area inset support: `env(safe-area-inset-bottom)` used for modal dialogs and fixed containers.
 
-## 24. Accessibility Verification
-- Semantic HTML tags (`<main>`, `<section>`, `<aside>`, `<details>`, `<dialog>`).
+## 24. Accessibility Implementation
+- Semantic HTML tags (`<main>`, `<section>`, `<aside>`, `<details>`) plus the Foundation Modal's `role="dialog"` and `aria-modal="true"` contract.
 - Live regions (`role="status"`, `aria-live="polite"`) on AI presence avatar and answer dock.
 - Accessible names and states on microphone button (`aria-label`, `aria-pressed`).
 - Keyboard navigation: Full Tab/Shift+Tab trapping, Escape key closing for modals and drawers.
 - Focus restoration upon dialog close.
 - Reduced motion: `@media (prefers-reduced-motion: reduce)` disables orb pulsing, breathing animations, and waveform bouncing.
+- These behaviors were verified through source review, automated tests, lint, typecheck, and production build in this corrective; no manual browser verification is claimed.
 
 ## 25. Known Gaps
 - Web Speech API support varies on non-Chromium browsers (Firefox, Safari); graceful keyboard fallback is provided and indicated in UI.

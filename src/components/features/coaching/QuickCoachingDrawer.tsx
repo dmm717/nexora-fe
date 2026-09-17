@@ -3,12 +3,13 @@ import { AnswerEvaluation } from '@/services/interviewContract';
 import { CoachingRubricCard } from './CoachingRubricCard';
 import { StarEvaluationCard } from './StarEvaluationCard';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 
 export interface QuickCoachingDrawerProps {
   isOpen: boolean;
   coaching: AnswerEvaluation;
   questionSequence: number;
-  totalQuestions?: number | null; // null if unlimited
+  totalQuestions?: number | null;
   canContinueQuestion?: boolean;
   onContinue: () => void;
   onFinishEarly?: () => void;
@@ -25,10 +26,8 @@ export const QuickCoachingDrawer: React.FC<QuickCoachingDrawerProps> = ({
   onContinue,
   onFinishEarly,
   finishEarlyLabel,
-  onClose,
+  onClose = () => {},
 }) => {
-  if (!isOpen) return null;
-
   // Question progression labels
   let primaryActionLabel = `Tiếp tục Câu ${questionSequence + 1}`;
   if (questionSequence === 1) {
@@ -46,8 +45,8 @@ export const QuickCoachingDrawer: React.FC<QuickCoachingDrawerProps> = ({
   const improvements = coaching.improvements || [];
 
   return (
-    <div className="coaching-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="coaching-dialog relative w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden text-slate-900">
+    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+      <div className="coaching-dialog flex flex-col text-slate-900 -m-6 max-h-[85vh] overflow-hidden">
         {/* Header */}
         <div className="coaching-dialog-header px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -69,15 +68,13 @@ export const QuickCoachingDrawer: React.FC<QuickCoachingDrawerProps> = ({
             </div>
           </div>
 
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="coaching-dialog-close p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              aria-label="Đóng nhận xét"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            className="coaching-dialog-close p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            aria-label="Đóng nhận xét"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
         </div>
 
         {/* Scrollable Content Body */}
@@ -161,7 +158,7 @@ export const QuickCoachingDrawer: React.FC<QuickCoachingDrawerProps> = ({
             {totalQuestions ? (
               <span>Tiến độ: Câu {questionSequence}/{totalQuestions}</span>
             ) : (
-              <span>Tiến độ: Câu {questionSequence} (Mở rộng không giới hạn)</span>
+              <span>Tiến độ: Câu {questionSequence}</span>
             )}
           </div>
 
@@ -190,7 +187,7 @@ export const QuickCoachingDrawer: React.FC<QuickCoachingDrawerProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -113,8 +113,37 @@ export default function InterviewReportPage() {
     );
   }
 
-  // Failed state
-  if (isFailed || reportPollingBoundExhausted) {
+  // Polling exhaustion (client-side timeout without confirmed server failure)
+  if (reportPollingBoundExhausted && !isFailed) {
+    return (
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+          <span className="material-symbols-outlined text-2xl">hourglass_empty</span>
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Báo cáo cần thêm thời gian xử lý</h2>
+        <p className="text-xs text-slate-600 max-w-md mx-auto">
+          Quá trình tổng hợp báo cáo đang mất nhiều thời gian hơn dự kiến. Trình duyệt đã tạm dừng tự động kiểm tra để tiết kiệm tài nguyên.
+        </p>
+        <div className="pt-2">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={async () => {
+              resetReportPollingAttempts();
+              await queryClient.invalidateQueries({ queryKey: ['interview', id] });
+              await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
+            }}
+            className="shadow-sm font-semibold"
+          >
+            Kiểm tra lại trạng thái
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Confirmed server failed state
+  if (isFailed) {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-red-200 text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
@@ -123,7 +152,7 @@ export default function InterviewReportPage() {
         <h2 className="text-xl font-bold text-red-900">Chưa thể xuất báo cáo</h2>
         <p className="text-xs text-slate-600 max-w-md mx-auto">
           {retryError?.message ||
-            'Hệ thống gặp sự cố khi tạo báo cáo hoặc thời gian chờ vượt quá giới hạn.'}
+            'Hệ thống gặp sự cố khi tạo báo cáo (INTERVIEW_REPORT_FAILED). Bạn có thể yêu cầu tạo lại.'}
         </p>
         <div className="pt-2">
           <Button
@@ -157,6 +186,7 @@ export default function InterviewReportPage() {
   const answeredCount = sample?.answeredQuestions ?? report.questionReviews?.length ?? 0;
   const totalCount = sample?.issuedQuestions ?? 3;
   const hasOverallScore = report.overallScore !== null && report.overallScore !== undefined;
+  const overallScore = report.overallScore;
 
   const reviews = report.questionReviews || [];
   const safeSelectedIdx = Math.min(selectedQuestionIdx, Math.max(0, reviews.length - 1));
@@ -241,13 +271,13 @@ export default function InterviewReportPage() {
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Điểm tổng hợp toàn phiên
           </span>
-          <RadialScore score={report.overallScore} size={140} strokeWidth={12} />
+          <RadialScore score={overallScore} size={140} strokeWidth={12} />
           <div>
             <div className="text-sm font-bold text-slate-900">
-              {hasOverallScore
-                ? report.overallScore >= 80
+              {hasOverallScore && overallScore !== null
+                ? overallScore >= 80
                   ? 'Mức độ Sẵn sàng Cao'
-                  : report.overallScore >= 60
+                  : overallScore >= 60
                   ? 'Mức độ Khá · Cần cải thiện'
                   : 'Cần rèn luyện thêm'
                 : 'Chưa đủ dữ liệu điểm'}
@@ -469,9 +499,9 @@ export default function InterviewReportPage() {
       {/* Tab 3: Action Plan / Recommendations */}
       {activeTab === 'action_plan' && (
         <Card variant="elevated" padding="lg" className="space-y-4">
-          <h3 className="font-bold text-base text-slate-900">Bước phát triển tiếp theo (Next Best Action)</h3>
+          <h3 className="font-bold text-base text-slate-900">Kế hoạch hành động đề xuất (Action Plan)</h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Dựa trên kết quả phỏng vấn, Nexora đề xuất các hành động thực chiến nhằm nâng cao năng lực ứng tuyển của bạn.
+            Kế hoạch hành động cụ thể được tổng hợp từ dữ liệu phân tích buổi phỏng vấn thực tế của bạn.
           </p>
 
           {report.actionPlan && report.actionPlan.length > 0 ? (
@@ -485,28 +515,19 @@ export default function InterviewReportPage() {
                 </div>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <p className="text-xs text-slate-500 py-2">Chưa có kế hoạch hành động chi tiết trong báo cáo này.</p>
+          )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <span className="font-bold text-xs text-indigo-700">1. Luyện tập theo mô hình STAR</span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Tập trung bổ sung các số liệu định lượng (Result) và chi tiết hành động kỹ thuật (Action) cho các câu hỏi hành vi.
-              </p>
-              <Link href="/practice" className="inline-block text-xs font-semibold text-indigo-600 underline pt-1">
-                Đến khu vực Luyện tập &rarr;
-              </Link>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <span className="font-bold text-xs text-indigo-700">2. Cập nhật &amp; Tối ưu CV</span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Đồng bộ hóa các thành tựu và công nghệ đã thể hiện tốt trong phỏng vấn vào bản CV chính của bạn.
-              </p>
-              <Link href="/resumes" className="inline-block text-xs font-semibold text-indigo-600 underline pt-1">
-                Quản lý CV &rarr;
-              </Link>
-            </div>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs text-slate-500">Tiếp tục rèn luyện kỹ năng phỏng vấn</span>
+            <Link
+              href="/practice"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 underline"
+            >
+              <span>Đến khu vực Luyện tập</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
           </div>
         </Card>
       )}

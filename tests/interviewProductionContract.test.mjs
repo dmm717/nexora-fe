@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   SCORE_SCALE,
@@ -9,6 +10,8 @@ import {
   canUpgradeAndContinue,
   isUpgradeRequired,
   isMaxQuestionsReached,
+  getInterviewContinuationAction,
+  getInterviewRouteState,
   shouldAutoComplete,
   getCurrentQuestion,
   getAnsweredQuestions,
@@ -992,4 +995,132 @@ test('30. upgrade_required with nextQuestion=null is NOT auto-complete and never
     canUpgradeAndContinue: false,
   };
   assert.equal(shouldAutoComplete(true, continuationMaxReached, null), true);
+});
+
+test('31. continuation action is authorized only by canonical server state', () => {
+  const base = { canFinishNow: true, canUpgradeAndContinue: false };
+
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'upgrade_required', canUpgradeAndContinue: true },
+      answeredQuestionCount: 3,
+      hasActiveQuestion: false,
+    }),
+    'upgrade'
+  );
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'in_progress' },
+      answeredQuestionCount: 3,
+      hasActiveQuestion: false,
+    }),
+    'continue_same_session'
+  );
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'max_questions_reached' },
+      answeredQuestionCount: 5,
+      hasActiveQuestion: false,
+    }),
+    'complete'
+  );
+  assert.equal(
+    getInterviewContinuationAction({
+      continuation: { ...base, state: 'in_progress' },
+      answeredQuestionCount: 3,
+      hasActiveQuestion: true,
+    }),
+    'none'
+  );
+});
+
+test('32. interview route states fail closed for draft and unknown statuses', () => {
+  assert.equal(getInterviewRouteState('starting'), 'preparing');
+  assert.equal(getInterviewRouteState('active'), 'active');
+  assert.equal(getInterviewRouteState('completing'), 'processing');
+  assert.equal(getInterviewRouteState('completed'), 'completed');
+  assert.equal(getInterviewRouteState('failed'), 'terminal');
+  assert.equal(getInterviewRouteState('abandoned'), 'terminal');
+  assert.equal(getInterviewRouteState('draft'), 'unavailable');
+  assert.equal(getInterviewRouteState('future_status'), 'unavailable');
+});
+
+test('33. report normalization preserves null separately from a real zero', () => {
+  assert.equal(normalizeReportView({ overallScore: null }).overallScore, null);
+  assert.equal(normalizeReportView({}).overallScore, null);
+  assert.equal(normalizeReportView({ overallScore: 0 }).overallScore, 0);
+});
+
+test('34. typed answers omit duration while voice retry freezes measured duration', () => {
+  const typed = getOrCreateAnswerIntent(null, { questionId: 'q-typed', content: 'Typed answer' });
+  assert.equal('durationSeconds' in typed.payload, false);
+
+  const voice = getOrCreateAnswerIntent(null, {
+    questionId: 'q-voice',
+    content: 'Voice answer',
+    durationSeconds: 18,
+  });
+  const retry = getOrCreateAnswerIntent(voice, {
+    questionId: 'q-voice',
+    content: 'Voice answer',
+    durationSeconds: 29,
+  });
+  assert.equal(retry.key, voice.key);
+  assert.equal(retry.payload.durationSeconds, 18);
+});
+
+test('35. billing return marker is consumed once before canonical continuation', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /continuationReturnHandledRef\.current = true/);
+  assert.match(source, /router\.replace\(`\/interviews\/\$\{id\}`/);
+  assert.match(source, /const freshInterview = await interviewApi\.getById\(id\)/);
+  assert.match(source, /freshAction !== 'continue_same_session'/);
+  assert.doesNotMatch(source, /if \(canUpgrade\)[\s\S]*interviewApi\.continue/);
+});
+
+test('36. interview room keeps a completion CTA for finite max-question state', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /continuationAction === 'complete'/);
+  assert.match(source, /Hoàn thành & Xem báo cáo/);
+  assert.match(source, /onClick=\{handleFinishEarly\}/);
+});
+
+test('37. JD-targeted preflight persists or selects a real jobDescriptionId', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/new/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(source, /cvAnalysisApi\.createJobDescription/);
+  assert.match(source, /jobDescriptionId: finalJdId/);
+  assert.doesNotMatch(source, /sessionJdContent/);
+  assert.doesNotMatch(source, /saveAsDefault/);
+});
+
+test('38. corrective UI contains no fake duration, unlimited claim, or fabricated STAR action', () => {
+  const audioSource = readFileSync(
+    new URL('../src/components/features/interview/AudioSpeechDock.tsx', import.meta.url),
+    'utf8'
+  );
+  const coachingSource = readFileSync(
+    new URL('../src/components/features/coaching/QuickCoachingDrawer.tsx', import.meta.url),
+    'utf8'
+  );
+  const reportSource = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.doesNotMatch(audioSource, /durationSeconds \|\| 45/);
+  assert.doesNotMatch(coachingSource, /Mở rộng không giới hạn/);
+  assert.doesNotMatch(reportSource, /Luyện tập theo mô hình STAR/);
+  assert.doesNotMatch(reportSource, /Cập nhật &amp; Tối ưu CV/);
 });

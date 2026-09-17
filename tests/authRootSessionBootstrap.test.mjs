@@ -54,7 +54,7 @@ test('2. public "/" page remains completely public and does not require authenti
 
 test('3. dashboard layout remains protected by RequireAuth guard', () => {
   const dashboardLayoutContent = fs.readFileSync(
-    path.join(rootDir, 'src/app/dashboard/layout.tsx'),
+    path.join(rootDir, 'src/app/(dashboard)/layout.tsx'),
     'utf-8'
   );
   assert.match(
@@ -71,7 +71,7 @@ test('3. dashboard layout remains protected by RequireAuth guard', () => {
 
 test('4. no nested duplicate AuthBootstrapProvider in dashboard or public layouts', () => {
   const dashboardLayoutContent = fs.readFileSync(
-    path.join(rootDir, 'src/app/dashboard/layout.tsx'),
+    path.join(rootDir, 'src/app/(dashboard)/layout.tsx'),
     'utf-8'
   );
   const publicLayoutContent = fs.readFileSync(
@@ -152,7 +152,7 @@ test('7. Header consumes root auth context and prevents false logged-out flicker
   );
   assert.match(
     headerContent,
-    /isAuthenticated\s*\?[\s\S]*\/dashboard/,
+    /isAuthenticated\s*\?[\s\S]*\/overview/,
     'Header must show dashboard CTA when authenticated'
   );
 });
@@ -461,7 +461,7 @@ test('19. SPA login transition: subscriber reactively updates to authenticated o
       assert.equal(isContextAuthenticated, true);
       assert.equal(getAccessToken(), 'spa_login_jwt');
 
-      // User then navigates to /dashboard; RequireAuth sees isAuthenticated === true and does NOT bounce to /auth
+      // User then navigates to /overview; RequireAuth sees isAuthenticated === true and does NOT bounce to /auth
     } finally {
       unsubscribe();
     }

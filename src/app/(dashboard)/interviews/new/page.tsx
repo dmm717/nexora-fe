@@ -6,15 +6,17 @@ import Link from 'next/link';
 import { interviewApi, type StartInterviewCommand } from '@/services/interviewApi';
 import {
   getOrCreateStartIntent,
+  generateIdempotencyKey,
   type StartIntent,
 } from '@/services/interviewContract';
 import { ApiError } from '@/services/apiClient';
 import { useCareerGoals } from '@/hooks/queries/useCareerGoals';
 import { useResumes } from '@/hooks/queries/useCareerProfile';
+import { useJobDescriptions } from '@/hooks/queries/useJobDescriptions';
+import { cvAnalysisApi } from '@/services/cvAnalysisApi';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { apiClient } from '@/services/apiClient';
 
 export default function NewInterviewPage() {
   const router = useRouter();
@@ -27,6 +29,7 @@ export default function NewInterviewPage() {
   // Queries
   const { data: careerGoals, isLoading: loadingGoals } = useCareerGoals();
   const { data: resumes = [], isLoading: loadingResumes } = useResumes();
+  const { data: jobDescriptions = [], isLoading: loadingJds } = useJobDescriptions();
 
   const activeGoals = useMemo(() => careerGoals?.filter((g) => g.active) || [], [careerGoals]);
   const defaultGoal = activeGoals[0] || null;
@@ -37,7 +40,15 @@ export default function NewInterviewPage() {
   const [sessionSeniority, setSessionSeniority] = useState<string>('Junior');
   const [selectedGoalId, setSelectedGoalId] = useState<string>('');
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
-  const [sessionJdContent, setSessionJdContent] = useState<string>('');
+
+  // JD selection & creation state
+  const [jdSource, setJdSource] = useState<'existing' | 'new'>('existing');
+  const [selectedJdId, setSelectedJdId] = useState<string>('');
+  const [newJdTitle, setNewJdTitle] = useState<string>('');
+  const [newJdContent, setNewJdContent] = useState<string>('');
+  const createdJdIdRef = useRef<string | null>(null);
+  const jdIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
+
   const [interviewType, setInterviewType] = useState<string>('technical');
   const [difficulty, setDifficulty] = useState<string>('Medium');
 
@@ -45,9 +56,7 @@ export default function NewInterviewPage() {
   const effectiveGoalId = selectedGoalId || defaultGoal?.id || '';
   const effectiveResumeId = selectedResumeId || readyResumes[0]?.id || '';
   const effectiveRole = sessionRole || defaultGoal?.targetRole || '';
-
-  // Explicit opt-in: only update Career Goal if user checks this box
-  const [saveAsDefault, setSaveAsDefault] = useState<boolean>(false);
+  const effectiveJdId = selectedJdId || jobDescriptions[0]?.id || '';
 
   // Mic check state (user-initiated only, never on mount)
   const [isMicTesting, setIsMicTesting] = useState<boolean>(false);
@@ -162,11 +171,50 @@ export default function NewInterviewPage() {
       }
     }
 
-    if (interviewType === 'jd_targeted' && !sessionJdContent.trim()) {
-      setError({
-        message: 'Loại phỏng vấn theo JD yêu cầu bạn phải nhập nội dung Job Description (JD).',
-      });
-      return;
+    let finalJdId: string | undefined = undefined;
+    if (interviewType === 'jd_targeted') {
+      if (jdSource === 'existing') {
+        if (jobDescriptions.length === 0 || !effectiveJdId) {
+          setError({
+            message: 'Vui lòng chọn một Job Description (JD) có sẵn hoặc chuyển sang tạo JD mới.',
+          });
+          return;
+        }
+        finalJdId = effectiveJdId;
+      } else {
+        if (!newJdTitle.trim() || !newJdContent.trim()) {
+          setError({
+            message: 'Vui lòng nhập đầy đủ tiêu đề và nội dung của Job Description (JD).',
+          });
+          return;
+        }
+      }
+    }
+
+    setLoading(true);
+
+    // If creating a new JD for jd_targeted, do it now idempotently
+    if (interviewType === 'jd_targeted' && jdSource === 'new') {
+      try {
+        if (!createdJdIdRef.current) {
+          const created = await cvAnalysisApi.createJobDescription(
+            {
+              title: newJdTitle.trim(),
+              content: newJdContent.trim(),
+            },
+            jdIdempotencyKeyRef.current
+          );
+          createdJdIdRef.current = created.id;
+        }
+        finalJdId = createdJdIdRef.current;
+      } catch (err: unknown) {
+        setError({
+          message: err instanceof ApiError ? err.message : 'Không thể tạo Job Description mới. Vui lòng thử lại.',
+          requestId: err instanceof ApiError ? err.requestId : undefined,
+        });
+        setLoading(false);
+        return;
+      }
     }
 
     // Build candidate payload
@@ -178,6 +226,7 @@ export default function NewInterviewPage() {
         interviewType,
         difficulty,
         ...(effectiveResumeId ? { resumeId: effectiveResumeId } : {}),
+        ...(finalJdId ? { jobDescriptionId: finalJdId } : {}),
       };
     } else {
       candidatePayload = {
@@ -187,26 +236,13 @@ export default function NewInterviewPage() {
         interviewType,
         difficulty,
         ...(effectiveResumeId ? { resumeId: effectiveResumeId } : {}),
+        ...(finalJdId ? { jobDescriptionId: finalJdId } : {}),
       };
     }
 
     // Idempotency intent
     const intent = getOrCreateStartIntent(pendingStartIntentRef.current, candidatePayload);
     pendingStartIntentRef.current = intent;
-
-    setLoading(true);
-
-    // If explicit opt-in is checked, update Career Goal
-    if (saveAsDefault && mode === 'manual' && effectiveRole.trim()) {
-      try {
-        await apiClient.post('/career-goals', {
-          targetRole: effectiveRole.trim(),
-          seniority: sessionSeniority,
-        });
-      } catch {
-        // Non-blocking for session creation
-      }
-    }
 
     // Store text-only preference if chosen
     if (textOnlyMode) {
@@ -221,6 +257,7 @@ export default function NewInterviewPage() {
         intent.key
       );
       pendingStartIntentRef.current = null;
+      createdJdIdRef.current = null;
       router.push(`/interviews/${res.id}`);
     } catch (err: unknown) {
       setError({
@@ -383,19 +420,6 @@ export default function NewInterviewPage() {
               </div>
             </div>
           )}
-
-          {/* Explicit Opt-in: Only mutates Career Goal if explicitly checked */}
-          <div className="pt-2">
-            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={saveAsDefault}
-                onChange={(e) => setSaveAsDefault(e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span>Lưu thông tin vị trí &amp; cấp bậc này làm mục tiêu mặc định cho hồ sơ sự nghiệp</span>
-            </label>
-          </div>
         </Card>
 
         {/* Section 2: Interview Type & Difficulty */}
@@ -476,21 +500,110 @@ export default function NewInterviewPage() {
             </div>
           )}
 
-          {/* Conditional: JD input for jd_targeted */}
+          {/* Conditional: JD Selector/Creator for jd_targeted */}
           {interviewType === 'jd_targeted' && (
-            <div className="pt-2 space-y-2 border-t border-slate-100">
-              <label htmlFor="jdInput" className="block text-xs font-semibold text-slate-700">
-                Nội dung Job Description (JD) <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                id="jdInput"
-                rows={4}
-                value={sessionJdContent}
-                onChange={(e) => setSessionJdContent(e.target.value)}
-                placeholder="Dán nội dung mô tả công việc (yêu cầu kỹ năng, trách nhiệm) vào đây để AI tạo câu hỏi bám sát..."
-                className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                disabled={loading}
-              />
+            <div className="pt-2 space-y-3 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Job Description (JD) cho buổi phỏng vấn <span className="text-red-500">*</span>
+                </label>
+                <div className="flex rounded-lg bg-slate-100 p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setJdSource('existing')}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                      jdSource === 'existing'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    JD có sẵn ({jobDescriptions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setJdSource('new')}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                      jdSource === 'new'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    + Nhập JD mới
+                  </button>
+                </div>
+              </div>
+
+              {jdSource === 'existing' ? (
+                <div>
+                  {loadingJds ? (
+                    <div className="text-xs text-slate-500 py-2">Đang tải danh sách JD...</div>
+                  ) : jobDescriptions.length === 0 ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-1">
+                      <p>Bạn chưa lưu Job Description (JD) nào.</p>
+                      <button
+                        type="button"
+                        onClick={() => setJdSource('new')}
+                        className="text-indigo-600 font-semibold underline"
+                      >
+                        Nhấn vào đây để nhập JD mới &rarr;
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      id="jdSelect"
+                      value={effectiveJdId}
+                      onChange={(e) => setSelectedJdId(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      disabled={loading}
+                    >
+                      {jobDescriptions.map((jd) => (
+                        <option key={jd.id} value={jd.id}>
+                          {jd.title} ({new Date(jd.createdAt).toLocaleDateString('vi-VN')})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div className="space-y-1">
+                    <label htmlFor="newJdTitle" className="block text-xs font-semibold text-slate-700">
+                      Tiêu đề vị trí công việc <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="newJdTitle"
+                      type="text"
+                      placeholder="Vd: Senior Backend Go Engineer - TechCorp"
+                      value={newJdTitle}
+                      onChange={(e) => {
+                        setNewJdTitle(e.target.value);
+                        createdJdIdRef.current = null;
+                        jdIdempotencyKeyRef.current = generateIdempotencyKey();
+                      }}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="newJdContent" className="block text-xs font-semibold text-slate-700">
+                      Nội dung chi tiết Job Description <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      id="newJdContent"
+                      rows={4}
+                      value={newJdContent}
+                      onChange={(e) => {
+                        setNewJdContent(e.target.value);
+                        createdJdIdRef.current = null;
+                        jdIdempotencyKeyRef.current = generateIdempotencyKey();
+                      }}
+                      placeholder="Dán toàn bộ mô tả công việc, yêu cầu kỹ năng, trách nhiệm vào đây..."
+                      className="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Card>
