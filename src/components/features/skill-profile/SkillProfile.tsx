@@ -5,6 +5,7 @@ import Link from 'next/link';
 import styles from './SkillProfile.module.css';
 import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
 import { ApiError } from '@/services/apiClient';
+import { ClientDate } from '@/components/ui/ClientDate';
 
 export default function SkillProfile() {
   const { data: profile, isLoading, error, refetch, isFetching } = useSkillProfile();
@@ -71,21 +72,27 @@ export default function SkillProfile() {
                   Hãy upload CV, tạo câu trả lời STAR hoặc tham gia phỏng vấn thử để hệ thống phân tích.
                 </p>
                 <div className={styles.emptyActionLinks}>
-                  <Link href="/resume-analyses" className={styles.btnSecondary}>
-                    Tải lên CV
-                  </Link>
-                  <Link href="/practice/scenarios" className={styles.btnSecondary}>
-                    Luyện STAR & Tình huống
+                  <Link href="/resumes" className={styles.btnSecondary}>
+                    Phân tích CV
                   </Link>
                   <Link href="/interviews/new" className={styles.btnSecondary}>
-                    Bắt đầu phỏng vấn
+                    Luyện phỏng vấn
+                  </Link>
+                  <Link href="/practice/scenarios" className={styles.btnSecondary}>
+                    Luyện tình huống
+                  </Link>
+                  <Link href="/practice/star" className={styles.btnSecondary}>
+                    Luyện STAR
                   </Link>
                 </div>
               </div>
             ) : (
               <div className={styles.competencyGrid}>
                 {profile.competencies.map((comp) => {
-                  const normalizedScore = Math.min(100, Math.max(0, Math.round(comp.score)));
+                  const normalizedScore =
+                    comp.score != null
+                      ? Math.min(100, Math.max(0, Math.round(comp.score)))
+                      : null;
                   return (
                     <div key={comp.code} className={styles.competencyCard}>
                       <div className={styles.compHeader}>
@@ -93,13 +100,15 @@ export default function SkillProfile() {
                           <div className={styles.compName}>{comp.name || comp.code}</div>
                           <div className={styles.compCategory}>{comp.category || 'Chung'}</div>
                         </div>
-                        <div className={styles.compScore}>{normalizedScore}/100</div>
+                        <div className={styles.compScore}>
+                          {normalizedScore != null ? `${normalizedScore}/100` : 'Chưa có điểm'}
+                        </div>
                       </div>
 
                       <div className={styles.progressBarBg}>
                         <div
                           className={styles.progressBarFill}
-                          style={{ width: `${normalizedScore}%` }}
+                          style={{ width: `${normalizedScore ?? 0}%` }}
                         />
                       </div>
 
@@ -117,7 +126,7 @@ export default function SkillProfile() {
                         <span>Dựa trên {comp.evidenceCount} bằng chứng</span>
                         {comp.latestEvidenceAt && (
                           <span>
-                            {new Date(comp.latestEvidenceAt).toLocaleDateString('vi-VN')}
+                            <ClientDate date={comp.latestEvidenceAt} />
                           </span>
                         )}
                       </div>
@@ -146,7 +155,7 @@ export default function SkillProfile() {
                         Nguồn: {signal.sourceType}
                         {signal.latestEvidenceAt && (
                           <span>
-                            {' '}• Ghi nhận: {new Date(signal.latestEvidenceAt).toLocaleDateString('vi-VN')}
+                            {' '}• Ghi nhận: <ClientDate date={signal.latestEvidenceAt} />
                           </span>
                         )}
                       </div>
