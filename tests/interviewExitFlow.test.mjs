@@ -5,6 +5,8 @@ import {
   isInterviewRoomRoute,
   isInterviewPreflightRoute,
   isFocusedPracticeRoute,
+  shouldRenderFocusedPracticeHeader,
+  resolveDefaultFocusedExit,
 } from '../src/services/focusedPracticeRoutes.ts';
 
 const readSource = (relPath) => readFile(new URL(relPath, import.meta.url), 'utf8');
@@ -19,8 +21,8 @@ test('A & B: Interview room confirmation invokes exit navigation once to /interv
   // Interview room config specifies exitTo: '/interviews'
   assert.match(roomSource, /exitTo:\s*'\/interviews'/);
 
-  // Shell context passes exitDestination defaulting to '/interviews' for interview routes
-  assert.match(contextSource, /pathname\.startsWith\('\/interviews'\)\s*\?\s*'\/interviews'\s*:\s*'\/practice'/);
+  // Shell context resolves exit destination defaulting to '/interviews' for interview routes
+  assert.match(contextSource, /resolveDefaultFocusedExit\(pathname\)/);
   assert.match(contextSource, /exitTo=\{exitDestination\}/);
   assert.match(contextSource, /router\.push\(exitDestination\)/);
 
@@ -76,4 +78,34 @@ test('E: Route classification restricts interview rooms to dynamic session UUIDs
   assert.equal(isFocusedPracticeRoute('/practice/star'), true);
   assert.equal(isFocusedPracticeRoute('/practice/scenarios/system-design'), true);
   assert.equal(isFocusedPracticeRoute('/practice/scenarios'), false);
+});
+
+test('F: FocusedPracticeHeader rendering rules for preflight, active room, history, and report', () => {
+  // A. /interviews/new -> isInterviewPreflightRoute = true, isFocusedPracticeRoute = true, FocusedPracticeHeader is rendered
+  assert.equal(isInterviewPreflightRoute('/interviews/new'), true);
+  assert.equal(isFocusedPracticeRoute('/interviews/new'), true);
+  assert.equal(shouldRenderFocusedPracticeHeader('/interviews/new'), true);
+
+  // B. /interviews/{UUID} -> focused header rendered
+  assert.equal(isInterviewRoomRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), true);
+  assert.equal(shouldRenderFocusedPracticeHeader('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), true);
+
+  // C. /interviews/history -> focused header NOT rendered (uses normal authenticated shell)
+  assert.equal(isFocusedPracticeRoute('/interviews/history'), false);
+  assert.equal(shouldRenderFocusedPracticeHeader('/interviews/history'), false);
+
+  // D. /interviews/{UUID}/report -> focused header NOT rendered (uses normal/report shell)
+  assert.equal(isInterviewRoomRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33/report'), false);
+  assert.equal(isFocusedPracticeRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33/report'), false);
+  assert.equal(shouldRenderFocusedPracticeHeader('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33/report'), false);
+});
+
+test('G: Preflight exit destination routes safely to /interviews without mutations', () => {
+  // E. preflight exit destination = /interviews
+  assert.equal(resolveDefaultFocusedExit('/interviews/new'), '/interviews');
+  assert.equal(resolveDefaultFocusedExit('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), '/interviews');
+
+  // Practice routes exit to /practice
+  assert.equal(resolveDefaultFocusedExit('/practice/star'), '/practice');
+  assert.equal(resolveDefaultFocusedExit('/practice/scenarios/tech-lead'), '/practice');
 });

@@ -33,3 +33,21 @@ export function isFocusedPracticeRoute(pathname: string): boolean {
     /^\/practice\/scenarios\/[^/]+$/.test(pathname)
   );
 }
+
+/**
+ * Determines whether the FocusedPracticeHeader should be rendered for the route.
+ * Both preflight setup (/interviews/new) and active practice rooms (/interviews/{UUID}, STAR, scenarios)
+ * render the top focused header with safe back navigation.
+ */
+export function shouldRenderFocusedPracticeHeader(pathname: string): boolean {
+  return isFocusedPracticeRoute(pathname);
+}
+
+/**
+ * Resolves the default exit destination when no custom exitTo is configured.
+ * Routes under /interviews exit to /interviews.
+ * Routes under /practice exit to /practice.
+ */
+export function resolveDefaultFocusedExit(pathname: string): string {
+  return pathname.startsWith('/interviews') ? '/interviews' : '/practice';
+}

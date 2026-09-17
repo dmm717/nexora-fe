@@ -5,8 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { FocusedPracticeHeader } from '@/components/header/FocusedPracticeHeader';
 import { ProductMotionBoundary } from '@/components/product-motion/ProductMotionBoundary';
 import {
-  isFocusedPracticeRoute,
-  isInterviewPreflightRoute,
+  resolveDefaultFocusedExit,
+  shouldRenderFocusedPracticeHeader,
 } from '@/services/focusedPracticeRoutes';
 
 export interface FocusedPracticeShellConfig {
@@ -27,18 +27,16 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
   const pathname = usePathname();
   const router = useRouter();
   const [config, setConfig] = useState<FocusedPracticeShellConfig | null>(null);
-  const focused = isFocusedPracticeRoute(pathname);
   const contextValue = useMemo(() => ({ setConfig }), []);
 
-  const defaultExit = pathname.startsWith('/interviews') ? '/interviews' : '/practice';
+  const defaultExit = resolveDefaultFocusedExit(pathname);
   const exitDestination = config?.exitTo || defaultExit;
 
   const handleExit = () => {
     router.push(exitDestination);
   };
 
-  const isPreflight = isInterviewPreflightRoute(pathname);
-  const showFocusedHeader = focused && !isPreflight;
+  const showFocusedHeader = shouldRenderFocusedPracticeHeader(pathname);
 
   return (
     <FocusedPracticeShellContext.Provider value={contextValue}>
