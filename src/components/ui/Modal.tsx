@@ -10,6 +10,24 @@ export interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex]:not([tabindex="-1"]), [contenteditable]';
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const elements = Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  );
+
+  return elements.filter((el) => {
+    // Basic visibility filter
+    return (
+      el.offsetWidth > 0 ||
+      el.offsetHeight > 0 ||
+      el.getClientRects().length > 0
+    );
+  });
+}
+
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -22,19 +40,86 @@ export const Modal: React.FC<ModalProps> = ({
   const titleId = useId();
   const descriptionId = useId();
   const previousOverflow = useRef('');
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      previousOverflow.current = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
+    if (!isOpen) return;
+
+    // 1. Capture currently focused element before opening
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      previousActiveElementRef.current = document.activeElement;
     }
+
+    // 2. Lock body scroll
+    previousOverflow.current = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // 3. Move initial focus inside modal
+    const focusFrame = requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusable = getFocusableElements(dialog);
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      } else {
+        dialog.focus();
+      }
+    });
+
+    // 4. Keyboard trap (Tab / Shift+Tab) & Escape handler
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusable = getFocusableElements(dialog);
+      if (focusable.length === 0) {
+        // If no focusable children exist, retain focus on dialog container
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const firstElement = focusable[0];
+      const lastElement = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (
+          document.activeElement === firstElement ||
+          document.activeElement === dialog
+        ) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
-      document.body.style.overflow = previousOverflow.current;
+      cancelAnimationFrame(focusFrame);
       window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow.current;
+
+      // 5. Restore focus to previous active element if still in document
+      const prevElement = previousActiveElementRef.current;
+      if (prevElement && typeof prevElement.focus === 'function' && document.contains(prevElement)) {
+        prevElement.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -59,12 +144,14 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={description ? descriptionId : undefined}
         aria-label={title ? undefined : 'Hộp thoại'}
-        className={`relative w-full ${maxWidthClasses[resolvedSize]} bg-white rounded-2xl shadow-floating border border-outline-variant/60 overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200`}
+        className={`relative w-full ${maxWidthClasses[resolvedSize]} bg-white rounded-2xl shadow-floating border border-outline-variant/60 overflow-hidden z-10 outline-none animate-in fade-in zoom-in-95 duration-200`}
       >
         {title && (
           <div className="flex items-start justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/50">
@@ -78,7 +165,7 @@ export const Modal: React.FC<ModalProps> = ({
               type="button"
               aria-label="Đóng hộp thoại"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors shrink-0 ml-3"
+              className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors shrink-0 ml-3 cursor-pointer"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
             </button>
