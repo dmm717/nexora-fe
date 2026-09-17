@@ -142,7 +142,9 @@ export default function SkillProfile() {
 
             {profile.weaknessSignals.length === 0 ? (
               <div className={styles.emptyState}>
-                Tuyệt vời! Hiện tại hệ thống chưa ghi nhận điểm yếu hoặc thiếu hụt năng lực nào đáng kể.
+                {profile.competencies.some((c) => c.evidenceCount > 0)
+                  ? 'Chưa ghi nhận tín hiệu cần cải thiện từ các bằng chứng hiện có.'
+                  : 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'}
               </div>
             ) : (
               <div className={styles.weaknessList}>

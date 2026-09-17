@@ -246,91 +246,131 @@ export default function LearningPathView() {
           </div>
 
           <div className={styles.milestonesList}>
-            {path.milestones.map((milestone) => (
-              <section key={milestone.id || milestone.code} className={styles.milestoneCard}>
-                <div className={styles.milestoneHeader}>
-                  <div className={styles.milestoneTitleGroup}>
-                    <span className={styles.milestoneBadge}>Cột mốc {milestone.order}</span>
-                    <h2 className={styles.milestoneTitle}>{milestone.title}</h2>
+            {path.milestones.map((milestone) => {
+              const currentActivities = milestone.activities.filter(
+                (a) => a.status !== LearningPathValues.Obsolete
+              );
+              const completedCurrent = currentActivities.filter(
+                (a) => a.status === LearningPathValues.Completed
+              );
+
+              return (
+                <section key={milestone.id || milestone.code} className={styles.milestoneCard}>
+                  <div className={styles.milestoneHeader}>
+                    <div className={styles.milestoneTitleGroup}>
+                      <span className={styles.milestoneBadge}>Cột mốc {milestone.order}</span>
+                      <h2 className={styles.milestoneTitle}>{milestone.title}</h2>
+                    </div>
+                    <span className={styles.milestoneStatus}>
+                      {completedCurrent.length} / {currentActivities.length} hoàn thành
+                    </span>
                   </div>
-                  <span className={styles.milestoneStatus}>
-                    {milestone.activities.filter((a) => a.status === LearningPathValues.Completed).length} / {milestone.activities.length} hoàn thành
-                  </span>
-                </div>
 
-                <div className={styles.activitiesList}>
-                  {milestone.activities.map((act) => {
-                    const isCompleted = act.status === LearningPathValues.Completed;
-                    const deepLink = getActivityDeepLink(act);
-                    const isExternal = act.type === LearningPathValues.ExternalLearning && Boolean(act.externalUrl);
-                    const isCompleting = completeMutation.isPending && completeMutation.variables === act.id;
+                  <div className={styles.activitiesList}>
+                    {milestone.activities.map((act) => {
+                      const isCompleted = act.status === LearningPathValues.Completed;
+                      const isPending = act.status === LearningPathValues.Pending;
+                      const isObsolete = act.status === LearningPathValues.Obsolete;
 
-                    return (
-                      <div
-                        key={act.id}
-                        className={`${styles.activityCard} ${isCompleted ? styles.activityCardCompleted : ''}`}
-                      >
-                        <div className={styles.activityHeader}>
-                          <div className={styles.activityTitleGroup}>
-                            <span className={`${styles.typeBadge} ${getActivityTypeBadgeClass(act.type)}`}>
-                              {getActivityTypeLabel(act.type)}
-                            </span>
-                            <span className={styles.priorityPill}>Ưu tiên: {act.priority}</span>
-                            <div className={`${styles.activityTitle} ${isCompleted ? styles.activityTitleCompleted : ''}`}>
-                              {act.title}
+                      const deepLink = isPending ? getActivityDeepLink(act) : null;
+                      const isExternal =
+                        act.type === LearningPathValues.ExternalLearning && Boolean(act.externalUrl);
+                      const isCompleting =
+                        completeMutation.isPending && completeMutation.variables === act.id;
+
+                      let cardClass = styles.activityCard;
+                      if (isCompleted) {
+                        cardClass = `${styles.activityCard} ${styles.activityCardCompleted}`;
+                      } else if (isObsolete) {
+                        cardClass = `${styles.activityCard} ${styles.activityCardObsolete}`;
+                      }
+
+                      let titleClass = styles.activityTitle;
+                      if (isCompleted) {
+                        titleClass = `${styles.activityTitle} ${styles.activityTitleCompleted}`;
+                      } else if (isObsolete) {
+                        titleClass = `${styles.activityTitle} ${styles.activityTitleObsolete}`;
+                      }
+
+                      return (
+                        <div key={act.id} className={cardClass}>
+                          <div className={styles.activityHeader}>
+                            <div className={styles.activityTitleGroup}>
+                              <span className={`${styles.typeBadge} ${getActivityTypeBadgeClass(act.type)}`}>
+                                {getActivityTypeLabel(act.type)}
+                              </span>
+                              <span className={styles.priorityPill}>Ưu tiên: {act.priority}</span>
+                              <div className={titleClass}>
+                                {act.title}
+                              </div>
+                            </div>
+                          </div>
+
+                          {act.description && (
+                            <div className={styles.activityDescription}>{act.description}</div>
+                          )}
+
+                          <div className={styles.activityFooter}>
+                            <div className={styles.activityCompetency}>
+                              {act.competencyCode && (
+                                <span>
+                                  Kỹ năng: <strong>{act.competencyCode}</strong>
+                                </span>
+                              )}
+                            </div>
+                            <div className={styles.activityActions}>
+                              {isPending && deepLink && (
+                                isExternal ? (
+                                  <a
+                                    href={deepLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.actionLink}
+                                  >
+                                    {getActivityActionText(act.type)}
+                                  </a>
+                                ) : (
+                                  <Link href={deepLink} className={styles.actionLink}>
+                                    {getActivityActionText(act.type)}
+                                  </Link>
+                                )
+                              )}
+
+                              {isPending && (
+                                <button
+                                  type="button"
+                                  className={styles.completeBtn}
+                                  onClick={() => handleCompleteActivity(act)}
+                                  disabled={isCompleting}
+                                >
+                                  {isCompleting ? 'Đang lưu...' : 'Đánh dấu xong'}
+                                </button>
+                              )}
+
+                              {isCompleted && (
+                                <span className={styles.completedLabel}>✓ Đã hoàn thành</span>
+                              )}
+
+                              {isObsolete && (
+                                <span className={styles.obsoleteLabel}>
+                                  Không còn trong lộ trình hiện tại
+                                </span>
+                              )}
+
+                              {!isPending && !isCompleted && !isObsolete && (
+                                <span className={styles.unavailableLabel}>
+                                  Trạng thái không khả dụng
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
-
-                        {act.description && (
-                          <div className={styles.activityDescription}>{act.description}</div>
-                        )}
-
-                        <div className={styles.activityFooter}>
-                          <div className={styles.activityCompetency}>
-                            {act.competencyCode && (
-                              <span>
-                                Kỹ năng: <strong>{act.competencyCode}</strong>
-                              </span>
-                            )}
-                          </div>
-                          <div className={styles.activityActions}>
-                            {deepLink && !isCompleted && (
-                              isExternal ? (
-                                <a
-                                  href={deepLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={styles.actionLink}
-                                >
-                                  {getActivityActionText(act.type)}
-                                </a>
-                              ) : (
-                                <Link href={deepLink} className={styles.actionLink}>
-                                  {getActivityActionText(act.type)}
-                                </Link>
-                              )
-                            )}
-                            {isCompleted ? (
-                              <span className={styles.completedLabel}>✓ Đã hoàn thành</span>
-                            ) : (
-                              <button
-                                type="button"
-                                className={styles.completeBtn}
-                                onClick={() => handleCompleteActivity(act)}
-                                disabled={isCompleting}
-                              >
-                                {isCompleting ? 'Đang lưu...' : 'Đánh dấu xong'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </>
       )}

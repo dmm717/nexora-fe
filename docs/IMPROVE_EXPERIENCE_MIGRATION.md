@@ -7,7 +7,8 @@
 - `b5ce405dc6a83acc2e5231c6e6f44f4aa71fb8fc` (qbao0111/nexora-prototype)
 
 ## 3. Backend Reference HEAD
-- `ac6ecb8e2b10ee411be33659b15bfda2a8415abb` (qbao0111/nexora-backend)
+- `f4e60b4e709ce34a552632a9957c2321121e5056` (qbao0111/nexora-backend, verified current main)
+- Historical intermediate reference: `ac6ecb8e2b10ee411be33659b15bfda2a8415abb`.
 
 ## 4. Route Map
 - `/overview`: Primary B13 Progress Dashboard consuming `GET /api/v1/progress/dashboard`, integrating readiness score, weakest competencies, recent improvements, weekly activity summary, next recommendation card, and career profile overview.
@@ -17,9 +18,10 @@
 - `/practice`: Practice hub with canonical sub-routes:
   - `/practice/scenarios`: Scenario catalogue.
   - `/practice/scenarios/[slug]`: Direct scenario attempt and review.
-  - `/practice/star`: STAR Drill practice room.
+  - `/practice/star`: STAR Drill practice room (supports `?attempt={attemptId}` query selection).
 - `/interviews/new`: Canonical entry point for interview creation.
 - `/resumes`: Canonical CV upload, analysis, and management workspace.
+- `/resume-analyses`: Historical / detailed resume analysis reports route.
 
 ## 5. Skill / Competency Endpoint Mapping
 - Endpoint: `GET /api/v1/skill-profile`
@@ -37,6 +39,10 @@
 - If score is `null` / undefined, it indicates insufficient assessment evidence and is rendered as "Chưa có điểm" (never coerced to 0).
 - If score is `0`, it represents a genuine zero evaluation.
 - Levels and tiers are not fabricated client-side (no artificial "Beginner" / "Junior" mappings without backend definitions).
+- Weakness empty state semantics:
+  - When user has no evidence and no signals: "Chưa đủ dữ liệu để xác định điểm cần cải thiện." (no false positive claims like "Tuyệt vời" or "Không có điểm yếu").
+  - When user has evidence but no signals: "Chưa ghi nhận tín hiệu cần cải thiện từ các bằng chứng hiện có."
+  - When user has weakness signals: exact backend signal label, source type, and timestamp are rendered.
 
 ## 7. Evidence Provenance
 - Every assessed competency includes candidate-generated sources:
@@ -66,12 +72,19 @@
   - Response: `ProgressResponse(completedInterviews, recentInterviewScores, averageInterviewScore, starAverages, completedScenarios, averageScenarioScore, completedStarAttempts, recentActivity)`
 - Normalizers: `normalizeProgressDashboardResponse` and `normalizeProgressHistoricalStats` in `src/services/progressDashboardContract.ts`.
 
-## 10. Progress Metric Semantics
+## 10. Progress Metric Semantics & Recent Activity Contract
 - Displays only server-backed counts:
   - Total completed interviews
   - Total completed scenarios
   - Total completed STAR drills
   - Weekly activity breakdown in UTC
+- Recent Activity Contract:
+  - Backend `/progress` generates:
+    - `kind = "interview"`, `resourceId = InterviewSession.Id` -> links to `/interviews/{resourceId}`
+    - `kind = "scenario"`, `resourceId = ScenarioAttempt.Id` -> links safely to `/practice/scenarios` (attempt ID is not a Scenario slug or ID)
+    - `kind = "star"`, `resourceId = StarAttempt.Id` -> links to `/practice/star?attempt={resourceId}`
+    - Unknown kind: truthful generic label, no unsafe link (`deepLink: null`).
+  - Helper centralized in `progressDashboardContract.ts`: `getProgressActivityPresentation(kind, resourceId)`.
 - Banned fabricated metrics:
   - No fake daily or weekly streaks
   - No synthetic percentile claims ("Bạn hơn 70% người dùng")
@@ -80,7 +93,7 @@
 ## 11. Chart & Trend Rules
 - Trends require real chronological data points:
   - If `recentInterviewScores.length >= 2`: displays historical score list with actual completed timestamps.
-  - If `recentInterviewScores.length === 1`: displays single score and explicitly informs user that at least 2 sessions are required to evaluate progress trends.
+  - If `recentInterviewScores.length === 1`: displays single score and explicitly informs user that at least 2 sessions are required to evaluate progress trends without claiming "Tăng" or "Giảm".
   - If `recentInterviewScores.length === 0`: displays honest empty state.
 - Radar charts require at least 3 distinct competencies to form a 2D polygon; if 1 or 2 competencies exist, clean progress bars are rendered without fabricating 0-filled dimensions.
 
@@ -92,7 +105,7 @@
   - `PATCH /api/v1/learning-path/activities/{activityId}`: updates activity status to `completed`.
 - Normalizer: `normalizeLearningPathResponse` in `src/services/learningPathContract.ts`.
 
-## 13. Learning Path Activity Model
+## 13. Learning Path Activity Model & Status Semantics
 - Activity Types:
   - `scenario`: situational exercise.
   - `star_drill`: STAR structured behavioral drill.
@@ -103,11 +116,20 @@
   - Priority 1: Critical skill gaps (`score < 60`).
   - Priority 2: Developing skills (`60 <= score < 75`).
   - Priority 3: Supporting improvements.
+- Status Semantics & Fail-Closed Behavior:
+  - `pending`: Actionable. Shows launch CTA and "Đánh dấu xong" button.
+  - `completed`: Already completed. Shows "✓ Đã hoàn thành" badge; completion mutation and launch CTA suppressed.
+  - `obsolete`: Created when backend refresh supersedes stale pending activities. Backend rejects completion PATCH with `LEARNING_PATH_ACTIVITY_OBSOLETE`. UI labels activity as "Không còn trong lộ trình hiện tại" and suppresses all launch and completion CTAs.
+  - Unknown status: Fails closed. Displays "Trạng thái không khả dụng"; no mutation or CTA rendered.
+- Milestone Progress Calculation:
+  - Denominator excludes obsolete activities: `currentActivities = activities.filter(a => a.status !== 'obsolete')`.
+  - Numerator counts completed active items: `completedCurrent = currentActivities.filter(a => a.status === 'completed')`.
+  - Displays `${completedCurrent.length} / ${currentActivities.length}`.
 
 ## 14. Completion Semantics
 - Completion is server-owned via `PATCH /api/v1/learning-path/activities/{id}` with payload `{ status: "completed" }`.
 - The frontend does not mark activities complete simply because a CTA was clicked or a page was visited.
-- Stale or obsolete activities (`LEARNING_PATH_ACTIVITY_OBSOLETE`) trigger explanatory user notifications.
+- Stale or obsolete activities (`LEARNING_PATH_ACTIVITY_OBSOLETE`) trigger explanatory user notifications without client-side state mutation.
 
 ## 15. Regeneration Semantics
 - Learning path generation and refresh are initiated strictly by explicit user action (button click).
@@ -120,29 +142,38 @@
 - If server provides `action: { type: "practice_again", sourceInterviewId, ... }`, idempotency-keyed practice-again trigger is enabled.
 
 ## 17. Canonical Deep-Link Mapping
-Centralized resolvers in `learningPathContract.ts` and `recommendationContract.ts`:
-- `scenario` with resourceId: `/practice/scenarios/{resourceId}`
-- `scenario` without resourceId: `/practice/scenarios`
-- `star_drill`: `/practice/star`
-- `interview`: `/interviews/new`
-- `resume_improvement`: `/resumes`
-- `external_learning`: `activity.externalUrl` if present, otherwise no link.
-- Unknown activity type: `null` (fails closed, never invents an arbitrary route).
+Centralized resolvers:
+- **Learning Path Activities** (`learningPathContract.ts`):
+  - `scenario` with resourceId: `/practice/scenarios/{resourceId}`
+  - `scenario` without resourceId: `/practice/scenarios`
+  - `star_drill`: `/practice/star`
+  - `interview`: `/interviews/new`
+  - `resume_improvement`: `/resumes` (directs to candidate's CV workspace)
+  - `external_learning`: `activity.externalUrl` if present, otherwise `null`.
+- **Next Practice Recommendation** (`recommendationContract.ts`):
+  - `scenario`: `/practice/scenarios/{resourceId}` or `/practice/scenarios`
+  - `star_drill`: `/practice/star`
+  - `interview`: `/interviews/new`
+  - `resume_improvement`: `/resume-analyses` (established B12 contract for detailed analysis reports)
+  - `external_learning`: `null` (B12 provides no URL field)
+- **Progress Recent Activity** (`progressDashboardContract.ts`):
+  - `interview`: `/interviews/{resourceId}` (InterviewSession.Id)
+  - `scenario`: `/practice/scenarios` (ScenarioAttempt.Id is not a Scenario slug)
+  - `star`: `/practice/star?attempt={resourceId}` (StarAttempt.Id query parameter)
 
 ## 18. Entitlement Behavior
-- Gated analytics or features returning `FEATURE_NOT_AVAILABLE` (HTTP 403) display a prominent, informative entitlement banner routing to `/billing`.
-- No client-side hardcoding of plan tiers; access control relies on server rejection with canonical error codes.
+- The current backend `ProgressController` does not enforce a feature-gating entitlement filter for `/progress` or `/progress/dashboard`.
+- If a generic HTTP 403 / `FEATURE_NOT_AVAILABLE` error is received from any guarded endpoint, UI catches `ApiError` and renders an upgrade banner linking to `/billing`.
+- The frontend does not fabricate artificial client-side plan gating or claim unverified backend restrictions.
 
 ## 19. Realtime / Polling
 - Progress and learning path mutations invalidate React Query caches (`["progressDashboard"]`, `["learningPath"]`, `["analytics"]`, `["skillProfile"]`).
-- Polling is not run unconditionally; queries use standard stale times (`30s`) to prevent server hammering.
+- Polling is not run unconditionally; queries use standard stale times (`30s` - `60s`) to prevent server hammering.
 
 ## 20. Empty States
-- Skill Profile: "Chưa có đủ dữ liệu để đánh giá năng lực" with 4 canonical action buttons:
-  - Phân tích CV (`/resumes`)
-  - Luyện phỏng vấn (`/interviews/new`)
-  - Luyện tình huống (`/practice/scenarios`)
-  - Luyện STAR (`/practice/star`)
+- Skill Profile:
+  - Competencies: "Chưa có đủ dữ liệu để đánh giá năng lực" with 4 canonical action buttons (`/resumes`, `/interviews/new`, `/practice/scenarios`, `/practice/star`).
+  - Weaknesses without evidence: "Chưa đủ dữ liệu để xác định điểm cần cải thiện."
 - Progress Analytics: "Chưa có dữ liệu tiến bộ" with 4 canonical action links.
 - Learning Path:
   - If no active career goal (`ACTIVE_CAREER_GOAL_REQUIRED`): directs to `/career-goals`.
@@ -165,10 +196,10 @@ Centralized resolvers in `learningPathContract.ts` and `recommendationContract.t
 ## 23. Accessibility
 - Semantic landmarks (`<header>`, `<section>`, `<main>`, `<ul>`, `<li>`).
 - Visible focus rings for interactive elements.
-- Accessible aria attributes: `role="alert"` for error and entitlement banners, `role="status"` with `aria-live="polite"` for asynchronous loading indicators.
+- Accessible aria attributes: `role="alert"` for error banners, `role="status"` with `aria-live="polite"` for asynchronous loading indicators.
 - Non-color-only indications: scores include quantitative numbers (/100) alongside color classes.
 - Date and time formatting uses `<ClientDate />` to eliminate hydration differences across timezones.
 
 ## 24. Known Backend Gaps
+- Progress recent activity returns `ScenarioAttempt.Id` for `scenario` rather than `Scenario.Id` or slug; frontend safely links to `/practice/scenarios` rather than generating an invalid URL.
 - Qualitative weakness signals currently return string labels rather than structured taxonomy entities; rendered faithfully as received.
-- External learning activities do not provide completion verification webhooks; completed state is user-attested via patch endpoint.

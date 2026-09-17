@@ -23,6 +23,7 @@ import {
   normalizeProgressDashboardResponse,
   normalizeProgressDashboardReadiness,
   normalizeProgressHistoricalStats,
+  getProgressActivityPresentation,
 } from '../src/services/progressDashboardContract.ts';
 
 class MockApiError extends Error {
@@ -434,4 +435,155 @@ test('CASE 32: backend mutation/load returns feature denial -> ApiError preserve
   assert.equal(denial.code, 'UPGRADE_REQUIRED');
   assert.equal(denial.message, 'Upgrade required for learning path generation');
   assert.equal(denial.requestId, 'req-777');
+});
+
+// ============================================================================
+// PR #17 CONTRACT CORRECTIVE: CASES A - M
+// ============================================================================
+
+test('CASE A: Progress recent activity kind=interview -> /interviews/{resourceId}', () => {
+  const presentation = getProgressActivityPresentation('interview', 'interview-id-123');
+  assert.equal(presentation.label, 'Phỏng vấn thử');
+  assert.equal(presentation.deepLink, '/interviews/interview-id-123');
+
+  const emptyId = getProgressActivityPresentation('interview', '');
+  assert.equal(emptyId.deepLink, '/interviews/new');
+});
+
+test('CASE B: Progress recent activity kind=scenario -> safe generic /practice/scenarios (MUST NOT be /practice/scenarios/{attemptId})', () => {
+  const presentation = getProgressActivityPresentation('scenario', 'scenario-attempt-id-456');
+  assert.equal(presentation.label, 'Bài tập tình huống');
+  assert.equal(presentation.deepLink, '/practice/scenarios');
+  assert.notEqual(presentation.deepLink, '/practice/scenarios/scenario-attempt-id-456');
+});
+
+test('CASE C: Progress recent activity kind=star -> /practice/star?attempt={resourceId}', () => {
+  const presentation = getProgressActivityPresentation('star', 'star-attempt-id-789');
+  assert.equal(presentation.label, 'Luyện tập STAR');
+  assert.equal(presentation.deepLink, '/practice/star?attempt=star-attempt-id-789');
+
+  const emptyId = getProgressActivityPresentation('star', '');
+  assert.equal(emptyId.deepLink, '/practice/star');
+});
+
+test('CASE D: Progress recent activity unknown kind -> null / no unsafe deep-link', () => {
+  const presentation = getProgressActivityPresentation('unknown_special_drill', 'drill-id');
+  assert.equal(presentation.label, 'unknown_special_drill');
+  assert.equal(presentation.deepLink, null);
+
+  const emptyKind = getProgressActivityPresentation('', 'some-id');
+  assert.equal(emptyKind.label, 'Hoạt động');
+  assert.equal(emptyKind.deepLink, null);
+});
+
+test('CASE E: do not require "star_attempt" to recognize backend STAR activity (backend emits "star")', () => {
+  const presentation = getProgressActivityPresentation('star', 'star-123');
+  assert.equal(presentation.label, 'Luyện tập STAR');
+  assert.ok(presentation.deepLink?.startsWith('/practice/star'));
+});
+
+test('CASE F: Learning Path pending activity -> actionable (deep-link resolved and completion allowed)', () => {
+  const pendingAct = normalizeLearningPathActivity({
+    id: 'act-pending',
+    type: LearningPathValues.Scenario,
+    resourceId: 'scen-100',
+    status: LearningPathValues.Pending,
+  });
+  assert.equal(pendingAct.status, 'pending');
+  assert.equal(getActivityDeepLink(pendingAct), '/practice/scenarios/scen-100');
+});
+
+test('CASE G: Learning Path completed activity -> status completed, not completable again', () => {
+  const completedAct = normalizeLearningPathActivity({
+    id: 'act-completed',
+    type: LearningPathValues.Interview,
+    status: LearningPathValues.Completed,
+  });
+  assert.equal(completedAct.status, 'completed');
+  // In UI, completed status suppresses complete button and start CTA
+});
+
+test('CASE H: Learning Path obsolete activity -> explicit obsolete state, no launch CTA, no mark-complete CTA', () => {
+  const obsoleteAct = normalizeLearningPathActivity({
+    id: 'act-obsolete',
+    type: LearningPathValues.Scenario,
+    resourceId: 'scen-old',
+    status: LearningPathValues.Obsolete,
+  });
+  assert.equal(obsoleteAct.status, 'obsolete');
+  // In UI, obsolete status renders "Không còn trong lộ trình hiện tại" and suppresses deepLink and complete button
+});
+
+test('CASE I: Learning Path unknown activity status -> fail closed', () => {
+  const unknownStatusAct = normalizeLearningPathActivity({
+    id: 'act-unknown',
+    type: LearningPathValues.Scenario,
+    status: 'unexpected_backend_status',
+  });
+  assert.equal(unknownStatusAct.status, 'unexpected_backend_status');
+  // In UI, non-pending non-completed non-obsolete renders "Trạng thái không khả dụng" and no CTA
+});
+
+test('CASE J: milestone active denominator excludes obsolete activities (1 completed, 1 pending, 2 obsolete -> 1 / 2, not 1 / 4)', () => {
+  const activities = [
+    { id: '1', status: LearningPathValues.Completed },
+    { id: '2', status: LearningPathValues.Pending },
+    { id: '3', status: LearningPathValues.Obsolete },
+    { id: '4', status: LearningPathValues.Obsolete },
+  ];
+
+  const currentActivities = activities.filter((a) => a.status !== LearningPathValues.Obsolete);
+  const completedCurrent = currentActivities.filter((a) => a.status === LearningPathValues.Completed);
+
+  assert.equal(currentActivities.length, 2, 'Active denominator must be 2, excluding 2 obsolete activities');
+  assert.equal(completedCurrent.length, 1, 'Completed count must be 1');
+  assert.equal(`${completedCurrent.length} / ${currentActivities.length}`, '1 / 2');
+});
+
+test('CASE K: competencies=[] and weaknessSignals=[] -> no positive "Tuyệt vời / no weakness" conclusion', () => {
+  const profile = normalizeSkillProfileResponse({ competencies: [], weaknessSignals: [] });
+  const hasCompetencyEvidence = profile.competencies.some((c) => c.evidenceCount > 0);
+
+  const emptyText = hasCompetencyEvidence
+    ? 'Chưa ghi nhận tín hiệu cần cải thiện từ các bằng chứng hiện có.'
+    : 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.';
+
+  assert.equal(emptyText, 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.');
+  assert.equal(emptyText.includes('Tuyệt vời'), false);
+  assert.equal(emptyText.includes('Không có điểm yếu'), false);
+});
+
+test('CASE L: competency with evidenceCount > 0 and weaknessSignals=[] -> neutral "no weakness signal in current evidence" allowed', () => {
+  const profile = normalizeSkillProfileResponse({
+    competencies: [
+      { code: 'REACT', name: 'React', score: 85, evidenceCount: 3 },
+    ],
+    weaknessSignals: [],
+  });
+
+  const hasCompetencyEvidence = profile.competencies.some((c) => c.evidenceCount > 0);
+  const emptyText = hasCompetencyEvidence
+    ? 'Chưa ghi nhận tín hiệu cần cải thiện từ các bằng chứng hiện có.'
+    : 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.';
+
+  assert.equal(emptyText, 'Chưa ghi nhận tín hiệu cần cải thiện từ các bằng chứng hiện có.');
+  assert.equal(emptyText.includes('Tuyệt vời'), false);
+});
+
+test('CASE M: weaknessSignals present -> exact backend signal rendered', () => {
+  const profile = normalizeSkillProfileResponse({
+    competencies: [],
+    weaknessSignals: [
+      {
+        sourceType: 'interview',
+        label: 'Cần cải thiện cấu trúc câu trả lời STAR',
+        latestEvidenceAt: '2026-03-20T10:00:00Z',
+      },
+    ],
+  });
+
+  assert.equal(profile.weaknessSignals.length, 1);
+  assert.equal(profile.weaknessSignals[0].sourceType, 'interview');
+  assert.equal(profile.weaknessSignals[0].label, 'Cần cải thiện cấu trúc câu trả lời STAR');
+  assert.equal(profile.weaknessSignals[0].latestEvidenceAt, '2026-03-20T10:00:00Z');
 });

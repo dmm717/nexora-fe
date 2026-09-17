@@ -5,6 +5,7 @@ import Link from 'next/link';
 import styles from './Analytics.module.css';
 import { useAnalytics } from '@/hooks/queries/useDashboard';
 import { ClientDate } from '@/components/ui/ClientDate';
+import { getProgressActivityPresentation } from '@/services/progressDashboardContract';
 
 const getScoreClass = (score: number) => {
   if (score >= 80) return styles.scoreExcellent;
@@ -13,35 +14,6 @@ const getScoreClass = (score: number) => {
   return styles.scorePoor;
 };
 
-const getActivityLink = (kind: string, resourceId: string): string | null => {
-  switch (kind) {
-    case 'interview':
-      return resourceId ? `/interviews/${resourceId}` : '/interviews';
-    case 'scenario':
-      return resourceId ? `/practice/scenarios/${resourceId}` : '/practice/scenarios';
-    case 'star_attempt':
-      return '/practice/star';
-    case 'cv_analysis':
-      return '/resumes';
-    default:
-      return null;
-  }
-};
-
-const getActivityKindLabel = (kind: string): string => {
-  switch (kind) {
-    case 'interview':
-      return 'Phỏng vấn thử';
-    case 'scenario':
-      return 'Bài tập tình huống';
-    case 'star_attempt':
-      return 'Luyện tập STAR';
-    case 'cv_analysis':
-      return 'Phân tích CV';
-    default:
-      return kind;
-  }
-};
 
 export default function AnalyticsPage() {
   const { data, isLoading: loading, error: queryError } = useAnalytics();
@@ -270,15 +242,14 @@ export default function AnalyticsPage() {
           {data.recentActivity && data.recentActivity.length > 0 ? (
             <ul className={styles.timeline}>
               {data.recentActivity.map((activity, idx) => {
-                const link = getActivityLink(activity.kind, activity.resourceId);
-                const label = getActivityKindLabel(activity.kind);
+                const { label, deepLink } = getProgressActivityPresentation(activity.kind, activity.resourceId);
                 return (
                   <li key={`${activity.at}-${activity.kind}-${idx}`} className={styles.timelineItem}>
                     <div className={styles.timelineDot} />
                     <div className={styles.timelineContent}>
                       <div className={styles.timelineType}>
-                        {link ? (
-                          <Link href={link} className={styles.timelineLink}>
+                        {deepLink ? (
+                          <Link href={deepLink} className={styles.timelineLink}>
                             {label} →
                           </Link>
                         ) : (
