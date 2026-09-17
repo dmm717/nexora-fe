@@ -235,3 +235,48 @@ export function normalizeProgressDashboardResponse(
   };
 }
 
+export interface ProgressActivityPresentation {
+  label: string;
+  deepLink: string | null;
+}
+
+/**
+ * Maps the exact backend Progress recent activity contract into label and safe deep-link.
+ * Backend emits:
+ * - kind: "interview" -> resourceId is InterviewSession.Id -> /interviews/{resourceId}
+ * - kind: "scenario"  -> resourceId is ScenarioAttempt.Id -> /practice/scenarios (safe generic route)
+ * - kind: "star"      -> resourceId is StarAttempt.Id     -> /practice/star?attempt={resourceId}
+ * - unknown / empty   -> truthful generic label, deepLink: null
+ */
+export function getProgressActivityPresentation(
+  kind: string,
+  resourceId: string
+): ProgressActivityPresentation {
+  const cleanKind = (kind || '').trim().toLowerCase();
+  const cleanResourceId = (resourceId || '').trim();
+
+  switch (cleanKind) {
+    case 'interview':
+      return {
+        label: 'Phỏng vấn thử',
+        deepLink: cleanResourceId ? `/interviews/${encodeURIComponent(cleanResourceId)}` : '/interviews/new',
+      };
+    case 'scenario':
+      return {
+        label: 'Bài tập tình huống',
+        deepLink: '/practice/scenarios',
+      };
+    case 'star':
+      return {
+        label: 'Luyện tập STAR',
+        deepLink: cleanResourceId
+          ? `/practice/star?attempt=${encodeURIComponent(cleanResourceId)}`
+          : '/practice/star',
+      };
+    default:
+      return {
+        label: kind || 'Hoạt động',
+        deepLink: null,
+      };
+  }
+}

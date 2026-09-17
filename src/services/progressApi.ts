@@ -1,28 +1,14 @@
 import { apiClient } from './apiClient';
+import {
+  normalizeProgressHistoricalStats,
+  type ProgressHistoricalStatsResponse,
+} from './progressDashboardContract';
 
-export interface ProgressResponse {
-  completedInterviews: number;
-  recentInterviewScores: number[];
-  averageInterviewScore: number;
-  starAverages: {
-    situation: number;
-    task: number;
-    action: number;
-    result: number;
-  };
-  completedScenarios: number;
-  averageScenarioScore: number;
-  completedStarAttempts: number;
-  recentActivity: Array<{
-    type: string;
-    resourceId: string;
-    timestamp: string;
-  }>;
-}
+export type ProgressResponse = ProgressHistoricalStatsResponse;
 
 export const progressApi = {
-  getProgressAnalytics: async () => {
-    const response = await apiClient.get('/progress') as { data: ProgressResponse };
-    return response.data;
-  }
+  getProgressAnalytics: async (): Promise<ProgressResponse> => {
+    const response = (await apiClient.get('/progress')) as { data: unknown };
+    return normalizeProgressHistoricalStats(response.data);
+  },
 };

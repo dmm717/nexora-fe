@@ -60,7 +60,7 @@ export const CareerProfileSection = () => {
               </Link>
             )}
             {onboarding.hasDisplayName && onboarding.hasYearsOfExperience && !onboarding.hasPrimaryResume && (
-              <Link href="/resume-analyses" style={{ padding: '0.5rem 1rem', backgroundColor: 'white', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
+              <Link href="/resumes" style={{ padding: '0.5rem 1rem', backgroundColor: 'white', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                 Phân tích CV
               </Link>
             )}
@@ -69,10 +69,10 @@ export const CareerProfileSection = () => {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-        {/* Radar Chart */}
+        {/* Radar Chart / Sparse Bars */}
         <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#111827' }}>Phân tích Kỹ năng hàng đầu</h3>
-          {radarData.length > 0 ? (
+          {radarData.length >= 3 ? (
             <div style={{ width: '100%', height: 250 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
@@ -83,6 +83,23 @@ export const CareerProfileSection = () => {
                   <Tooltip />
                 </RadarChart>
               </ResponsiveContainer>
+            </div>
+          ) : radarData.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.5rem 0' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: 0, fontStyle: 'italic' }}>
+                Đang hiển thị dạng danh sách do số lượng kỹ năng chưa đủ để tạo biểu đồ radar (cần tối thiểu 3 kỹ năng).
+              </p>
+              {radarData.map(item => (
+                <div key={item.subject}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontWeight: 500, color: '#374151' }}>{item.subject}</span>
+                    <span style={{ fontWeight: 600, color: '#111827' }}>{item.A}/100</span>
+                  </div>
+                  <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '9999px', overflow: 'hidden' }}>
+                    <div style={{ width: `${item.A}%`, height: '100%', backgroundColor: '#3b82f6', borderRadius: '9999px' }} />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Chưa có đủ dữ liệu kỹ năng để hiển thị biểu đồ.</p>

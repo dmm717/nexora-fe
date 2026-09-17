@@ -13,7 +13,7 @@ export interface SkillProfileCompetencyResponse {
   code: string;
   name: string;
   category: string;
-  score: number;
+  score: number | null;
   evidenceCount: number;
   latestEvidenceAt: string;
   sources: SkillProfileSourceResponse[];
@@ -39,6 +39,9 @@ const asString = (value: unknown): string =>
 const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
+const asNullableNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
 export function normalizeSkillProfileSource(raw: unknown): SkillProfileSourceResponse {
   const record = isRecord(raw) ? raw : {};
   return {
@@ -55,7 +58,7 @@ export function normalizeSkillProfileCompetency(raw: unknown): SkillProfileCompe
     code: asString(record.code),
     name: asString(record.name),
     category: asString(record.category),
-    score: asNumber(record.score, 0),
+    score: asNullableNumber(record.score),
     evidenceCount: asNumber(record.evidenceCount, 0),
     latestEvidenceAt: asString(record.latestEvidenceAt),
     sources: rawSources.map(normalizeSkillProfileSource),
