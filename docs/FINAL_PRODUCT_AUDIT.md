@@ -77,7 +77,7 @@
 | authApi.login / register | /auth | AuthController: POST /api/v1/auth/login, POST /api/v1/auth/register | AuthResponse / RegistrationResponse | MATCH |
 | userApi.getCurrentUser | Root Layout / App Shell | MeController: GET /api/v1/me | UserResponse | MATCH |
 | authSession.requestRefresh | Auth bootstrap / 401 interceptor | AuthController: POST /api/v1/auth/refresh | AuthSessionResponse | MATCH |
-| cvAnalysisApi.presignUpload | /resumes | UploadsController: POST /api/v1/uploads/resumes/presign | PresignUploadResponse | MATCH |
+| cvAnalysisApi.presignUpload | /resumes | UploadsController: POST /api/v1/uploads/presign | PresignUploadResponse | MATCH |
 | cvAnalysisApi.createResume | /resumes | ResumesController: POST /api/v1/resumes | ResumeView | MATCH |
 | cvAnalysisApi.analyze | /resume-analyses | ResumeAnalysesController: POST /api/v1/resume-analyses | ResumeAnalysisView | MATCH |
 | cvAnalysisApi.getAnalysis | /resume-analyses/[id] | ResumeAnalysesController: GET /api/v1/resume-analyses/{id} | ResumeAnalysisView | MATCH |
