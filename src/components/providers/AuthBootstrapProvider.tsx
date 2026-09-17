@@ -32,7 +32,12 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
   });
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
   const [bootstrapError, setBootstrapError] = useState<Error | null>(null);
-  const hasAttemptedBootstrapRef = useRef(false);
+
+  // Remember definitive 401 unauthenticated responses within the current anonymous session
+  // to avoid redundant network probes on SPA navigation.
+  // Transient failures (5xx, network errors) are NEVER cached as definitive.
+  const isDefinitivelyUnauthenticatedRef = useRef(false);
+  const isBootstrappingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +48,11 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
       if (!cancelled) {
         setIsAuthenticated(Boolean(token));
         if (token) {
+          isDefinitivelyUnauthenticatedRef.current = false;
+          setBootstrapError(null);
           setSessionInitialized(true);
+        } else {
+          isDefinitivelyUnauthenticatedRef.current = true;
         }
       }
     });
@@ -57,18 +66,19 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
   useEffect(() => {
     let cancelled = false;
 
-    // 2. Perform route-aware session restoration if needed
+    // 2. Perform route-aware session restoration
     const runBootstrapIfNeeded = async () => {
       if (getAccessToken()) {
         if (!cancelled) {
           setIsAuthenticated(true);
+          setBootstrapError(null);
           setSessionInitialized(true);
         }
         return;
       }
 
-      // If current route does not require eager bootstrap (e.g. public marketing '/' or '/status'),
-      // initialize immediately as anonymous without sending an eager /auth/refresh probe
+      // If current route is truly stateless (e.g. /status, /design-system),
+      // we do not need to eagerly probe auth
       if (!shouldBootstrap) {
         if (!cancelled) {
           setIsAuthenticated(false);
@@ -77,18 +87,23 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
         return;
       }
 
-      // If bootstrap was already performed during this session (and returned false / 401),
-      // we do not repeat the expected 401 on every client navigation unless the token changes
-      if (hasAttemptedBootstrapRef.current) {
+      // If bootstrap already returned a definitive 401 in this anonymous session,
+      // skip repeating the expected 401 on internal SPA route transitions
+      if (isDefinitivelyUnauthenticatedRef.current) {
         if (!cancelled) {
-          setIsAuthenticated(Boolean(getAccessToken()));
+          setIsAuthenticated(false);
           setSessionInitialized(true);
         }
         return;
       }
 
-      hasAttemptedBootstrapRef.current = true;
+      if (isBootstrappingRef.current) {
+        return;
+      }
+
+      isBootstrappingRef.current = true;
       if (!cancelled) {
+        setBootstrapError(null);
         setSessionInitialized(false);
       }
 
@@ -96,11 +111,22 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
         const authenticated = await bootstrapAuthSession();
         if (cancelled) return;
 
-        setIsAuthenticated(authenticated);
+        if (authenticated) {
+          isDefinitivelyUnauthenticatedRef.current = false;
+          setIsAuthenticated(true);
+          setBootstrapError(null);
+        } else {
+          isDefinitivelyUnauthenticatedRef.current = true;
+          setIsAuthenticated(false);
+          setBootstrapError(null);
+        }
         setSessionInitialized(true);
       } catch (error: unknown) {
         if (cancelled) return;
 
+        // Transient error (5xx, network failure, etc.):
+        // Do NOT set isDefinitivelyUnauthenticatedRef!
+        // This ensures the error remains retryable.
         const normalizedError = error instanceof Error
           ? error
           : new Error('Unable to restore the authentication session');
@@ -109,6 +135,8 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
         setBootstrapError(normalizedError);
         setIsAuthenticated(Boolean(getAccessToken()));
         setSessionInitialized(true);
+      } finally {
+        isBootstrappingRef.current = false;
       }
     };
 

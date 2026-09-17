@@ -1,38 +1,20 @@
 /**
  * Route-aware authentication bootstrap policy.
  *
- * Determines whether initial page load or route entry should eagerly probe
- * the server's /api/v1/auth/refresh endpoint when the in-memory access token is absent.
+ * Distinguishes routes with auth-aware UI from truly stateless public routes.
  *
- * Marketing / public informational routes (such as '/', '/status', '/courses')
- * render purely public content and must NOT trigger an expected 401 network probe
- * in fresh anonymous / incognito sessions.
+ * Routes with auth-aware UI (such as '/', '/auth', '/pricing', and all protected routes)
+ * MUST eagerly restore the session via /api/v1/auth/refresh when the in-memory access token
+ * is absent, so that a valid HttpOnly refresh-cookie session is preserved across hard page reloads.
  *
- * Auth-sensitive public routes (such as '/pricing', '/plans') and protected product
- * routes (such as '/(dashboard)/*', '/interviews/*', '/billing', '/overview')
- * DO require eager session bootstrap to restore authenticated state before rendering
- * or routing.
+ * Truly stateless routes (such as '/status' and '/design-system') have no authentication-dependent
+ * UI components (no auth-aware Header, CTAs, or guards) and skip eager session probing.
  */
 
-// Public informational routes that never require eager auth refresh probes when anonymous
-export const PUBLIC_INFORMATIONAL_ROUTES: readonly string[] = [
-  '/',
-  '/public',
+// Truly stateless public routes whose UI has zero auth dependencies
+export const STATELESS_NON_AUTH_ROUTES: readonly string[] = [
   '/status',
   '/design-system',
-  '/courses',
-  '/auth',
-  '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
-  '/verify-email',
-];
-
-// Auth-sensitive public routes where presentation differs for authenticated vs anonymous users
-export const AUTH_SENSITIVE_PUBLIC_ROUTES: readonly string[] = [
-  '/pricing',
-  '/plans',
 ];
 
 export const normalizePathname = (pathname?: string | null): string => {
@@ -44,32 +26,19 @@ export const normalizePathname = (pathname?: string | null): string => {
   return cleaned || '/';
 };
 
-export const isPublicInformationalRoute = (pathname?: string | null): boolean => {
+export const isStatelessNonAuthRoute = (pathname?: string | null): boolean => {
   const normalized = normalizePathname(pathname);
-  if (normalized === '/' || normalized === '') return true;
-
-  return PUBLIC_INFORMATIONAL_ROUTES.some((route) => {
-    if (route === '/') return normalized === '/';
+  return STATELESS_NON_AUTH_ROUTES.some((route) => {
     return normalized === route || normalized.startsWith(`${route}/`);
   });
-};
-
-export const isAuthSensitiveRoute = (pathname?: string | null): boolean => {
-  const normalized = normalizePathname(pathname);
-  return AUTH_SENSITIVE_PUBLIC_ROUTES.some((route) => {
-    return normalized === route || normalized.startsWith(`${route}/`);
-  });
-};
-
-export const isProtectedRoute = (pathname?: string | null): boolean => {
-  return !isPublicInformationalRoute(pathname) && !isAuthSensitiveRoute(pathname);
 };
 
 export const shouldEagerlyBootstrapAuth = (pathname?: string | null): boolean => {
-  // If it's a public informational route, do NOT eagerly call refresh
-  if (isPublicInformationalRoute(pathname)) {
+  // Truly stateless routes skip eager bootstrap
+  if (isStatelessNonAuthRoute(pathname)) {
     return false;
   }
-  // For auth-sensitive public routes and all protected product routes, eager bootstrap is required
+  // All other routes (including '/', '/auth', '/pricing', and protected routes)
+  // contain auth-aware UI and must eagerly restore sessions on hard reload.
   return true;
 };
