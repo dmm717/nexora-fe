@@ -13,7 +13,7 @@ export function resolveNextBestAction({
   targetRole?: string | null;
   needsFirstEvidence: boolean;
 }) {
-  if (!targetRole || needsFirstEvidence) {
+  if (needsFirstEvidence) {
     return {
       label: targetRole ? `Phân tích CV theo mục tiêu ${targetRole}` : 'Thiết lập mục tiêu và phân tích CV đầu tiên',
       description: 'Chọn vị trí bạn đang hướng tới và thêm CV để bắt đầu xây dựng bằng chứng của riêng bạn.',
@@ -47,6 +47,15 @@ export function resolveNextBestAction({
   }
   if (recommendation?.activityType === RecommendationActivityValues.ExternalLearning) {
     return { ...base, label: 'Tài liệu học bên ngoài', activityType: RecommendationActivityValues.ExternalLearning };
+  }
+  if (!targetRole) {
+    return {
+      ...base,
+      label: 'Thiết lập mục tiêu nghề nghiệp',
+      description: 'Chọn vai trò mục tiêu để các đề xuất tiếp theo có bối cảnh phù hợp.',
+      destination: '/career-goals',
+      activityType: 'career_goal',
+    };
   }
   return { ...base, label: 'Bước tiếp theo chưa khả dụng', activityType: 'unknown' };
 }

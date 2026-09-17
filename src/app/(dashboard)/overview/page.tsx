@@ -25,26 +25,38 @@ export default function OverviewPage() {
   const router = useRouter();
 
   const { data: dashboardData, isLoading: loadingDashboard } = useDashboardSummary();
-  const { data: progressData, isLoading: loadingProgress, error: progressError } = useProgressDashboard();
+  const {
+    data: progressData,
+    isLoading: loadingProgress,
+    error: progressError,
+    refetch: refetchProgress,
+    isFetching: refreshingProgress,
+  } = useProgressDashboard();
   const { data: careerProfile, isLoading: loadingProfile } = useCareerProfile();
   const { data: learningPathData } = useLearningPath();
   const { data: recommendationData } = useNextRecommendation();
 
-  const isFeatureNotAvailable =
-    progressError instanceof ApiError && progressError.code === 'FEATURE_NOT_AVAILABLE';
-
-  const isNew = progressData?.readiness?.score == null;
+  const progressLocked =
+    progressError instanceof ApiError &&
+    (progressError.code === 'FEATURE_NOT_AVAILABLE' || progressError.status === 403);
+  const progressUnavailable = Boolean(progressError) && !progressLocked;
+  const hasProgressData = progressData !== undefined && progressError == null;
+  const hasInsufficientEvidence =
+    hasProgressData && progressData.readiness.score === null;
   const activeGoal = careerProfile?.activeCareerGoal;
   const primaryResume = careerProfile?.primaryResume;
   const onboarding = careerProfile?.onboarding;
 
   // Use either next recommendation from progress dashboard or recommendations endpoint
-  const rec = progressData?.nextRecommendedPractice || recommendationData || null;
+  const rec =
+    (hasProgressData ? progressData.nextRecommendedPractice : null) ||
+    recommendationData ||
+    null;
 
   const nextAction = resolveNextBestAction({
     recommendation: rec,
     targetRole: activeGoal?.targetRole,
-    needsFirstEvidence: isNew,
+    needsFirstEvidence: hasInsufficientEvidence,
   });
 
   const availablePath = hasAvailableLearningPath(
@@ -105,9 +117,15 @@ export default function OverviewPage() {
         feature="overview"
         title={`Xin chào, ${careerProfile?.profile?.displayName || 'ứng viên'}!`}
         description={
-          isNew
+          hasInsufficientEvidence
             ? 'Hệ thống chưa có dữ liệu kiểm chứng. Chọn một bước bắt đầu để Nexora có thể học từ bằng chứng thật của bạn.'
-            : `Hệ thống ghi nhận ${progressData?.readiness?.evidenceCount ?? 0} bằng chứng năng lực thực tế. Đây là bước đi tốt nhất tiếp theo trong hành trình của bạn.`
+            : progressLocked
+              ? 'Progress Dashboard chưa có trong gói hiện tại. Các đề xuất độc lập vẫn được giữ nguyên khi có dữ liệu máy chủ.'
+              : progressUnavailable
+                ? 'Không thể tải Progress Dashboard lúc này. Nexora không suy luận rằng hồ sơ của bạn đang thiếu bằng chứng.'
+                : hasProgressData
+                  ? `Hệ thống ghi nhận ${progressData.readiness.evidenceCount} bằng chứng năng lực thực tế. Đây là bước đi tốt nhất tiếp theo trong hành trình của bạn.`
+                  : 'Đang tải trạng thái bằng chứng từ Progress Dashboard.'
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
@@ -139,7 +157,7 @@ export default function OverviewPage() {
       </ProductPageHero>
 
       {/* Feature Gate Banner for ProgressAnalytics if unentitled */}
-      {isFeatureNotAvailable && (
+      {progressLocked && (
         <div className="p-4 rounded-xl bg-amber-50/90 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5 text-amber-900">
             <span className="material-symbols-outlined text-[20px] text-amber-700">lock</span>
@@ -149,6 +167,15 @@ export default function OverviewPage() {
           </div>
           <Button variant="primary" size="sm" onClick={() => router.push('/pricing')}>
             Nâng cấp gói cước
+          </Button>
+        </div>
+      )}
+
+      {progressUnavailable && (
+        <div className="p-4 rounded-xl bg-error/10 border border-error/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-on-surface">
+          <span>Không thể tải Progress Dashboard. Trạng thái bằng chứng hiện chưa xác định.</span>
+          <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
+            {refreshingProgress ? 'Đang thử lại...' : 'Thử lại'}
           </Button>
         </div>
       )}
@@ -190,7 +217,7 @@ export default function OverviewPage() {
               {nextAction.estimatedMinutes && <span className="text-xs text-on-surface-variant">Ước tính {nextAction.estimatedMinutes} phút</span>}
             </div>
 
-            {isNew ? (
+            {hasInsufficientEvidence ? (
               <div className="space-y-3">
                 <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
                   {nextAction.label}
@@ -266,10 +293,10 @@ export default function OverviewPage() {
               </button>
             </div>
 
-            {!isNew && progressData?.readiness?.score != null ? (
+            {hasProgressData && progressData.readiness.score != null ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <RadialScore score={progressData.readiness.score} size={88} strokeWidth={8} />
+                  <RadialScore score={progressData.readiness.score} size={88} strokeWidth={8} tone="neutral" />
                   <div>
                     <div className="text-lg font-bold text-on-surface">
                       Chỉ số hiện tại: {progressData.readiness.score}/100
@@ -292,7 +319,7 @@ export default function OverviewPage() {
                   </div>
                 ) : null}
               </div>
-            ) : (
+            ) : hasInsufficientEvidence ? (
               <MotionEmptyState
                 title="Chưa đủ dữ liệu đánh giá"
                 description="Nexora chỉ đưa ra điểm sẵn sàng dựa trên bằng chứng kiểm chứng được từ hoạt động của bạn."
@@ -300,6 +327,22 @@ export default function OverviewPage() {
                   <Button variant="outline" size="sm" onClick={() => router.push('/resume-analyses')}>
                     Thêm bằng chứng đầu tiên
                   </Button>
+                }
+              />
+            ) : (
+              <MotionEmptyState
+                title={progressLocked ? 'Chỉ số chưa có trong gói hiện tại' : 'Chưa thể tải chỉ số sẵn sàng'}
+                description={
+                  progressLocked
+                    ? 'Nâng cấp gói để sử dụng Progress Dashboard. Không có điểm số nào được suy luận thay thế.'
+                    : 'Trạng thái bằng chứng hiện chưa xác định. Hãy thử tải lại Progress Dashboard.'
+                }
+                action={
+                  progressUnavailable ? (
+                    <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
+                      {refreshingProgress ? 'Đang thử lại...' : 'Thử lại'}
+                    </Button>
+                  ) : undefined
                 }
               />
             )}
@@ -313,9 +356,11 @@ export default function OverviewPage() {
       </div>
 
       <InsightPanel title="Nexora học gì từ hành trình của bạn?">
-        {isNew
+        {hasInsufficientEvidence
           ? 'Mỗi CV, câu trả lời và lần luyện lại sẽ trở thành một mảnh bằng chứng. Khi đủ dữ liệu, hệ thống mới đề xuất điểm mạnh và khoảng trống đáng tin cậy.'
-          : 'Bằng chứng mới nhất được nối vào mục tiêu hiện tại để gợi ý một hành động cụ thể, thay vì chỉ đưa ra thêm một bảng điểm.'}
+          : hasProgressData
+            ? 'Bằng chứng mới nhất được nối vào mục tiêu hiện tại để gợi ý một hành động cụ thể, thay vì chỉ đưa ra thêm một bảng điểm.'
+            : 'Khi Progress Dashboard khả dụng, Nexora sẽ nối bằng chứng mới nhất vào mục tiêu hiện tại mà không tự suy luận trạng thái còn thiếu.'}
       </InsightPanel>
 
       {/* 3. CONTEXTUAL RECENT ACTIVITIES (Hoạt động gần đây) */}

@@ -14,18 +14,24 @@ import {
 } from '@/components/motion';
 import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
-import { useAnalytics } from '@/hooks/queries/useDashboard';
 import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
 import { getRecommendationDeepLink } from '@/services/recommendationContract';
+import { ApiError } from '@/services/apiClient';
+import { ClientDate } from '@/components/ui/ClientDate';
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const { data: progress, isLoading: loadingProgress } = useProgressDashboard();
+  const {
+    data: progress,
+    isLoading: loadingProgress,
+    error: progressError,
+    refetch: refetchProgress,
+    isFetching: refreshingProgress,
+  } = useProgressDashboard();
   const { data: careerProfile, isLoading: loadingProfile } = useCareerProfile();
-  const { data: analytics, isLoading: loadingAnalytics } = useAnalytics();
   const { data: skillProfile } = useSkillProfile();
 
-  const loading = loadingProgress || loadingProfile || loadingAnalytics;
+  const loading = loadingProgress || loadingProfile;
 
   if (loading) {
     return (
@@ -39,16 +45,22 @@ export default function AnalyticsPage() {
   }
 
   const activeGoal = careerProfile?.activeCareerGoal;
-  const readiness = progress?.readiness;
+  const progressLocked =
+    progressError instanceof ApiError &&
+    (progressError.code === 'FEATURE_NOT_AVAILABLE' || progressError.status === 403);
+  const progressUnavailable = Boolean(progressError) && !progressLocked;
+  const hasProgressData = progress !== undefined && progressError == null;
+  const readiness = hasProgressData ? progress.readiness : null;
   const hasScore = readiness?.score !== null && readiness?.score !== undefined;
-  const evidenceCount = readiness?.evidenceCount ?? 0;
+  const evidenceCount = hasProgressData ? readiness?.evidenceCount ?? 0 : null;
+  const weeklyActivities = hasProgressData ? progress.weeklyCompletedActivities : null;
   const recommendationDestination = getRecommendationDeepLink(
-    progress?.nextRecommendedPractice ?? null
+    hasProgressData ? progress.nextRecommendedPractice : null
   );
 
   // Weakest competencies from progress dashboard or skill profile summary
-  const weakestCompetencies = progress?.weakestCompetencies || [];
-  const recentImprovements = progress?.recentImprovements || [];
+  const weakestCompetencies = hasProgressData ? progress.weakestCompetencies : [];
+  const recentImprovements = hasProgressData ? progress.recentImprovements : [];
 
   // Competencies list from skill profile or careerProfile summary
   const competencies = skillProfile?.competencies || careerProfile?.skillProfileSummary?.topCompetencies || [];
@@ -91,15 +103,32 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {(progressLocked || progressUnavailable) && (
+        <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+          <span>
+            {progressLocked
+              ? 'Gói hiện tại chưa hỗ trợ Progress Dashboard. Các chỉ số sẵn sàng và hoạt động tuần không khả dụng.'
+              : 'Không thể tải Progress Dashboard. Dữ liệu lịch sử khác không được dùng thay cho các chỉ số này.'}
+          </span>
+          {progressUnavailable && (
+            <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
+              {refreshingProgress ? 'Đang thử lại...' : 'Thử lại'}
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Top Level Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Readiness Metric */}
         <Card variant="elevated" padding="lg" className="md:col-span-2 flex flex-col sm:flex-row items-center gap-6">
           {hasScore ? (
-            <RadialScore score={readiness.score!} size={120} strokeWidth={10} />
+            <RadialScore score={readiness.score!} size={120} strokeWidth={10} tone="neutral" />
           ) : (
             <div className="w-28 h-28 rounded-full border-4 border-dashed border-outline-variant flex items-center justify-center text-center p-3">
-              <span className="text-xs font-bold text-on-surface-variant">Chưa đủ dữ liệu</span>
+              <span className="text-xs font-bold text-on-surface-variant">
+                {hasProgressData ? 'Chưa đủ dữ liệu' : 'Chưa khả dụng'}
+              </span>
             </div>
           )}
 
@@ -108,12 +137,20 @@ export default function AnalyticsPage() {
               Mức độ sẵn sàng tuyển dụng
             </div>
             <div className="text-xl font-bold text-on-surface">
-              {hasScore ? `Chỉ số hiện tại: ${readiness.score}/100` : 'Chưa đủ dữ liệu đánh giá'}
+              {hasScore
+                ? `Chỉ số hiện tại: ${readiness.score}/100`
+                : hasProgressData
+                  ? 'Chưa đủ dữ liệu đánh giá'
+                  : progressLocked
+                    ? 'Không có trong gói hiện tại'
+                    : 'Không thể tải chỉ số'}
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
               {hasScore
                 ? `Dựa trên ${evidenceCount} bằng chứng được máy chủ tổng hợp.`
-                : 'Hoàn thành một hoạt động có bằng chứng để hệ thống tổng hợp chỉ số sẵn sàng.'}
+                : hasProgressData
+                  ? 'Hoàn thành một hoạt động có bằng chứng để hệ thống tổng hợp chỉ số sẵn sàng.'
+                  : 'Không suy luận điểm số hoặc tình trạng bằng chứng khi Progress Dashboard chưa khả dụng.'}
             </p>
           </div>
         </Card>
@@ -140,18 +177,21 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <div className="text-2xl font-bold text-on-surface">
-              {progress?.weeklyCompletedActivities?.total ??
-                (analytics ? analytics.completedInterviews + analytics.completedScenarios + analytics.completedStarAttempts : 0)}
+              {weeklyActivities?.total ?? '—'}
             </div>
-            <span className="text-[11px] text-emerald-700 font-medium">
-              Bao gồm {progress?.weeklyCompletedActivities?.interviews ?? analytics?.completedInterviews ?? 0} phiên phỏng vấn
+            <span className="text-[11px] text-on-surface-variant font-medium">
+              {weeklyActivities
+                ? `Bao gồm ${weeklyActivities.interviews} phiên phỏng vấn`
+                : progressLocked
+                  ? 'Không có trong gói hiện tại'
+                  : 'Chưa thể tải dữ liệu tuần'}
             </span>
           </div>
         </Card>
       </div>
 
       {/* Next Recommended Practice Banner */}
-      {progress?.nextRecommendedPractice && (
+      {hasProgressData && progress.nextRecommendedPractice && (
         <Card variant="elevated" padding="lg" className="border-primary/30 bg-primary-fixed/20 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -221,7 +261,7 @@ export default function AnalyticsPage() {
                         value={score}
                         heightClass="h-2"
                         colorClass={
-                          score >= 80 ? 'bg-emerald-700' : score >= 70 ? 'bg-primary' : 'bg-amber-700'
+                          'bg-primary'
                         }
                         delay={idx * 0.08}
                       />}
@@ -268,9 +308,13 @@ export default function AnalyticsPage() {
                 ))
               ) : (
                 <p className="text-xs text-on-surface-variant italic">
-                  {evidenceCount === 0
-                    ? 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'
-                    : 'Đã có bằng chứng năng lực, nhưng máy chủ chưa trả về tín hiệu điểm cần cải thiện.'}
+                  {!hasProgressData
+                    ? progressLocked
+                      ? 'Tín hiệu điểm cần cải thiện không có trong gói hiện tại.'
+                      : 'Không thể tải tín hiệu điểm cần cải thiện từ Progress Dashboard.'
+                    : evidenceCount === 0
+                      ? 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'
+                      : 'Đã có bằng chứng năng lực, nhưng máy chủ chưa trả về tín hiệu điểm cần cải thiện.'}
                 </p>
               )}
             </div>
@@ -285,33 +329,46 @@ export default function AnalyticsPage() {
 
             <div className="space-y-3">
               {recentImprovements.length > 0 ? (
-                recentImprovements.map((imp, idx) => (
-                  <div
+                recentImprovements.map((imp, idx) => {
+                  const improvementDestination =
+                    imp.kind === 'interview' && imp.resourceId
+                      ? `/interviews/${imp.resourceId}`
+                      : null;
+                  return (
+                  <button
+                    type="button"
                     key={idx}
-                    onClick={() => {
-                      if (imp.kind === 'interview') {
-                        router.push('/interviews');
-                      } else {
-                        router.push('/resume-analyses');
-                      }
-                    }}
-                    className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 hover:border-primary/50 cursor-pointer transition-all"
+                    onClick={() => improvementDestination && router.push(improvementDestination)}
+                    disabled={!improvementDestination}
+                    className="w-full flex items-center justify-between text-left text-xs p-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 enabled:hover:border-primary/50 enabled:cursor-pointer disabled:cursor-default transition-all"
                   >
                     <div>
                       <div className="font-bold text-on-surface flex items-center gap-1">
-                        <span>{imp.kind === 'interview' ? 'Phiên phỏng vấn kỹ thuật' : 'Phân tích CV đối chiếu JD'}</span>
-                        <span className="material-symbols-outlined text-[13px] text-primary">open_in_new</span>
+                        <span>{imp.kind === 'interview' ? 'Tiến bộ qua phiên phỏng vấn' : 'Tiến bộ được ghi nhận'}</span>
+                        {improvementDestination && (
+                          <span className="material-symbols-outlined text-[13px] text-primary">open_in_new</span>
+                        )}
                       </div>
                       <div className="text-[11px] text-on-surface-variant">
                         Điểm tăng từ {imp.previousScore}% lên {imp.currentScore}%
                       </div>
+                      {imp.at && (
+                        <div className="text-[11px] text-on-surface-variant">
+                          <ClientDate date={imp.at} />
+                        </div>
+                      )}
                     </div>
                     <Badge variant="success" size="sm">+{imp.delta}%</Badge>
-                  </div>
-                ))
+                  </button>
+                  );
+                })
               ) : (
                 <p className="text-xs text-on-surface-variant italic">
-                  Chưa ghi nhận bước tiến bộ mới trong tuần qua.
+                  {hasProgressData
+                    ? 'Chưa ghi nhận bước tiến bộ trong các kết quả gần đây.'
+                    : progressLocked
+                      ? 'Tiến bộ gần đây không có trong gói hiện tại.'
+                      : 'Không thể tải tiến bộ gần đây từ Progress Dashboard.'}
                 </p>
               )}
             </div>

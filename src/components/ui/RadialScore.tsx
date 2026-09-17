@@ -6,6 +6,7 @@ export interface RadialScoreProps {
   strokeWidth?: number;
   label?: string;
   sublabel?: string;
+  tone?: 'graded' | 'neutral';
   className?: string;
 }
 
@@ -15,6 +16,7 @@ export const RadialScore: React.FC<RadialScoreProps> = ({
   strokeWidth,
   label,
   sublabel,
+  tone = 'graded',
   className = '',
 }) => {
   const sizeConfig = {
@@ -46,6 +48,7 @@ export const RadialScore: React.FC<RadialScoreProps> = ({
 
   const getScoreColor = (val: number | null) => {
     if (val === null) return 'text-outline-variant';
+    if (tone === 'neutral') return 'text-primary';
     if (val >= 80) return 'text-emerald-700';
     if (val >= 60) return 'text-primary';
     return 'text-amber-700';

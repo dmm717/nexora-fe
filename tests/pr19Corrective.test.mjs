@@ -191,3 +191,52 @@ test('AJ-AR: remaining derived product semantics are removed', async () => {
   assert.doesNotMatch(skills, /normalizedScore[^\n]*>=\s*(?:80|70)|\(normalizedScore \?\? 0\)\s*>=/);
   assert.doesNotMatch(overview, /new Date\(\)\.toISOString\(\)/);
 });
+
+test('AS-BA: unavailable progress stays distinct from insufficient evidence', async () => {
+  const [analytics, overview, radialScore] = await Promise.all([
+    readSource('../src/app/(dashboard)/analytics/page.tsx'),
+    readSource('../src/app/(dashboard)/overview/page.tsx'),
+    readSource('../src/components/ui/RadialScore.tsx'),
+  ]);
+
+  assert.doesNotMatch(analytics, /completedInterviews\s*\+\s*analytics\.completedScenarios/);
+  assert.match(analytics, /weeklyActivities\?\.total \?\? '—'/);
+  assert.doesNotMatch(analytics, /weeklyCompletedActivities[\s\S]{0,240}\?\?\s*0/);
+  assert.doesNotMatch(overview, /const isNew\s*=\s*progressData\?\.readiness\?\.score == null/);
+  assert.match(overview, /hasProgressData && progressData\.readiness\.score === null/);
+  assert.match(overview, /needsFirstEvidence: hasInsufficientEvidence/);
+  assert.match(overview, /progressLocked[\s\S]{0,240}FEATURE_NOT_AVAILABLE/);
+  assert.doesNotMatch(analytics, /Phiên phỏng vấn kỹ thuật|Phân tích CV đối chiếu JD/);
+  assert.match(analytics, /imp\.kind === 'interview'[\s\S]{0,160}`\/interviews\/\$\{imp\.resourceId\}`/);
+  assert.doesNotMatch(analytics, /else[\s\S]{0,120}router\.push\('\/resume-analyses'\)/);
+  assert.doesNotMatch(analytics, /trong tuần qua/);
+  assert.doesNotMatch(analytics, /score\s*>=\s*(?:80|70)/);
+  assert.match(analytics, /<RadialScore[^>]*tone="neutral"/);
+  assert.match(overview, /<RadialScore[^>]*tone="neutral"/);
+  assert.match(radialScore, /tone\?: 'graded' \| 'neutral'/);
+
+  const recommendationWithoutTarget = {
+    reason: 'server recommendation',
+    activityType: RecommendationActivityValues.StarDrill,
+    resourceId: null,
+    estimatedMinutes: 10,
+    priority: 1,
+    action: null,
+  };
+  assert.equal(
+    resolveNextBestAction({
+      recommendation: recommendationWithoutTarget,
+      targetRole: null,
+      needsFirstEvidence: false,
+    }).destination,
+    '/practice/star'
+  );
+  assert.equal(
+    resolveNextBestAction({
+      recommendation: null,
+      targetRole: null,
+      needsFirstEvidence: false,
+    }).destination,
+    '/career-goals'
+  );
+});
