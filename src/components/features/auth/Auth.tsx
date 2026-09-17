@@ -14,6 +14,11 @@ import { authApi } from '@/services/authApi';
 import { loginSchema, registerSchema, LoginFormData, RegisterFormData } from '@/schema/authSchema';
 import { Input } from '../../ui/Input/Input';
 import { Button } from '../../ui/Button/Button';
+import {
+  resolveSafeReturnUrl,
+  consumeAuthIntent,
+  isValidInternalPath,
+} from '@/utils/authIntent';
 
 export default function Auth() {
   const router = useRouter();
@@ -66,6 +71,14 @@ export default function Auth() {
     setUnverifiedEmail(null);
     setRegisteredEmail(null);
 
+    const currentParams = new URLSearchParams(searchParams.toString());
+    if (newIsLogin) {
+      currentParams.delete('mode');
+    } else {
+      currentParams.set('mode', 'register');
+    }
+    const nextUrl = currentParams.toString() ? `/auth?${currentParams.toString()}` : '/auth';
+
     if (formWrapperRef.current) {
       const form = formWrapperRef.current;
 
@@ -76,7 +89,7 @@ export default function Auth() {
         ease: 'power2.in',
         onComplete: () => {
           reset();
-          router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
+          router.push(nextUrl, { scroll: false });
           setIsLogin(newIsLogin);
 
           setTimeout(() => {
@@ -92,7 +105,7 @@ export default function Auth() {
       });
     } else {
       reset();
-      router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
+      router.push(nextUrl, { scroll: false });
       setIsLogin(newIsLogin);
     }
   };
@@ -152,7 +165,43 @@ export default function Auth() {
           password: loginData.password,
         });
         toast.success('Đăng nhập thành công');
-        router.push('/overview');
+
+        // Priority 1: Check explicit search parameters from current URL
+        const rawReturnTo = searchParams.get('returnTo');
+        const planPriceId = searchParams.get('planPriceId');
+        const intentAction = searchParams.get('intentAction');
+
+        let destination = '/overview';
+
+        if (rawReturnTo && isValidInternalPath(rawReturnTo)) {
+          // Explicit returnTo is present and valid
+          destination = resolveSafeReturnUrl(rawReturnTo, '/overview');
+
+          // If checkout intent with a planPriceId, route to canonical /billing entry
+          if (planPriceId && (intentAction === 'checkout' || destination.startsWith('/billing') || destination.startsWith('/pricing'))) {
+            destination = `/billing?selectedPriceId=${encodeURIComponent(planPriceId)}`;
+            if (rawReturnTo && !rawReturnTo.startsWith('/pricing') && !rawReturnTo.startsWith('/billing')) {
+              destination += `&returnTo=${encodeURIComponent(rawReturnTo)}`;
+            }
+          }
+          // Consume any stale session intent so it doesn't linger
+          consumeAuthIntent();
+        } else {
+          // Priority 2: Recover from stored session intent (e.g. register -> verify/login flow)
+          const storedIntent = consumeAuthIntent();
+          if (storedIntent && isValidInternalPath(storedIntent.targetUrl)) {
+            if (storedIntent.action === 'checkout' && storedIntent.planPriceId) {
+              destination = `/billing?selectedPriceId=${encodeURIComponent(storedIntent.planPriceId)}`;
+              if (storedIntent.targetUrl && !storedIntent.targetUrl.startsWith('/pricing') && !storedIntent.targetUrl.startsWith('/billing')) {
+                destination += `&returnTo=${encodeURIComponent(storedIntent.targetUrl)}`;
+              }
+            } else {
+              destination = resolveSafeReturnUrl(storedIntent.targetUrl, '/overview');
+            }
+          }
+        }
+
+        router.push(destination);
       } else {
         const registerData = data as RegisterFormData;
         await authApi.register({

@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './Billing.module.css';
 import { billingApi } from '@/services/billingApi';
 import { useBillingPlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency } from '@/utils/formatters';
+import { isValidInternalPath } from '@/utils/authIntent';
 
 const CheckIcon = () => (
   <svg className={styles.featureIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
@@ -24,13 +26,21 @@ export default function BillingPage() {
   const loading = loadingPlans || loadingUser;
   const currentPlanCode = user?.billing?.entitlement?.planCode || null;
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedPriceId = searchParams.get('selectedPriceId');
+  const rawReturnTo = searchParams.get('returnTo');
+  const safeReturnTo = rawReturnTo && isValidInternalPath(rawReturnTo) ? rawReturnTo : null;
+
+  const autoCheckoutAttemptedRef = useRef(false);
+
   useEffect(() => {
     let isMounted = true;
     if (typeof window !== 'undefined') {
       const pendingOrderId = sessionStorage.getItem('pendingPaymentOrderId');
       if (pendingOrderId) {
-        const searchParams = new URLSearchParams(window.location.search);
-        if (searchParams.get('error') || searchParams.get('success')) {
+        const currentParams = new URLSearchParams(window.location.search);
+        if (currentParams.get('error') || currentParams.get('success')) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
 
@@ -44,23 +54,34 @@ export default function BillingPage() {
             if (statusRes.status === 'fulfilled') {
               sessionStorage.removeItem('pendingPaymentOrderId');
               queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+
+              // If a validated post-payment returnTo exists in session storage, navigate there
+              const postPaymentReturnTo = sessionStorage.getItem('postPaymentReturnTo');
+              if (postPaymentReturnTo && isValidInternalPath(postPaymentReturnTo)) {
+                sessionStorage.removeItem('postPaymentReturnTo');
+                router.push(postPaymentReturnTo);
+                return;
+              }
             } else if (statusRes.status === 'failed') {
               sessionStorage.removeItem('pendingPaymentOrderId');
+              sessionStorage.removeItem('postPaymentReturnTo');
               if (isMounted) setError('Thanh toán thất bại hoặc đã bị hủy.');
             } else {
               sessionStorage.removeItem('pendingPaymentOrderId');
+              sessionStorage.removeItem('postPaymentReturnTo');
               if (isMounted) setError('Thanh toán chưa được xác nhận hoàn tất.');
             }
           } catch {
             sessionStorage.removeItem('pendingPaymentOrderId');
+            sessionStorage.removeItem('postPaymentReturnTo');
             if (isMounted) setError('Lỗi khi kiểm tra trạng thái thanh toán.');
           }
         };
         
         checkStatus();
       } else {
-        const searchParams = new URLSearchParams(window.location.search);
-        const errorParam = searchParams.get('error');
+        const currentParams = new URLSearchParams(window.location.search);
+        const errorParam = currentParams.get('error');
         if (errorParam === 'webhook_error') {
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setError('Lỗi kết nối máy chủ khi xác nhận thanh toán.');
@@ -69,13 +90,13 @@ export default function BillingPage() {
         } else if (errorParam === 'invalid_transaction') {
           setError('Mã giao dịch thanh toán không hợp lệ.');
         }
-        if (errorParam || searchParams.get('success')) {
+        if (errorParam || currentParams.get('success')) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
     }
     return () => { isMounted = false; };
-  }, [queryClient]);
+  }, [queryClient, router]);
 
   const createCheckoutMutation = useMutation({
     mutationFn: (planPriceId: string) => billingApi.createCheckoutSession(planPriceId),
@@ -83,6 +104,9 @@ export default function BillingPage() {
       queryClient.invalidateQueries({ queryKey: ['billingPlans'] });
       if (res.checkout) {
         sessionStorage.setItem('pendingPaymentOrderId', res.orderId);
+        if (safeReturnTo) {
+          sessionStorage.setItem('postPaymentReturnTo', safeReturnTo);
+        }
         
         const form = document.createElement('form');
         form.method = res.checkout.method;
@@ -111,6 +135,45 @@ export default function BillingPage() {
     setError(null);
     createCheckoutMutation.mutate(planPriceId);
   };
+
+  // One-shot auto-checkout when selectedPriceId is passed in query
+  useEffect(() => {
+    if (!selectedPriceId || autoCheckoutAttemptedRef.current || loadingPlans || plans.length === 0) {
+      return;
+    }
+
+    autoCheckoutAttemptedRef.current = true;
+
+    // Validate selectedPriceId against loaded production plans
+    let matchedPrice: { id: string; amountMinor: number } | null = null;
+    for (const plan of plans) {
+      const found = plan.prices?.find((p) => p.id === selectedPriceId);
+      if (found) {
+        matchedPrice = found;
+        break;
+      }
+    }
+
+    if (!matchedPrice) {
+      // Fail closed: show error and do not call checkout API
+      setError('Gói cước đã chọn không tồn tại hoặc không còn hiệu lực.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (matchedPrice.amountMinor <= 0) {
+      // Free price does not trigger paid checkout
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    // Clean up query param so reloads don't re-trigger
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Invoke canonical checkout
+    setError(null);
+    createCheckoutMutation.mutate(matchedPrice.id);
+  }, [selectedPriceId, loadingPlans, plans, createCheckoutMutation]);
 
 
 
