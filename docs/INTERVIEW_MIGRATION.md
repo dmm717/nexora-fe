@@ -49,7 +49,10 @@ The system strictly supports the 7 backend-supported interview types:
 
 ## 7. Preflight Semantics
 - Preflight configures **this specific session snapshot only**.
-- Defaults are prefilled from active Career Goal (targetRole, seniority) and primary ready CV.
+- Career Goal and CV-targeted selectors use canonical saved data; manual role/seniority remain visible session inputs.
+- Career Goal mode submits only `careerGoalId`; role and seniority are resolved from the selected server snapshot and are never overridden by hidden form defaults.
+- Non-CV interview types do not attach a frontend-selected resume. Career Goal mode delegates Primary Resume fallback to the backend, while manual mode sends no resume unless the visible CV-targeted selector is active.
+- For `cv_targeted`, the visible selector prefers a ready Primary Resume, otherwise the first ready resume, and submission revalidates that the selected ID is still ready.
 - Default difficulty is set to `Medium`.
 - Honest validation:
   - `cv_targeted` requires a ready resume (`status === 'ready'`).
@@ -123,6 +126,7 @@ The system strictly supports the 7 backend-supported interview types:
 - Transport/network retries reuse the frozen `AnswerIntent` (same `idempotencyKey`, same `durationSeconds`, same trimmed content).
 - Retries do not consume extra quota or create duplicate question slots.
 - Confirmed `INTERVIEW_REPORT_FAILED` may call report retry. Local polling exhaustion only offers a canonical state refetch and never enqueues a new report job.
+- Polling exhaustion takes precedence over a stale local `INTERVIEW_REPORT_PROCESSING` error, so the bounded check-status action remains reachable.
 
 ## 19. Report Semantics
 - `null != 0` is strictly respected:

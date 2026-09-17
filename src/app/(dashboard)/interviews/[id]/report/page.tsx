@@ -11,6 +11,7 @@ import { interviewApi, type PracticeAgainCommand } from '@/services/interviewApi
 import {
   isReportProcessingError,
   isReportFailedError,
+  getInterviewReportRenderState,
   generateIdempotencyKey,
   SCORE_SCALE,
 } from '@/services/interviewContract';
@@ -49,6 +50,12 @@ export default function InterviewReportPage() {
     isReportProcessingError(queryError) ||
     (queryError instanceof ApiError && queryError.code === 'NOT_FOUND' && interview?.status === 'completing');
   const isFailed = isReportFailedError(queryError);
+  const reportRenderState = getInterviewReportRenderState({
+    loading,
+    failed: isFailed,
+    pollingBoundExhausted: reportPollingBoundExhausted,
+    processing: isProcessing,
+  });
 
   // Practice Again creates a NEW linked session ID
   const handlePracticeAgain = async (questionId?: string, topic?: string) => {
@@ -91,7 +98,7 @@ export default function InterviewReportPage() {
   };
 
   // Loading state
-  if (loading) {
+  if (reportRenderState === 'loading') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -100,21 +107,35 @@ export default function InterviewReportPage() {
     );
   }
 
-  // Processing state
-  if (isProcessing) {
+  // Confirmed server failed state
+  if (reportRenderState === 'failed') {
     return (
-      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-        <h2 className="text-xl font-bold text-slate-900">Báo cáo đang được tổng hợp...</h2>
-        <p className="text-xs text-slate-500 max-w-md mx-auto">
-          Nexora AI đang phân tích dữ liệu câu trả lời, đối soát thang điểm Rubric và mô hình STAR. Quá trình này diễn ra hoàn toàn tự động.
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-red-200 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+          <span className="material-symbols-outlined text-2xl">error_outline</span>
+        </div>
+        <h2 className="text-xl font-bold text-red-900">Chưa thể xuất báo cáo</h2>
+        <p className="text-xs text-slate-600 max-w-md mx-auto">
+          {retryError?.message ||
+            'Hệ thống gặp sự cố khi tạo báo cáo (INTERVIEW_REPORT_FAILED). Bạn có thể yêu cầu tạo lại.'}
         </p>
+        <div className="pt-2">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleRetryReport}
+            disabled={retrying}
+            className="shadow-sm font-semibold"
+          >
+            {retrying ? 'Đang gửi yêu cầu tạo lại...' : 'Thử tạo lại báo cáo'}
+          </Button>
+        </div>
       </div>
     );
   }
 
   // Polling exhaustion (client-side timeout without confirmed server failure)
-  if (reportPollingBoundExhausted && !isFailed) {
+  if (reportRenderState === 'polling_exhausted') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
@@ -142,29 +163,15 @@ export default function InterviewReportPage() {
     );
   }
 
-  // Confirmed server failed state
-  if (isFailed) {
+  // Processing state while the local polling budget remains available
+  if (reportRenderState === 'processing') {
     return (
-      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-red-200 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-          <span className="material-symbols-outlined text-2xl">error_outline</span>
-        </div>
-        <h2 className="text-xl font-bold text-red-900">Chưa thể xuất báo cáo</h2>
-        <p className="text-xs text-slate-600 max-w-md mx-auto">
-          {retryError?.message ||
-            'Hệ thống gặp sự cố khi tạo báo cáo (INTERVIEW_REPORT_FAILED). Bạn có thể yêu cầu tạo lại.'}
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900">Báo cáo đang được tổng hợp...</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Nexora AI đang phân tích dữ liệu câu trả lời, đối soát thang điểm Rubric và mô hình STAR. Quá trình này diễn ra hoàn toàn tự động.
         </p>
-        <div className="pt-2">
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleRetryReport}
-            disabled={retrying}
-            className="shadow-sm font-semibold"
-          >
-            {retrying ? 'Đang gửi yêu cầu tạo lại...' : 'Thử tạo lại báo cáo'}
-          </Button>
-        </div>
       </div>
     );
   }

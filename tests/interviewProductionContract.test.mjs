@@ -41,6 +41,10 @@ createReportPollingAttemptTracker,
   normalizeReportView,
   applyAnswerResultToInterview,
   createCompleteIntentState,
+  buildInterviewPreflightPayload,
+  resolveCvTargetedResumeId,
+  isReadyResumeSelection,
+  getInterviewReportRenderState,
 } from '../src/services/interviewContract.ts';
 
 // 1. continuation in_progress
@@ -1123,4 +1127,167 @@ test('38. corrective UI contains no fake duration, unlimited claim, or fabricate
   assert.doesNotMatch(coachingSource, /Mở rộng không giới hạn/);
   assert.doesNotMatch(reportSource, /Luyện tập theo mô hình STAR/);
   assert.doesNotMatch(reportSource, /Cập nhật &amp; Tối ưu CV/);
+});
+
+test('39. career-goal payload delegates role and seniority resolution to backend', () => {
+  const seniorGoalPayload = buildInterviewPreflightPayload({
+    mode: 'career_goal',
+    careerGoalId: 'goal-senior',
+    manualRole: 'Stale role',
+    manualSeniority: 'Junior',
+    interviewType: 'technical',
+    difficulty: 'Medium',
+  });
+
+  assert.deepEqual(seniorGoalPayload, {
+    careerGoalId: 'goal-senior',
+    interviewType: 'technical',
+    difficulty: 'Medium',
+  });
+  assert.equal('role' in seniorGoalPayload, false);
+  assert.equal('seniority' in seniorGoalPayload, false);
+
+  const switchedGoalPayload = buildInterviewPreflightPayload({
+    mode: 'career_goal',
+    careerGoalId: 'goal-b',
+    manualRole: 'Role from goal A',
+    manualSeniority: 'Senior',
+    interviewType: 'behavioral',
+    difficulty: 'Hard',
+  });
+  assert.equal(switchedGoalPayload.careerGoalId, 'goal-b');
+  assert.equal('role' in switchedGoalPayload, false);
+  assert.equal('seniority' in switchedGoalPayload, false);
+});
+
+test('40. manual payload preserves explicit visible role and seniority', () => {
+  assert.deepEqual(
+    buildInterviewPreflightPayload({
+      mode: 'manual',
+      manualRole: '  Backend Engineer  ',
+      manualSeniority: 'Senior',
+      interviewType: 'technical',
+      difficulty: 'Medium',
+    }),
+    {
+      role: 'Backend Engineer',
+      seniority: 'Senior',
+      interviewType: 'technical',
+      difficulty: 'Medium',
+    }
+  );
+});
+
+test('41. non-CV interviews never attach a hidden ready resume', () => {
+  const careerGoalPayload = buildInterviewPreflightPayload({
+    mode: 'career_goal',
+    careerGoalId: 'goal-1',
+    interviewType: 'technical',
+    difficulty: 'Medium',
+    cvTargetedResumeId: 'ready-resume-1',
+  });
+  const manualPayload = buildInterviewPreflightPayload({
+    mode: 'manual',
+    manualRole: 'Product Manager',
+    manualSeniority: 'Mid-level',
+    interviewType: 'behavioral',
+    difficulty: 'Medium',
+    cvTargetedResumeId: 'ready-resume-1',
+  });
+
+  assert.equal('resumeId' in careerGoalPayload, false);
+  assert.equal('resumeId' in manualPayload, false);
+});
+
+test('42. CV-targeted visible default prefers ready Primary Resume then first ready resume', () => {
+  assert.equal(
+    resolveCvTargetedResumeId({
+      primaryResumeId: 'primary-ready',
+      readyResumeIds: ['other-ready', 'primary-ready'],
+    }),
+    'primary-ready'
+  );
+  assert.equal(
+    resolveCvTargetedResumeId({
+      primaryResumeId: 'primary-processing',
+      readyResumeIds: ['other-ready'],
+    }),
+    'other-ready'
+  );
+});
+
+test('43. stale explicit CV selection fails closed instead of silently falling back', () => {
+  const resolved = resolveCvTargetedResumeId({
+    selectedResumeId: 'stale-resume',
+    primaryResumeId: 'primary-ready',
+    readyResumeIds: ['primary-ready', 'other-ready'],
+  });
+
+  assert.equal(resolved, 'stale-resume');
+  assert.equal(isReadyResumeSelection(resolved, ['primary-ready', 'other-ready']), false);
+});
+
+test('44. report render precedence separates server failure, polling exhaustion, and processing', () => {
+  assert.equal(
+    getInterviewReportRenderState({
+      loading: false,
+      failed: false,
+      pollingBoundExhausted: true,
+      processing: true,
+    }),
+    'polling_exhausted'
+  );
+  assert.equal(
+    getInterviewReportRenderState({
+      loading: false,
+      failed: true,
+      pollingBoundExhausted: true,
+      processing: true,
+    }),
+    'failed'
+  );
+  assert.equal(
+    getInterviewReportRenderState({
+      loading: false,
+      failed: false,
+      pollingBoundExhausted: false,
+      processing: true,
+    }),
+    'processing'
+  );
+});
+
+test('45. polling exhaustion UI only rechecks queries while failure UI owns report retry', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const exhaustedBranch = source.slice(
+    source.indexOf("reportRenderState === 'polling_exhausted'"),
+    source.indexOf("reportRenderState === 'processing'")
+  );
+  const failedBranch = source.slice(
+    source.indexOf("reportRenderState === 'failed'"),
+    source.indexOf("reportRenderState === 'polling_exhausted'")
+  );
+
+  assert.match(exhaustedBranch, /invalidateQueries/);
+  assert.doesNotMatch(exhaustedBranch, /retryReport/);
+  assert.match(failedBranch, /handleRetryReport/);
+});
+
+test('46. pending post-payment entitlement exposes refetch-only action', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const recheckHandler = source.slice(
+    source.indexOf('const handleEntitlementRecheck'),
+    source.indexOf('// Continue action after reviewing coaching drawer')
+  );
+
+  assert.match(source, /Kiểm tra lại quyền tiếp tục/);
+  assert.match(recheckHandler, /interviewApi\.getById\(id\)/);
+  assert.doesNotMatch(recheckHandler, /interviewApi\.continue/);
+  assert.doesNotMatch(recheckHandler, /router\.push\(`\/pricing/);
 });

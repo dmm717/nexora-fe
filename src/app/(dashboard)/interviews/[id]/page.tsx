@@ -50,6 +50,7 @@ export default function InterviewRoomPage() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [completing, setCompleting] = useState<boolean>(false);
   const [continuing, setContinuing] = useState<boolean>(false);
+  const [pendingEntitlementRecheck, setPendingEntitlementRecheck] = useState<boolean>(false);
 
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const [candidateState, setCandidateState] = useState<AudioSpeechState>({
@@ -145,9 +146,10 @@ export default function InterviewRoomPage() {
 
           if (freshInterview.status !== 'active' || freshAction !== 'continue_same_session') {
             if (freshAction === 'upgrade') {
+              setPendingEntitlementRecheck(true);
               setActionError({
                 message:
-                  'Gói nâng cấp chưa được xác nhận cho phiên này. Vui lòng kiểm tra thanh toán rồi thử lại.',
+                  'Quyền tiếp tục chưa được xác nhận cho phiên này. Hãy kiểm tra lại trạng thái sau khi thanh toán hoàn tất.',
               });
             }
             return;
@@ -247,6 +249,32 @@ export default function InterviewRoomPage() {
     } finally {
       setSubmitting(false);
       setIsEvaluating(false);
+    }
+  };
+
+  const handleEntitlementRecheck = async () => {
+    if (continuing) return;
+    setContinuing(true);
+    setActionError(null);
+
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['interview', id] });
+      const freshInterview = await interviewApi.getById(id);
+      queryClient.setQueryData(['interview', id], freshInterview);
+      setPendingEntitlementRecheck(
+        freshInterview.continuation?.state === 'upgrade_required'
+      );
+    } catch (err: unknown) {
+      setActionError({
+        message:
+          err instanceof ApiError
+            ? err.message
+            : 'Không thể kiểm tra quyền tiếp tục. Vui lòng thử lại.',
+        requestId: err instanceof ApiError ? err.requestId : undefined,
+        code: err instanceof ApiError ? err.code : undefined,
+      });
+    } finally {
+      setContinuing(false);
     }
   };
 
@@ -636,11 +664,17 @@ export default function InterviewRoomPage() {
                 <Button
                   variant="outline"
                   size="md"
-                  onClick={handleUpgradeAndContinue}
+                  onClick={
+                    pendingEntitlementRecheck && continuationAction === 'upgrade'
+                      ? handleEntitlementRecheck
+                      : handleUpgradeAndContinue
+                  }
                   disabled={continuing}
                 >
                   {continuing
                     ? 'Đang kiểm tra...'
+                    : pendingEntitlementRecheck && continuationAction === 'upgrade'
+                    ? 'Kiểm tra lại quyền tiếp tục'
                     : continuationAction === 'upgrade'
                     ? 'Nâng cấp để tiếp tục'
                     : 'Tiếp tục cùng phiên'}

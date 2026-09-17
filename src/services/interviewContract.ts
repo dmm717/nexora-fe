@@ -1025,6 +1025,86 @@ export interface CanonicalStartPayload {
   careerGoalId?: string;
 }
 
+export type InterviewPreflightMode = 'career_goal' | 'manual';
+
+export function resolveCvTargetedResumeId(params: {
+  selectedResumeId?: string;
+  primaryResumeId?: string;
+  readyResumeIds: string[];
+}): string {
+  const { selectedResumeId, primaryResumeId, readyResumeIds } = params;
+
+  // Preserve an explicit selection so a resume that later becomes stale fails validation.
+  if (selectedResumeId) return selectedResumeId;
+  if (primaryResumeId && readyResumeIds.includes(primaryResumeId)) return primaryResumeId;
+  return readyResumeIds[0] || '';
+}
+
+export function isReadyResumeSelection(
+  resumeId: string | undefined,
+  readyResumeIds: string[]
+): boolean {
+  return Boolean(resumeId && readyResumeIds.includes(resumeId));
+}
+
+/**
+ * Builds the preflight command without duplicating backend Career Goal/Profile fallbacks.
+ * Role/seniority are explicit only in manual mode; resume is explicit only for CV-targeted.
+ */
+export function buildInterviewPreflightPayload(params: {
+  mode: InterviewPreflightMode;
+  careerGoalId?: string;
+  manualRole?: string;
+  manualSeniority?: string;
+  interviewType: string;
+  difficulty: string;
+  cvTargetedResumeId?: string;
+  jobDescriptionId?: string;
+}): CanonicalStartPayload {
+  const shared = {
+    interviewType: params.interviewType,
+    difficulty: params.difficulty,
+    ...(params.interviewType === 'cv_targeted' && params.cvTargetedResumeId
+      ? { resumeId: params.cvTargetedResumeId }
+      : {}),
+    ...(params.jobDescriptionId ? { jobDescriptionId: params.jobDescriptionId } : {}),
+  };
+
+  if (params.mode === 'career_goal') {
+    return {
+      ...shared,
+      ...(params.careerGoalId ? { careerGoalId: params.careerGoalId } : {}),
+    };
+  }
+
+  return {
+    ...shared,
+    ...(params.manualRole ? { role: params.manualRole.trim() } : {}),
+    ...(params.manualSeniority ? { seniority: params.manualSeniority } : {}),
+  };
+}
+
+export type InterviewReportRenderState =
+  | 'loading'
+  | 'failed'
+  | 'polling_exhausted'
+  | 'processing'
+  | 'ready';
+
+/** Confirmed server failure wins; local polling exhaustion wins over processing. */
+export function getInterviewReportRenderState(params: {
+  loading: boolean;
+  failed: boolean;
+  pollingBoundExhausted: boolean;
+  processing: boolean;
+}): InterviewReportRenderState {
+  if (params.loading) return 'loading';
+  if (params.failed) return 'failed';
+  if (params.pollingBoundExhausted) return 'polling_exhausted';
+  if (params.processing) return 'processing';
+  return 'ready';
+}
+
 export interface StartIntent {
   key: string;
   payload: CanonicalStartPayload;

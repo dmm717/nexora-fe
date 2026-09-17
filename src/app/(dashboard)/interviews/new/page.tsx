@@ -7,11 +7,14 @@ import { interviewApi, type StartInterviewCommand } from '@/services/interviewAp
 import {
   getOrCreateStartIntent,
   generateIdempotencyKey,
+  buildInterviewPreflightPayload,
+  isReadyResumeSelection,
+  resolveCvTargetedResumeId,
   type StartIntent,
 } from '@/services/interviewContract';
 import { ApiError } from '@/services/apiClient';
 import { useCareerGoals } from '@/hooks/queries/useCareerGoals';
-import { useResumes } from '@/hooks/queries/useCareerProfile';
+import { useCareerProfile, useResumes } from '@/hooks/queries/useCareerProfile';
 import { useJobDescriptions } from '@/hooks/queries/useJobDescriptions';
 import { cvAnalysisApi } from '@/services/cvAnalysisApi';
 import { Card } from '@/components/ui/Card';
@@ -28,12 +31,14 @@ export default function NewInterviewPage() {
 
   // Queries
   const { data: careerGoals, isLoading: loadingGoals } = useCareerGoals();
+  const { data: careerProfile } = useCareerProfile();
   const { data: resumes = [], isLoading: loadingResumes } = useResumes();
   const { data: jobDescriptions = [], isLoading: loadingJds } = useJobDescriptions();
 
   const activeGoals = useMemo(() => careerGoals?.filter((g) => g.active) || [], [careerGoals]);
   const defaultGoal = activeGoals[0] || null;
   const readyResumes = useMemo(() => resumes.filter((r) => r.status === 'ready'), [resumes]);
+  const readyResumeIds = useMemo(() => readyResumes.map((resume) => resume.id), [readyResumes]);
 
   // Session-scoped form state
   const [sessionRole, setSessionRole] = useState<string>('');
@@ -54,7 +59,11 @@ export default function NewInterviewPage() {
 
   // Derived effective IDs
   const effectiveGoalId = selectedGoalId || defaultGoal?.id || '';
-  const effectiveResumeId = selectedResumeId || readyResumes[0]?.id || '';
+  const effectiveResumeId = resolveCvTargetedResumeId({
+    selectedResumeId,
+    primaryResumeId: careerProfile?.primaryResume?.id,
+    readyResumeIds,
+  });
   const effectiveRole = sessionRole || defaultGoal?.targetRole || '';
   const effectiveJdId = selectedJdId || jobDescriptions[0]?.id || '';
 
@@ -163,9 +172,9 @@ export default function NewInterviewPage() {
     }
 
     if (interviewType === 'cv_targeted') {
-      if (readyResumes.length === 0 || !effectiveResumeId) {
+      if (!isReadyResumeSelection(effectiveResumeId, readyResumeIds)) {
         setError({
-          message: 'Loại phỏng vấn theo CV yêu cầu bạn phải chọn một CV đã sẵn sàng (Ready). Vui lòng tải lên CV hoặc chọn loại phỏng vấn khác.',
+          message: 'CV đã chọn không còn ở trạng thái sẵn sàng. Vui lòng chọn lại một CV Ready hoặc tải lên CV mới.',
         });
         return;
       }
@@ -217,28 +226,17 @@ export default function NewInterviewPage() {
       }
     }
 
-    // Build candidate payload
-    let candidatePayload: StartInterviewCommand;
-    if (mode === 'manual') {
-      candidatePayload = {
-        role: effectiveRole.trim(),
-        seniority: sessionSeniority,
-        interviewType,
-        difficulty,
-        ...(effectiveResumeId ? { resumeId: effectiveResumeId } : {}),
-        ...(finalJdId ? { jobDescriptionId: finalJdId } : {}),
-      };
-    } else {
-      candidatePayload = {
-        careerGoalId: effectiveGoalId || undefined,
-        role: effectiveRole.trim() || undefined,
-        seniority: sessionSeniority || undefined,
-        interviewType,
-        difficulty,
-        ...(effectiveResumeId ? { resumeId: effectiveResumeId } : {}),
-        ...(finalJdId ? { jobDescriptionId: finalJdId } : {}),
-      };
-    }
+    // Build only explicit frontend context; backend owns Career Goal/Profile fallbacks.
+    const candidatePayload: StartInterviewCommand = buildInterviewPreflightPayload({
+      mode,
+      careerGoalId: effectiveGoalId || undefined,
+      manualRole: effectiveRole,
+      manualSeniority: sessionSeniority,
+      interviewType,
+      difficulty,
+      cvTargetedResumeId: interviewType === 'cv_targeted' ? effectiveResumeId : undefined,
+      jobDescriptionId: finalJdId,
+    });
 
     // Idempotency intent
     const intent = getOrCreateStartIntent(pendingStartIntentRef.current, candidatePayload);
@@ -361,14 +359,7 @@ export default function NewInterviewPage() {
                 <select
                   id="careerGoalSelect"
                   value={effectiveGoalId}
-                  onChange={(e) => {
-                    setSelectedGoalId(e.target.value);
-                    const found = activeGoals.find((g) => g.id === e.target.value);
-                    if (found) {
-                      setSessionRole(found.targetRole || '');
-                      if (found.seniority) setSessionSeniority(found.seniority);
-                    }
-                  }}
+                  onChange={(e) => setSelectedGoalId(e.target.value)}
                   className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   disabled={loading}
                 >
