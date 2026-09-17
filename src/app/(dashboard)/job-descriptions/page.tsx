@@ -18,14 +18,14 @@ export default function JobDescriptionsIndexPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 className={styles.sectionTitle} style={{ margin: 0 }}>Lịch sử Job Descriptions</h2>
           <button 
-            onClick={() => router.push('/job-descriptions/new')}
+            onClick={() => router.push('/interviews/new')}
             style={{ 
               background: '#1f2937', color: 'white', border: 'none', padding: '0.75rem 1.5rem', 
               borderRadius: '999px', fontSize: '1rem', fontWeight: 600, cursor: 'pointer',
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
             }}
           >
-            + Thêm JD mới
+            + Tạo phỏng vấn với JD
           </button>
         </div>
         
