@@ -1,159 +1,235 @@
 'use client';
 
-import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
-
-const plans = [
-  {
-    name: "Free",
-    subtitle: "Trải nghiệm",
-    price: "0đ",
-    period: "",
-    badge: "Gói hiện tại",
-    features: [
-      "Phân tích CV/JD Cơ bản (Keyword)",
-      "01 Phiên Phỏng vấn AI mẫu (giới hạn 3 câu/phiên)",
-      "Truy cập Case Study Bank: Các câu hỏi phổ biến",
-      "Báo cáo Post-Interview: Điểm số tổng quan"
-    ],
-    cta: "Đang dùng",
-    popular: false,
-    buttonClass: "border border-purple-100 text-purple-400 font-bold bg-transparent hover:bg-purple-50",
-    cardClass: "border-transparent bg-white shadow-sm"
-  },
-  {
-    name: "Basic",
-    subtitle: "Sử dụng trong 3 ngày",
-    price: "49K",
-    period: "/ 3 ngày",
-    badge: "",
-    features: [
-      "01 lượt Phân tích CV/JD Chuyên sâu",
-      "03 Phiên Phỏng vấn AI (Full câu hỏi)",
-      "Mở khóa Case Study Bank Chuyên ngành",
-      "Có truy cập công cụ STAR Builder",
-      "Báo cáo chi tiết từng câu & phân tích STAR"
-    ],
-    cta: "Nâng cấp Basic",
-    popular: false,
-    buttonClass: "bg-[#8EF322] text-slate-900 font-bold hover:bg-[#82df1f] shadow-md",
-    cardClass: "border-transparent bg-white shadow-md"
-  },
-  {
-    name: "Weekly",
-    subtitle: "Sử dụng trong 7 ngày",
-    price: "189K",
-    period: "/ tuần",
-    badge: "PHỔ BIẾN NHẤT",
-    features: [
-      "05 lượt Phân tích CV/JD Chuyên sâu",
-      "20 Phiên Phỏng vấn AI (Full câu hỏi)",
-      "Case Study Bank & STAR Builder: Không giới hạn",
-      "Báo cáo Post-Interview chi tiết"
-    ],
-    cta: "Nâng cấp Weekly",
-    popular: true,
-    buttonClass: "bg-[#8EF322] text-slate-900 font-bold hover:bg-[#82df1f] shadow-md",
-    cardClass: "border-2 border-purple-600 bg-white shadow-xl relative scale-105 z-10"
-  },
-  {
-    name: "Pro",
-    subtitle: "Sử dụng trong 90 ngày",
-    price: "599K",
-    period: "/ 90 ngày",
-    badge: "",
-    features: [
-      "Phân tích CV/JD Chuyên sâu: Không giới hạn",
-      "Phiên Phỏng vấn AI: Không giới hạn",
-      "Case Study Bank & STAR Builder: Không giới hạn",
-      "Báo cáo phân tích kỹ năng mềm, cảm xúc & tiến bộ cá nhân hóa"
-    ],
-    cta: "Nâng cấp Pro",
-    popular: false,
-    buttonClass: "bg-[#8EF322] text-slate-900 font-bold hover:bg-[#82df1f] shadow-md",
-    cardClass: "border-transparent bg-white shadow-md"
-  }
-];
+import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { ProductPageHero } from '@/components/product-visual';
+import { AuthGateModal } from '@/components/auth/AuthGateModal';
+import { usePlans } from '@/hooks/queries/useBilling';
+import { useCurrentUser } from '@/hooks/queries/useUser';
+import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import type { PlanView, PlanPrice } from '@/services/billingApi';
+import type { AuthIntent } from '@/utils/authIntent';
+import { Check, ArrowUpRight } from 'lucide-react';
 
 export default function PricingCards() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('returnTo') || '';
+  const isInterviewUpgrade = returnTo.includes('interview');
+
+  const { isAuthenticated } = useAuth();
+  const { data: plans = [], isLoading: loadingPlans } = usePlans();
+  const { data: user } = useCurrentUser();
+
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
+
+  const currentPlanCode = user?.billing?.entitlement?.planCode?.toLowerCase() || null;
+
+  const handleSelectPlan = (plan: PlanView, price: PlanPrice) => {
+    if (isAuthenticated) {
+      if (price.amountMinor === 0) {
+        if (returnTo) {
+          router.push(returnTo);
+        } else {
+          router.push('/overview');
+        }
+        return;
+      }
+      // Authenticated user selecting a paid plan: redirect to billing/plans checkout
+      router.push(`/billing?selectedPriceId=${encodeURIComponent(price.id)}`);
+    } else {
+      if (price.amountMinor === 0) {
+        setPendingIntent({
+          action: 'navigation',
+          targetUrl: returnTo || '/overview',
+        });
+        setAuthModalOpen(true);
+        return;
+      }
+      setPendingIntent({
+        action: 'checkout',
+        targetUrl: returnTo ? `/pricing?returnTo=${encodeURIComponent(returnTo)}` : '/pricing',
+        planPriceId: price.id,
+      });
+      setAuthModalOpen(true);
+    }
+  };
+
+  const formatPrice = (amountMinor: number, currency: string) => {
+    if (amountMinor === 0) return 'Miễn phí';
+    return (amountMinor / 100).toLocaleString('vi-VN', {
+      style: 'currency',
+      currency: currency || 'VND',
+    });
+  };
+
   return (
-    <section className="relative w-full min-h-screen pt-32 pb-16 px-4 sm:px-6 overflow-hidden bg-gradient-to-br from-[#F5F0FF] via-[#F8F5FE] to-[#EBE4FF]">
-      
-      {/* Background decorations */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200/50 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-100/40 rounded-full blur-[120px] translate-y-1/4 -translate-x-1/4 pointer-events-none" />
-      
-      <div className="max-w-[1350px] mx-auto relative z-10">
-        
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <h1 className="text-3xl md:text-4xl font-black text-purple-700 tracking-tight mb-3">
-            Sẵn sàng hơn cho mọi buổi phỏng vấn
-          </h1>
-          <p className="text-sm md:text-base text-slate-700 font-medium leading-relaxed">
-            Lựa chọn gói luyện tập, nhận góp ý và cải thiện kỹ năng qua từng buổi.
-          </p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12">
+      <ProductPageHero
+        feature="pricing"
+        title="Chọn gói đồng hành tối ưu cho hành trình nghề nghiệp của bạn"
+        description="Không ép buộc thanh toán sớm. Bắt đầu với gói Miễn phí để kiểm chứng phương pháp của Nexora, sau đó nâng cấp khi cần tăng tốc độ luyện tập."
+      />
 
-        {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch pt-2">
-          {plans.map((plan, idx) => (
-            <div 
-              key={idx} 
-              className={`rounded-3xl p-5 md:p-6 flex flex-col h-full ${plan.cardClass}`}
-            >
-              
-              {/* Badge for popular plan */}
-              {plan.badge && plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-purple-600 rounded-full text-white text-[10px] font-bold tracking-wider uppercase shadow-lg whitespace-nowrap">
-                  {plan.badge}
-                </div>
-              )}
-              
-              {/* Fixed height container for inline badge to ensure alignment */}
-              <div className="h-7 mb-2">
-                {plan.badge && !plan.popular && (
-                  <div className="inline-block px-3 py-1 bg-purple-100 rounded-full text-purple-600 text-[10px] font-bold w-max">
-                    {plan.badge}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <p className="text-[12px] font-medium text-slate-500 mb-0.5">{plan.subtitle}</p>
-                <h3 className={`text-lg font-black mb-2 ${plan.popular ? 'text-purple-700' : 'text-slate-900'}`}>{plan.name}</h3>
-                
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[26px] font-black text-purple-700 tracking-tight">{plan.price}</span>
-                  {plan.period && <span className="text-slate-500 font-medium text-[11px]">{plan.period}</span>}
-                </div>
-              </div>
-
-              {/* Separator line */}
-              <div className="w-full h-[1px] bg-slate-100 my-4"></div>
-
-              {/* Features List */}
-              <div className="mb-4 flex-1">
-                <ul className="space-y-2.5">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
-                      <span className="text-slate-600 font-medium text-[11px] leading-snug">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Button */}
-              <button className={`w-full py-2 rounded-full text-[12px] transition-all duration-200 mt-auto ${plan.buttonClass}`}>
-                {plan.cta}
-              </button>
-
+      {/* Contextual Interview Upgrade Notice */}
+      {isInterviewUpgrade && (
+        <div className="p-5 rounded-2xl bg-primary-fixed/30 border-2 border-primary/40 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-sm font-bold">
+              ★
             </div>
-          ))}
+            <div>
+              <div className="font-bold text-sm sm:text-base text-on-surface">
+                Nâng cấp phiên phỏng vấn đang diễn ra (Mở khóa Câu 4+)
+              </div>
+              <div className="text-xs text-on-surface-variant mt-0.5">
+                Bạn đã hoàn thành các câu hỏi của gói Miễn phí. Chọn một trong các gói dưới đây để tiếp tục ngay câu hỏi số 4 chuyên sâu trong chính phiên phỏng vấn này.
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(returnTo)}
+          >
+            Quay lại phiên phỏng vấn
+          </Button>
         </div>
+      )}
 
-      </div>
-    </section>
+      {loadingPlans ? (
+        <div className="text-center py-16 text-on-surface-variant">
+          <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+          <p>Đang tải thông tin các gói cước...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+          {plans.map((plan, index) => {
+            const price = plan.prices && plan.prices.length > 0 ? plan.prices[0] : null;
+            if (!price) return null;
+
+            const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
+            const isHighlight = index === 1;
+
+            return (
+              <Card
+                key={plan.id}
+                variant={isHighlight ? 'interactive' : 'elevated'}
+                padding="lg"
+                className={`flex flex-col justify-between transition-all relative ${
+                  isHighlight
+                    ? 'border-2 border-primary shadow-floating scale-[1.02] bg-white ring-4 ring-primary-fixed/20'
+                    : 'border border-outline-variant/50 bg-white'
+                }`}
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    {isHighlight && (
+                      <Badge variant="primary" size="sm">
+                        PHỔ BIẾN NHẤT
+                      </Badge>
+                    )}
+                    {isCurrentPlan && (
+                      <Badge variant="secondary" size="sm">
+                        Gói hiện tại
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-lg text-on-surface">{plan.name}</h3>
+                    <p className="text-xs text-on-surface-variant mt-1 min-h-[36px] leading-relaxed">
+                      {price.amountMinor === 0
+                        ? 'Trải nghiệm phương pháp luyện phỏng vấn và phân tích hồ sơ'
+                        : `Gói luyện tập chuyên sâu cho mục tiêu ${plan.name}`}
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <div className="text-2xl sm:text-3xl font-black text-on-surface">
+                      {formatPrice(price.amountMinor, price.currency)}
+                    </div>
+                    <div className="text-[11px] text-on-surface-variant mt-0.5">
+                      {price.durationDays ? `Thời hạn ${price.durationDays} ngày` : 'Sử dụng linh hoạt'}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-outline-variant/30 space-y-2">
+                    <div className="text-[11px] font-bold text-on-surface-variant uppercase">
+                      Tính năng bao gồm:
+                    </div>
+                    <div className="text-xs font-semibold text-primary">
+                      Hạn mức: {price.interviewQuota ? `${price.interviewQuota} lượt phỏng vấn` : 'Luyện phỏng vấn linh hoạt'}
+                    </div>
+
+                    <div className="flex items-start gap-2 text-xs">
+                      <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
+                      <span className="text-on-surface">
+                        {price.amountMinor === 0
+                          ? '01 Phiên phỏng vấn AI mẫu (3 câu/phiên)'
+                          : 'Phiên phỏng vấn AI đầy đủ câu hỏi'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 text-xs">
+                      <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
+                      <span className="text-on-surface">
+                        {price.amountMinor === 0
+                          ? 'Phân tích CV từ khóa cơ bản'
+                          : 'Phân tích CV chuyên sâu theo vị trí'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 text-xs">
+                      <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
+                      <span className="text-on-surface">
+                        Báo cáo điểm số & gợi ý cải thiện
+                      </span>
+                    </div>
+                    {price.amountMinor > 0 && (
+                      <div className="flex items-start gap-2 text-xs">
+                        <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
+                        <span className="text-on-surface font-medium text-primary">
+                          Tiếp tục ngay câu 4+ trong cùng phiên
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <Button
+                    variant={isHighlight ? 'primary' : 'outline'}
+                    fullWidth
+                    size="sm"
+                    disabled={isCurrentPlan}
+                    onClick={() => handleSelectPlan(plan, price)}
+                    icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
+                  >
+                    {isCurrentPlan
+                      ? 'Đang sử dụng'
+                      : price.amountMinor === 0
+                        ? 'Bắt đầu miễn phí'
+                        : 'Chọn gói này'}
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Auth Gate Modal */}
+      <AuthGateModal
+        isOpen={authModalOpen}
+        pendingIntent={pendingIntent}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setPendingIntent(null);
+        }}
+      />
+    </div>
   );
 }

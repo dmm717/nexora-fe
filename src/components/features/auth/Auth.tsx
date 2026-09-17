@@ -14,6 +14,7 @@ import { authApi } from '@/services/authApi';
 import { loginSchema, registerSchema, LoginFormData, RegisterFormData } from '@/schema/authSchema';
 import { Input } from '../../ui/Input/Input';
 import { Button } from '../../ui/Button/Button';
+import { resolveSafeReturnUrl } from '@/utils/authIntent';
 
 export default function Auth() {
   const router = useRouter();
@@ -66,6 +67,14 @@ export default function Auth() {
     setUnverifiedEmail(null);
     setRegisteredEmail(null);
 
+    const currentParams = new URLSearchParams(searchParams.toString());
+    if (newIsLogin) {
+      currentParams.delete('mode');
+    } else {
+      currentParams.set('mode', 'register');
+    }
+    const nextUrl = currentParams.toString() ? `/auth?${currentParams.toString()}` : '/auth';
+
     if (formWrapperRef.current) {
       const form = formWrapperRef.current;
 
@@ -76,7 +85,7 @@ export default function Auth() {
         ease: 'power2.in',
         onComplete: () => {
           reset();
-          router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
+          router.push(nextUrl, { scroll: false });
           setIsLogin(newIsLogin);
 
           setTimeout(() => {
@@ -92,7 +101,7 @@ export default function Auth() {
       });
     } else {
       reset();
-      router.push(newIsLogin ? '/auth' : '/auth?mode=register', { scroll: false });
+      router.push(nextUrl, { scroll: false });
       setIsLogin(newIsLogin);
     }
   };
@@ -152,7 +161,19 @@ export default function Auth() {
           password: loginData.password,
         });
         toast.success('Đăng nhập thành công');
-        router.push('/overview');
+
+        // Resolve safe return URL from search parameters or fallback to /overview
+        const rawReturnTo = searchParams.get('returnTo');
+        const planPriceId = searchParams.get('planPriceId');
+        let destination = resolveSafeReturnUrl(rawReturnTo, '/overview');
+
+        // If a specific plan checkout was requested, ensure planPriceId is carried forward if destination is /pricing or /plans
+        if (planPriceId && (destination.startsWith('/pricing') || destination.startsWith('/plans'))) {
+          const sep = destination.includes('?') ? '&' : '?';
+          destination = `${destination}${sep}planPriceId=${encodeURIComponent(planPriceId)}`;
+        }
+
+        router.push(destination);
       } else {
         const registerData = data as RegisterFormData;
         await authApi.register({
