@@ -33,7 +33,7 @@ export interface ScenarioDimensionEvaluation {
 }
 
 export interface ScenarioEvaluation {
-  overallScore: number;
+  overallScore: number | null;
   dimensions: ScenarioDimensionEvaluation[];
   strengths: string[];
   gaps: string[];

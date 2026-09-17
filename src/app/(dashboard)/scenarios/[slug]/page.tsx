@@ -72,7 +72,7 @@ export default function ScenarioPracticePage() {
               {isFetching ? 'Đang thử lại...' : 'Thử tải lại'}
             </button>
           )}
-          <Link href="/scenarios" className={styles.btnSecondaryAction}>
+          <Link href="/practice/scenarios" className={styles.btnSecondaryAction}>
             <svg
               width="14"
               height="14"

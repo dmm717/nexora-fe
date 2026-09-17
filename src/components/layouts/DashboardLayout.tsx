@@ -34,8 +34,8 @@ const navItems = [
     href: '/resume-analyses',
   },
   {
-    name: 'Tình huống & STAR',
-    href: '/scenarios',
+    name: 'Luyện tập',
+    href: '/practice',
   },
   {
     name: 'Gói cước',
@@ -96,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link 
                   key={item.href} 
                   href={item.href} 
-                  className={`${styles.menuItem} ${pathname === item.href ? styles.active : ''}`}
+                  className={`${styles.menuItem} ${pathname === item.href || pathname.startsWith(`${item.href}/`) ? styles.active : ''}`}
                 >
                   {item.name}
                 </Link>

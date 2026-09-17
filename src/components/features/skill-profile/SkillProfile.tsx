@@ -74,7 +74,7 @@ export default function SkillProfile() {
                   <Link href="/resume-analyses" className={styles.btnSecondary}>
                     Tải lên CV
                   </Link>
-                  <Link href="/scenarios" className={styles.btnSecondary}>
+                  <Link href="/practice/scenarios" className={styles.btnSecondary}>
                     Luyện STAR & Tình huống
                   </Link>
                   <Link href="/interviews/new" className={styles.btnSecondary}>

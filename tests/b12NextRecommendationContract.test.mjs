@@ -131,7 +131,7 @@ test('7. scenario routing with valid resourceId navigates to direct scenario pag
     estimatedMinutes: 20,
     priority: 1,
   });
-  assert.equal(link, '/scenarios/3fa85f64-5717-4562-b3fc-2c963f66afa6');
+  assert.equal(link, '/practice/scenarios/3fa85f64-5717-4562-b3fc-2c963f66afa6');
 });
 
 test('8. scenario fallback routing without resourceId navigates to scenario list', () => {
@@ -142,7 +142,7 @@ test('8. scenario fallback routing without resourceId navigates to scenario list
     estimatedMinutes: 20,
     priority: 1,
   });
-  assert.equal(link, '/scenarios');
+  assert.equal(link, '/practice/scenarios');
 });
 
 test('9. star_drill routing navigates to star-builder', () => {
@@ -153,7 +153,7 @@ test('9. star_drill routing navigates to star-builder', () => {
     estimatedMinutes: 15,
     priority: 2,
   });
-  assert.equal(link, '/star-builder');
+  assert.equal(link, '/practice/star');
 });
 
 test('10. interview routing navigates to interviews/new', () => {

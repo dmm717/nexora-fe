@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import {
   generateIdempotencyKey,
+  buildStarAttemptRequest,
   getOrCreateStarAttemptIntent,
   type CanonicalStarPayload,
   type StarAttemptIntent,
@@ -8,6 +9,7 @@ import {
 
 export {
   generateIdempotencyKey,
+  buildStarAttemptRequest,
   getOrCreateStarAttemptIntent,
   type CanonicalStarPayload,
   type StarAttemptIntent,
@@ -70,13 +72,11 @@ export const starBuilderApi = {
     data: StarAttemptRequest,
     idempotencyKey?: string
   ): Promise<StarAttemptResponse> => {
+    const request = buildStarAttemptRequest(data, idempotencyKey || generateIdempotencyKey());
     const response = (await apiClient.post(
-      '/star-attempts',
-      {
-        question: data.question.trim(),
-        answer: data.answer.trim(),
-      },
-      { headers: { 'Idempotency-Key': idempotencyKey || generateIdempotencyKey() } }
+      request.url,
+      request.data,
+      { headers: request.headers }
     )) as { data: unknown };
     return normalizeStarAttemptResponse(response.data);
   },

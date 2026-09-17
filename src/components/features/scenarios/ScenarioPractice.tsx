@@ -21,10 +21,21 @@ import {
   type ScenarioSubmitIntent,
 } from '@/utils/scenarioHelpers';
 import type { ScenarioDetail } from '@/types/scenario';
+import { ApiError } from '@/services/apiClient';
 
 interface ScenarioPracticeProps {
   scenario: ScenarioDetail;
 }
+
+const isScenarioAccessError = (error: unknown) =>
+  error instanceof ApiError &&
+  (error.status === 403 ||
+    [
+      'FEATURE_DISABLED',
+      'FEATURE_NOT_AVAILABLE',
+      'FEATURE_QUOTA_EXCEEDED',
+      'QUOTA_EXCEEDED',
+    ].includes(error.code || ''));
 
 const FormattedScenarioContent = ({ text }: { text: string }) => {
   const blocks = useMemo(() => parseMarkdownBlocks(text), [text]);
@@ -103,6 +114,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
   const [userAnswerText, setUserAnswerText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [upgradeRequired, setUpgradeRequired] = useState(false);
 
   // Stable idempotency intents for client retry resilience
   const createIntentRef = useRef<ScenarioCreateIntent | null>(null);
@@ -158,6 +170,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     if (createInFlightRef.current) return;
     createInFlightRef.current = true;
     setErrorMessage(null);
+    setUpgradeRequired(false);
     try {
       const intent = getOrCreateScenarioCreateIntent(createIntentRef.current, scenario.id);
       createIntentRef.current = intent;
@@ -174,6 +187,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     } catch (err: unknown) {
       const msg = getScenarioErrorMessage(err, 'Không thể khởi tạo lượt luyện tập.');
       setErrorMessage(msg);
+      setUpgradeRequired(isScenarioAccessError(err));
     } finally {
       createInFlightRef.current = false;
     }
@@ -190,6 +204,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     }
 
     setErrorMessage(null);
+    setUpgradeRequired(false);
     try {
       const intent = getOrCreateScenarioSubmitIntent(submitIntentRef.current, {
         attemptId: activeAttemptId,
@@ -207,6 +222,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     } catch (err: unknown) {
       const msg = getScenarioErrorMessage(err, 'Lỗi khi gửi bài đánh giá.');
       setErrorMessage(msg);
+      setUpgradeRequired(isScenarioAccessError(err));
     } finally {
       submitInFlightRef.current = false;
     }
@@ -217,7 +233,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
     if (retryInFlightRef.current) return;
     retryInFlightRef.current = true;
     setErrorMessage(null);
-    const draftContent = answerText || currentAttempt?.answer || '';
+    setUpgradeRequired(false);
     try {
       const intent = getOrCreateScenarioCreateIntent(retryIntentRef.current, scenario.id);
       retryIntentRef.current = intent;
@@ -228,11 +244,13 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
       retryIntentRef.current = null;
       submitIntentRef.current = null;
       setSelectedAttemptId(attempt.id);
-      // Retain previous answer so user can refine and submit
-      setUserAnswerText(attempt.answer || draftContent);
+      // A deliberate retry is a fresh attempt. The source answer remains
+      // immutable in history and is never copied into the new draft.
+      setUserAnswerText(attempt.answer || '');
     } catch (err: unknown) {
       const msg = getScenarioErrorMessage(err, 'Không thể tạo lượt thử mới.');
       setErrorMessage(msg);
+      setUpgradeRequired(isScenarioAccessError(err));
     } finally {
       retryInFlightRef.current = false;
     }
@@ -246,8 +264,12 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
           Dashboard
         </Link>
         <span>/</span>
-        <Link href="/scenarios" className={styles.breadcrumbLink}>
-          Scenario Academy
+        <Link href="/practice" className={styles.breadcrumbLink}>
+          Luyện tập
+        </Link>
+        <span>/</span>
+        <Link href="/practice/scenarios" className={styles.breadcrumbLink}>
+          Kho tình huống
         </Link>
         <span>/</span>
         <span className={styles.breadcrumbCurrent}>{scenario.title}</span>
@@ -319,6 +341,14 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <span>{errorMessage}</span>
+          {upgradeRequired && (
+            <Link
+              href={`/billing?returnTo=${encodeURIComponent(`/practice/scenarios/${scenario.slug}`)}`}
+              className={`${styles.btnSecondaryAction} ${styles.contentWidthAuto}`}
+            >
+              Xem gói phù hợp
+            </Link>
+          )}
         </div>
       )}
 
@@ -567,6 +597,34 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                 </div>
               )}
 
+              {attemptStatus === 'completed' && !currentAttempt?.evaluation && (
+                <div className={styles.asyncStatusBanner} role="status" aria-live="polite">
+                  <div>
+                    <h3 className={styles.statusHeading}>Đánh giá chưa có dữ liệu</h3>
+                    <p className={styles.statusDescription}>
+                      Lượt làm đã hoàn thành nhưng máy chủ chưa trả về nội dung đánh giá. Điểm số không được suy đoán hoặc thay bằng 0.
+                    </p>
+                    <div className={styles.statusActions}>
+                      <button
+                        type="button"
+                        className={`${styles.btnSecondaryAction} ${styles.contentWidthAuto}`}
+                        onClick={() => void refetchAttempt()}
+                      >
+                        Tải lại kết quả
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.btnPracticeAction} ${styles.contentWidthAuto}`}
+                        onClick={handleRetry}
+                        disabled={retryMutation.isPending}
+                      >
+                        {retryMutation.isPending ? 'Đang tạo lượt mới...' : 'Bắt đầu lượt mới'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* State 4: FAILED (Recovery via new draft attempt only) */}
               {attemptStatus === 'failed' && (
                 <div className={`${styles.asyncStatusBanner} ${styles.failedStatusBanner}`} role="alert">
@@ -625,6 +683,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
           />
         </div>
       )}
+
     </div>
   );
 }

@@ -308,19 +308,19 @@ test('B11.5: resolves deep link for scenario activity with resourceId', () => {
     type: LearningPathValues.Scenario,
     resourceId: 'scen-42',
   });
-  assert.equal(getActivityDeepLink(actWithRes), '/scenarios/scen-42');
+  assert.equal(getActivityDeepLink(actWithRes), '/practice/scenarios/scen-42');
 
   const actWithoutRes = normalizeLearningPathActivity({
     id: '2',
     type: LearningPathValues.Scenario,
     resourceId: null,
   });
-  assert.equal(getActivityDeepLink(actWithoutRes), '/scenarios');
+  assert.equal(getActivityDeepLink(actWithoutRes), '/practice/scenarios');
 });
 
 test('B11.6: resolves deep links for star_drill, interview, resume_improvement, and external_learning', () => {
   const starAct = normalizeLearningPathActivity({ id: '1', type: LearningPathValues.StarDrill });
-  assert.equal(getActivityDeepLink(starAct), '/star-builder');
+  assert.equal(getActivityDeepLink(starAct), '/practice/star');
 
   const interviewAct = normalizeLearningPathActivity({ id: '2', type: LearningPathValues.Interview });
   assert.equal(getActivityDeepLink(interviewAct), '/interviews/new');

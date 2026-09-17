@@ -25,3 +25,14 @@ export const useStarAttempt = (id: string, isScenario: boolean, refetchInterval?
     },
   });
 };
+
+export const useStarAttempts = () => {
+  const { authReady, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['starAttempts'],
+    queryFn: () => starBuilderApi.listRecentAttempts(),
+    staleTime: 30 * 1000,
+    enabled: authReady && isAuthenticated,
+  });
+};

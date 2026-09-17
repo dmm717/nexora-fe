@@ -84,6 +84,17 @@ export const useScenarioAttemptHistory = (idOrSlug: string) => {
   });
 };
 
+export const useScenarioAttempts = () => {
+  const { authReady, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['scenarioAttempts'],
+    queryFn: () => scenarioApi.listAttempts(),
+    staleTime: 30 * 1000,
+    enabled: authReady && isAuthenticated,
+  });
+};
+
 export const useCreateScenarioAttempt = () => {
   const queryClient = useQueryClient();
 
@@ -97,6 +108,7 @@ export const useCreateScenarioAttempt = () => {
     }) => scenarioApi.createAttempt(scenarioId, idempotencyKey),
     onSuccess: (attempt) => {
       void queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', attempt.id] });
+      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempts'] });
     },
   });
 };
@@ -118,6 +130,7 @@ export const useSubmitScenarioAttempt = () => {
       void queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', attempt.id] });
       void queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
       void queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
+      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempts'] });
     },
   });
 };
@@ -137,6 +150,7 @@ export const useRetryScenario = () => {
       void queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', attempt.id] });
       void queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
       void queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
+      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempts'] });
     },
   });
 };

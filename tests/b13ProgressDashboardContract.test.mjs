@@ -426,7 +426,7 @@ test('23. embedded recommendation: valid recommendation preserves canonical B12 
 
   // Deep link contract verification on embedded recommendation
   const deepLink = getRecommendationDeepLink(result.nextRecommendedPractice);
-  assert.equal(deepLink, '/scenarios/b7b9-1234-5678-9abc');
+  assert.equal(deepLink, '/practice/scenarios/b7b9-1234-5678-9abc');
 });
 
 test('24. embedded recommendation: non-scenario activity types resolve canonical deep links', () => {
@@ -437,7 +437,7 @@ test('24. embedded recommendation: non-scenario activity types resolve canonical
     estimatedMinutes: 15,
     priority: 2,
   });
-  assert.equal(getRecommendationDeepLink(starRec), '/star-builder');
+  assert.equal(getRecommendationDeepLink(starRec), '/practice/star');
 
   const interviewRec = canonicalNormalizeRecommendation({
     reason: 'Luyện tập phỏng vấn mô phỏng',

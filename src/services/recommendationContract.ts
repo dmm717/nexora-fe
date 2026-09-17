@@ -83,8 +83,8 @@ export function normalizeNextPracticeRecommendationResponse(
  * Resolves safe product deep links for a recommended activity.
  *
  * Rules:
- * - Scenario: `/scenarios/${resourceId}` if resourceId is present, else `/scenarios`
- * - StarDrill: `/star-builder`
+ * - Scenario: `/practice/scenarios/${resourceId}` if resourceId is present, else `/practice/scenarios`
+ * - StarDrill: `/practice/star`
  * - Interview: `/interviews/new`
  * - ResumeImprovement: `/resumes`
  * - ExternalLearning: null (B12 provides no externalUrl, never invent a fake link)
@@ -100,10 +100,10 @@ export function getRecommendationDeepLink(
   switch (recommendation.activityType) {
     case RecommendationActivityValues.Scenario:
       return recommendation.resourceId
-        ? `/scenarios/${recommendation.resourceId}`
-        : '/scenarios';
+        ? `/practice/scenarios/${recommendation.resourceId}`
+        : '/practice/scenarios';
     case RecommendationActivityValues.StarDrill:
-      return '/star-builder';
+      return '/practice/star';
     case RecommendationActivityValues.Interview:
       return '/interviews/new';
     case RecommendationActivityValues.ResumeImprovement:
