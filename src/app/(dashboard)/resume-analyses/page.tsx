@@ -4,10 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ClientDate } from '@/components/ui/ClientDate';
-import styles from '../resumes/Resumes.module.css';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { ProductPageHero } from '@/components/product-visual';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '@/services/apiClient';
-import { cvAnalysisApi, getUploadContentType } from '@/services/cvAnalysisApi';
+import { cvAnalysisApi, getUploadContentType, type ResumeView, type ResumeAnalysisHistoryItem } from '@/services/cvAnalysisApi';
 import {
   createResumeAnalysisOperation,
   ResumeAnalysisOperation,
@@ -22,7 +25,7 @@ import {
 import { useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { useCurrentUser } from '@/hooks/queries/useUser';
-import { useCareerProfile, useSetPrimaryResume } from '@/hooks/queries/useCareerProfile';
+import { useCareerProfile, useSetPrimaryResume, useResumes } from '@/hooks/queries/useCareerProfile';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus } from '@/utils/queryPolling';
 
@@ -36,8 +39,6 @@ function safeErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
-
-import { type ResumeAnalysisHistoryItem } from '@/services/cvAnalysisApi';
 
 const ResumeHistoryList = ({ 
   history, 
@@ -61,105 +62,115 @@ const ResumeHistoryList = ({
   if (history.length === 0) return null;
 
   return (
-    <div className={styles.panel} style={{ marginTop: '2rem' }}>
-      <h2 className={styles.panelTitle}>
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        Quản lý CV đã phân tích
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-        {history.map(item => {
+    <section className="space-y-4 pt-4 border-t border-outline-variant/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[22px] text-primary">history</span>
+          <h2 className="text-base sm:text-lg font-bold text-on-surface">Lịch sử phân tích CV</h2>
+        </div>
+        <Badge variant="neutral" size="sm">
+          {history.length} bản ghi
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {history.map((item) => {
           const isPrimary = item.resumeId === primaryResumeId;
-          const isBenchmark = item.mode === 'field_benchmark';
-          const title = isBenchmark
-            ? `${item.context?.targetRole ?? 'Vị trí mục tiêu'}${item.context?.seniority ? ` · ${item.context.seniority}` : ''}`
-            : ('Phân tích CV theo JD');
-          const subtitle = isBenchmark && item.context?.industry ? item.context.industry : null;
+          const isTargeted = item.mode === 'job_targeted';
+          const title = isTargeted
+            ? 'Phân tích CV theo JD'
+            : (item.context?.targetRole || 'Định hướng chuẩn ngành');
+
           return (
-            <div
+            <Card
               key={item.id}
-              onClick={() => router.push(`/resume-analyses/${item.id}`)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/resume-analyses/${item.id}`); } }}
-              style={{
-                cursor: 'pointer',
-                padding: '1rem',
-                border: '1px solid #e5e7eb',
-                borderRadius: '0.5rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: '#f9fafb'
-              }}
+              variant="elevated"
+              padding="md"
+              className="flex flex-col justify-between space-y-4 border border-outline-variant/60 shadow-subtle hover:border-primary/50 transition-all"
             >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ fontWeight: 600, color: '#111827' }}>{title}</div>
-                  {isPrimary && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#FEF3C7', color: '#D97706', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600 }}>
-                      <svg fill="currentColor" viewBox="0 0 20 20" width="12" height="12" style={{ marginRight: '4px' }}>
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      CV Chính
-                    </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={isTargeted ? 'primary' : 'secondary'} size="sm">
+                      {isTargeted ? 'Theo JD mục tiêu' : 'Chuẩn thị trường'}
+                    </Badge>
+                    {isPrimary && (
+                      <Badge variant="warning" size="sm" icon={<span className="material-symbols-outlined text-[14px]">star</span>}>
+                        CV chính
+                      </Badge>
+                    )}
+                  </div>
+                  {item.status === 'completed' ? (
+                    <Badge variant="success" size="sm">Hoàn thành</Badge>
+                  ) : item.status === 'failed' ? (
+                    <Badge variant="error" size="sm">Lỗi</Badge>
+                  ) : (
+                    <Badge variant="warning" size="sm">Đang xử lý</Badge>
                   )}
                 </div>
-                {subtitle && <div style={{ fontSize: '0.8rem', color: '#4b5563', marginTop: '0.15rem' }}>{subtitle}</div>}
-                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                  <ClientDate date={item.createdAt} />
-                  {item.status === 'failed' && <span style={{color: '#ef4444', marginLeft: 8}}>• Đã có lỗi</span>}
-                  {item.status !== 'completed' && item.status !== 'failed' && <span style={{color: '#eab308', marginLeft: 8}}>• Đang xử lý</span>}
+
+                {/* Preserved snapshot context */}
+                <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 space-y-1 text-xs">
+                  <div className="flex items-center justify-between text-on-surface-variant text-[11px]">
+                    <span className="font-medium">Bối cảnh đối chiếu:</span>
+                    <ClientDate date={item.createdAt} />
+                  </div>
+                  <div className="font-bold text-on-surface">
+                    {title}
+                    {item.context?.seniority ? ` (${item.context.seniority})` : ''}
+                  </div>
+                  {item.context?.industry && (
+                    <div className="text-[11px] text-on-surface-variant">
+                      Ngành: <span className="font-medium text-on-surface">{item.context.industry}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                <div style={{ color: '#2563eb', fontWeight: 500, fontSize: '0.875rem' }}>Xem kết quả &rarr;</div>
-                {!isPrimary && item.resumeId && (
-                  <button 
+
+              <div className="pt-3 border-t border-outline-variant/30 flex items-center justify-between gap-2">
+                {!isPrimary && item.resumeId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={isSettingPrimary}
                     disabled={isSettingPrimary}
-                    onClick={(e) => { e.stopPropagation(); onSetPrimary(item.resumeId!); }}
-                    style={{
-                      padding: '4px 12px',
-                      fontSize: '0.75rem',
-                      fontWeight: 500,
-                      backgroundColor: 'white',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '4px',
-                      cursor: isSettingPrimary ? 'not-allowed' : 'pointer',
-                      opacity: isSettingPrimary ? 0.7 : 1,
-                      color: '#374151'
-                    }}
+                    onClick={() => onSetPrimary(item.resumeId)}
                   >
                     Đặt làm CV chính
-                  </button>
+                  </Button>
+                ) : (
+                  <div />
                 )}
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => router.push(`/resume-analyses/${item.id}`)}
+                  icon={<span className="material-symbols-outlined text-[16px]">visibility</span>}
+                  iconPosition="right"
+                >
+                  Xem kết quả
+                </Button>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>
+
       {hasNextPage && (
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-          <button
+        <div className="text-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onLoadMore}
+            loading={isFetchingNextPage}
             disabled={isFetchingNextPage}
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#f3f4f6',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.375rem',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              cursor: isFetchingNextPage ? 'not-allowed' : 'pointer',
-              opacity: isFetchingNextPage ? 0.7 : 1,
-            }}
           >
             {isFetchingNextPage ? 'Đang tải...' : 'Xem thêm lịch sử'}
-          </button>
+          </Button>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 
@@ -174,6 +185,9 @@ interface ResumeUploadPanelProps {
   handleRemoveFile: () => void;
   onRetry?: () => void;
   retryDisabled: boolean;
+  existingResumes?: ResumeView[];
+  selectedResumeId?: string | null;
+  onSelectExistingResume?: (resume: ResumeView) => void;
 }
 
 const ResumeUploadPanel = ({
@@ -187,59 +201,110 @@ const ResumeUploadPanel = ({
   handleRemoveFile,
   onRetry,
   retryDisabled,
+  existingResumes,
+  selectedResumeId,
+  onSelectExistingResume,
 }: ResumeUploadPanelProps) => (
-  <div className={styles.panel}>
-    <h2 className={styles.panelTitle}>
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-      1. Hồ sơ ứng viên (CV)
-    </h2>
+  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/60 shadow-card">
+    <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+      <div className="flex items-center gap-2 text-primary font-bold text-sm">
+        <span className="material-symbols-outlined text-[20px]">upload_file</span>
+        <span>1. Hồ sơ ứng viên (CV)</span>
+      </div>
+      <Badge variant="neutral" size="sm">PDF / DOCX ≤ 10MB</Badge>
+    </div>
 
     {!file ? (
-      <label
-        className={`${styles.dropzone} ${isDragging ? styles.dropzoneActive : ''}`}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        htmlFor="cvFile"
-      >
-        <svg className={styles.uploadIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" style={{margin: '0 auto 1rem auto'}}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-        </svg>
-        <p className={styles.uploadText}>Kéo thả file vào đây hoặc <strong>nhấn để chọn</strong></p>
-        <p className={styles.uploadHint}>Hỗ trợ file PDF, DOCX (Tối đa 10MB)</p>
-        <input
-          id="cvFile"
-          type="file"
-          ref={fileInputRef}
-          className={styles.fileInput}
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          onChange={onFileChange}
-        />
-      </label>
+      <div className="space-y-4">
+        <label
+          className={`cursor-pointer flex flex-col items-center justify-center p-6 sm:p-8 rounded-xl border-2 border-dashed transition-all text-center ${
+            isDragging
+              ? 'border-primary bg-primary-fixed/20'
+              : 'border-outline-variant/80 bg-surface-container-low/50 hover:bg-surface-container-low'
+          }`}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          htmlFor="cvFile"
+        >
+          <span className="material-symbols-outlined text-[40px] text-primary mb-2">cloud_upload</span>
+          <p className="text-xs sm:text-sm font-semibold text-on-surface mb-1">
+            Kéo thả file vào đây hoặc <span className="text-primary underline font-bold">nhấn để chọn</span>
+          </p>
+          <p className="text-[11px] text-on-surface-variant">Hỗ trợ file PDF, DOCX (Tối đa 10MB)</p>
+          <input
+            id="cvFile"
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={onFileChange}
+          />
+        </label>
+
+        {existingResumes && existingResumes.length > 0 && onSelectExistingResume && (
+          <div className="pt-2 border-t border-outline-variant/30 space-y-2">
+            <div className="text-[11px] font-semibold text-on-surface-variant">Hoặc chọn từ CV đã lưu:</div>
+            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+              {existingResumes.map((r) => {
+                const isSelected = selectedResumeId === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => onSelectExistingResume(r)}
+                    className={`p-2.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between gap-2 ${
+                      isSelected
+                        ? 'border-primary bg-primary-fixed/20 text-primary font-bold'
+                        : 'border-outline-variant/50 hover:border-primary text-on-surface bg-white'
+                    }`}
+                  >
+                    <span className="truncate font-medium">{r.fileName}</span>
+                    <span className="text-[11px] text-primary flex-shrink-0 font-bold">
+                      {isSelected ? 'Đã chọn' : 'Chọn CV này'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     ) : (
-      <div className={styles.selectedFile}>
-        <div className={styles.fileInfo}>
-          <svg className={styles.fileIcon} fill="currentColor" viewBox="0 0 20 20" width="32" height="32">
-            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-          </svg>
-          <div>
-            <div className={styles.fileName} title={file.name}>{file.name}</div>
-            <div className={styles.fileSize}>{(file.size / 1024 / 1024).toFixed(2)} MB</div>
+      <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/40 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="material-symbols-outlined text-[20px]">description</span>
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm font-bold text-on-surface truncate" title={file.name}>
+              {file.name}
+            </div>
+            <div className="text-[11px] text-on-surface-variant">
+              {(file.size / 1024 / 1024).toFixed(2)} MB
+            </div>
           </div>
         </div>
-        {onRetry && !retryDisabled && (
-          <button type="button" onClick={onRetry}>Thử tải lại</button>
-        )}
-        <button className={styles.removeButton} onClick={handleRemoveFile} title="Xóa file">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onRetry && !retryDisabled && (
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              Thử tải lại
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={handleRemoveFile}
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container/30 transition-colors"
+            title="Xóa file"
+            aria-label="Xóa file"
+          >
+            <span className="material-symbols-outlined text-[20px]">delete</span>
+          </button>
+        </div>
       </div>
     )}
-  </div>
+  </Card>
 );
 
 interface JobDescriptionPanelProps {
@@ -251,39 +316,50 @@ interface JobDescriptionPanelProps {
 }
 
 const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loading }: JobDescriptionPanelProps) => (
-  <div className={styles.panel}>
-    <h2 className={styles.panelTitle}>
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-      2. Mô tả công việc (JD)
-    </h2>
-
-    <div className={styles.formGroup}>
-      <label className={styles.label} htmlFor="jdTitle">Chức danh (Title)</label>
-      <input
-        id="jdTitle"
-        type="text"
-        className={styles.input}
-        placeholder="VD: Senior Frontend Developer (React)"
-        value={jdTitle}
-        onChange={e => setJdTitle(e.target.value)}
-        disabled={loading}
-      />
+  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/60 shadow-card">
+    <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+      <div className="flex items-center gap-2 text-primary font-bold text-sm">
+        <span className="material-symbols-outlined text-[20px]">work</span>
+        <span>2. Mô tả công việc (JD)</span>
+      </div>
+      <Badge variant="primary" size="sm">Bắt buộc nội dung</Badge>
     </div>
 
-    <div className={styles.formGroup}>
-      <label className={styles.label} htmlFor="jdContent">Nội dung chi tiết</label>
-      <textarea
-        id="jdContent"
-        className={styles.textarea}
-        placeholder="Dán toàn bộ nội dung yêu cầu công việc, kỹ năng, kinh nghiệm vào đây..."
-        value={jdContent}
-        onChange={e => setJdContent(e.target.value)}
-        disabled={loading}
-      ></textarea>
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="jdTitle">
+          Chức danh tuyển dụng (Title) <span className="text-on-surface-variant font-normal">(Tùy chọn)</span>
+        </label>
+        <input
+          id="jdTitle"
+          type="text"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          placeholder="VD: Senior Frontend Developer (React)"
+          value={jdTitle}
+          onChange={e => setJdTitle(e.target.value)}
+          disabled={loading}
+        />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-bold text-on-surface" htmlFor="jdContent">
+            Nội dung JD chi tiết <span className="text-red-500">*</span>
+          </label>
+          <span className="text-[11px] text-on-surface-variant">Dán nội dung tuyển dụng thực tế</span>
+        </div>
+        <textarea
+          id="jdContent"
+          rows={5}
+          className="w-full p-3.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm leading-relaxed"
+          placeholder="Dán toàn bộ hoặc các yêu cầu chính trong JD (kỹ năng, trách nhiệm, kinh nghiệm) vào đây để Nexora đối chiếu chi tiết..."
+          value={jdContent}
+          onChange={e => setJdContent(e.target.value)}
+          disabled={loading}
+        />
+      </div>
     </div>
-  </div>
+  </Card>
 );
 
 interface FieldBenchmarkPanelProps {
@@ -305,56 +381,65 @@ const FieldBenchmarkPanel = ({
   setSeniority,
   loading,
 }: FieldBenchmarkPanelProps) => (
-  <div className={styles.panel}>
-    <h2 className={styles.panelTitle}>
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-      2. Định hướng chuẩn ngành
-    </h2>
-
-    <div className={styles.formGroup}>
-      <label className={styles.label} htmlFor="industry">Ngành nghề / Lĩnh vực</label>
-      <input
-        id="industry"
-        type="text"
-        maxLength={160}
-        className={styles.input}
-        placeholder="VD: Công nghệ thông tin / Thương mại điện tử"
-        value={industry}
-        onChange={e => setIndustry(e.target.value)}
-        disabled={loading}
-      />
+  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/60 shadow-card">
+    <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+      <div className="flex items-center gap-2 text-primary font-bold text-sm">
+        <span className="material-symbols-outlined text-[20px]">insights</span>
+        <span>2. Định hướng chuẩn ngành</span>
+      </div>
+      <Badge variant="secondary" size="sm">6 trục tiêu chuẩn</Badge>
     </div>
 
-    <div className={styles.formGroup}>
-      <label className={styles.label} htmlFor="targetRole">Vị trí mục tiêu</label>
-      <input
-        id="targetRole"
-        type="text"
-        maxLength={160}
-        className={styles.input}
-        placeholder="VD: Senior Frontend Developer / Data Analyst"
-        value={targetRole}
-        onChange={e => setTargetRole(e.target.value)}
-        disabled={loading}
-      />
-    </div>
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="industry">
+          Ngành nghề / Lĩnh vực <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="industry"
+          type="text"
+          maxLength={160}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          placeholder="VD: Công nghệ thông tin / Thương mại điện tử / Fintech"
+          value={industry}
+          onChange={e => setIndustry(e.target.value)}
+          disabled={loading}
+        />
+      </div>
 
-    <div className={styles.formGroup}>
-      <label className={styles.label} htmlFor="seniority">Cấp bậc kinh nghiệm</label>
-      <input
-        id="seniority"
-        type="text"
-        maxLength={80}
-        className={styles.input}
-        placeholder="VD: Fresher / Junior / Mid-level / Senior / Lead"
-        value={seniority}
-        onChange={e => setSeniority(e.target.value)}
-        disabled={loading}
-      />
+      <div>
+        <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="targetRole">
+          Vị trí mục tiêu <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="targetRole"
+          type="text"
+          maxLength={160}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          placeholder="VD: Senior Frontend Developer / Data Analyst"
+          value={targetRole}
+          onChange={e => setTargetRole(e.target.value)}
+          disabled={loading}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-on-surface mb-1" htmlFor="seniority">
+          Cấp bậc kinh nghiệm <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="seniority"
+          type="text"
+          maxLength={80}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          placeholder="VD: Fresher / Junior / Mid-level / Senior / Lead"
+          value={seniority}
+          onChange={e => setSeniority(e.target.value)}
+          disabled={loading}
+        />
+      </div>
     </div>
-  </div>
+  </Card>
 );
 
 export default function ResumesPage() {
@@ -363,6 +448,7 @@ export default function ResumesPage() {
   const { data: currentUser } = useCurrentUser();
   
   const { data: careerProfile } = useCareerProfile();
+  const { data: userResumes } = useResumes();
   const { mutate: setPrimaryResume, isPending: isSettingPrimary } = useSetPrimaryResume();
 
   const { history, historyQuery, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory(currentUser?.id);
@@ -641,6 +727,12 @@ export default function ResumesPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleSelectExistingResume = (selected: ResumeView) => {
+    setResumeId(selected.id);
+    setFile(null);
+    setError(null);
+  };
+
   const handleAnalyze = () => {
     if (activeAnalysisKey.current) return;
     if (!currentUser?.id) {
@@ -669,6 +761,8 @@ export default function ResumesPage() {
         mode,
         careerGoalId: careerProfile?.activeCareerGoal?.id,
         analysisId: null,
+        ...(mode === 'job_targeted' && jdContent.trim() ? { jdContent: jdContent.trim(), jdTitle: jdTitle.trim() || undefined } : {}),
+        ...(mode === 'field_benchmark' && (industry.trim() || careerProfile?.activeCareerGoal?.industry) ? { industry: industry.trim() || careerProfile?.activeCareerGoal?.industry } : {}),
       };
 
       const operation = existingOperation ?? createResumeAnalysisOperation(
@@ -683,22 +777,23 @@ export default function ResumesPage() {
       return;
     }
 
-    if (!file || !isResumeReady || !resumeId) {
-      setError('Vui lòng tải lên CV và chờ xử lý xong.');
+    const effectiveResumeId = resumeId;
+    if (!effectiveResumeId && (!file || !isResumeReady)) {
+      setError('Vui lòng tải lên CV hoặc chọn một CV đã sẵn sàng.');
       return;
     }
 
     if (mode === 'job_targeted') {
       const trimmedTitle = jdTitle.trim();
       const trimmedContent = jdContent.trim();
-      if (!trimmedTitle || !trimmedContent) {
-        setError('Vui lòng nhập đầy đủ Tiêu đề và Mô tả công việc.');
+      if (!trimmedContent) {
+        setError('Vui lòng nhập nội dung chi tiết của Mô tả công việc (JD).');
         return;
       }
 
       const existingOperation = pending
         && pending.userId === currentUser.id
-        && pending.resumeId === resumeId
+        && pending.resumeId === effectiveResumeId
         && pending.mode === 'job_targeted'
         && pending.jdTitle === trimmedTitle
         && pending.jdContent === trimmedContent
@@ -707,11 +802,11 @@ export default function ResumesPage() {
 
       const operation = existingOperation ?? createResumeAnalysisOperation({
         userId: currentUser.id,
-        resumeId,
+        resumeId: effectiveResumeId!,
         mode: 'job_targeted',
         jobDescriptionId: null,
         analysisId: null,
-        jdTitle: trimmedTitle,
+        jdTitle: trimmedTitle || undefined,
         jdContent: trimmedContent,
       });
 
@@ -729,7 +824,7 @@ export default function ResumesPage() {
 
       const existingOperation = pending
         && pending.userId === currentUser.id
-        && pending.resumeId === resumeId
+        && pending.resumeId === effectiveResumeId
         && pending.mode === 'field_benchmark'
         && pending.industry === trimmedIndustry
         && pending.targetRole === trimmedTargetRole
@@ -739,7 +834,7 @@ export default function ResumesPage() {
 
       const operation = existingOperation ?? createResumeAnalysisOperation({
         userId: currentUser.id,
-        resumeId,
+        resumeId: effectiveResumeId!,
         mode: 'field_benchmark',
         analysisId: null,
         industry: trimmedIndustry,
@@ -754,41 +849,96 @@ export default function ResumesPage() {
   };
 
   const activeMode = activeOperation?.mode ?? mode;
-  const isJobTargetedIncomplete = !useCurrentGoal && activeMode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
+  const hasPrimaryResume = !!careerProfile?.primaryResume;
+  const hasGoal = !!careerProfile?.activeCareerGoal && !!careerProfile.activeCareerGoal.targetRole && !!careerProfile.activeCareerGoal.seniority;
+  const isBenchmarkIndustryMissing = useCurrentGoal && activeMode === 'field_benchmark' && !careerProfile?.activeCareerGoal?.industry && !industry.trim();
+  const isJobTargetedIncomplete = activeMode === 'job_targeted' && !jdContent.trim();
   const isFieldBenchmarkIncomplete = !useCurrentGoal && activeMode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
-  const isSubmitDisabled = loading || (!useCurrentGoal && (isUploading || !file || !isResumeReady)) || isJobTargetedIncomplete || isFieldBenchmarkIncomplete;
+  const isCurrentGoalIncomplete = useCurrentGoal && (!hasPrimaryResume || !hasGoal || isBenchmarkIndustryMissing);
+  const isCustomResumeIncomplete = !useCurrentGoal && !resumeId && (!file || !isResumeReady || isUploading);
+  const isSubmitDisabled = loading || isUploading || isJobTargetedIncomplete || isFieldBenchmarkIncomplete || isCurrentGoalIncomplete || isCustomResumeIncomplete;
 
   const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
   const stageMessage = visibleStage === 'uploading'
     ? 'Đang tải file CV lên...'
     : visibleStage === 'processing'
-      ? 'Đang xử lý CV...'
+      ? 'Đang xử lý cấu trúc CV...'
       : visibleStage === 'ready'
         ? 'CV đã sẵn sàng.'
         : visibleStage === 'analyzing'
-          ? (activeMode === 'job_targeted' ? 'AI đang phân tích độ phù hợp...' : 'AI đang đánh giá theo chuẩn ngành...')
+          ? (activeMode === 'job_targeted' ? 'AI đang đối chiếu với yêu cầu công việc...' : 'AI đang đánh giá theo chuẩn năng lực ngành...')
           : '';
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Phân tích CV chuyên sâu</h1>
-        <p className={styles.subtitle}>Tải lên CV và chọn phương thức phân tích để AI đánh giá chi tiết và đưa ra lộ trình tối ưu.</p>
-      </header>
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-8">
+      <ProductPageHero
+        feature="cv"
+        title="Phân tích hồ sơ CV & Độ tương thích mục tiêu"
+        description="Bổ sung CV, mục tiêu và ngữ cảnh ngay trên trang. Chỉ khi đủ bối cảnh, Nexora mới bắt đầu phân tích và lưu một snapshot bất biến."
+      />
 
-      {/* Intent Selector */}
-      <div className={styles.modeSelectorContainer} style={{ marginBottom: '1.5rem' }}>
-        <div className={styles.modeSelectorLabel}>Nguồn dữ liệu</div>
-        <div className={styles.modeToggleGroup} role="tablist" aria-label="Nguồn dữ liệu">
+      {/* Latest Completed Analysis Banner (Quick access) */}
+      {(() => {
+        const latestItem = history.find((item) => item.status === 'completed');
+        if (!latestItem) return null;
+        const title = latestItem.mode === 'job_targeted'
+          ? 'Phân tích CV theo JD'
+          : (latestItem.context?.targetRole || 'Định hướng chuẩn ngành');
+
+        return (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-surface border border-primary/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-subtle">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold shadow-sm flex-shrink-0">
+                <span className="material-symbols-outlined text-[24px]">verified</span>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                    Bản phân tích gần nhất sẵn có
+                  </span>
+                  <Badge variant="success" size="sm">Đã hoàn thành</Badge>
+                </div>
+                <div className="text-sm font-bold text-on-surface mt-0.5">
+                  {title}
+                  {latestItem.context?.seniority ? ` (${latestItem.context.seniority})` : ''}
+                </div>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Xem lại chi tiết điểm số, kỹ năng và các đề xuất tối ưu hóa CV cụ thể.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => router.push(`/resume-analyses/${latestItem.id}`)}
+              icon={<span className="material-symbols-outlined text-[18px]">visibility</span>}
+              iconPosition="right"
+              className="flex-shrink-0 shadow-sm"
+            >
+              Xem ngay kết quả
+            </Button>
+          </div>
+        );
+      })()}
+
+      {/* Data Source / Intent Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-xl bg-surface-container-low border border-outline-variant/40">
+        <div className="flex items-center gap-2 px-2 text-xs font-bold text-on-surface">
+          <span className="material-symbols-outlined text-primary text-[18px]">tune</span>
+          <span>Nguồn dữ liệu phân tích:</span>
+        </div>
+        <div className="flex items-center gap-1.5" role="tablist" aria-label="Nguồn dữ liệu">
           <button
             type="button"
             role="tab"
             aria-selected={useCurrentGoal}
-            className={`${styles.modeToggleButton} ${useCurrentGoal ? styles.modeToggleButtonActive : ''}`}
-            onClick={() => {
-              setUseCurrentGoal(true);
-              setError(null);
-            }}
+            onClick={() => { setUseCurrentGoal(true); setError(null); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              useCurrentGoal
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
           >
             Mục tiêu hiện tại (Tự động)
           </button>
@@ -796,78 +946,144 @@ export default function ResumesPage() {
             type="button"
             role="tab"
             aria-selected={!useCurrentGoal}
-            className={`${styles.modeToggleButton} ${!useCurrentGoal ? styles.modeToggleButtonActive : ''}`}
-            onClick={() => {
-              setUseCurrentGoal(false);
-              setError(null);
-            }}
+            onClick={() => { setUseCurrentGoal(false); setError(null); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              !useCurrentGoal
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
           >
             Mục tiêu khác (Tuỳ chỉnh)
           </button>
         </div>
       </div>
 
-      {/* Mode Selector */}
-      <div className={styles.modeSelectorContainer}>
-        <div className={styles.modeSelectorLabel}>Phương thức phân tích</div>
-        <div className={styles.modeToggleGroup} role="tablist" aria-label="Phương thức phân tích">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'job_targeted'}
-            className={`${styles.modeToggleButton} ${mode === 'job_targeted' ? styles.modeToggleButtonActive : ''}`}
-            onClick={() => {
-              setMode('job_targeted');
-              setError(null);
-            }}
-          >
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            Phân tích theo công việc cụ thể
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'field_benchmark'}
-            className={`${styles.modeToggleButton} ${mode === 'field_benchmark' ? styles.modeToggleButtonActive : ''}`}
-            onClick={() => {
-              setMode('field_benchmark');
-              setError(null);
-            }}
-          >
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Đánh giá theo vị trí/ngành mục tiêu
-          </button>
-        </div>
-      </div>
+      {/* Current Goal Context Banner vs Custom Setup */}
+      {useCurrentGoal ? (
+        <div className="space-y-4">
+          {hasPrimaryResume && hasGoal ? (
+            <Card variant="elevated" padding="md" className="bg-surface-container-low/40 border-primary/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+                  <span className="font-bold text-xs text-on-surface">Bối cảnh phân tích đã sẵn sàng:</span>
+                </div>
+                <Link
+                  href="/career-profile"
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  Xem trong Hồ sơ &rarr;
+                </Link>
+              </div>
 
-      {quotaExceededError && (
-        <div className={styles.quotaBanner} role="alert">
-          <div className={styles.quotaContent}>
-            <svg className={styles.quotaIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor" width="28" height="28">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <div>
-              <div className={styles.quotaTitle}>{quotaExceededError.title}</div>
-              <div className={styles.quotaText}>{quotaExceededError.message}</div>
-              {quotaExceededError.requestId && (
-                <div className={styles.quotaRequestId}>Mã yêu cầu: {quotaExceededError.requestId}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-white rounded-lg border border-outline-variant/30 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-primary text-[20px]">description</span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-on-surface-variant">CV chính:</div>
+                    <div className="font-bold text-on-surface truncate">
+                      {careerProfile?.primaryResume?.fileName}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-outline-variant/30 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-primary text-[20px]">flag</span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-on-surface-variant">Mục tiêu nghề nghiệp:</div>
+                    <div className="font-bold text-on-surface truncate">
+                      {careerProfile?.activeCareerGoal?.targetRole} · {careerProfile?.activeCareerGoal?.seniority}
+                      {careerProfile?.activeCareerGoal?.industry ? ` · ${careerProfile.activeCareerGoal.industry}` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Missing industry notice if field benchmark */}
+              {mode === 'field_benchmark' && !careerProfile?.activeCareerGoal?.industry && (
+                <div className="mt-3 pt-3 border-t border-outline-variant/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[18px] text-amber-700">help_outline</span>
+                      Bổ sung ngành nghề cho lần phân tích này:
+                    </span>
+                    <Badge variant="warning" size="sm">Cần ngành</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['Công nghệ thông tin', 'Thương mại điện tử (E-Commerce)', 'Fintech / Ngân hàng số', 'SaaS / B2B Products', 'Logistics'].map((ind) => (
+                      <button
+                        key={ind}
+                        type="button"
+                        onClick={() => setIndustry(ind)}
+                        className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
+                          industry === ind
+                            ? 'bg-primary text-white font-semibold'
+                            : 'bg-white border border-outline-variant/60 text-on-surface hover:bg-surface-container-low'
+                        }`}
+                      >
+                        {ind}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    placeholder="Hoặc nhập ngành khác..."
+                    className="w-full px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs focus:outline-none focus:border-primary"
+                  />
+                </div>
               )}
-            </div>
-          </div>
-          <Link href="/billing" className={styles.upgradeButton}>
-            Nâng cấp gói ngay
-          </Link>
+            </Card>
+          ) : !hasPrimaryResume ? (
+            <Card variant="elevated" padding="lg" className="border-2 border-primary/40 bg-white space-y-4 shadow-card">
+              <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                <span className="material-symbols-outlined text-[20px]">upload_file</span>
+                <span>Bước 1: Bổ sung CV chính để bắt đầu phân tích</span>
+              </div>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Bạn chưa thiết lập CV chính trong hệ thống. Hãy tải lên CV mới hoặc chọn từ danh sách đã có:
+              </p>
+              <ResumeUploadPanel
+                file={file}
+                isDragging={isDragging}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+                fileInputRef={fileInputRef}
+                onFileChange={onFileChange}
+                handleRemoveFile={handleRemoveFile}
+                onRetry={file && !resumeId ? () => void handleFile(file) : undefined}
+                retryDisabled={isUploading || !!resumeId}
+                existingResumes={userResumes}
+                selectedResumeId={resumeId}
+                onSelectExistingResume={handleSelectExistingResume}
+              />
+            </Card>
+          ) : (
+            <Card variant="elevated" padding="lg" className="border-2 border-primary/40 bg-white space-y-4 shadow-card">
+              <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                <span className="material-symbols-outlined text-[20px]">flag</span>
+                <span>Bước 2: Thiết lập mục tiêu nghề nghiệp</span>
+              </div>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Bạn chưa có mục tiêu nghề nghiệp chính thức để hệ thống đối chiếu chuẩn năng lực. Vui lòng thiết lập tại Hồ sơ nghề nghiệp hoặc chuyển sang chế độ &quot;Mục tiêu khác (Tuỳ chỉnh)&quot;.
+              </p>
+              <div className="flex items-center gap-3 pt-1">
+                <Link href="/career-profile">
+                  <Button variant="primary" size="sm">
+                    Thiết lập mục tiêu trong Hồ sơ
+                  </Button>
+                </Link>
+                <Button variant="outline" size="sm" onClick={() => setUseCurrentGoal(false)}>
+                  Nhập mục tiêu ngay tại đây
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
-      )}
-
-      {error && <div className={styles.errorMessage}>{error}</div>}
-
-      {!useCurrentGoal ? (
-        <div className={styles.formGrid}>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ResumeUploadPanel
             file={file}
             isDragging={isDragging}
@@ -879,6 +1095,9 @@ export default function ResumesPage() {
             handleRemoveFile={handleRemoveFile}
             onRetry={file && !resumeId ? () => void handleFile(file) : undefined}
             retryDisabled={isUploading || !!resumeId}
+            existingResumes={userResumes}
+            selectedResumeId={resumeId}
+            onSelectExistingResume={handleSelectExistingResume}
           />
 
           {mode === 'job_targeted' ? (
@@ -901,43 +1120,177 @@ export default function ResumesPage() {
             />
           )}
         </div>
-      ) : (
-        <div style={{ backgroundColor: '#F3F4F6', border: '1px dashed #D1D5DB', borderRadius: '0.5rem', textAlign: 'center', padding: '3rem 1.5rem', marginBottom: '2rem' }}>
-          <p style={{ margin: '0 0 1rem 0', color: '#4B5563', fontSize: '1.125rem' }}>
-            Hệ thống sẽ tự động sử dụng <strong>CV Chính</strong> và <strong>Mục tiêu nghề nghiệp</strong> hiện tại của bạn.
-          </p>
-          <button 
-            type="button" 
-            onClick={() => setUseCurrentGoal(false)} 
-            style={{ background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.875rem' }}
-          >
-            Tải lên CV khác hoặc đổi mục tiêu
-          </button>
+      )}
+
+      {/* Analysis Mode Selector & JD Textarea */}
+      <Card variant="elevated" padding="lg" className="space-y-6 bg-white border border-outline-variant/60 shadow-card">
+        <div>
+          <label className="block text-xs font-bold text-on-surface mb-2">
+            Chọn hình thức phân tích đối chiếu:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Mode 1: Field Benchmark */}
+            <button
+              type="button"
+              onClick={() => { setMode('field_benchmark'); setError(null); }}
+              className={`p-4 rounded-xl border text-left transition-all ${
+                mode === 'field_benchmark'
+                  ? 'bg-primary-fixed/30 border-primary shadow-sm'
+                  : 'bg-white border-outline-variant/50 hover:bg-surface-container-low'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-sm text-on-surface">Theo vị trí mục tiêu</span>
+                <span
+                  className={`material-symbols-outlined text-[20px] ${
+                    mode === 'field_benchmark' ? 'text-primary' : 'text-outline-variant'
+                  }`}
+                >
+                  {mode === 'field_benchmark' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Đánh giá độ sẵn sàng 6 trục đối chiếu với chuẩn thị trường của {careerProfile?.activeCareerGoal?.targetRole || targetRole || 'vị trí mục tiêu'}.
+              </p>
+            </button>
+
+            {/* Mode 2: Job Targeted */}
+            <button
+              type="button"
+              onClick={() => { setMode('job_targeted'); setError(null); }}
+              className={`p-4 rounded-xl border text-left transition-all ${
+                mode === 'job_targeted'
+                  ? 'bg-primary-fixed/30 border-primary shadow-sm'
+                  : 'bg-white border-outline-variant/50 hover:bg-surface-container-low'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-sm text-on-surface">Theo JD cụ thể</span>
+                <span
+                  className={`material-symbols-outlined text-[20px] ${
+                    mode === 'job_targeted' ? 'text-primary' : 'text-outline-variant'
+                  }`}
+                >
+                  {mode === 'job_targeted' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Đo lường 5 trục tiêu chuẩn đối chiếu trực tiếp với một văn bản mô tả công việc (JD) bạn dán vào.
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* JD Textarea for job_targeted when using current goal */}
+        {mode === 'job_targeted' && useCurrentGoal && (
+          <div className="space-y-2 pt-2 border-t border-outline-variant/30">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-on-surface">
+                Nội dung JD mục tiêu: <span className="text-red-500">*</span>
+              </label>
+              <span className="text-[11px] text-on-surface-variant">Dán nội dung tuyển dụng thực tế</span>
+            </div>
+            <textarea
+              value={jdContent}
+              onChange={(e) => setJdContent(e.target.value)}
+              rows={5}
+              disabled={loading}
+              className="w-full p-3.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm leading-relaxed"
+              placeholder="Dán toàn bộ hoặc các yêu cầu chính trong JD (kỹ năng, trách nhiệm, kinh nghiệm) vào đây để Nexora đối chiếu chi tiết..."
+            />
+          </div>
+        )}
+      </Card>
+
+      {/* In-flight Scanning / Processing View */}
+      {(loading || isUploading || (file && !isResumeReady)) && (
+        <Card variant="elevated" padding="lg" className="border border-primary/40 bg-white space-y-4 shadow-card">
+          <div className="flex items-center justify-between pb-3 border-b border-outline-variant/30">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[20px] animate-spin">sync</span>
+              <span className="text-xs font-bold text-on-surface">Đang xử lý phân tích</span>
+            </div>
+            <Badge variant="primary" size="sm">AI Processing</Badge>
+          </div>
+          <div className="p-5 rounded-xl bg-surface-container-low border border-outline-variant/40 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-sm animate-pulse">
+                <span className="material-symbols-outlined text-[22px]">auto_awesome</span>
+              </div>
+              <div className="space-y-0.5 min-w-0">
+                <div className="text-xs font-bold text-on-surface">Nexora AI Document Intelligence</div>
+                <div className="text-xs text-primary font-semibold">{stageMessage || 'Hệ thống đang đối chiếu dữ liệu...'}</div>
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-primary/20 rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+            </div>
+            <p className="text-[11px] text-on-surface-variant">
+              Quá trình phân tích chuyên sâu đa trục thường mất khoảng 10 - 20 giây. Vui lòng không đóng trình duyệt.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* Quota Exceeded Error Card */}
+      {quotaExceededError && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4" role="alert">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-[24px]">lock</span>
+            </div>
+            <div>
+              <div className="text-sm font-bold text-amber-950">{quotaExceededError.title}</div>
+              <div className="text-xs text-amber-900 mt-0.5">{quotaExceededError.message}</div>
+              {quotaExceededError.requestId && (
+                <div className="text-[10px] text-amber-800 font-mono mt-1">Mã yêu cầu: {quotaExceededError.requestId}</div>
+              )}
+            </div>
+          </div>
+          <Link href="/billing" className="flex-shrink-0">
+            <Button variant="primary" size="sm">
+              Nâng cấp gói ngay
+            </Button>
+          </Link>
         </div>
       )}
 
-      <div className={styles.actionArea}>
-        <button
-          className={styles.analyzeButton}
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-xl bg-error-container/40 border border-error/40 text-error text-xs font-medium flex items-center gap-2" role="alert">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Action Trigger Block */}
+      <div className="pt-2 border-t border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-xs text-on-surface-variant">
+          {useCurrentGoal && !hasPrimaryResume && '• Vui lòng bổ sung CV chính trước khi phân tích'}
+          {useCurrentGoal && hasPrimaryResume && !hasGoal && '• Vui lòng thiết lập mục tiêu nghề nghiệp'}
+          {useCurrentGoal && hasPrimaryResume && hasGoal && mode === 'field_benchmark' && isBenchmarkIndustryMissing && '• Vui lòng bổ sung ngành nghề đối chiếu'}
+          {!useCurrentGoal && !resumeId && (!file || !isResumeReady) && '• Vui lòng chọn hoặc tải lên CV'}
+          {mode === 'job_targeted' && !jdContent.trim() && '• Vui lòng dán nội dung JD'}
+          {mode === 'field_benchmark' && !useCurrentGoal && (!industry.trim() || !targetRole.trim() || !seniority.trim()) && '• Vui lòng điền đủ ngành nghề, vị trí và cấp bậc'}
+          {!isSubmitDisabled && '• Sẵn sàng phân tích với dữ liệu hiện tại'}
+        </div>
+
+        <Button
+          variant="primary"
+          size="lg"
           onClick={handleAnalyze}
           disabled={isSubmitDisabled}
+          loading={loading || isUploading}
+          icon={<span className="material-symbols-outlined text-[20px]">rocket_launch</span>}
+          iconPosition="right"
+          className="w-full sm:w-auto shadow-md"
         >
-          {loading ? (
-            <><div className={styles.spinner}></div> Phân tích...</>
-          ) : isUploading ? (
-            <><div className={styles.spinner}></div> Đang tải lên...</>
-          ) : (file && !isResumeReady) ? (
-            resumeStatus === 'failed' ? 'Lỗi xử lý CV' : <><div className={styles.spinner}></div> Đang xử lý CV...</>
-          ) : (
-            activeMode === 'job_targeted' ? 'Phân tích độ phù hợp' : 'Đánh giá mức độ sẵn sàng'
-          )}
-        </button>
-        {stageMessage && (
-          <p style={{ marginTop: '1rem', color: '#6b7280', fontSize: '0.875rem' }} aria-live="polite">{stageMessage}</p>
-        )}
+          {loading ? 'Đang phân tích...' : isUploading ? 'Đang tải lên...' : activeMode === 'job_targeted' ? 'Phân tích độ phù hợp' : 'Đánh giá mức độ sẵn sàng'}
+        </Button>
       </div>
 
-      {history.length > 0 && (
+      {/* History Section or Empty State */}
+      {history.length > 0 ? (
         <ResumeHistoryList 
           history={history} 
           primaryResumeId={careerProfile?.primaryResume?.id}
@@ -947,6 +1300,16 @@ export default function ResumesPage() {
           isFetchingNextPage={historyQuery.isFetchingNextPage}
           onLoadMore={() => historyQuery.fetchNextPage()}
         />
+      ) : (
+        <Card variant="flat" padding="md" className="text-center py-8 border-dashed">
+          <div className="w-12 h-12 mx-auto rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-2">
+            <span className="material-symbols-outlined text-[24px]">manage_search</span>
+          </div>
+          <div className="text-sm font-bold text-on-surface">Chưa có lịch sử phân tích CV</div>
+          <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1">
+            Sau khi bạn khởi chạy phân tích, kết quả chi tiết và báo cáo đối chiếu sẽ được lưu giữ tại đây.
+          </p>
+        </Card>
       )}
     </div>
   );
