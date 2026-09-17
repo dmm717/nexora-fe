@@ -44,7 +44,10 @@ The upload flow follows the production backend contract:
    - Copy accurately reflects asynchronous capabilities: "Quá trình đang được xử lý bất đồng bộ. Kết quả sẽ xuất hiện khi hoàn tất. Bạn có thể rời trang và quay lại xem kết quả sau."
 4. **Recovery & Local Persistence**:
    - Active operation is persisted into `sessionStorage` via `useResumeAnalysisHistory`.
-   - On page refresh or unmount/remount, in-flight operations are resumed automatically.
+   - After successful Job Description creation, the persisted operation updates to include `jobDescriptionId`.
+   - On transient failure or retry, `isMatchingPendingOperation` matches and reuses that exact saved operation and idempotency key, bypassing duplicate JD creation.
+   - On page refresh or unmount/remount, in-flight operations are resumed automatically. If `analysisId` exists, recovery proceeds via `GET /resume-analyses/{id}`.
+   - Invalid legacy pre-analysis records lacking executable context (missing JD ID/content or missing benchmark dimensions) are safely discarded (`normalizePendingAnalysis` returns `null`), allowing user to cleanly re-submit.
 
 ---
 

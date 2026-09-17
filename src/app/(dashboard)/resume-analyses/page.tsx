@@ -21,6 +21,7 @@ import {
 import {
   ResumeAnalysisMode,
   formatQuotaError,
+  isMatchingPendingOperation,
 } from '@/services/cvAnalysisContract';
 import { useResumeAnalysisHistory } from '@/hooks/useResumeAnalysisHistory';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
@@ -554,13 +555,13 @@ export default function ResumesPage() {
       setMode('job_targeted');
       setJdTitle(operation.jdTitle ?? '');
       setJdContent(operation.jdContent ?? '');
-      setUseCurrentGoal(!operation.jdTitle && !operation.jobDescriptionId);
+      setUseCurrentGoal(!operation.resumeId);
     } else if (operation.mode === 'field_benchmark') {
       setMode('field_benchmark');
       setIndustry(operation.industry ?? '');
       setTargetRole(operation.targetRole ?? '');
       setSeniority(operation.seniority ?? '');
-      setUseCurrentGoal(!operation.industry && !operation.targetRole);
+      setUseCurrentGoal(!operation.resumeId);
     }
 
     setLoading(true);
@@ -769,37 +770,40 @@ export default function ResumesPage() {
     setError(null);
 
     if (useCurrentGoal) {
-      if (mode === 'job_targeted') {
-        const trimmedTitle = jdTitle.trim();
-        const trimmedContent = jdContent.trim();
-        if (!trimmedTitle || !trimmedContent) {
-          setError('Vui lòng nhập đầy đủ Tiêu đề và Nội dung chi tiết của Mô tả công việc (JD).');
-          return;
-        }
+      const trimmedTitle = jdTitle.trim();
+      const trimmedContent = jdContent.trim();
+      if (mode === 'job_targeted' && (!trimmedTitle || !trimmedContent)) {
+        setError('Vui lòng nhập đầy đủ Tiêu đề và Nội dung chi tiết của Mô tả công việc (JD).');
+        return;
       }
 
-      let isMatchingPending = false;
-      if (pending && pending.userId === currentUser.id && pending.mode === mode && !pending.resumeId) {
-        if (mode === 'job_targeted') {
-          const p = pending as JobTargetedAnalysisOperation;
-          isMatchingPending = !p.jobDescriptionId && p.jdTitle === jdTitle.trim() && p.jdContent === jdContent.trim();
-        } else {
-          const p = pending as FieldBenchmarkAnalysisOperation;
-          isMatchingPending = !p.industry;
-        }
-      }
-      const existingOperation = isMatchingPending ? pending : null;
+      const effectiveIndustry = (industry.trim() || careerProfile?.activeCareerGoal?.industry || '').trim();
+      const effectiveTargetRole = (careerProfile?.activeCareerGoal?.targetRole || '').trim();
+      const effectiveSeniority = (careerProfile?.activeCareerGoal?.seniority || '').trim();
+
+      const isMatching = isMatchingPendingOperation(pending, {
+        userId: currentUser.id,
+        mode,
+        resumeId: null,
+        jdTitle: trimmedTitle,
+        jdContent: trimmedContent,
+        industry: effectiveIndustry,
+        targetRole: effectiveTargetRole,
+        seniority: effectiveSeniority,
+      });
+
+      const existingOperation = isMatching ? pending : null;
 
       const baseOp = {
         userId: currentUser.id,
         mode,
         careerGoalId: careerProfile?.activeCareerGoal?.id,
         analysisId: null,
-        ...(mode === 'job_targeted' ? { jdContent: jdContent.trim(), jdTitle: jdTitle.trim() } : {}),
+        ...(mode === 'job_targeted' ? { jdContent: trimmedContent, jdTitle: trimmedTitle } : {}),
         ...(mode === 'field_benchmark' ? {
-          industry: industry.trim() || careerProfile?.activeCareerGoal?.industry || undefined,
-          targetRole: careerProfile?.activeCareerGoal?.targetRole || undefined,
-          seniority: careerProfile?.activeCareerGoal?.seniority || undefined,
+          industry: effectiveIndustry || undefined,
+          targetRole: effectiveTargetRole || undefined,
+          seniority: effectiveSeniority || undefined,
         } : {}),
       };
 
@@ -837,16 +841,15 @@ export default function ResumesPage() {
         return;
       }
 
-      const existingOperation = pending
-        && pending.userId === currentUser.id
-        && pending.resumeId === effectiveResumeId
-        && pending.mode === 'job_targeted'
-        && pending.jdTitle === trimmedTitle
-        && pending.jdContent === trimmedContent
-        ? pending
-        : null;
+      const isMatching = isMatchingPendingOperation(pending, {
+        userId: currentUser.id,
+        mode: 'job_targeted',
+        resumeId: effectiveResumeId,
+        jdTitle: trimmedTitle,
+        jdContent: trimmedContent,
+      });
 
-      const operation = existingOperation ?? createResumeAnalysisOperation({
+      const operation = (isMatching ? pending : null) ?? createResumeAnalysisOperation({
         userId: currentUser.id,
         resumeId: effectiveResumeId!,
         mode: 'job_targeted',
@@ -868,17 +871,16 @@ export default function ResumesPage() {
         return;
       }
 
-      const existingOperation = pending
-        && pending.userId === currentUser.id
-        && pending.resumeId === effectiveResumeId
-        && pending.mode === 'field_benchmark'
-        && pending.industry === trimmedIndustry
-        && pending.targetRole === trimmedTargetRole
-        && pending.seniority === trimmedSeniority
-        ? pending
-        : null;
+      const isMatching = isMatchingPendingOperation(pending, {
+        userId: currentUser.id,
+        mode: 'field_benchmark',
+        resumeId: effectiveResumeId,
+        industry: trimmedIndustry,
+        targetRole: trimmedTargetRole,
+        seniority: trimmedSeniority,
+      });
 
-      const operation = existingOperation ?? createResumeAnalysisOperation({
+      const operation = (isMatching ? pending : null) ?? createResumeAnalysisOperation({
         userId: currentUser.id,
         resumeId: effectiveResumeId!,
         mode: 'field_benchmark',

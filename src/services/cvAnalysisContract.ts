@@ -113,9 +113,66 @@ export function buildCreateAnalysisRequest(op: ResumeAnalysisOperation): CreateA
   throw new Error(`Unsupported mode: ${(op as { mode?: string }).mode}`);
 }
 
+export interface OperationMatchCriteria {
+  userId: string;
+  mode: ResumeAnalysisMode;
+  resumeId?: string | null;
+  // job_targeted criteria
+  jdTitle?: string | null;
+  jdContent?: string | null;
+  // field_benchmark criteria
+  industry?: string | null;
+  targetRole?: string | null;
+  seniority?: string | null;
+}
+
+/**
+ * Authoritatively determines if an existing pending operation matches the current user intent,
+ * preserving idempotency key and any in-flight jobDescriptionId.
+ */
+export function isMatchingPendingOperation(
+  pending: ResumeAnalysisOperation | null | undefined,
+  criteria: OperationMatchCriteria
+): boolean {
+  if (!pending) return false;
+  if (pending.userId !== criteria.userId) return false;
+  if (pending.mode !== criteria.mode) return false;
+
+  // Primary Resume fallback semantics: both null/undefined/empty string indicate current goal
+  const pendingResumeId = pending.resumeId?.trim() || null;
+  const targetResumeId = criteria.resumeId?.trim() || null;
+  if (pendingResumeId !== targetResumeId) return false;
+
+  if (criteria.mode === 'job_targeted') {
+    const p = pending as JobTargetedAnalysisOperation;
+    const targetTitle = (criteria.jdTitle ?? '').trim();
+    const targetContent = (criteria.jdContent ?? '').trim();
+    const pendingTitle = (p.jdTitle ?? '').trim();
+    const pendingContent = (p.jdContent ?? '').trim();
+
+    return pendingTitle === targetTitle && pendingContent === targetContent;
+  }
+
+  if (criteria.mode === 'field_benchmark') {
+    const p = pending as FieldBenchmarkAnalysisOperation;
+    const targetIndustry = (criteria.industry ?? '').trim();
+    const targetRole = (criteria.targetRole ?? '').trim();
+    const targetSeniority = (criteria.seniority ?? '').trim();
+    const pendingIndustry = (p.industry ?? '').trim();
+    const pendingRole = (p.targetRole ?? '').trim();
+    const pendingSeniority = (p.seniority ?? '').trim();
+
+    return pendingIndustry === targetIndustry &&
+      pendingRole === targetRole &&
+      pendingSeniority === targetSeniority;
+  }
+
+  return false;
+}
+
 /**
  * Normalizes and validates persisted pending operations from localStorage.
- * Enforces ownership, <= 1hr expiry, and nonblank trimmed inputs.
+ * Enforces ownership, <= 1hr expiry, and executable contract requirements.
  * Transparently migrates valid legacy records lacking explicit mode.
  */
 export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): ResumeAnalysisOperation | null {
@@ -153,26 +210,33 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
   const resumeId = typeof op.resumeId === 'string' && op.resumeId.trim() ? op.resumeId.trim() : undefined;
   const careerGoalId = typeof op.careerGoalId === 'string' && op.careerGoalId.trim() ? op.careerGoalId.trim() : undefined;
   const idempotencyKey = op.idempotencyKey.trim();
-  const analysisId = typeof op.analysisId === 'string' ? op.analysisId : null;
+  const analysisId = typeof op.analysisId === 'string' && op.analysisId.trim() ? op.analysisId.trim() : null;
   const timestamp = (typeof op.timestamp === 'string' || typeof op.timestamp === 'number') ? op.timestamp : Date.now();
 
-  // Legacy schema migration: un-moded record with nonblank jdTitle + jdContent
+  // Legacy schema migration: un-moded record
   if (!op.mode) {
     const trimmedTitle = typeof op.jdTitle === 'string' ? op.jdTitle.trim() : '';
     const trimmedContent = typeof op.jdContent === 'string' ? op.jdContent.trim() : '';
-    if (!trimmedTitle || !trimmedContent) {
-      return null;
+    const jobDescriptionId = typeof op.jobDescriptionId === 'string' && op.jobDescriptionId.trim() ? op.jobDescriptionId.trim() : null;
+
+    if (!analysisId) {
+      const hasExistingJd = !!jobDescriptionId;
+      const hasJdContentAndTitle = !!(trimmedTitle && trimmedContent);
+      if (!hasExistingJd && !hasJdContentAndTitle) {
+        return null;
+      }
     }
+
     return {
       userId,
       idempotencyKey,
       resumeId,
       careerGoalId,
       mode: 'job_targeted',
-      jobDescriptionId: typeof op.jobDescriptionId === 'string' ? op.jobDescriptionId : null,
+      jobDescriptionId,
       analysisId,
-      jdTitle: trimmedTitle,
-      jdContent: trimmedContent,
+      jdTitle: trimmedTitle || undefined,
+      jdContent: trimmedContent || undefined,
       timestamp,
     };
   }
@@ -180,18 +244,23 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
   if (op.mode === 'job_targeted') {
     const trimmedTitle = typeof op.jdTitle === 'string' ? op.jdTitle.trim() : '';
     const trimmedContent = typeof op.jdContent === 'string' ? op.jdContent.trim() : '';
-    // If user provided resumeId, they must provide JD info too, otherwise it is an incomplete explicit state.
-    // However, if they omitted both resumeId and jdTitle (Mục tiêu hiện tại mode), it's valid.
-    if (resumeId && (!trimmedTitle || !trimmedContent)) {
-      return null;
+    const jobDescriptionId = typeof op.jobDescriptionId === 'string' && op.jobDescriptionId.trim() ? op.jobDescriptionId.trim() : null;
+
+    if (!analysisId) {
+      const hasExistingJd = !!jobDescriptionId;
+      const hasJdContentAndTitle = !!(trimmedTitle && trimmedContent);
+      if (!hasExistingJd && !hasJdContentAndTitle) {
+        return null;
+      }
     }
+
     return {
       userId,
       idempotencyKey,
       resumeId,
       careerGoalId,
       mode: 'job_targeted',
-      jobDescriptionId: typeof op.jobDescriptionId === 'string' ? op.jobDescriptionId : null,
+      jobDescriptionId,
       analysisId,
       jdTitle: trimmedTitle || undefined,
       jdContent: trimmedContent || undefined,
@@ -203,11 +272,13 @@ export function normalizePendingAnalysis(raw: unknown, currentUserId?: string): 
     const trimmedIndustry = typeof op.industry === 'string' ? op.industry.trim() : '';
     const trimmedTargetRole = typeof op.targetRole === 'string' ? op.targetRole.trim() : '';
     const trimmedSeniority = typeof op.seniority === 'string' ? op.seniority.trim() : '';
-    
-    // Explicit mode requires all fields. Implicit mode (Mục tiêu hiện tại) omits them.
-    if (resumeId && (!trimmedIndustry || !trimmedTargetRole || !trimmedSeniority)) {
-      return null;
+
+    if (!analysisId) {
+      if (!trimmedIndustry || !trimmedTargetRole || !trimmedSeniority) {
+        return null;
+      }
     }
+
     return {
       userId,
       idempotencyKey,
