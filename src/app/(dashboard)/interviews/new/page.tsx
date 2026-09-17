@@ -58,12 +58,9 @@ export default function NewInterviewPage() {
   const readyResumes = useMemo(() => resumes.filter((r) => r.status === 'ready'), [resumes]);
   const readyResumeIds = useMemo(() => readyResumes.map((resume) => resume.id), [readyResumes]);
 
-  // Defaults derived from profile/goals
-  const resolvedDefaultRole = defaultGoal?.targetRole || careerProfile?.activeCareerGoal?.targetRole || '';
-  const resolvedDefaultSeniority = (defaultGoal?.seniority || careerProfile?.activeCareerGoal?.seniority || 'Middle') as SeniorityLevel;
-  // Session-specific editable overrides
-  const [sessionRole, setSessionRole] = useState<string>('');
-  const [sessionSeniority, setSessionSeniority] = useState<string>('');
+  // Session-specific editable overrides (null = follows loaded canonical default)
+  const [sessionRole, setSessionRole] = useState<string | null>(null);
+  const [sessionSeniority, setSessionSeniority] = useState<SeniorityLevel | null>(null);
   const [selectedGoalId, setSelectedGoalId] = useState<string>('');
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
   const [jdSource, setJdSource] = useState<'existing' | 'new'>('existing');
@@ -90,15 +87,20 @@ export default function NewInterviewPage() {
   const jdIdempotencyKeyRef = useRef<string>(generateIdempotencyKey());
 
   const effectiveSelectedGoalId = selectedGoalId || defaultGoal?.id || '';
-  const effectiveSessionRole = sessionRole || resolvedDefaultRole;
-  const effectiveSessionSeniority = sessionSeniority || resolvedDefaultSeniority;
+  const selectedGoal = activeGoals.find((goal) => goal.id === effectiveSelectedGoalId) || null;
+
+  // Defaults derived from profile/goals
+  const resolvedDefaultRole = selectedGoal?.targetRole || defaultGoal?.targetRole || careerProfile?.activeCareerGoal?.targetRole || '';
+  const resolvedDefaultSeniority = (selectedGoal?.seniority || defaultGoal?.seniority || careerProfile?.activeCareerGoal?.seniority || 'Middle') as SeniorityLevel;
+
+  const effectiveSessionRole = sessionRole ?? resolvedDefaultRole;
+  const effectiveSessionSeniority = sessionSeniority ?? resolvedDefaultSeniority;
   const effectiveSelectedResumeId = resolveCvTargetedResumeId({
     selectedResumeId,
     primaryResumeId: careerProfile?.primaryResume?.id,
     readyResumeIds,
   });
   const activeResumeObj = readyResumes.find((r) => r.id === effectiveSelectedResumeId) || null;
-  const selectedGoal = activeGoals.find((goal) => goal.id === effectiveSelectedGoalId) || null;
   const effectiveJdId = selectedJdId || jobDescriptions[0]?.id || '';
 
   // Toggle text-only vs voice mode
@@ -407,11 +409,8 @@ export default function NewInterviewPage() {
                         onChange={(e) => {
                           const gid = e.target.value;
                           setSelectedGoalId(gid);
-                          const g = activeGoals.find((goal) => goal.id === gid);
-                          if (g) {
-                            setSessionRole(g.targetRole);
-                            setSessionSeniority((g.seniority || 'Middle') as SeniorityLevel);
-                          }
+                          setSessionRole(null);
+                          setSessionSeniority(null);
                         }}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
                       >

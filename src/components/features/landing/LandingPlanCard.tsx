@@ -3,6 +3,7 @@
 import React from 'react';
 import { Check, ArrowUpRight } from 'lucide-react';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
+import { formatPriceMinor } from '@/utils/formatters';
 import styles from './landing.module.css';
 
 interface LandingPlanCardProps {
@@ -35,7 +36,7 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
 
   const formattedAmount = isFree
     ? '0 ₫'
-    : `${new Intl.NumberFormat('vi-VN').format(price.amountMinor / 100)} ₫`;
+    : formatPriceMinor(price.amountMinor, price.currency);
 
   return (
     <article className={`${styles.planCard} ${isHighlighted ? styles.highlightedPlan : ''}`}>

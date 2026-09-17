@@ -53,7 +53,10 @@
 .interview-current-answer > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; }
 .interview-current-answer > div span { color: #a6edda; }
 .interview-current-answer p { margin: 8px 0; font-size: 14px; line-height: 1.6; max-height: 4.8em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; scrollbar-color: #8797be #243452; }
-.interview-current-answer .interview-call-button { min-height: 44px; padding: 8px 12px; background: #344766; }
+.interview-current-answer .interview-current-answer-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.interview-current-answer .interview-call-button { min-height: 44px; padding: 8px 14px; background: #344766; }
+.interview-current-answer .interview-call-button.interview-submit-button { background: #d1c6ff; color: #21194b; font-weight: 700; }
+.interview-current-answer .interview-call-button.interview-submit-button:hover:not(:disabled) { background: #e2daff; }
 .interview-call-stage:has(.interview-current-answer) .interview-stage-center { padding-top: 8px; padding-bottom: 12px; }
 .interview-call-stage:has(.interview-current-answer) .ai-orb { width: 96px; height: 96px; margin-bottom: 12px; }
 .interview-call-stage:has(.interview-current-answer) .interview-live-caption { margin-top: 16px; }

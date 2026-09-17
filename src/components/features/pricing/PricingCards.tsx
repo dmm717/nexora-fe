@@ -19,6 +19,7 @@ import {
 } from '@/utils/authIntent';
 import { Check, ArrowUpRight } from 'lucide-react';
 import { describePlanFeature } from '@/services/billingPresentation';
+import { formatPriceMinor } from '@/utils/formatters';
 
 export default function PricingCards() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function PricingCards() {
   // Contextual upgrade copy only appears if return route is a validated interview route
   const isInterviewUpgrade = Boolean(safeReturnTo && isInterviewRoute(safeReturnTo));
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   const { data: plans = [], isLoading: loadingPlans } = usePlans();
   const { data: user } = useCurrentUser();
 
@@ -43,6 +44,9 @@ export default function PricingCards() {
   const currentPlanCode = user?.billing?.entitlement?.planCode?.toLowerCase() || null;
 
   const handleSelectPlan = (plan: PlanView, price: PlanPrice) => {
+    // Defense-in-depth: do not trigger premature auth modals or checkout while auth is bootstrapping
+    if (!authReady) return;
+
     if (isAuthenticated) {
       if (price.amountMinor === 0) {
         // Free plan navigation: return to safeReturnTo or /overview
@@ -78,11 +82,7 @@ export default function PricingCards() {
   };
 
   const formatPrice = (amountMinor: number, currency: string) => {
-    if (amountMinor === 0) return 'Miễn phí';
-    return (amountMinor / 100).toLocaleString('vi-VN', {
-      style: 'currency',
-      currency: currency || 'VND',
-    });
+    return formatPriceMinor(amountMinor, currency);
   };
 
   return (
