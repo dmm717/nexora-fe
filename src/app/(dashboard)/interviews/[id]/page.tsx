@@ -600,7 +600,17 @@ export default function InterviewRoomPage() {
               content={currentDraftContent}
               listening={candidateState.listening}
               disabled={isEvaluating || submitting || showCoaching}
+              submitDisabled={!canAnswer || isEvaluating || submitting || showCoaching}
               onEdit={() => setEditorOpen(true)}
+              onSubmit={() => {
+                const trimmed = currentDraftContent.trim();
+                if (trimmed) {
+                  handleSubmitAnswer(
+                    trimmed,
+                    candidateState.duration > 0 ? candidateState.duration : undefined
+                  );
+                }
+              }}
             />
           )}
         </section>

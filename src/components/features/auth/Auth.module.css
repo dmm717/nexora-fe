@@ -102,6 +102,12 @@
   text-decoration: underline;
 }
 
+.submitButton {
+  width: 100%;
+  margin-top: 0.75rem;
+  min-height: 44px;
+  font-weight: 600;
+}
 
 .registerWrap {
   text-align: center;

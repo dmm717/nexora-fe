@@ -21,6 +21,7 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   className = '',
   disabled,
+  type = 'button',
   ...props
 }) => {
   const isBusy = loading || isLoading;
@@ -53,7 +54,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
-      type="button"
+      type={type}
       className={`${baseClasses} ${widthClass} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       disabled={disabled || isBusy}
       aria-busy={isBusy ? 'true' : undefined}

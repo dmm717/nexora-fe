@@ -97,7 +97,13 @@ export default function Auth() {
               gsap.fromTo(
                 formWrapperRef.current,
                 { opacity: 0, y: 10 },
-                { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' }
+                {
+                  opacity: 1,
+                  y: 0,
+                  duration: 0.25,
+                  ease: 'power2.out',
+                  clearProps: 'opacity,transform',
+                }
               );
             }
           }, 50);
@@ -122,20 +128,26 @@ export default function Auth() {
             duration: 0.8,
             ease: 'power3.out',
             delay: 0.1,
+            clearProps: 'opacity,transform',
           }
         );
       }
 
       if (formWrapperRef.current) {
         const elements = Array.from(formWrapperRef.current.children);
-        gsap.from(elements, {
-          y: 15,
-          opacity: 0,
-          duration: 0.5,
-          stagger: 0.05,
-          ease: 'power3.out',
-          delay: 0.3,
-        });
+        gsap.fromTo(
+          elements,
+          { opacity: 0, y: 15 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            stagger: 0.05,
+            ease: 'power3.out',
+            delay: 0.2,
+            clearProps: 'opacity,transform',
+          }
+        );
       }
     },
     { scope: containerRef }
@@ -255,9 +267,11 @@ export default function Auth() {
 
             <Button
               type="button"
+              fullWidth
               onClick={() => handleResend(registeredEmail)}
               isLoading={isResending}
               disabled={resendCooldown > 0}
+              className="w-full"
             >
               {resendCooldown > 0 ? `Gửi lại sau (${resendCooldown}s)` : 'Gửi lại email xác minh'}
             </Button>
@@ -388,7 +402,12 @@ export default function Auth() {
               )}
             </div>
 
-            <Button type="submit" isLoading={isSubmitting}>
+            <Button
+              type="submit"
+              fullWidth
+              isLoading={isSubmitting}
+              className={`${styles.submitButton} w-full`}
+            >
               {isLogin ? 'Đăng nhập ngay' : 'Tạo tài khoản'}
             </Button>
 
