@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import styles from '../Interviews.module.css';
+import '@/styles/interview-stage.css';
 import { interviewApi } from '@/services/interviewApi';
 import {
   type InterviewView,
@@ -14,10 +14,6 @@ import {
   canSubmitInterviewAnswer,
   canUpgradeAndContinue,
   isUpgradeRequired,
-  shouldAutoComplete,
-  isStarApplicable,
-  normalizeStarComponent,
-  safeAnswerEvaluation,
   generateIdempotencyKey,
   getOrCreateAnswerIntent,
   applyAnswerResultToInterview,
@@ -25,28 +21,61 @@ import {
   type AnswerIntent,
   type CompleteIntentState,
   shouldRunAnswerTimer,
-  SCORE_SCALE,
+  type AnswerEvaluation,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import {
-  mergeFinalTranscript,
-  canSubmitAnswerWithSpeech,
-  SPEECH_UNSUPPORTED_MESSAGE,
-} from '@/hooks/speechRecognitionContract';
-import { formatTime } from '@/utils/formatters';
+import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
+import { ProductFocusedSurface } from '@/components/ui/ProductFocusedSurface';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
 import { ApiError } from '@/services/apiClient';
+
+// Feature components
+import { AiInterviewerPresence, type InterviewPresenceState } from '@/components/features/interview/AiInterviewerPresence';
+import { CurrentAnswerCaption } from '@/components/features/interview/CurrentAnswerCaption';
+import { QuestionSpeaker } from '@/components/features/interview/QuestionSpeaker';
+import { AudioSpeechDock, type AudioSpeechState } from '@/components/features/interview/AudioSpeechDock';
+import { QuickCoachingDrawer } from '@/components/features/coaching/QuickCoachingDrawer';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const { data: careerProfile } = useCareerProfile();
 
-  const [answerContent, setAnswerContent] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [completing, setCompleting] = useState(false);
-  const [continuing, setContinuing] = useState(false);
-  const [secondsElapsed, setSecondsElapsed] = useState(0);
+  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [completing, setCompleting] = useState<boolean>(false);
+  const [continuing, setContinuing] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+
+  const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const [candidateState, setCandidateState] = useState<AudioSpeechState>({
+    listening: false,
+    mode: 'voice',
+    error: null,
+    duration: 0,
+  });
+
+  // Coaching & Q3 boundary UI state
+  const [showCoaching, setShowCoaching] = useState<boolean>(false);
+  const [latestEvaluation, setLatestEvaluation] = useState<AnswerEvaluation | null>(null);
+  const [latestEvaluatedSeq, setLatestEvaluatedSeq] = useState<number>(1);
+  const [showQ3BoundaryModal, setShowQ3BoundaryModal] = useState<boolean>(false);
+
+  // Read text-only preference set at preflight
+  const [forcedTextOnly] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('nexora_text_only_mode') === '1';
+    }
+    return false;
+  });
+
+  const [editorOpen, setEditorOpen] = useState<boolean>(false);
+  const [currentDraftContent, setCurrentDraftContent] = useState<string>('');
   const [actionError, setActionError] = useState<{
     message: string;
     requestId?: string;
@@ -55,29 +84,27 @@ export default function InterviewRoomPage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Stable intent tracking: reuse key and frozen duration for unchanged retries of the same answer
+  // Stable idempotency intents
   const pendingAnswerIntentRef = useRef<AnswerIntent | null>(null);
   const continueKeyRef = useRef<string>(generateIdempotencyKey());
   const completeIntentRef = useRef<CompleteIntentState>(createCompleteIntentState());
 
   const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
-  // A10 temporary voice input: browser speech -> editable transcript -> normal answer submit.
-  // Only finalized segments are merged into the editable textarea; interim text stays a preview.
-  const handleFinalSpeechSegment = useCallback((segment: string) => {
-    setAnswerContent((prev) => mergeFinalTranscript(prev, segment));
-  }, []);
-  const speech = useSpeechRecognition({ onFinalSegment: handleFinalSpeechSegment });
-
-  // Derive questions and active status from server-owned data
-  const answeredPairs = getAnsweredQuestions(interview?.questions, interview?.answers);
-  const activeQuestion = getCurrentQuestion(interview?.questions, interview?.answers);
+  // Derived interview domain properties
+  const answeredPairs = useMemo(
+    () => getAnsweredQuestions(interview?.questions, interview?.answers),
+    [interview?.questions, interview?.answers]
+  );
+  const activeQuestion = useMemo(
+    () => getCurrentQuestion(interview?.questions, interview?.answers),
+    [interview?.questions, interview?.answers]
+  );
   const continuation = interview?.continuation;
   const canFinish = canFinishInterview(continuation);
   const upgradeRequired = isUpgradeRequired(continuation);
   const canUpgrade = canUpgradeAndContinue(continuation);
 
-  // Active lifecycle gating: only the production helper decides whether official answer controls are allowed.
   const canAnswer = canSubmitInterviewAnswer({
     status: interview?.status,
     hasQuestion: Boolean(activeQuestion),
@@ -86,35 +113,36 @@ export default function InterviewRoomPage() {
   const hasActiveQuestion = Boolean(activeQuestion);
   const activeQuestionId = activeQuestion?.id;
 
-  // Official submission is blocked while speech is still listening so a late final
-  // result can never land after the answer payload was already frozen and sent.
-  const canSubmitAnswer = canSubmitAnswerWithSpeech({
-    canAnswer,
-    submitting,
-    hasContent: answerContent.trim().length > 0,
-    speechListening: speech.listening,
-  });
-
-  // Leaving the answerable state (or submitting) hard-stops recognition so a late
-  // final can never leak into a different answer or a frozen payload. While an
-  // answer is still being composed, the explicit Stop button uses graceful stop().
+  // Handle automatic continuation when returning from billing with sessionContinuation=true
   useEffect(() => {
-    if (!speech.supported) return;
-    if (!canAnswer || submitting) {
-      speech.reset();
+    const isContinuationReturn = searchParams.get('sessionContinuation') === 'true';
+    if (isContinuationReturn && interview && interview.status === 'active' && !continuing) {
+      const runContinuation = async () => {
+        try {
+          setContinuing(true);
+          const updated = await interviewApi.continue(id, continueKeyRef.current);
+          queryClient.setQueryData(['interview', id], updated);
+          continueKeyRef.current = generateIdempotencyKey();
+        } catch {
+          // Non-blocking if already unlocked or pending
+        } finally {
+          setContinuing(false);
+        }
+      };
+      runContinuation();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAnswer, submitting, speech.supported]);
+  }, [searchParams, interview, id, continuing, queryClient]);
 
-  // Keep the timer running only while the current answer is genuinely answerable.
-  // When a submission fails, submitting returns to false and this effect resumes it.
+  // Answer timer effect
   useEffect(() => {
-    if (shouldRunAnswerTimer({
-      status: interview?.status,
-      hasQuestion: hasActiveQuestion,
-      canSubmitAnswer: canAnswer,
-      submitting,
-    })) {
+    if (
+      shouldRunAnswerTimer({
+        status: interview?.status,
+        hasQuestion: hasActiveQuestion,
+        canSubmitAnswer: canAnswer,
+        submitting: submitting || isEvaluating,
+      })
+    ) {
       timerRef.current = setInterval(() => {
         setSecondsElapsed((prev) => prev + 1);
       }, 1000);
@@ -130,27 +158,147 @@ export default function InterviewRoomPage() {
         timerRef.current = null;
       }
     };
-  }, [interview?.status, hasActiveQuestion, canAnswer, submitting, id, router]);
+  }, [interview?.status, hasActiveQuestion, canAnswer, submitting, isEvaluating, id, router]);
 
-  // Reset timer and speech preview on active question change
+  // Reset timer on question change
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSecondsElapsed(0);
-    speech.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCurrentDraftContent('');
   }, [activeQuestionId]);
 
-  const handleComplete = async () => {
-    if (!canFinish || completing || submitting) return;
-    if (answeredPairs.length > 0 && !window.confirm('Bạn có chắc chắn muốn kết thúc buổi phỏng vấn và xuất báo cáo?')) {
+  // Presence State derivation
+  const presenceState: InterviewPresenceState = useMemo(() => {
+    if (isEvaluating || submitting) return 'thinking';
+    if (candidateState.listening) return 'listening';
+    if (isAiSpeaking) return 'speaking';
+    return 'idle';
+  }, [isEvaluating, submitting, candidateState.listening, isAiSpeaking]);
+
+  // Initials for avatar
+  const candidateName = careerProfile?.profile?.displayName || 'Bạn';
+  const initials = useMemo(() => {
+    return candidateName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((p: string) => p[0])
+      .join('')
+      .toUpperCase();
+  }, [candidateName]);
+
+  // Question sequence & header text
+  const currentSequence = activeQuestion?.sequence ?? (answeredPairs.length + 1);
+  const isPaidPhase = answeredPairs.length >= 3;
+  const headerQuestionLabel = isPaidPhase
+    ? `Câu hỏi ${currentSequence}`
+    : `Câu hỏi ${currentSequence}/3`;
+
+  // Submit Answer handler
+  const handleSubmitAnswer = async (content: string, durationSec: number) => {
+    if (!canAnswer || !activeQuestion || submitting || isEvaluating) return;
+
+    setSubmitting(true);
+    setIsEvaluating(true);
+    setActionError(null);
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    const intent = getOrCreateAnswerIntent(pendingAnswerIntentRef.current, {
+      questionId: activeQuestion.id,
+      content,
+      durationSeconds: durationSec || secondsElapsed,
+    });
+    pendingAnswerIntentRef.current = intent;
+
+    try {
+      const result = await interviewApi.submitAnswer(id, intent.payload, intent.key);
+
+      // Reconcile into React Query cache immediately
+      queryClient.setQueryData(['interview', id], (oldData: InterviewView | undefined) =>
+        oldData ? applyAnswerResultToInterview(oldData, result) : oldData
+      );
+
+      pendingAnswerIntentRef.current = null;
+      setCurrentDraftContent('');
+      setSecondsElapsed(0);
+
+      // Extract evaluation
+      const evalData = (result.answer.evaluation as AnswerEvaluation) || null;
+      setLatestEvaluation(evalData);
+      setLatestEvaluatedSeq(currentSequence);
+      setShowCoaching(true);
+    } catch (err: unknown) {
+      setActionError({
+        message: err instanceof ApiError ? err.message : 'Lỗi khi gửi câu trả lời. Bạn có thể thử lại.',
+        requestId: err instanceof ApiError ? err.requestId : undefined,
+        code: err instanceof ApiError ? err.code : undefined,
+      });
+    } finally {
+      setSubmitting(false);
+      setIsEvaluating(false);
+    }
+  };
+
+  // Continue action after reviewing coaching drawer
+  const handleContinueAfterCoaching = async () => {
+    setShowCoaching(false);
+
+    if (latestEvaluatedSeq === 1) {
       return;
     }
 
+    if (latestEvaluatedSeq === 2) {
+      return;
+    }
+
+    if (latestEvaluatedSeq === 3) {
+      setShowQ3BoundaryModal(true);
+      return;
+    }
+
+    if (activeQuestion) {
+      return;
+    }
+
+    try {
+      setContinuing(true);
+      const updated = await interviewApi.continue(id, continueKeyRef.current);
+      queryClient.setQueryData(['interview', id], updated);
+      continueKeyRef.current = generateIdempotencyKey();
+    } catch (err: unknown) {
+      setActionError({
+        message:
+          err instanceof ApiError
+            ? err.message
+            : 'Đã hoàn thành phân bổ câu hỏi. Bạn có thể xuất báo cáo.',
+        requestId: err instanceof ApiError ? err.requestId : undefined,
+      });
+    } finally {
+      setContinuing(false);
+    }
+  };
+
+  // Early finish handler
+  const handleFinishEarly = async () => {
+    if (!canFinish || completing || submitting) return;
+    if (
+      answeredPairs.length > 0 &&
+      !window.confirm('Bạn có chắc chắn muốn kết thúc buổi phỏng vấn và xuất báo cáo đánh giá?')
+    ) {
+      return;
+    }
+
+    setShowCoaching(false);
+    setShowQ3BoundaryModal(false);
     setCompleting(true);
     setActionError(null);
+
     try {
       await interviewApi.complete(id, completeIntentRef.current.getKey());
-      // Completion confirmed: mint a fresh key for any future (unused) intent
       completeIntentRef.current.confirmComplete();
       router.push(`/interviews/${id}/report`);
     } catch (err: unknown) {
@@ -163,792 +311,391 @@ export default function InterviewRoomPage() {
     }
   };
 
-  const handleContinue = async () => {
-    if (continuing || submitting) return;
-    setContinuing(true);
-    setActionError(null);
-    try {
-      const updatedInterview = await interviewApi.continue(id, continueKeyRef.current);
-      queryClient.setQueryData(['interview', id], updatedInterview);
-      // Intent succeeded, prepare next idempotency key
-      continueKeyRef.current = generateIdempotencyKey();
-    } catch (err: unknown) {
-      setActionError({
-        message:
-          err instanceof ApiError
-            ? err.message
-            : 'Chưa thể tiếp tục buổi phỏng vấn. Vui lòng kiểm tra gói tài khoản của bạn.',
-        requestId: err instanceof ApiError ? err.requestId : undefined,
-        code: err instanceof ApiError ? err.code : undefined,
-      });
-    } finally {
-      setContinuing(false);
-    }
-  };
-
-  const handleSubmitAnswer = async () => {
-    if (!canSubmitAnswer || !activeQuestion) return;
-
-    setSubmitting(true);
-    setActionError(null);
-
-    // Stop timer while submitting
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    // Option B: Freeze attempt duration in pending intent. If retrying unchanged answer, reuse key & frozen duration.
-    const intent = getOrCreateAnswerIntent(pendingAnswerIntentRef.current, {
-      questionId: activeQuestion.id,
-      content: answerContent,
-      durationSeconds: secondsElapsed,
-    });
-    pendingAnswerIntentRef.current = intent;
-
-    try {
-      const result = await interviewApi.submitAnswer(
-        id,
-        intent.payload,
-        intent.key
-      );
-
-      // The answer is accepted on the backend the moment submitAnswer resolves.
-      // Reconcile it into client cache BEFORE any further network mutation so a
-      // failed complete cannot desync client state from the accepted answer.
-      queryClient.setQueryData(['interview', id], (oldData: InterviewView | undefined) =>
-        oldData ? applyAnswerResultToInterview(oldData, result) : oldData
-      );
-
-      // Submission succeeded: clear pending intent, input, timer, and speech state
-      pendingAnswerIntentRef.current = null;
-      setAnswerContent('');
-      setSecondsElapsed(0);
-      speech.reset();
-
-      // Check auto-completion: nextQuestion=null with upgrade_required must NOT auto-complete
-      const resultContinuation = result.continuation ?? continuation;
-      if (
-        shouldAutoComplete(result.isComplete, resultContinuation, result.nextQuestion) &&
-        canFinishInterview(resultContinuation)
-      ) {
-        try {
-          await interviewApi.complete(id, completeIntentRef.current.getKey());
-          // Completion confirmed: mint a fresh key for any future (unused) intent
-          completeIntentRef.current.confirmComplete();
-          router.push(`/interviews/${id}/report`);
-        } catch (err: unknown) {
-          // Do NOT roll back the accepted answer. Same complete key must remain
-          // reusable so the Finish action can retry with identical idempotency.
-          setActionError({
-            message:
-              'Câu trả lời đã được lưu, nhưng chưa thể kết thúc buổi phỏng vấn. Vui lòng thử nộp bài lại.',
-            requestId: err instanceof ApiError ? err.requestId : undefined,
-            code: err instanceof ApiError ? err.code : undefined,
-          });
-        }
+  // Upgrade & Continue into Q4+ in the SAME session
+  const handleUpgradeAndContinue = async () => {
+    if (canUpgrade) {
+      setShowQ3BoundaryModal(false);
+      try {
+        setContinuing(true);
+        const updated = await interviewApi.continue(id, continueKeyRef.current);
+        queryClient.setQueryData(['interview', id], updated);
+        continueKeyRef.current = generateIdempotencyKey();
+      } catch (err: unknown) {
+        setActionError({
+          message: err instanceof ApiError ? err.message : 'Chưa thể mở rộng phiên phỏng vấn.',
+          requestId: err instanceof ApiError ? err.requestId : undefined,
+        });
+      } finally {
+        setContinuing(false);
       }
-    } catch (err: unknown) {
-      setActionError({
-        message: err instanceof ApiError ? err.message : 'Lỗi khi gửi câu trả lời. Bạn có thể thử gửi lại.',
-        requestId: err instanceof ApiError ? err.requestId : undefined,
-        code: err instanceof ApiError ? err.code : undefined,
-      });
-    } finally {
-      setSubmitting(false);
+    } else {
+      router.push(`/pricing?returnTo=${encodeURIComponent(`/interviews/${id}?sessionContinuation=true`)}`);
     }
   };
 
+  // Loading state
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loadingState}>Đang tải dữ liệu buổi phỏng vấn...</div>
+      <div className="min-h-[60vh] flex items-center justify-center text-slate-500">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <span>Đang tải dữ liệu buổi phỏng vấn...</span>
+        </div>
       </div>
     );
   }
 
+  // Error state
   if (queryError && !interview) {
     return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ color: '#dc2626' }}>
-          <p style={{ fontWeight: 600 }}>{queryError.message || 'Không thể tải buổi phỏng vấn.'}</p>
-          <Link href="/interviews" style={{ color: '#2563eb', textDecoration: 'underline', marginTop: '1rem', display: 'inline-block' }}>
-            Quay lại danh sách phỏng vấn
-          </Link>
-        </div>
+      <div className="max-w-xl mx-auto my-12 p-6 bg-red-50 border border-red-200 rounded-xl text-red-900">
+        <h2 className="font-bold text-lg mb-2">Không thể tải buổi phỏng vấn</h2>
+        <p className="text-sm mb-4">{queryError.message || 'Đã có lỗi xảy ra.'}</p>
+        <Link href="/interviews" className="text-indigo-600 font-semibold underline">
+          Quay lại danh sách phỏng vấn
+        </Link>
       </div>
     );
   }
 
   if (!interview) return null;
 
-  // Lifecycle state: starting
+  // Status transitions
   if (interview.status === 'starting') {
     return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-          <h2 className={styles.title}>Đang khởi tạo bài thi...</h2>
-          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            AI đang chuẩn bị các câu hỏi phỏng vấn phù hợp nhất với hồ sơ và cấu hình của bạn. Vui lòng đợi trong giây lát...
-          </p>
-          <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
-            <div
-              style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid #f3f3f3',
-                borderTop: '4px solid #3b82f6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-              }}
-            />
-          </div>
-          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-        </div>
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900">Đang chuẩn bị câu hỏi phỏng vấn...</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Nexora AI đang tổng hợp các tình huống phù hợp nhất với vị trí {interview.role}. Vui lòng chờ trong giây lát.
+        </p>
       </div>
     );
   }
 
-  // Lifecycle state: completing
   if (interview.status === 'completing') {
     return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-          <h2 className={styles.title}>Đang chấm điểm &amp; Tổng hợp báo cáo...</h2>
-          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            AI đang đánh giá toàn diện phần thi của bạn để lập báo cáo phỏng vấn chi tiết.
-          </p>
-          <div style={{ marginTop: '2rem' }}>
-            <button
-              className={styles.btnPrimary}
-              onClick={() => router.push(`/interviews/${id}/report`)}
-            >
-              Xem tiến độ báo cáo &rarr;
-            </button>
-          </div>
-        </div>
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900">Đang chấm điểm &amp; Tổng hợp báo cáo...</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          AI đang hoàn tất đánh giá 4 trục Rubric và mô hình STAR cho buổi phỏng vấn.
+        </p>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => router.push(`/interviews/${id}/report`)}
+          className="mt-4"
+        >
+          Xem tiến độ báo cáo &rarr;
+        </Button>
       </div>
     );
   }
 
-  // Lifecycle state: failed or abandoned
   if (interview.status === 'failed' || interview.status === 'abandoned') {
     return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-          <h2 className={styles.title} style={{ color: '#dc2626' }}>
-            Buổi phỏng vấn đã kết thúc ({interview.status === 'failed' ? 'Thất bại' : 'Đã hủy'})
-          </h2>
-          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            Phiên phỏng vấn này không còn hoạt động. Bạn có thể quay lại danh sách phỏng vấn để xem các lựa chọn hiện có.
-          </p>
-          <div style={{ marginTop: '2rem' }}>
-            <Link href="/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
-              Trở về Danh sách phỏng vấn
-            </Link>
-          </div>
-        </div>
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <h2 className="text-xl font-bold text-red-600">
+          Buổi phỏng vấn đã kết thúc ({interview.status === 'failed' ? 'Thất bại' : 'Đã hủy'})
+        </h2>
+        <p className="text-xs text-slate-500">Phiên phỏng vấn này không còn hoạt động.</p>
+        <Link href="/interviews" className="inline-block mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm">
+          Trở về Danh sách phỏng vấn
+        </Link>
       </div>
     );
   }
 
-  if (interview.status === 'completed') {
-    return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-          <h2 className={styles.title}>Buổi phỏng vấn đã hoàn thành</h2>
-          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            Bài phỏng vấn đã kết thúc. Bạn có thể xem báo cáo đánh giá chi tiết.
-          </p>
-          <div style={{ marginTop: '2rem' }}>
-            <button
-              className={styles.btnPrimary}
-              onClick={() => router.push(`/interviews/${id}/report`)}
-            >
-              Xem báo cáo &rarr;
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (interview.status === 'draft') {
-    return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-          <h2 className={styles.title}>Buổi phỏng vấn chưa sẵn sàng.</h2>
-          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            Vui lòng quay lại danh sách và thử mở lại sau ít phút.
-          </p>
-          <div style={{ marginTop: '2rem' }}>
-            <Link href="/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
-              Trở về Danh sách phỏng vấn
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (interview.status !== 'active') {
-    return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-          <h2 className={styles.title}>Trạng thái buổi phỏng vấn chưa được hỗ trợ.</h2>
-          <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-            Vui lòng tải lại hoặc quay lại danh sách phỏng vấn.
-          </p>
-          <div style={{ marginTop: '2rem' }}>
-            <Link href="/interviews" className={styles.btnPrimary} style={{ textDecoration: 'none', display: 'inline-block' }}>
-              Trở về Danh sách phỏng vấn
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const topicLabel = activeQuestion?.topic
+    ? activeQuestion.topic.replace(/_/g, ' ').toUpperCase()
+    : interview.interviewType.toUpperCase();
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Phỏng vấn: {interview.role}</h1>
-          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span className={styles.statusBadge}>{interview.interviewType}</span>
-            <span
-              className={styles.statusBadge}
-              style={{ backgroundColor: '#f3f4f6', color: '#374151', padding: '0.2rem 0.6rem', borderRadius: '4px' }}
-            >
-              {interview.difficulty}
-            </span>
-            <span
-              className={styles.statusBadge}
-              style={{ backgroundColor: '#f3f4f6', color: '#374151', padding: '0.2rem 0.6rem', borderRadius: '4px' }}
-            >
-              {interview.seniority}
-            </span>
-          </div>
-        </div>
-        <button
-          className={styles.btnDanger}
-          onClick={handleComplete}
-          disabled={completing || submitting || !canFinish}
-          style={{ opacity: canFinish ? 1 : 0.5 }}
-          title={canFinish ? 'Nộp bài và xuất báo cáo' : 'Chưa thể kết thúc buổi phỏng vấn ở trạng thái hiện tại.'}
-        >
-          {completing ? 'Đang xử lý...' : 'Nộp bài sớm'}
-        </button>
-      </div>
-
-      <div className={styles.panel}>
+    <ProductFocusedSurface theme="interview" className="min-h-screen py-4 px-2 sm:px-4">
+      <div className="interview-call-room mx-auto space-y-4">
+        {/* Action Error alert */}
         {actionError && (
-          <div className={styles.actionError}>
-            <div className={styles.errorTitle}>
-              <span>⚠️</span>
-              <span>{actionError.message}</span>
-            </div>
-            {actionError.requestId && (
-              <div className={styles.errorMeta}>Mã yêu cầu (Request ID): {actionError.requestId}</div>
-            )}
-          </div>
-        )}
-
-        {/* History with Per-Answer Coaching (A8) */}
-        {answeredPairs.length > 0 && (
-          <div style={{ marginBottom: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {answeredPairs.map(({ question: q, answer: ans }) => {
-              const evalData = safeAnswerEvaluation(ans.evaluation);
-              const star = evalData.star;
-              const hasStar = isStarApplicable(star);
-              const hasGenericCoaching =
-                evalData.strengths.length > 0 ||
-                evalData.improvements.length > 0 ||
-                Boolean(evalData.improvedAnswer) ||
-                Boolean(evalData.feedback);
-
-              return (
-                <div
-                  key={q.id}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '12px',
-                    padding: '1.25rem',
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '1.05rem' }}>
-                      Câu {q.sequence}: {q.content}
-                    </div>
-                    {q.topic && (
-                      <span className={styles.statusBadge} style={{ fontSize: '0.75rem' }}>
-                        {q.topic}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ marginBottom: '1rem', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                    <strong>Trả lời:</strong> {ans.content}
-                  </div>
-
-                  {/* A8 Per-Answer Coaching Display */}
-                  {hasStar && star ? (
-                    <div className={styles.coachingBox}>
-                      <div className={styles.coachingTitle}>
-                        <span>⭐</span>
-                        <span>Đánh giá theo Phương pháp S-T-A-R ({evalData.scoreScale || SCORE_SCALE})</span>
-                        {typeof star.overallScore === 'number' && (
-                          <span className={styles.scorePill} style={{ marginLeft: 'auto' }}>
-                            {star.overallScore}/100
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={styles.starTableWrapper}>
-                        <table className={styles.starTable}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: '130px' }}>Thành phần</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Trạng thái</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
-                              <th>Nhận xét &amp; Bằng chứng</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {star.situation && (() => {
-                              const norm = normalizeStarComponent(star.situation);
-                              return (
-                                <tr>
-                                  <td><strong>Situation (Tình huống)</strong></td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>
-                                      {norm.score}/100
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                            {star.task && (() => {
-                              const norm = normalizeStarComponent(star.task);
-                              return (
-                                <tr>
-                                  <td><strong>Task (Nhiệm vụ)</strong></td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>
-                                      {norm.score}/100
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                            {star.action && (() => {
-                              const norm = normalizeStarComponent(star.action);
-                              return (
-                                <tr>
-                                  <td><strong>Action (Hành động)</strong></td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>
-                                      {norm.score}/100
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                            {star.result && (() => {
-                              const norm = normalizeStarComponent(star.result);
-                              return (
-                                <tr>
-                                  <td><strong>Result (Kết quả)</strong></td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>
-                                      {norm.score}/100
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {star.missingElements && star.missingElements.length > 0 && (
-                        <div style={{ marginTop: '0.75rem', color: '#b91c1c', fontSize: '0.9rem' }}>
-                          <strong>Yếu tố còn thiếu:</strong> {star.missingElements.join(', ')}
-                        </div>
-                      )}
-
-                      {star.strengths && star.strengths.length > 0 && (
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
-                            ✨ Điểm mạnh nổi bật:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
-                            {star.strengths.map((st, idx) => (
-                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                                {st}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {star.coachingTips && star.coachingTips.length > 0 && (
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <strong style={{ color: '#16a34a', display: 'block', marginBottom: '0.25rem' }}>
-                            💡 Lời khuyên hoàn thiện:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#334155' }}>
-                            {star.coachingTips.map((tip, idx) => (
-                              <li key={idx} style={{ marginBottom: '0.25rem' }}>
-                                {tip}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ) : hasGenericCoaching ? (
-                    <div className={styles.coachingBox}>
-                      <div className={styles.coachingTitle}>
-                        <span>✨</span>
-                        <span>AI Phản Hồi Trực Tiếp ({evalData.scoreScale || SCORE_SCALE})</span>
-                      </div>
-
-                      {evalData.scores.length > 0 && (
-                        <div className={styles.starTableWrapper} style={{ marginBottom: '1rem' }}>
-                          <table className={styles.starTable}>
-                            <thead>
-                              <tr>
-                                <th style={{ width: '160px' }}>Tiêu chí</th>
-                                <th style={{ width: '90px', textAlign: 'center' }}>Điểm</th>
-                                <th>Bằng chứng đánh giá</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {evalData.scores.map((sc, scIdx) => (
-                                <tr key={scIdx}>
-                                  <td><strong>{sc.criterion}</strong></td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{sc.score}/100</span>
-                                  </td>
-                                  <td>{sc.evidence || '—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {evalData.feedback && (
-                        <div style={{ marginBottom: '0.75rem', color: '#334155', lineHeight: '1.6' }}>
-                          <strong>Nhận xét:</strong> {evalData.feedback}
-                        </div>
-                      )}
-
-                      {evalData.strengths.length > 0 && (
-                        <div style={{ marginBottom: '0.75rem' }}>
-                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
-                            Điểm mạnh:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
-                            {evalData.strengths.map((s, idx) => (
-                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                                {s}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {evalData.improvements.length > 0 && (
-                        <div style={{ marginBottom: '0.75rem' }}>
-                          <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '0.25rem' }}>
-                            Cần cải thiện:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#7f1d1d' }}>
-                            {evalData.improvements.map((imp, idx) => (
-                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                                {imp}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {evalData.improvedAnswer && (
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <strong style={{ color: '#2563eb', display: 'block', marginBottom: '0.25rem' }}>
-                            Câu trả lời mẫu gợi ý:
-                          </strong>
-                          <div
-                            style={{
-                              padding: '0.75rem 1rem',
-                              backgroundColor: '#eff6ff',
-                              color: '#1e3a8a',
-                              borderRadius: '8px',
-                              fontStyle: 'italic',
-                              lineHeight: '1.5',
-                            }}
-                          >
-                            &ldquo;{evalData.improvedAnswer}&rdquo;
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
+          <div className="p-3.5 bg-red-900/40 border border-red-500/50 rounded-xl text-xs text-red-200 flex items-start gap-2">
+            <span className="material-symbols-outlined text-red-400 text-[18px] flex-shrink-0 mt-0.5">
+              error
+            </span>
+            <div>
+              <span className="font-semibold">{actionError.message}</span>
+              {actionError.requestId && (
+                <div className="text-[10px] text-red-300 mt-0.5">
+                  Request ID: {actionError.requestId}
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Continuation State: upgrade_required (A7) */}
-        {upgradeRequired ? (
-          <div className={styles.upgradeCard}>
-            <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#0f172a', fontWeight: 700 }}>
-              Bạn đã đạt giới hạn câu hỏi của gói hiện tại
-            </h3>
-            <p
-              style={{
-                color: '#64748b',
-                marginBottom: '2rem',
-                fontSize: '1.05rem',
-                maxWidth: '620px',
-                margin: '0 auto 2rem',
-                lineHeight: '1.6',
-              }}
-            >
-              Nâng cấp gói để tiếp tục buổi phỏng vấn này với các câu hỏi tình huống chuyên sâu, phân tích kỹ năng và nhận phản hồi chi tiết từ AI.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                className={styles.btnDanger}
-                onClick={handleComplete}
-                disabled={completing || submitting || !canFinish}
-              >
-                {completing ? 'Đang hoàn tất...' : 'Nộp bài & Xem báo cáo'}
-              </button>
-
-              {canUpgrade && (
-                <Link
-                  href="/pricing"
-                  target="_blank"
-                  className={styles.btnPrimary}
-                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                >
-                  Nâng cấp gói ngay
-                </Link>
               )}
-
-              <button
-                className={styles.btnSecondary}
-                onClick={handleContinue}
-                disabled={continuing || submitting}
-              >
-                {continuing ? 'Đang kiểm tra...' : 'Đã nâng cấp? Tiếp tục phỏng vấn'}
-              </button>
             </div>
           </div>
-        ) : canAnswer && activeQuestion ? (
-          <>
-            <div className={styles.questionBox}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div className={styles.questionSequence}>
-                  Câu hỏi {activeQuestion.sequence} / {interview.questions.length}
-                  {activeQuestion.topic && (
-                    <span style={{ marginLeft: '0.75rem', textTransform: 'none', color: '#64748b' }}>
-                      ({activeQuestion.topic})
-                    </span>
-                  )}
-                </div>
-                <div className={styles.timer}>⏱ {formatTime(secondsElapsed)}</div>
+        )}
+
+        {/* Meet-style Stage */}
+        <section className="interview-call-stage" aria-label="Phòng phỏng vấn cùng Nexora AI">
+          <div className="interview-stage-meta">
+            <span className="interview-live">
+              <i aria-hidden="true" /> Đang trong phiên
+            </span>
+            <span>{topicLabel}</span>
+            <span>{interview.role} ({interview.seniority})</span>
+            <span>{headerQuestionLabel}</span>
+          </div>
+
+          <div className="interview-stage-center">
+            <AiInterviewerPresence state={presenceState} />
+
+            {activeQuestion ? (
+              <div className="interview-live-caption" aria-label="Phụ đề câu hỏi">
+                <p>&ldquo;{activeQuestion.content}&rdquo;</p>
               </div>
-              <div className={styles.questionContent}>{activeQuestion.content}</div>
+            ) : (
+              <div className="interview-live-caption">
+                <p>Bạn đã hoàn thành các câu hỏi được phân bổ.</p>
+              </div>
+            )}
+
+            <details className="interview-coach-tip">
+              <summary>
+                <span aria-hidden="true" className="material-symbols-outlined">
+                  tips_and_updates
+                </span>{' '}
+                Gợi ý từ Coach
+              </summary>
+              <p>
+                {currentSequence === 1 &&
+                  'Nêu bật kinh nghiệm thực chiến gần nhất, nhấn mạnh công nghệ chủ đạo và đóng góp cá nhân nổi bật.'}
+                {currentSequence === 2 &&
+                  'Trình bày có cấu trúc: 1) Cô lập và chẩn đoán sự cố; 2) Giải pháp ứng phó; 3) Thiết kế phòng ngừa lâu dài.'}
+                {currentSequence >= 3 &&
+                  'Áp dụng cấu trúc STAR: Nêu rõ Bối cảnh (S), Mục tiêu (T), Hành động cụ thể (A), và Kết quả định lượng (R).'}
+              </p>
+            </details>
+          </div>
+
+          {/* Candidate Self Tile (Initials avatar, timer, status) - No camera */}
+          <aside
+            className="interview-self-tile"
+            data-listening={candidateState.listening}
+            aria-label="Trạng thái của bạn"
+          >
+            <div className="interview-self-avatar" aria-hidden="true">
+              {initials}
             </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="answerContent">
-                Câu trả lời của bạn
-              </label>
-              <textarea
-                id="answerContent"
-                className={styles.textarea}
-                placeholder="Nhập câu trả lời chi tiết của bạn tại đây..."
-                value={answerContent}
-                onChange={(e) => setAnswerContent(e.target.value)}
-                disabled={!canAnswer || submitting}
-              />
-            </div>
-
-            {/* A10 temporary voice input (browser Web Speech API) */}
-            <div
-              style={{
-                marginTop: '0.75rem',
-                marginBottom: '0.75rem',
-                padding: '0.75rem',
-                border: '1px dashed #cbd5e1',
-                borderRadius: '8px',
-                background: '#f8fafc',
-              }}
-            >
-              {speech.supported ? (
-                <>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {speech.listening ? (
-                      <button
-                        type="button"
-                        className={styles.btnDanger}
-                        onClick={speech.stop}
-                        disabled={submitting}
-                      >
-                        ⏹ Dừng ghi âm
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.btnSecondary}
-                        onClick={speech.start}
-                        disabled={!canAnswer || submitting}
-                      >
-                        🎤 Bắt đầu nói
-                      </button>
-                    )}
-
-                    {speech.listening && (
-                      <span style={{ color: '#2563eb', fontWeight: 600 }}>● Đang nghe...</span>
-                    )}
-                  </div>
-
-                  {speech.preview && (
-                    <div style={{ marginTop: '0.5rem', color: '#475569', fontSize: '0.9rem' }}>
-                      <strong>Bản nháp giọng nói:</strong> {speech.preview}
-                    </div>
-                  )}
-
-                  {speech.error && (
-                    <div style={{ marginTop: '0.5rem', color: '#dc2626', fontSize: '0.9rem', fontWeight: 500 }}>
-                      {speech.error.message}
-                    </div>
-                  )}
-
-                  <div style={{ marginTop: '0.5rem', color: '#94a3b8', fontSize: '0.8rem' }}>
-                    Nhập giọng nói chỉ tạo bản nháp có thể chỉnh sửa. Nội dung gửi đi là văn bản cuối cùng trong ô trả lời — không có âm thanh nào được gửi.
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{SPEECH_UNSUPPORTED_MESSAGE}</div>
-              )}
-            </div>
-
-            <div className={styles.buttonGroup}>
-              <button
-                className={styles.btnPrimary}
-                onClick={handleSubmitAnswer}
-                disabled={!canSubmitAnswer}
-              >
-                {submitting ? 'Đang gửi...' : 'Gửi câu trả lời'}
-              </button>
-              {speech.supported && speech.listening && (
-                <span style={{ color: '#b45309', fontSize: '0.875rem', marginLeft: '0.75rem' }}>
-                  Dừng ghi âm trước khi gửi câu trả lời.
-                </span>
-              )}
-            </div>
-          </>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
-            <h3 style={{ fontSize: '1.35rem', marginBottom: '1rem', fontWeight: 600, color: '#1e293b' }}>
-              Bạn đã hoàn thành tất cả câu hỏi!
-            </h3>
-            <p style={{ color: '#64748b', marginBottom: '2rem' }}>
-              Hãy nhấn nút bên dưới để nộp bài và xem báo cáo đánh giá chi tiết từ AI.
+            <strong>{candidateName}</strong>
+            <p>
+              <span aria-hidden="true" className="material-symbols-outlined">
+                {candidateState.error
+                  ? 'mic_off'
+                  : candidateState.mode === 'chatbox'
+                  ? 'keyboard'
+                  : 'mic'}
+              </span>
+              {candidateState.error
+                ? 'Mic chưa khả dụng'
+                : candidateState.listening
+                ? 'Bạn đang trả lời'
+                : candidateState.mode === 'chatbox' || forcedTextOnly
+                ? 'Đang gõ văn bản'
+                : 'Sẵn sàng nói'}
             </p>
-            <button
-              className={styles.btnPrimary}
-              onClick={handleComplete}
-              disabled={completing || submitting || !canFinish}
-            >
-              {completing ? 'Đang xuất báo cáo...' : 'Nộp bài & Xem báo cáo'}
-            </button>
+            <span className="interview-answer-duration">
+              {Math.floor(candidateState.duration / 60)
+                .toString()
+                .padStart(2, '0')}
+              :{(candidateState.duration % 60).toString().padStart(2, '0')}
+            </span>
+          </aside>
+
+          {/* Live unsubmitted draft preview */}
+          {activeQuestion && (
+            <CurrentAnswerCaption
+              content={currentDraftContent}
+              listening={candidateState.listening}
+              disabled={isEvaluating || submitting || showCoaching}
+              onEdit={() => setEditorOpen(true)}
+            />
+          )}
+        </section>
+
+        {/* Answer Controls Dock */}
+        {activeQuestion && (
+          <div className="interview-controls">
+            <AudioSpeechDock
+              key={activeQuestion.id}
+              initialContent=""
+              onSubmit={(content, duration) => handleSubmitAnswer(content, duration)}
+              isSubmitting={submitting || isEvaluating || showCoaching}
+              forcedTextOnly={forcedTextOnly}
+              variant="call"
+              editorOpen={editorOpen}
+              onEditorOpenChange={(open) => setEditorOpen(open)}
+              onTranscriptChange={(content) => setCurrentDraftContent(content)}
+              onStateChange={(state) => {
+                setCandidateState(state);
+                if (state.listening) setIsAiSpeaking(false);
+              }}
+              onBeforeListening={() => setIsAiSpeaking(false)}
+              controls={
+                <>
+                  <QuestionSpeaker
+                    text={activeQuestion.content}
+                    questionId={activeQuestion.id}
+                    autoSpeak
+                    disabled={candidateState.listening || submitting || isEvaluating || showCoaching}
+                    onSpeakingChange={setIsAiSpeaking}
+                    className="interview-call-button"
+                  />
+
+                  <button
+                    type="button"
+                    className="interview-call-button interview-end-button"
+                    aria-label="Kết thúc phiên phỏng vấn"
+                    disabled={submitting || isEvaluating || !canFinish}
+                    onClick={handleFinishEarly}
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined">
+                      call_end
+                    </span>
+                    <span>{completing ? 'Đang nộp...' : 'Nộp bài sớm'}</span>
+                  </button>
+                </>
+              }
+            />
           </div>
         )}
+
+        {/* Session Transcript Accordion (Only submitted answers) */}
+        <details className="interview-session-transcript">
+          <summary>
+            Xem transcript buổi phỏng vấn · {answeredPairs.length} câu đã trả lời
+          </summary>
+          {answeredPairs.length === 0 ? (
+            <p className="py-3 text-slate-400">Chưa có câu trả lời nào được nộp.</p>
+          ) : (
+            answeredPairs.map((pair) => (
+              <article key={pair.question.id}>
+                <h2>
+                  Nexora AI · Câu {pair.question.sequence}
+                </h2>
+                <p>{pair.question.content}</p>
+                <h3>Câu trả lời của bạn</h3>
+                <p>{pair.answer.content}</p>
+              </article>
+            ))
+          )}
+        </details>
+
+        {/* Quick Coaching Drawer */}
+        {latestEvaluation && (
+          <QuickCoachingDrawer
+            isOpen={showCoaching}
+            coaching={latestEvaluation}
+            questionSequence={latestEvaluatedSeq}
+            totalQuestions={isPaidPhase ? null : 3}
+            canContinueQuestion={Boolean(activeQuestion) || latestEvaluatedSeq < 3 || canUpgrade}
+            onContinue={handleContinueAfterCoaching}
+            onFinishEarly={latestEvaluatedSeq >= 2 ? handleFinishEarly : undefined}
+            finishEarlyLabel={latestEvaluatedSeq === 2 ? 'Kết thúc sớm & nhận báo cáo 2 câu' : undefined}
+            onClose={() => setShowCoaching(false)}
+          />
+        )}
+
+        {/* Q3 Free Boundary Modal */}
+        <Modal
+          isOpen={showQ3BoundaryModal}
+          onClose={() => setShowQ3BoundaryModal(false)}
+          maxWidth="lg"
+        >
+          <div className="text-center space-y-6 py-2">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center mx-auto shadow-sm">
+              <span className="material-symbols-outlined text-[32px]">emoji_events</span>
+            </div>
+
+            <div className="space-y-2">
+              <Badge variant="secondary" size="md">
+                Hoàn thành trọn vẹn 3 câu miễn phí
+              </Badge>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                Tuyệt vời! Bạn đã hoàn thành phiên phỏng vấn thử
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                Báo cáo đánh giá toàn diện 3 câu của bạn <strong>hoàn toàn miễn phí</strong> và sẵn sàng được tổng hợp ngay bây giờ.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left pt-2">
+              {/* Choice A: Receive Free Report (100% Free) */}
+              <Card
+                variant="elevated"
+                padding="md"
+                className="border-indigo-300 hover:border-indigo-600 cursor-pointer transition-all flex flex-col justify-between"
+                onClick={handleFinishEarly}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-sm text-slate-900">Nhận báo cáo miễn phí</span>
+                    <Badge variant="secondary" size="sm">Miễn phí 100%</Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Tổng hợp điểm số 4 tiêu chuẩn Rubric, đánh giá STAR, phân tích điểm sáng và hướng dẫn cải thiện chi tiết.
+                  </p>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="mt-5 w-full shadow-sm font-semibold"
+                  onClick={handleFinishEarly}
+                  disabled={completing}
+                >
+                  {completing ? 'Đang tổng hợp...' : 'Xem báo cáo ngay'}
+                </Button>
+              </Card>
+
+              {/* Choice B: Paid Continuation in SAME session */}
+              <Card
+                variant="elevated"
+                padding="md"
+                className="border-slate-200 hover:border-slate-400 cursor-pointer transition-all flex flex-col justify-between"
+                onClick={handleUpgradeAndContinue}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-sm text-slate-900">
+                      Tiếp tục phỏng vấn chuyên sâu
+                    </span>
+                    <Badge variant="neutral" size="sm">
+                      {canUpgrade ? 'Đã kích hoạt' : 'Nâng cấp gói'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Mở khóa các câu hỏi tình huống thực tế chuyên sâu (Q4, Q5...) và tiếp tục phỏng vấn ngay trong cùng phiên này.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="md"
+                  className="mt-5 w-full font-semibold"
+                  onClick={handleUpgradeAndContinue}
+                  disabled={continuing}
+                >
+                  {continuing
+                    ? 'Đang kết nối...'
+                    : canUpgrade
+                    ? 'Tiếp tục Câu 4+ ngay'
+                    : 'Nâng cấp & Tiếp tục phiên'}
+                </Button>
+              </Card>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 max-w-md mx-auto">
+              🛡️ <strong>Cam kết minh bạch:</strong> Không làm mờ hay khóa kết quả miễn phí.
+            </div>
+          </div>
+        </Modal>
       </div>
-    </div>
+    </ProductFocusedSurface>
   );
 }

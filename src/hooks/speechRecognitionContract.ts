@@ -104,7 +104,29 @@ export function resolveSpeechRecognitionConstructor(
   return null;
 }
 
-// mapSpeechLanguage removed
+export type SpeechLanguage = 'vi-VN' | 'en-US';
+
+export interface SpeechLanguageOption {
+  value: SpeechLanguage;
+  label: string;
+}
+
+export const DEFAULT_SPEECH_LANGUAGE: SpeechLanguage = 'vi-VN';
+
+export const SPEECH_LANGUAGE_OPTIONS: readonly SpeechLanguageOption[] = [
+  { value: 'vi-VN', label: 'Tiếng Việt' },
+  { value: 'en-US', label: 'English' },
+] as const;
+
+/**
+ * Normalizes a language code to a supported recognition locale.
+ * Anything unrecognized falls back to the Vietnamese default.
+ */
+export function mapSpeechLanguage(code: unknown): SpeechLanguage {
+  return SPEECH_LANGUAGE_OPTIONS.some((option) => option.value === code)
+    ? (code as SpeechLanguage)
+    : DEFAULT_SPEECH_LANGUAGE;
+}
 
 /**
  * Appends a freshly finalized speech segment to the current (editable) text.

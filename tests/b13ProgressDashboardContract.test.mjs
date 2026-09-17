@@ -426,7 +426,7 @@ test('23. embedded recommendation: valid recommendation preserves canonical B12 
 
   // Deep link contract verification on embedded recommendation
   const deepLink = getRecommendationDeepLink(result.nextRecommendedPractice);
-  assert.equal(deepLink, '/dashboard/scenarios/b7b9-1234-5678-9abc');
+  assert.equal(deepLink, '/scenarios/b7b9-1234-5678-9abc');
 });
 
 test('24. embedded recommendation: non-scenario activity types resolve canonical deep links', () => {
@@ -437,7 +437,7 @@ test('24. embedded recommendation: non-scenario activity types resolve canonical
     estimatedMinutes: 15,
     priority: 2,
   });
-  assert.equal(getRecommendationDeepLink(starRec), '/dashboard/star-builder');
+  assert.equal(getRecommendationDeepLink(starRec), '/star-builder');
 
   const interviewRec = canonicalNormalizeRecommendation({
     reason: 'Luyện tập phỏng vấn mô phỏng',
@@ -446,7 +446,7 @@ test('24. embedded recommendation: non-scenario activity types resolve canonical
     estimatedMinutes: 45,
     priority: 1,
   });
-  assert.equal(getRecommendationDeepLink(interviewRec), '/dashboard/interviews/new');
+  assert.equal(getRecommendationDeepLink(interviewRec), '/interviews/new');
 
   const resumeRec = canonicalNormalizeRecommendation({
     reason: 'Cập nhật CV theo góp ý mới',
@@ -455,7 +455,7 @@ test('24. embedded recommendation: non-scenario activity types resolve canonical
     estimatedMinutes: 20,
     priority: 3,
   });
-  assert.equal(getRecommendationDeepLink(resumeRec), '/dashboard/resumes');
+  assert.equal(getRecommendationDeepLink(resumeRec), '/resume-analyses');
 
   const externalRec = canonicalNormalizeRecommendation({
     reason: 'Tài liệu ngoài',

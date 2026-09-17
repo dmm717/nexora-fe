@@ -2,86 +2,23 @@
 
 import React, { useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import styles from './Report.module.css';
 import { useInterview, useInterviewReport } from '@/hooks/queries/useInterviews';
 import { useAutoTranslate } from '@/hooks/useAutoTranslate';
-import { ClientDate } from '@/components/ui/ClientDate';
 import { ApiError } from '@/services/apiClient';
 import { interviewApi, type PracticeAgainCommand } from '@/services/interviewApi';
 import {
   isReportProcessingError,
   isReportFailedError,
-  normalizeStarComponent,
-  safeAnswerEvaluation,
   generateIdempotencyKey,
   SCORE_SCALE,
 } from '@/services/interviewContract';
-
-function PracticeAgainButton({
-  interviewId,
-  questionId,
-  reason,
-  focus,
-  label,
-  buttonStyle,
-}: {
-  interviewId: string;
-  questionId?: string;
-  reason: PracticeAgainCommand['reason'];
-  focus: string;
-  label?: string;
-  buttonStyle?: React.CSSProperties;
-}) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const idempotencyKeyRef = useRef(generateIdempotencyKey());
-
-  const handlePractice = async () => {
-    if (loading) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const payload: PracticeAgainCommand = { focus, reason };
-      if (questionId) payload.questionId = questionId;
-
-      const res = await interviewApi.practiceAgain(interviewId, payload, idempotencyKeyRef.current);
-      idempotencyKeyRef.current = generateIdempotencyKey(); // Refresh on success
-      router.push(`/interviews/${res.id}`);
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Có lỗi xảy ra khi tạo bài luyện tập mới.');
-      }
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', marginTop: '0.75rem' }}>
-      <button
-        onClick={handlePractice}
-        disabled={loading}
-        className={styles.btnPrimary}
-        style={{
-          padding: '0.5rem 1rem',
-          fontSize: '0.9rem',
-          backgroundColor: '#4f46e5',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          ...buttonStyle,
-        }}
-      >
-        <span>🔄</span>
-        <span>{loading ? 'Đang khởi tạo...' : label || 'Thực hành lại'}</span>
-      </button>
-      {error && <span style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: '0.25rem' }}>{error}</span>}
-    </div>
-  );
-}
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { RadialScore } from '@/components/ui/RadialScore';
+import { StarEvaluationCard } from '@/components/features/coaching/StarEvaluationCard';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -90,12 +27,14 @@ export default function InterviewReportPage() {
 
   useAutoTranslate();
 
-  const [retrying, setRetrying] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'questions' | 'star' | 'action_plan'>('overview');
+  const [selectedQuestionIdx, setSelectedQuestionIdx] = useState<number>(0);
+  const [practicingAgain, setPracticingAgain] = useState<boolean>(false);
+  const [retrying, setRetrying] = useState<boolean>(false);
   const [retryError, setRetryError] = useState<{ message: string; requestId?: string } | null>(null);
 
-  // Stable idempotency key for report retry intent
   const retryKeyRef = useRef<string>(generateIdempotencyKey());
+  const practiceAgainKeyRef = useRef<string>(generateIdempotencyKey());
 
   const { data: interview } = useInterview(id);
   const {
@@ -111,6 +50,26 @@ export default function InterviewReportPage() {
     (queryError instanceof ApiError && queryError.code === 'NOT_FOUND' && interview?.status === 'completing');
   const isFailed = isReportFailedError(queryError);
 
+  // Practice Again creates a NEW linked session ID
+  const handlePracticeAgain = async (questionId?: string, topic?: string) => {
+    if (practicingAgain) return;
+    setPracticingAgain(true);
+    try {
+      const payload: PracticeAgainCommand = {
+        focus: topic || interview?.role || 'Luyện tập phỏng vấn',
+        reason: questionId ? 'repeat_question' : 'manual',
+        ...(questionId ? { questionId } : {}),
+      };
+      const res = await interviewApi.practiceAgain(id, payload, practiceAgainKeyRef.current);
+      practiceAgainKeyRef.current = generateIdempotencyKey();
+      router.push(`/interviews/${res.id}`);
+    } catch (err: unknown) {
+      alert(err instanceof ApiError ? err.message : 'Không thể khởi tạo phiên luyện tập lại.');
+      setPracticingAgain(false);
+    }
+  };
+
+  // Retry report generation
   const handleRetryReport = async () => {
     if (retrying) return;
     setRetrying(true);
@@ -118,10 +77,8 @@ export default function InterviewReportPage() {
     try {
       await interviewApi.retryReport(id, retryKeyRef.current);
       resetReportPollingAttempts();
-      // Invalidate queries to trigger fresh polling
       await queryClient.invalidateQueries({ queryKey: ['interview', id] });
       await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
-      // Succeeded: generate next idempotency key
       retryKeyRef.current = generateIdempotencyKey();
     } catch (err: unknown) {
       setRetryError({
@@ -133,884 +90,426 @@ export default function InterviewReportPage() {
     }
   };
 
-  const handleRefreshReportState = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  if (reportPollingBoundExhausted && !report) {
+  // Loading state
+  if (loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>Báo cáo phỏng vấn</h1>
-          <button className={styles.btnPrimary} onClick={() => router.push('/interviews')}>
-            Trở về Danh sách
-          </button>
-        </div>
-
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-          <h2 className={styles.title}>Báo cáo vẫn đang được xử lý lâu hơn dự kiến.</h2>
-          <p style={{ color: '#64748b', marginTop: '1rem' }}>
-            Bạn có thể thử làm mới trạng thái sau ít phút.
-          </p>
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className={styles.btnPrimary} onClick={handleRefreshReportState} disabled={refreshing}>
-              {refreshing ? 'Đang làm mới...' : 'Làm mới trạng thái báo cáo'}
-            </button>
-            <button
-              className={styles.btnSecondary}
-              onClick={() => router.push('/interviews')}
-            >
-              Quay lại danh sách
-            </button>
-          </div>
-        </div>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-slate-500">Đang tải báo cáo đánh giá phỏng vấn...</p>
       </div>
     );
   }
 
-  // State: Report is actively generating
-  if (loading || (isProcessing && !report)) {
+  // Processing state
+  if (isProcessing) {
     return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-          <h2 className={styles.title}>Đang tổng hợp báo cáo...</h2>
-          <p style={{ color: '#1d1d1f', marginTop: '1rem', fontWeight: 600, fontSize: '1.125rem' }}>
-            AI đang phân tích câu trả lời và tổng hợp báo cáo phỏng vấn của bạn. Quá trình này có thể mất đến 1 phút...
-          </p>
-          <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
-            <div
-              style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid #e2e8f0',
-                borderTop: '4px solid #3b82f6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-              }}
-            />
-          </div>
-          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-        </div>
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900">Báo cáo đang được tổng hợp...</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Nexora AI đang phân tích dữ liệu câu trả lời, đối soát thang điểm Rubric và mô hình STAR. Quá trình này diễn ra hoàn toàn tự động.
+        </p>
       </div>
     );
   }
 
-  // State: Report generation failed (409 INTERVIEW_REPORT_FAILED)
-  if (isFailed && !report) {
-    const errorObj = queryError instanceof ApiError ? queryError : null;
+  // Failed state
+  if (isFailed || reportPollingBoundExhausted) {
     return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>Báo cáo phỏng vấn</h1>
-          <button className={styles.btnPrimary} onClick={() => router.push('/interviews')}>
-            Trở về Danh sách
-          </button>
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-red-200 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+          <span className="material-symbols-outlined text-2xl">error_outline</span>
         </div>
-
-        <div className={styles.retryCard}>
-          <div className={styles.retryTitle}>Báo cáo phỏng vấn chưa tạo được ⚠️</div>
-          <p className={styles.retryDescription}>
-            Hệ thống gặp sự cố gián đoạn trong quá trình phân tích bài phỏng vấn. Bạn có thể thử lại mà không bị trừ thêm lượt phỏng vấn nào.
-          </p>
-
-          {retryError && (
-            <div style={{ color: '#dc2626', marginBottom: '1rem', fontWeight: 500 }}>
-              {retryError.message}
-              {retryError.requestId && (
-                <div className={styles.retryMeta}>Mã yêu cầu: {retryError.requestId}</div>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              className={styles.btnPrimary}
-              onClick={handleRetryReport}
-              disabled={retrying}
-            >
-              {retrying ? 'Đang gửi yêu cầu...' : 'Thử tạo lại báo cáo ngay'}
-            </button>
-            <button
-              style={{
-                padding: '0.75rem 1.5rem',
-                border: '1px solid #cbd5e1',
-                borderRadius: '999px',
-                background: 'white',
-                color: '#334155',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-              onClick={() => router.push(`/interviews/${id}`)}
-            >
-              Quay lại phòng phỏng vấn
-            </button>
-          </div>
-
-          {errorObj?.requestId && !retryError && (
-            <div className={styles.retryMeta}>Mã yêu cầu: {errorObj.requestId}</div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const errorMessage = queryError && !isProcessing ? queryError.message : null;
-
-  if (errorMessage || !report) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.panel} style={{ color: '#dc2626', fontWeight: 600, textAlign: 'center', padding: '3rem' }}>
-          <p>{errorMessage || 'Đã xảy ra lỗi không xác định khi tải báo cáo.'}</p>
-          <button
-            className={styles.btnPrimary}
-            style={{ marginTop: '1.5rem' }}
-            onClick={() => router.push('/interviews')}
+        <h2 className="text-xl font-bold text-red-900">Chưa thể xuất báo cáo</h2>
+        <p className="text-xs text-slate-600 max-w-md mx-auto">
+          {retryError?.message ||
+            'Hệ thống gặp sự cố khi tạo báo cáo hoặc thời gian chờ vượt quá giới hạn.'}
+        </p>
+        <div className="pt-2">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleRetryReport}
+            disabled={retrying}
+            className="shadow-sm font-semibold"
           >
-            Quay lại danh sách phỏng vấn
-          </button>
+            {retrying ? 'Đang gửi yêu cầu tạo lại...' : 'Thử tạo lại báo cáo'}
+          </Button>
         </div>
       </div>
     );
   }
 
-  const { strengths, gaps, actionPlan, rubric, questionReviews } = report;
+  if (!report) {
+    return (
+      <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Không tìm thấy báo cáo</h2>
+        <p className="text-xs text-slate-500">Buổi phỏng vấn này chưa có dữ liệu báo cáo.</p>
+        <Link href="/interviews" className="inline-block mt-4 text-indigo-600 underline font-semibold text-sm">
+          Trở về Danh sách phỏng vấn
+        </Link>
+      </div>
+    );
+  }
+
+  const sample = report.sample;
+  const isPartial = sample?.isPartial ?? false;
+  const answeredCount = sample?.answeredQuestions ?? report.questionReviews?.length ?? 0;
+  const totalCount = sample?.issuedQuestions ?? 3;
+  const hasOverallScore = report.overallScore !== null && report.overallScore !== undefined;
+
+  const reviews = report.questionReviews || [];
+  const safeSelectedIdx = Math.min(selectedQuestionIdx, Math.max(0, reviews.length - 1));
+  const activeReview = reviews[safeSelectedIdx] || null;
 
   return (
-    <div className={styles.container}>
-      <div id="google_translate_element"></div>
-      <div className={styles.header}>
-        <h1 className={styles.title}>Kết quả phỏng vấn</h1>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <PracticeAgainButton
-            interviewId={id as string}
-            reason="manual"
-            focus="correctness"
-            label="Luyện tập lại bài phỏng vấn này"
-            buttonStyle={{ backgroundColor: '#10b981', marginTop: 0 }}
-          />
-          <button className={styles.btnPrimary} onClick={() => router.push('/interviews')}>
-            Trở về Danh sách
-          </button>
+    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+      {/* Top Breadcrumb & Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <Link href="/interviews" className="hover:text-indigo-600 transition-colors">
+              Phỏng vấn thử
+            </Link>
+            <span>/</span>
+            <span className="text-slate-900 font-semibold">Báo cáo đánh giá #{id.substring(0, 8)}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+            <span>Báo cáo đánh giá Phỏng vấn</span>
+            {isPartial ? (
+              <Badge variant="warning" size="sm">
+                Báo cáo thu gọn ({answeredCount}/{totalCount} câu hỏi)
+              </Badge>
+            ) : (
+              <Badge variant="success" size="sm">
+                Báo cáo hoàn chỉnh
+              </Badge>
+            )}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Vị trí: {interview?.role || 'Ứng viên'} · {interview?.seniority || ''} ({interview?.interviewType || 'technical'})
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            icon={<span className="material-symbols-outlined text-[18px]">print</span>}
+          >
+            In báo cáo
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => handlePracticeAgain()}
+            disabled={practicingAgain}
+            icon={<span className="material-symbols-outlined text-[18px]">replay</span>}
+            className="shadow-sm font-semibold"
+          >
+            {practicingAgain ? 'Đang tạo phiên mới...' : 'Luyện tập lại'}
+          </Button>
         </div>
       </div>
 
-      {/* Partial Evaluation Banner */}
-      {report.sample?.isPartial && (
-        <div className={styles.partialBanner}>
-          <span>ℹ️</span>
+      {/* Snapshot Notice: Immutable Context */}
+      <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4 text-xs text-slate-600">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-indigo-600 text-[18px]">history_edu</span>
           <span>
-            <strong>Báo cáo một phần:</strong> Đánh giá này dựa trên {report.sample.answeredQuestions}/{report.sample.issuedQuestions} câu hỏi đã nộp bài trước khi kết thúc sớm.
+            <strong>Bản chụp bối cảnh lịch sử:</strong> Đánh giá này gắn liền với snapshot năng lực tại thời điểm nộp bài. Cập nhật hồ sơ sự nghiệp trong tương lai sẽ không làm thay đổi kết quả này.
           </span>
         </div>
-      )}
-
-      {/* Overall Score Card */}
-      <div className={styles.panel} style={{ textAlign: 'center' }}>
-        <div className={styles.scoreCircle}>
-          <div className={styles.scoreValue}>{report.overallScore}</div>
-          <div className={styles.scoreLabel}>/ 100</div>
-        </div>
-        <p className={styles.disclaimer}>{report.disclaimer}</p>
-        <div className={styles.timestamp}>
-          Tạo lúc: <ClientDate date={report.createdAt} />
-        </div>
+        <Badge variant="neutral" size="sm">Immutable Snapshot</Badge>
       </div>
 
-      {/* STAR Methodology Summary */}
-      {report.starSummary && (
-        <div className={styles.panel} style={{ backgroundColor: '#f8fafc', borderLeft: '4px solid #3b82f6' }}>
-          <h2 className={styles.sectionTitle} style={{ color: '#1e3a8a' }}>
-            Phân tích Phương pháp S-T-A-R ({SCORE_SCALE})
-          </h2>
-          <div className={styles.infoGrid}>
-            <div>
-              <div className={styles.infoLabel}>Điểm STAR Trung bình</div>
-              <div className={styles.infoValue} style={{ color: '#0f172a' }}>
-                {report.starSummary.averageScore}/100
-              </div>
-            </div>
-            <div>
-              <div className={styles.infoLabel}>Thành phần Tốt nhất</div>
-              <div className={styles.infoValue} style={{ color: '#16a34a' }}>
-                {report.starSummary.strongestComponent || 'N/A'}
-              </div>
-            </div>
-            <div>
-              <div className={styles.infoLabel}>Thành phần Yếu nhất</div>
-              <div className={styles.infoValue} style={{ color: '#dc2626' }}>
-                {report.starSummary.weakestComponent || 'N/A'}
-              </div>
-            </div>
-          </div>
-
-          {/* Component Averages */}
-          {report.starSummary.componentAverages && (
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-              {report.starSummary.componentAverages.situation !== undefined && (
-                <div>
-                  <span className={styles.infoLabel}>Situation: </span>
-                  <strong>{report.starSummary.componentAverages.situation}/100</strong>
-                </div>
-              )}
-              {report.starSummary.componentAverages.task !== undefined && (
-                <div>
-                  <span className={styles.infoLabel}>Task: </span>
-                  <strong>{report.starSummary.componentAverages.task}/100</strong>
-                </div>
-              )}
-              {report.starSummary.componentAverages.action !== undefined && (
-                <div>
-                  <span className={styles.infoLabel}>Action: </span>
-                  <strong>{report.starSummary.componentAverages.action}/100</strong>
-                </div>
-              )}
-              {report.starSummary.componentAverages.result !== undefined && (
-                <div>
-                  <span className={styles.infoLabel}>Result: </span>
-                  <strong>{report.starSummary.componentAverages.result}/100</strong>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Recurring Issues */}
-          {report.starSummary.recurringIssues && report.starSummary.recurringIssues.length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <div className={styles.infoLabel}>Vấn đề cần lưu ý thường gặp:</div>
-              <ul className={styles.list} style={{ marginTop: '0.5rem' }}>
-                {report.starSummary.recurringIssues.map((issue) => (
-                  <li key={issue} className={styles.listItem} style={{ paddingBottom: '0.5rem', marginBottom: '0.5rem', borderBottom: 'none' }}>
-                    <div className={`${styles.listIcon} ${styles.iconDanger}`} style={{ width: 24, height: 24, fontSize: '0.8rem' }}>
-                      !
-                    </div>
-                    <div className={styles.listContent}>{issue}</div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Coaching Priorities */}
-          {report.starSummary.coachingPriorities && report.starSummary.coachingPriorities.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <div className={styles.infoLabel}>Ưu tiên rèn luyện:</div>
-              <ul className={styles.list} style={{ marginTop: '0.5rem' }}>
-                {report.starSummary.coachingPriorities.map((item) => (
-                  <li key={item} className={styles.listItem} style={{ paddingBottom: '0.5rem', marginBottom: '0.5rem', borderBottom: 'none' }}>
-                    <div className={`${styles.listIcon} ${styles.iconInfo}`} style={{ width: 24, height: 24, fontSize: '0.8rem' }}>
-                      ★
-                    </div>
-                    <div className={styles.listContent}>{item}</div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Strengths & Gaps Grid */}
-      <div className={styles.contentGrid}>
-        <div className={styles.panel}>
-          <h2 className={styles.sectionTitle}>Điểm mạnh</h2>
-          {strengths.length > 0 ? (
-            <ul className={styles.list}>
-              {strengths.map((item) => (
-                <li key={item} className={styles.listItem}>
-                  <div className={`${styles.listIcon} ${styles.iconSuccess}`}>✓</div>
-                  <div className={styles.listContent}>{item}</div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p style={{ color: '#64748b' }}>Chưa có điểm mạnh nổi bật được ghi nhận.</p>
-          )}
-        </div>
-
-        <div className={styles.panel}>
-          <h2 className={styles.sectionTitle}>Cần cải thiện</h2>
-          {gaps.length > 0 ? (
-            <ul className={styles.list}>
-              {gaps.map((item) => (
-                <li key={item} className={styles.listItem}>
-                  <div className={`${styles.listIcon} ${styles.iconDanger}`}>!</div>
-                  <div className={styles.listContent}>{item}</div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p style={{ color: '#64748b' }}>Không có lỗ hổng lớn được ghi nhận.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Action Plan */}
-      <div className={styles.panel}>
-        <h2 className={styles.sectionTitle}>Kế hoạch hành động</h2>
-        {actionPlan.length > 0 ? (
-          <ul className={styles.list}>
-            {actionPlan.map((item, idx) => (
-              <li key={item} className={styles.listItem}>
-                <div className={`${styles.listIcon} ${styles.iconInfo}`}>{idx + 1}</div>
-                <div className={styles.listContent}>{item}</div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ color: '#64748b' }}>Chưa có kế hoạch hành động cụ thể.</p>
-        )}
-      </div>
-
-      {/* Criteria Rubric */}
-      {rubric.length > 0 && (
-        <div className={styles.panel}>
-          <h2 className={styles.sectionTitle}>Tiêu chí đánh giá chuyên môn</h2>
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{ width: '160px' }}>Tiêu chí</th>
-                  <th style={{ width: '100px', textAlign: 'center' }}>Điểm</th>
-                  <th>Bằng chứng &amp; Lời phê</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rubric.map((item) => (
-                  <tr key={item.criterion}>
-                    <td className={styles.criterion}>{item.criterion}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={styles.scorePill}>{item.score}/100</span>
-                    </td>
-                    <td>{item.evidence}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Question Reviews (Canonical production A9) */}
-      {questionReviews && questionReviews.length > 0 ? (
-        <div className={styles.panel}>
-          <h2 className={styles.sectionTitle}>Đánh giá chi tiết từng câu hỏi</h2>
+      {/* Partial Notice if early finished */}
+      {isPartial && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-3">
+          <span className="material-symbols-outlined text-amber-600 text-[20px] flex-shrink-0">info</span>
           <div>
-            {questionReviews.map((rev) => {
-              const star = rev.star;
-              const hasStar = Boolean(star?.applicable);
-              return (
-                <div key={rev.questionId} className={styles.questionReviewCard}>
-                  <div className={styles.questionHeader}>
-                    <div className={styles.questionText}>
-                      Câu {rev.sequence}: {rev.question}
-                    </div>
-                    {rev.topic && (
-                      <span className={styles.scorePill} style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
-                        {rev.topic}
+            <strong>Phiên kết thúc sớm tại mốc {answeredCount} câu hỏi:</strong> Báo cáo đánh giá đầy đủ cho các câu đã nộp. Bạn có thể luyện tập lại bất kỳ lúc nào để hoàn thiện trọn vẹn phiên.
+          </div>
+        </div>
+      )}
+
+      {/* Overview Score Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Radial Score Card */}
+        <Card variant="elevated" padding="lg" className="flex flex-col items-center justify-center text-center space-y-4">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Điểm tổng hợp toàn phiên
+          </span>
+          <RadialScore score={report.overallScore} size={140} strokeWidth={12} />
+          <div>
+            <div className="text-sm font-bold text-slate-900">
+              {hasOverallScore
+                ? report.overallScore >= 80
+                  ? 'Mức độ Sẵn sàng Cao'
+                  : report.overallScore >= 60
+                  ? 'Mức độ Khá · Cần cải thiện'
+                  : 'Cần rèn luyện thêm'
+                : 'Chưa đủ dữ liệu điểm'}
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Thang điểm {SCORE_SCALE} chuẩn hóa theo năng lực thực chiến
+            </p>
+          </div>
+        </Card>
+
+        {/* 4 Rubric Axes Breakdown */}
+        <Card variant="elevated" padding="lg" className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Đánh giá 4 trục Rubric tiêu chuẩn
+            </span>
+            <span className="text-xs text-slate-500">Thang điểm 0 - 100</span>
+          </div>
+
+          <div className="space-y-3.5">
+            {report.rubric && report.rubric.length > 0 ? (
+              report.rubric.map((item, idx) => {
+                const labelMap: Record<string, string> = {
+                  correctness: 'Tính chính xác kỹ thuật (Correctness)',
+                  structure: 'Cấu trúc & Mạch lạc (Structure)',
+                  completeness: 'Độ bao quát & Đầy đủ (Completeness)',
+                  clarity: 'Sự rõ ràng & Tự tin (Clarity)',
+                };
+
+                return (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-slate-800">
+                        {labelMap[item.criterion] || item.criterion}
                       </span>
-                    )}
-                  </div>
-
-                  <div className={styles.answerText}>
-                    <strong>Câu trả lời của bạn:</strong> {rev.answer}
-                  </div>
-
-                  {/* STAR Breakdown if applicable */}
-                  {hasStar && star && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>
-                          Phân tích S-T-A-R ({star.scoreScale || SCORE_SCALE})
-                        </h4>
-                        {typeof star.overallScore === 'number' && (
-                          <span className={styles.scorePill} style={{ marginLeft: 'auto' }}>
-                            {star.overallScore}/100
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: '120px' }}>Thành phần</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Trạng thái</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
-                              <th>Nhận xét &amp; Bằng chứng</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {star.situation && (() => {
-                              const norm = normalizeStarComponent(star.situation);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Situation</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                            {star.task && (() => {
-                              const norm = normalizeStarComponent(star.task);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Task</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                            {star.action && (() => {
-                              const norm = normalizeStarComponent(star.action);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Action</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                            {star.result && (() => {
-                              const norm = normalizeStarComponent(star.result);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Result</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>
-                                    <div>{norm.feedback}</div>
-                                    {norm.evidence && (
-                                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.25rem' }}>
-                                        <em>Bằng chứng: {norm.evidence}</em>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {star.missingElements && star.missingElements.length > 0 && (
-                        <div style={{ marginTop: '0.75rem', color: '#b91c1c', fontSize: '0.9rem' }}>
-                          <strong>Yếu tố còn thiếu:</strong> {star.missingElements.join(', ')}
-                        </div>
-                      )}
-
-                      {star.strengths && star.strengths.length > 0 && (
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
-                            ✨ Điểm mạnh:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
-                            {star.strengths.map((st, idx) => (
-                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                                {st}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {star.coachingTips && star.coachingTips.length > 0 && (
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <strong style={{ color: '#16a34a', display: 'block', marginBottom: '0.25rem' }}>
-                            💡 Lời khuyên hoàn thiện:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#334155' }}>
-                            {star.coachingTips.map((tip, idx) => (
-                              <li key={idx} style={{ marginBottom: '0.25rem' }}>
-                                {tip}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      <span className="font-bold text-indigo-600">{item.score}/100</span>
                     </div>
-                  )}
-
-                  {/* Rubric Breakdown for Generic evaluation */}
-                  {Array.isArray(rev.rubric) && rev.rubric.length > 0 && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e293b', marginBottom: '0.5rem' }}>
-                        Tiêu chí đánh giá
-                      </h4>
-                      <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: '150px' }}>Tiêu chí</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
-                              <th>Bằng chứng</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rev.rubric.map((r, rIdx) => (
-                              <tr key={rIdx}>
-                                <td className={styles.criterion}>{r.criterion}</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span className={styles.scorePill}>{r.score}/100</span>
-                                </td>
-                                <td>{r.evidence || '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {rev.feedback && (
-                    <div style={{ marginBottom: '0.75rem', fontSize: '0.95rem', color: '#334155', lineHeight: '1.6' }}>
-                      <strong>Nhận xét:</strong> {rev.feedback}
-                    </div>
-                  )}
-
-                  {rev.strengths && rev.strengths.length > 0 && (
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
-                        Điểm mạnh:
-                      </strong>
-                      <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
-                        {rev.strengths.map((s, idx) => (
-                          <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                            {s}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {rev.improvements && rev.improvements.length > 0 && (
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '0.25rem' }}>
-                        Cần cải thiện:
-                      </strong>
-                      <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#7f1d1d' }}>
-                        {rev.improvements.map((imp, idx) => (
-                          <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                            {imp}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {rev.suggestedImprovedAnswer && (
-                    <div style={{ marginTop: '0.75rem' }}>
-                      <strong style={{ color: '#2563eb', display: 'block', marginBottom: '0.25rem' }}>
-                        Câu trả lời gợi ý:
-                      </strong>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        style={{
-                          padding: '0.75rem 1rem',
-                          backgroundColor: '#eff6ff',
-                          color: '#1e3a8a',
-                          borderRadius: '8px',
-                          fontStyle: 'italic',
-                          lineHeight: '1.5',
-                        }}
-                      >
-                        &ldquo;{rev.suggestedImprovedAnswer}&rdquo;
-                      </div>
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          item.score >= 80
+                            ? 'bg-emerald-600'
+                            : item.score >= 60
+                            ? 'bg-indigo-600'
+                            : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, item.score))}%` }}
+                      />
                     </div>
-                  )}
-
-                  <PracticeAgainButton
-                    interviewId={id as string}
-                    questionId={rev.questionId}
-                    reason="repeat_question"
-                    focus="correctness"
-                    label="Thực hành lại câu này"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : interview?.answers && interview.answers.length > 0 ? (
-        /* Fallback to interview answers if questionReviews not populated */
-        <div className={styles.panel}>
-          <h2 className={styles.sectionTitle}>Lịch sử Câu hỏi &amp; Đánh giá chi tiết</h2>
-          <div>
-            {interview.answers.map((answer, index) => {
-              const question = interview.questions?.find((q) => q.id === answer.questionId);
-              const evalData = safeAnswerEvaluation(answer.evaluation);
-              const star = evalData.star;
-              return (
-                <div key={answer.id} className={styles.questionReviewCard}>
-                  <div className={styles.questionText} style={{ marginBottom: '0.5rem' }}>
-                    Câu {index + 1}: {question?.content || 'Câu hỏi'}
                   </div>
-                  <div className={styles.answerText}>{answer.content}</div>
-
-                  {star?.applicable ? (
-                    <div>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                        Đánh giá S-T-A-R ({evalData.scoreScale})
-                      </h4>
-                      <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: '120px' }}>Thành phần</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Trạng thái</th>
-                              <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
-                              <th>Nhận xét</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {star.situation && (() => {
-                              const norm = normalizeStarComponent(star.situation);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Situation</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>{norm.feedback}</td>
-                                </tr>
-                              );
-                            })()}
-                            {star.task && (() => {
-                              const norm = normalizeStarComponent(star.task);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Task</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>{norm.feedback}</td>
-                                </tr>
-                              );
-                            })()}
-                            {star.action && (() => {
-                              const norm = normalizeStarComponent(star.action);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Action</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>{norm.feedback}</td>
-                                </tr>
-                              );
-                            })()}
-                            {star.result && (() => {
-                              const norm = normalizeStarComponent(star.result);
-                              return (
-                                <tr>
-                                  <td className={styles.criterion}>Result</td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span
-                                      className={styles.scorePill}
-                                      style={{
-                                        backgroundColor: norm.detected ? '#dcfce7' : '#fee2e2',
-                                        color: norm.detected ? '#166534' : '#991b1b',
-                                      }}
-                                    >
-                                      {norm.detected ? 'Phát hiện' : 'Chưa rõ'}
-                                    </span>
-                                  </td>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <span className={styles.scorePill}>{norm.score}/100</span>
-                                  </td>
-                                  <td>{norm.feedback}</td>
-                                </tr>
-                              );
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {star.strengths && star.strengths.length > 0 && (
-                        <div style={{ marginTop: '0.75rem' }}>
-                          <strong style={{ color: '#059669', display: 'block', marginBottom: '0.25rem' }}>
-                            Điểm mạnh:
-                          </strong>
-                          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#064e3b' }}>
-                            {star.strengths.map((s: string, idx: number) => (
-                              <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                                {s}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {evalData.scores.length > 0 && (
-                        <div style={{ marginBottom: '0.75rem' }}>
-                          <div className={styles.tableWrapper}>
-                            <table className={styles.table}>
-                              <thead>
-                                <tr>
-                                  <th style={{ width: '150px' }}>Tiêu chí</th>
-                                  <th style={{ width: '80px', textAlign: 'center' }}>Điểm</th>
-                                  <th>Bằng chứng</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {evalData.scores.map((r, rIdx: number) => (
-                                  <tr key={rIdx}>
-                                    <td className={styles.criterion}>{r.criterion}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      <span className={styles.scorePill}>{r.score}/100</span>
-                                    </td>
-                                    <td>{r.evidence || '—'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                      {evalData.feedback && (
-                        <div style={{ marginBottom: '0.5rem' }}>
-                          <strong style={{ fontSize: '0.9rem', color: '#334155' }}>Nhận xét: </strong>
-                          <span style={{ color: '#475569', fontSize: '0.95rem' }}>{evalData.feedback}</span>
-                        </div>
-                      )}
-                      {evalData.strengths.length > 0 && (
-                        <div style={{ marginBottom: '0.5rem' }}>
-                          <strong style={{ fontSize: '0.9rem', color: '#059669' }}>Điểm mạnh: </strong>
-                          <span style={{ color: '#064e3b', fontSize: '0.95rem' }}>{evalData.strengths.join('; ')}</span>
-                        </div>
-                      )}
-                      {evalData.improvements.length > 0 && (
-                        <div style={{ marginBottom: '0.5rem' }}>
-                          <strong style={{ fontSize: '0.9rem', color: '#b91c1c' }}>Cần cải thiện: </strong>
-                          <span style={{ color: '#7f1d1d', fontSize: '0.95rem' }}>{evalData.improvements.join('; ')}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <PracticeAgainButton
-                    interviewId={id as string}
-                    questionId={answer.questionId}
-                    reason="repeat_question"
-                    focus="correctness"
-                    label="Thực hành lại câu này"
-                  />
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <p className="text-xs text-slate-400 py-4">Chưa có phân bổ điểm Rubric.</p>
+            )}
           </div>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-slate-200">
+        <nav className="flex space-x-6 text-sm">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`py-3 px-1 border-b-2 font-semibold transition-colors ${
+              activeTab === 'overview'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Tổng quan &amp; Nhận xét
+          </button>
+          <button
+            onClick={() => setActiveTab('questions')}
+            className={`py-3 px-1 border-b-2 font-semibold transition-colors ${
+              activeTab === 'questions'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Chi tiết từng câu ({reviews.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('action_plan')}
+            className={`py-3 px-1 border-b-2 font-semibold transition-colors ${
+              activeTab === 'action_plan'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Kế hoạch hành động
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab 1: Overview */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Strengths */}
+          <Card variant="elevated" padding="md" className="space-y-3 bg-emerald-50/40 border-emerald-200">
+            <div className="flex items-center gap-2 font-bold text-sm text-emerald-900">
+              <span className="material-symbols-outlined text-emerald-600">thumb_up</span>
+              <span>Điểm sáng nổi bật toàn phiên</span>
+            </div>
+            {report.strengths && report.strengths.length > 0 ? (
+              <ul className="space-y-2 text-xs text-slate-800 list-disc list-inside leading-relaxed">
+                {report.strengths.map((s: string, i: number) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500">Chưa ghi nhận điểm sáng cụ thể.</p>
+            )}
+          </Card>
+
+          {/* Gaps / Areas to improve */}
+          <Card variant="elevated" padding="md" className="space-y-3 bg-amber-50/40 border-amber-200">
+            <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
+              <span className="material-symbols-outlined text-amber-600">lightbulb</span>
+              <span>Điểm cần hoàn thiện</span>
+            </div>
+            {report.gaps && report.gaps.length > 0 ? (
+              <ul className="space-y-2 text-xs text-slate-800 list-disc list-inside leading-relaxed">
+                {report.gaps.map((im: string, i: number) => (
+                  <li key={i}>{im}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500">Chưa có đề xuất hoàn thiện.</p>
+            )}
+          </Card>
         </div>
-      ) : null}
+      )}
+
+      {/* Tab 2: Detailed Questions */}
+      {activeTab === 'questions' && (
+        <div className="space-y-6">
+          {/* Question Selector buttons */}
+          <div className="flex flex-wrap gap-2">
+            {reviews.map((q, idx) => (
+              <button
+                key={q.questionId}
+                onClick={() => setSelectedQuestionIdx(idx)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  safeSelectedIdx === idx
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Câu {q.sequence}
+              </button>
+            ))}
+          </div>
+
+          {activeReview ? (
+            <Card variant="elevated" padding="lg" className="space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span className="font-bold text-base text-slate-900">
+                  Câu hỏi {activeReview.sequence}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePracticeAgain(activeReview.questionId, activeReview.topic)}
+                  disabled={practicingAgain}
+                  icon={<span className="material-symbols-outlined text-[16px]">replay</span>}
+                >
+                  Luyện tập lại câu này
+                </Button>
+              </div>
+
+              {/* Question content */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-medium leading-relaxed">
+                &ldquo;{activeReview.question}&rdquo;
+              </div>
+
+              {/* Candidate verbatim answer */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase">
+                  Câu trả lời thực tế của bạn (Verbatim)
+                </h4>
+                <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  {activeReview.answer}
+                </div>
+              </div>
+
+              {/* STAR Evaluation if present */}
+              {activeReview.star && activeReview.star.applicable && (
+                <StarEvaluationCard star={activeReview.star} />
+              )}
+
+              {/* Feedback */}
+              {activeReview.feedback && (
+                <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-200 space-y-1">
+                  <h4 className="text-xs font-bold text-indigo-900">Nhận xét chi tiết từ AI</h4>
+                  <p className="text-xs text-slate-700 leading-relaxed">{activeReview.feedback}</p>
+                </div>
+              )}
+
+              {/* Suggested Improved Answer */}
+              {activeReview.suggestedImprovedAnswer && (
+                <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200 space-y-1">
+                  <h4 className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                    <span>Gợi ý cách trả lời hoàn thiện hơn (Grounded AI Suggestion)</span>
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed pt-1">
+                    &ldquo;{activeReview.suggestedImprovedAnswer}&rdquo;
+                  </p>
+                </div>
+              )}
+            </Card>
+          ) : (
+            <p className="text-xs text-slate-500">Chưa có dữ liệu câu hỏi.</p>
+          )}
+        </div>
+      )}
+
+      {/* Tab 3: Action Plan / Recommendations */}
+      {activeTab === 'action_plan' && (
+        <Card variant="elevated" padding="lg" className="space-y-4">
+          <h3 className="font-bold text-base text-slate-900">Bước phát triển tiếp theo (Next Best Action)</h3>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Dựa trên kết quả phỏng vấn, Nexora đề xuất các hành động thực chiến nhằm nâng cao năng lực ứng tuyển của bạn.
+          </p>
+
+          {report.actionPlan && report.actionPlan.length > 0 ? (
+            <div className="space-y-2 py-2">
+              {report.actionPlan.map((step: string, idx: number) => (
+                <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800 flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[11px] flex-shrink-0 mt-0.5">
+                    {idx + 1}
+                  </span>
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <span className="font-bold text-xs text-indigo-700">1. Luyện tập theo mô hình STAR</span>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Tập trung bổ sung các số liệu định lượng (Result) và chi tiết hành động kỹ thuật (Action) cho các câu hỏi hành vi.
+              </p>
+              <Link href="/practice" className="inline-block text-xs font-semibold text-indigo-600 underline pt-1">
+                Đến khu vực Luyện tập &rarr;
+              </Link>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <span className="font-bold text-xs text-indigo-700">2. Cập nhật &amp; Tối ưu CV</span>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Đồng bộ hóa các thành tựu và công nghệ đã thể hiện tốt trong phỏng vấn vào bản CV chính của bạn.
+              </p>
+              <Link href="/resumes" className="inline-block text-xs font-semibold text-indigo-600 underline pt-1">
+                Quản lý CV &rarr;
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
