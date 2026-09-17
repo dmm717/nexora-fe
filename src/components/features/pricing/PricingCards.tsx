@@ -11,14 +11,26 @@ import { usePlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
-import type { AuthIntent } from '@/utils/authIntent';
+import {
+  AuthIntent,
+  resolveSafeReturnUrl,
+  isValidInternalPath,
+  isInterviewRoute,
+} from '@/utils/authIntent';
 import { Check, ArrowUpRight } from 'lucide-react';
 
 export default function PricingCards() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get('returnTo') || '';
-  const isInterviewUpgrade = returnTo.includes('interview');
+  const rawReturnTo = searchParams.get('returnTo');
+
+  // Validate returnTo once: fail closed if invalid
+  const safeReturnTo = rawReturnTo && isValidInternalPath(rawReturnTo)
+    ? resolveSafeReturnUrl(rawReturnTo, '/overview')
+    : null;
+
+  // Contextual upgrade copy only appears if return route is a validated interview route
+  const isInterviewUpgrade = Boolean(safeReturnTo && isInterviewRoute(safeReturnTo));
 
   const { isAuthenticated } = useAuth();
   const { data: plans = [], isLoading: loadingPlans } = usePlans();
@@ -32,27 +44,32 @@ export default function PricingCards() {
   const handleSelectPlan = (plan: PlanView, price: PlanPrice) => {
     if (isAuthenticated) {
       if (price.amountMinor === 0) {
-        if (returnTo) {
-          router.push(returnTo);
-        } else {
-          router.push('/overview');
-        }
+        // Free plan navigation: return to safeReturnTo or /overview
+        router.push(safeReturnTo || '/overview');
         return;
       }
-      // Authenticated user selecting a paid plan: redirect to billing/plans checkout
-      router.push(`/billing?selectedPriceId=${encodeURIComponent(price.id)}`);
+      // Authenticated user selecting a paid plan: redirect to canonical checkout entry
+      const checkoutUrl = safeReturnTo
+        ? `/billing?selectedPriceId=${encodeURIComponent(price.id)}&returnTo=${encodeURIComponent(safeReturnTo)}`
+        : `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
+      router.push(checkoutUrl);
     } else {
       if (price.amountMinor === 0) {
         setPendingIntent({
           action: 'navigation',
-          targetUrl: returnTo || '/overview',
+          targetUrl: safeReturnTo || '/overview',
         });
         setAuthModalOpen(true);
         return;
       }
+      // Anonymous user selecting a paid plan: intent carries exact planPriceId and returnTo
+      const targetUrl = safeReturnTo
+        ? `/billing?selectedPriceId=${encodeURIComponent(price.id)}&returnTo=${encodeURIComponent(safeReturnTo)}`
+        : `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
+
       setPendingIntent({
         action: 'checkout',
-        targetUrl: returnTo ? `/pricing?returnTo=${encodeURIComponent(returnTo)}` : '/pricing',
+        targetUrl,
         planPriceId: price.id,
       });
       setAuthModalOpen(true);
@@ -76,7 +93,7 @@ export default function PricingCards() {
       />
 
       {/* Contextual Interview Upgrade Notice */}
-      {isInterviewUpgrade && (
+      {isInterviewUpgrade && safeReturnTo && (
         <div className="p-5 rounded-2xl bg-primary-fixed/30 border-2 border-primary/40 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-sm font-bold">
@@ -94,7 +111,7 @@ export default function PricingCards() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(returnTo)}
+            onClick={() => router.push(safeReturnTo)}
           >
             Quay lại phiên phỏng vấn
           </Button>

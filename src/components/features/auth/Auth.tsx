@@ -14,7 +14,11 @@ import { authApi } from '@/services/authApi';
 import { loginSchema, registerSchema, LoginFormData, RegisterFormData } from '@/schema/authSchema';
 import { Input } from '../../ui/Input/Input';
 import { Button } from '../../ui/Button/Button';
-import { resolveSafeReturnUrl } from '@/utils/authIntent';
+import {
+  resolveSafeReturnUrl,
+  consumeAuthIntent,
+  isValidInternalPath,
+} from '@/utils/authIntent';
 
 export default function Auth() {
   const router = useRouter();
@@ -162,15 +166,39 @@ export default function Auth() {
         });
         toast.success('Đăng nhập thành công');
 
-        // Resolve safe return URL from search parameters or fallback to /overview
+        // Priority 1: Check explicit search parameters from current URL
         const rawReturnTo = searchParams.get('returnTo');
         const planPriceId = searchParams.get('planPriceId');
-        let destination = resolveSafeReturnUrl(rawReturnTo, '/overview');
+        const intentAction = searchParams.get('intentAction');
 
-        // If a specific plan checkout was requested, ensure planPriceId is carried forward if destination is /pricing or /plans
-        if (planPriceId && (destination.startsWith('/pricing') || destination.startsWith('/plans'))) {
-          const sep = destination.includes('?') ? '&' : '?';
-          destination = `${destination}${sep}planPriceId=${encodeURIComponent(planPriceId)}`;
+        let destination = '/overview';
+
+        if (rawReturnTo && isValidInternalPath(rawReturnTo)) {
+          // Explicit returnTo is present and valid
+          destination = resolveSafeReturnUrl(rawReturnTo, '/overview');
+
+          // If checkout intent with a planPriceId, route to canonical /billing entry
+          if (planPriceId && (intentAction === 'checkout' || destination.startsWith('/billing') || destination.startsWith('/pricing'))) {
+            destination = `/billing?selectedPriceId=${encodeURIComponent(planPriceId)}`;
+            if (rawReturnTo && !rawReturnTo.startsWith('/pricing') && !rawReturnTo.startsWith('/billing')) {
+              destination += `&returnTo=${encodeURIComponent(rawReturnTo)}`;
+            }
+          }
+          // Consume any stale session intent so it doesn't linger
+          consumeAuthIntent();
+        } else {
+          // Priority 2: Recover from stored session intent (e.g. register -> verify/login flow)
+          const storedIntent = consumeAuthIntent();
+          if (storedIntent && isValidInternalPath(storedIntent.targetUrl)) {
+            if (storedIntent.action === 'checkout' && storedIntent.planPriceId) {
+              destination = `/billing?selectedPriceId=${encodeURIComponent(storedIntent.planPriceId)}`;
+              if (storedIntent.targetUrl && !storedIntent.targetUrl.startsWith('/pricing') && !storedIntent.targetUrl.startsWith('/billing')) {
+                destination += `&returnTo=${encodeURIComponent(storedIntent.targetUrl)}`;
+              }
+            } else {
+              destination = resolveSafeReturnUrl(storedIntent.targetUrl, '/overview');
+            }
+          }
         }
 
         router.push(destination);

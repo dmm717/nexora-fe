@@ -34,14 +34,28 @@
 
 ## 4. Protected Intent Preservation & Restoration Design
 - Implemented in `src/utils/authIntent.ts`.
-- **Open-Redirect Prevention**: All candidate target URLs are strictly validated via `isValidInternalPath()`. Only internal, non-protocol-relative, whitelisted route paths are permitted (`/`, `/overview`, `/cv-analysis`, `/interview`, `/pricing`, `/plans`, `/scenarios`, `/star-builder`, `/analytics`, `/billing`, `/account`, `/career-goals`, etc.).
-- **URL & Session Storage**: On protected CTA click by an anonymous user, intent is packaged as `AuthIntent` and encoded into `returnTo` and `intentAction` query params when navigating to `/auth`.
-- **Post-Login Handling**: Upon successful authentication in `Auth.tsx`, `resolveSafeReturnUrl` parses the return target and routes the user back to their intended workflow (or forwards `planPriceId` for checkout).
+- **Open-Redirect & Arbitrary Path Prevention**: All candidate target URLs are strictly validated via `isValidInternalPath()`.
+  - Path must start with a single `/` (rejects `//`, protocol-relative URLs, external links, data URLs, javascript: URLs).
+  - Whitelist prefix matching enforces exact root match (`/`) or exact non-root segment (`prefix` or `${prefix}/...`). Root `/` no longer matches arbitrary same-origin paths like `/unknown` or `/api/...`.
+  - Non-whitelisted routes, malformed URLs, and non-GET entry candidates are rejected, safely falling back to `/overview`.
+- **Route-Aware Validation**: Replaced loose `.includes('interview')` checks with `isInterviewRoute()` that strictly matches `/interview` or `/interviews` and their subpaths.
+- **URL & Session Storage Intent Recovery**:
+  - Protected actions package intent into `returnTo`, `intentAction`, and `planPriceId` query params when navigating to `/auth`.
+  - In addition, pending intent is saved to `sessionStorage` via `saveAuthIntent()`.
+  - Upon successful login in `Auth.tsx`, parameters from URL query are checked first, falling back to `consumeAuthIntent()` from `sessionStorage` so anonymous users who register, verify email, and log in have their exact intent restored.
+  - If intent action is checkout (`checkout_plan`), the user is routed to canonical `/billing?selectedPriceId=<planPriceId>&returnTo=<returnTo>`.
 
-## 5. Pricing Data Source & Checkout Behavior
+## 5. Pricing Data Source & Canonical Checkout Flow
 - **Data Source**: Fetched authoritatively via `billingApi.getPlans()` (`usePlans()` hook). No mock plans (`MOCK_PLANS`) are imported or created.
 - **Entitlement Copy**: Free tier clearly communicates 3-question checkpoint; paid plans state continuous Q4+ continuation in the same interview session without fabricated question limits.
-- **Checkout Flow**: Authenticated users clicking a paid plan navigate directly to `/billing?selectedPriceId=...` for production checkout creation. Anonymous users encounter `AuthGateModal` which preserves their selected plan ID into `/auth?returnTo=/pricing&planPriceId=...`.
+- **Canonical Checkout Entry**:
+  - Unified into `src/app/(dashboard)/billing/page.tsx` via `/billing?selectedPriceId=<planPriceId>&returnTo=<safeReturnTo>`.
+  - `BillingPage` consumes `selectedPriceId`, validates it against production plans fetched from the backend. If the plan is invalid or absent, it fails closed with an error banner, clears query parameters, and halts.
+  - One-shot auto-checkout: `autoCheckoutAttemptedRef` prevents double-triggering mutations under React 19 / StrictMode. Query parameters are stripped via `window.history.replaceState` before mutation.
+  - Validated `returnTo` is preserved into `sessionStorage.setItem('postPaymentReturnTo', safeReturnTo)`.
+  - Free plan selections never initiate checkout and route directly to `returnTo` or `/overview`.
+- **Post-Payment Return**:
+  - On order status transitioning to `fulfilled` in `BillingPage`, `sessionStorage.getItem('postPaymentReturnTo')` is retrieved, validated with `isValidInternalPath()`, and navigated to via `router.push()`.
 
 ## 6. Prototype Items Intentionally NOT Ported
 - `PrototypeContext` and simulated mock users (`active` / `new` / `MOCK_PERSONA`).

@@ -348,13 +348,14 @@ export function MarketingLanding() {
       start('navigation', '/overview');
       return;
     }
+    const checkoutUrl = `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
     if (isAuthenticated) {
-      // Authenticated user selecting paid plan navigates to billing / plans checkout
-      router.push(`/plans?selectedPriceId=${encodeURIComponent(price.id)}`);
+      // Authenticated user selecting paid plan navigates directly to canonical billing checkout
+      router.push(checkoutUrl);
     } else {
       setPendingIntent({
         action: 'checkout',
-        targetUrl: `/plans?selectedPriceId=${encodeURIComponent(price.id)}`,
+        targetUrl: checkoutUrl,
         planPriceId: price.id,
       });
     }

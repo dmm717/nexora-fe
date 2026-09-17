@@ -15,7 +15,7 @@ const STORAGE_KEY = 'nexora_auth_intent';
  * Whitelist of permitted internal pathname prefixes.
  * Any destination outside these prefixes fails closed.
  */
-const ALLOWED_PATH_PREFIXES = [
+export const ALLOWED_PATH_PREFIXES = [
   '/',
   '/overview',
   '/cv-analysis',
@@ -38,6 +38,11 @@ const ALLOWED_PATH_PREFIXES = [
  * Validates whether a given URL string is a safe, internal relative path.
  * Disallows absolute URLs (e.g. https://evil.com), protocol-relative URLs (//evil.com),
  * and Javascript pseudo-protocols.
+ *
+ * Rules:
+ * - "/" matches ONLY the exact root.
+ * - Non-root prefixes match either exact prefix or prefix/...
+ * - Arbitrary unknown subpaths (e.g. /some-random-route, /api/...) fail closed.
  */
 export function isValidInternalPath(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -49,7 +54,7 @@ export function isValidInternalPath(url: string | null | undefined): boolean {
     return false;
   }
 
-  // Prevent backslash smuggling or newline injections
+  // Prevent backslash smuggling or newline/tab injection
   if (/[\r\n\t\\]/.test(trimmed)) {
     return false;
   }
@@ -62,11 +67,32 @@ export function isValidInternalPath(url: string | null | undefined): boolean {
 
     const pathname = parsed.pathname;
 
-    // Check if the path matches or starts with one of the allowed prefixes
-    return ALLOWED_PATH_PREFIXES.some((prefix) => {
-      if (prefix === '/') return true;
-      return pathname === prefix || pathname.startsWith(`${prefix}/`);
-    });
+    // Exact root matches only '/'
+    if (pathname === '/') return true;
+
+    // Non-root prefixes match exact prefix or prefix + '/'
+    return ALLOWED_PATH_PREFIXES
+      .filter((prefix) => prefix !== '/')
+      .some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Checks if a validated internal path is an interview route (e.g. /interview, /interviews/123).
+ */
+export function isInterviewRoute(url: string | null | undefined): boolean {
+  if (!isValidInternalPath(url)) return false;
+  try {
+    const parsed = new URL(url!.trim(), 'https://nexora.internal');
+    const pathname = parsed.pathname;
+    return (
+      pathname === '/interview' ||
+      pathname.startsWith('/interview/') ||
+      pathname === '/interviews' ||
+      pathname.startsWith('/interviews/')
+    );
   } catch {
     return false;
   }
