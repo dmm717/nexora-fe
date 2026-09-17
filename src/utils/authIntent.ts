@@ -23,6 +23,7 @@ export const ALLOWED_PATH_PREFIXES = [
   '/interviews',
   '/pricing',
   '/plans',
+  '/practice',
   '/scenarios',
   '/star-builder',
   '/analytics',

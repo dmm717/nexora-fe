@@ -81,11 +81,15 @@ function getRealtimeInvalidationKeys(resourceType, resourceId) {
     case 'scenarioattempt':
       return [
         ['scenarioAttempt', resourceId],
+        ['scenarioAttempts'],
         ['scenarioHistory'],
         ['scenarioProgress'],
       ];
     case 'starattempt':
-      return [['starAttempt', resourceId]];
+      return [
+        ['starAttempt', resourceId],
+        ['starAttempts'],
+      ];
     default:
       return [];
   }
@@ -220,14 +224,16 @@ test('Scenario realtime invalidation refreshes exact attempt, history and progre
   const attemptId = '11111111-2222-3333-4444-555555555555';
   assert.deepEqual(getRealtimeInvalidationKeys('scenarioAttempt', attemptId), [
     ['scenarioAttempt', attemptId],
+    ['scenarioAttempts'],
     ['scenarioHistory'],
     ['scenarioProgress'],
   ]);
 });
 
-test('STAR realtime invalidation refreshes only the exact STAR attempt', () => {
+test('STAR realtime invalidation refreshes exact attempt and persisted history', () => {
   const attemptId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
   assert.deepEqual(getRealtimeInvalidationKeys('starAttempt', attemptId), [
     ['starAttempt', attemptId],
+    ['starAttempts'],
   ]);
 });

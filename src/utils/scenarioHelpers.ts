@@ -18,6 +18,17 @@ export interface CanonicalStarPayload {
   answer: string;
 }
 
+export function buildStarAttemptRequest(data: CanonicalStarPayload, idempotencyKey: string) {
+  return {
+    url: '/star-attempts',
+    data: {
+      question: data.question.trim(),
+      answer: data.answer.trim(),
+    },
+    headers: { 'Idempotency-Key': idempotencyKey },
+  };
+}
+
 export interface StarAttemptIntent {
   key: string;
   payload: CanonicalStarPayload;
@@ -260,11 +271,15 @@ export function getRealtimeInvalidationKeys(
     case 'scenarioattempt':
       return [
         ['scenarioAttempt', resourceId],
+        ['scenarioAttempts'],
         ['scenarioHistory'],
         ['scenarioProgress'],
       ];
     case 'starattempt':
-      return [['starAttempt', resourceId]];
+      return [
+        ['starAttempt', resourceId],
+        ['starAttempts'],
+      ];
     default:
       return [];
   }

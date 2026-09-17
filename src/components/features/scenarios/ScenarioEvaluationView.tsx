@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import styles from './ScenarioAcademy.module.css';
 import type { ScenarioEvaluation } from '@/types/scenario';
 
@@ -15,7 +16,7 @@ export function ScenarioEvaluationView({
   onRetry,
   isRetrying = false,
 }: ScenarioEvaluationViewProps) {
-  const score = evaluation.overallScore ?? 0;
+  const score = evaluation.overallScore;
 
   const getBadgeClass = (s: number) => {
     if (s >= 80) return styles.badgeEasy; // emerald
@@ -28,21 +29,19 @@ export function ScenarioEvaluationView({
       {/* Overall Score Hero */}
       <section className={styles.evalScoreHero}>
         <div className={styles.scoreGaugeWrap}>
-          <div className={styles.scoreCircle} aria-label={`Điểm tổng quan: ${score} trên 100`}>
-            <span>{score}</span>
-            <small>/100</small>
+          <div
+            className={styles.scoreCircle}
+            aria-label={score === null ? 'Điểm tổng quan chưa đủ dữ liệu' : `Điểm tổng quan: ${score} trên 100`}
+          >
+            <span>{score === null ? '--' : score}</span>
+            <small>{score === null ? 'Chưa đủ dữ liệu' : '/100'}</small>
           </div>
           <div>
             <h3 className={styles.evaluationScoreTitle}>
               Đánh giá tổng quan
             </h3>
             <p className={styles.scoreFeedbackText}>
-              {evaluation.feedback ||
-                (score >= 80
-                  ? 'Phản xạ xử lý tình huống rất xuất sắc, logic mạch lạc và thể hiện năng lực chuyên môn vững vàng.'
-                  : score >= 60
-                  ? 'Xử lý tình huống tương đối tốt. Cần bổ sung chi tiết hành động và đo lường kết quả cụ thể hơn.'
-                  : 'Phần phản hồi còn chung chung hoặc thiếu các bước giải quyết mấu chốt. Xem chi tiết bên dưới để cải thiện.')}
+              {evaluation.feedback || 'Máy chủ chưa trả về nhận xét tổng quan cho lượt làm này.'}
             </p>
           </div>
         </div>
@@ -214,6 +213,15 @@ export function ScenarioEvaluationView({
           </ul>
         </section>
       )}
+
+      <nav className={styles.statusActions} aria-label="Bước luyện tập tiếp theo">
+        <Link href="/practice/scenarios" className={styles.btnSecondaryAction}>
+          Chọn tình huống khác
+        </Link>
+        <Link href="/interviews/new" className={styles.btnSecondaryAction}>
+          Luyện phỏng vấn AI
+        </Link>
+      </nav>
     </div>
   );
 }
