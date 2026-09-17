@@ -50,7 +50,7 @@ export const CareerProfileSection = () => {
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {(!onboarding.hasDisplayName || !onboarding.hasYearsOfExperience) && (
-              <Link href="/settings" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
+              <Link href="/account" style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500 }}>
                 Cập nhật Profile
               </Link>
             )}
