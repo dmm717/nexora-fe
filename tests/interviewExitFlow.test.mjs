@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   isInterviewRoomRoute,
+  isInterviewPreflightRoute,
   isFocusedPracticeRoute,
 } from '../src/services/focusedPracticeRoutes.ts';
 
@@ -45,24 +46,31 @@ test('C & D: Cancel and closing modal do not trigger navigation', async () => {
   assert.doesNotMatch(cancelSection, /onExit/);
 });
 
-test('E: Route classification restricts interview rooms to dynamic session UUIDs and excludes new, history, and report', () => {
-  // Real active interview sessions
+test('E: Route classification restricts interview rooms to dynamic session UUIDs and preserves preflight focused shell', () => {
+  // Real active interview sessions (strict UUID)
   assert.equal(isInterviewRoomRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), true);
-  assert.equal(isInterviewRoomRoute('/interviews/session-123'), true);
-  assert.equal(isFocusedPracticeRoute('/interviews/session-123'), true);
+  assert.equal(isFocusedPracticeRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), true);
+  assert.equal(isInterviewPreflightRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), false);
 
-  // History and index list routes
+  // Generic non-UUID slugs fail closed (NOT interview room, NOT focused)
+  assert.equal(isInterviewRoomRoute('/interviews/session-123'), false);
+  assert.equal(isFocusedPracticeRoute('/interviews/session-123'), false);
+  assert.equal(isInterviewRoomRoute('/interviews/templates'), false);
+  assert.equal(isFocusedPracticeRoute('/interviews/templates'), false);
+
+  // History and index list routes (NOT interview room, NOT focused)
   assert.equal(isInterviewRoomRoute('/interviews'), false);
   assert.equal(isInterviewRoomRoute('/interviews/history'), false);
   assert.equal(isFocusedPracticeRoute('/interviews/history'), false);
 
-  // Preflight setup
+  // Preflight setup (/interviews/new): IS preflight, IS focused (hides AuthenticatedHeader), but NOT interview room
+  assert.equal(isInterviewPreflightRoute('/interviews/new'), true);
   assert.equal(isInterviewRoomRoute('/interviews/new'), false);
-  assert.equal(isFocusedPracticeRoute('/interviews/new'), false);
+  assert.equal(isFocusedPracticeRoute('/interviews/new'), true);
 
   // Report route
-  assert.equal(isInterviewRoomRoute('/interviews/session-123/report'), false);
-  assert.equal(isFocusedPracticeRoute('/interviews/session-123/report'), false);
+  assert.equal(isInterviewRoomRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33/report'), false);
+  assert.equal(isFocusedPracticeRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33/report'), false);
 
   // Other focused practice routes remain preserved
   assert.equal(isFocusedPracticeRoute('/practice/star'), true);

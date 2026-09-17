@@ -25,7 +25,7 @@ export function PricingPageShell({ children }: PricingPageShellProps) {
     );
   }
 
-  // Prevent flash of landing header while initial session restoration is resolving
+  // Prevent flash of landing header or interactive anonymous checkout while initial session restoration is resolving
   if (!authReady) {
     return (
       <div className="min-h-screen bg-surface flex flex-col">
@@ -33,8 +33,11 @@ export function PricingPageShell({ children }: PricingPageShellProps) {
           aria-hidden="true"
           className="fixed top-0 left-0 right-0 w-full z-40 bg-white/95 backdrop-blur-md border-b border-outline-variant/40 h-16 shadow-[0_1px_8px_rgba(15,23,42,0.03)]"
         />
-        <main className="flex-1 pt-16 bg-surface">
-          {children}
+        <main className="flex-1 pt-16 bg-surface flex items-center justify-center">
+          <div className="text-center py-24 text-on-surface-variant">
+            <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-sm font-medium">Đang tải thông tin bảng giá...</p>
+          </div>
         </main>
       </div>
     );

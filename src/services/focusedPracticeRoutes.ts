@@ -1,17 +1,33 @@
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Determines whether a pathname corresponds to an interview preflight / setup route:
+ * /interviews/new or /practice/interview/preflight
+ */
+export function isInterviewPreflightRoute(pathname: string): boolean {
+  return pathname === '/interviews/new' || pathname === '/practice/interview/preflight';
+}
+
 /**
  * Determines whether a pathname corresponds to an active interview room session:
- * /interviews/{id} where id is a dynamic session identifier (e.g. UUID)
- * and NOT static pages such as 'new' (preflight), 'history', or subroutes like '/report'.
+ * /interviews/{id} where id is a strict dynamic session UUID.
+ * Static segments ('new', 'history', etc.) and subroutes ('/report') are rejected.
  */
 export function isInterviewRoomRoute(pathname: string): boolean {
   if (!pathname.startsWith('/interviews/')) return false;
   const segment = pathname.slice('/interviews/'.length);
   if (!segment || segment.includes('/')) return false;
-  return segment !== 'new' && segment !== 'history';
+  return UUID_REGEX.test(segment);
 }
 
+/**
+ * Determines whether the route should hide the default AuthenticatedHeader shell
+ * and render a focused practice canvas without distraction.
+ * Both setup preflight and active practice rooms are focused shells.
+ */
 export function isFocusedPracticeRoute(pathname: string): boolean {
   return (
+    isInterviewPreflightRoute(pathname) ||
     isInterviewRoomRoute(pathname) ||
     pathname === '/practice/star' ||
     /^\/practice\/scenarios\/[^/]+$/.test(pathname)

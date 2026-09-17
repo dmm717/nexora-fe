@@ -4,7 +4,10 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { usePathname, useRouter } from 'next/navigation';
 import { FocusedPracticeHeader } from '@/components/header/FocusedPracticeHeader';
 import { ProductMotionBoundary } from '@/components/product-motion/ProductMotionBoundary';
-import { isFocusedPracticeRoute } from '@/services/focusedPracticeRoutes';
+import {
+  isFocusedPracticeRoute,
+  isInterviewPreflightRoute,
+} from '@/services/focusedPracticeRoutes';
 
 export interface FocusedPracticeShellConfig {
   title: string;
@@ -34,10 +37,13 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
     router.push(exitDestination);
   };
 
+  const isPreflight = isInterviewPreflightRoute(pathname);
+  const showFocusedHeader = focused && !isPreflight;
+
   return (
     <FocusedPracticeShellContext.Provider value={contextValue}>
       <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface antialiased product-app-shell">
-        {focused ? (
+        {showFocusedHeader ? (
           <FocusedPracticeHeader
             title={config?.title || 'Chế độ luyện tập tập trung'}
             subtitle={config?.subtitle}
@@ -48,7 +54,7 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
           />
         ) : null}
 
-        <main className={`flex-1 w-full pb-16 product-main-surface ${focused ? 'pt-16' : ''}`}>
+        <main className={`flex-1 w-full pb-16 product-main-surface ${showFocusedHeader ? 'pt-16' : ''}`}>
           <ProductMotionBoundary>
             <div className="product-page-content">{children}</div>
           </ProductMotionBoundary>

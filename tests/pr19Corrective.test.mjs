@@ -152,8 +152,8 @@ test('AA-AE: null scores and history state stay truthful in source', async () =>
 
 test('AF-AI: focused routes remove global shell and use non-fabricated context', async () => {
   assert.equal(isFocusedPracticeRoute('/overview'), false);
-  assert.equal(isFocusedPracticeRoute('/interviews/abc'), true);
-  assert.equal(isFocusedPracticeRoute('/interviews/abc/report'), false);
+  assert.equal(isFocusedPracticeRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33'), true);
+  assert.equal(isFocusedPracticeRoute('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33/report'), false);
   assert.equal(isFocusedPracticeRoute('/practice/star'), true);
   assert.equal(isFocusedPracticeRoute('/practice/scenarios/system-outage'), true);
   assert.equal(isFocusedPracticeRoute('/practice/scenarios'), false);

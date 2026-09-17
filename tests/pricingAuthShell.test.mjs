@@ -24,6 +24,20 @@ test('G: authenticated /pricing uses authenticated shell (AuthenticatedHeader wi
   assert.doesNotMatch(authBranch, /<Header \/>/);
 });
 
+test('G2: unresolved authReady renders loading skeleton and blocks rendering interactive children', async () => {
+  const shellSource = await readSource('../src/components/features/pricing/PricingPageShell.tsx');
+  assert.match(shellSource, /if \(!authReady\)/);
+
+  const unreadyBranch = shellSource.slice(
+    shellSource.indexOf('if (!authReady)'),
+    shellSource.indexOf('// Anonymous user once auth is ready')
+  );
+  assert.doesNotMatch(unreadyBranch, /\{children\}/);
+  assert.match(unreadyBranch, /animate-spin/);
+  assert.doesNotMatch(unreadyBranch, /<Header \/>/);
+  assert.doesNotMatch(unreadyBranch, /<Footer \/>/);
+});
+
 test('H: authenticated pricing stays in product shell and avoids public landing CTA', async () => {
   const [shellSource, headerSource] = await Promise.all([
     readSource('../src/components/features/pricing/PricingPageShell.tsx'),

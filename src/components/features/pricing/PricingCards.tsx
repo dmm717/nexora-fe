@@ -34,7 +34,7 @@ export default function PricingCards() {
   // Contextual upgrade copy only appears if return route is a validated interview route
   const isInterviewUpgrade = Boolean(safeReturnTo && isInterviewRoute(safeReturnTo));
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   const { data: plans = [], isLoading: loadingPlans } = usePlans();
   const { data: user } = useCurrentUser();
 
@@ -44,6 +44,9 @@ export default function PricingCards() {
   const currentPlanCode = user?.billing?.entitlement?.planCode?.toLowerCase() || null;
 
   const handleSelectPlan = (plan: PlanView, price: PlanPrice) => {
+    // Defense-in-depth: do not trigger premature auth modals or checkout while auth is bootstrapping
+    if (!authReady) return;
+
     if (isAuthenticated) {
       if (price.amountMinor === 0) {
         // Free plan navigation: return to safeReturnTo or /overview
