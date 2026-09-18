@@ -1,25 +1,14 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { toast } from 'sonner';
 import { userApi } from '@/services/userApi';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button';
+import { passwordSchema, type PasswordFormValues } from '@/schema/accountSchema';
 
-const passwordSchema = z
-  .object({
-    currentPassword: z.string().optional(),
-    newPassword: z.string().min(6, 'Mật khẩu mới phải có ít nhất 6 ký tự'),
-    confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu mới'),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Mật khẩu xác nhận không khớp',
-    path: ['confirmPassword'],
-  });
-
-type PasswordFormValues = z.infer<typeof passwordSchema>;
+export { passwordSchema, type PasswordFormValues };
 
 export const SecurityCard: React.FC = () => {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
@@ -39,7 +28,7 @@ export const SecurityCard: React.FC = () => {
     setFeedback(null);
     try {
       await userApi.changePassword({
-        currentPassword: data.currentPassword || undefined,
+        currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       });
       setFeedback({
@@ -63,7 +52,7 @@ export const SecurityCard: React.FC = () => {
       <div>
         <h2 className="text-lg font-bold text-on-surface">Bảo mật mật khẩu</h2>
         <p className="text-xs text-on-surface-variant mt-1">
-          Nếu bạn đăng nhập bằng Google, hãy để trống ô Mật khẩu hiện tại để thiết lập mật khẩu mới.
+          Đổi mật khẩu định kỳ để bảo vệ tài khoản. Mật khẩu mới yêu cầu tối thiểu 8 ký tự.
         </p>
       </div>
 
@@ -83,7 +72,7 @@ export const SecurityCard: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <Input
           type="password"
-          label="Mật khẩu hiện tại (nếu có)"
+          label="Mật khẩu hiện tại"
           placeholder="••••••••"
           autoComplete="current-password"
           {...register('currentPassword')}
@@ -93,7 +82,7 @@ export const SecurityCard: React.FC = () => {
         <Input
           type="password"
           label="Mật khẩu mới"
-          placeholder="Tối thiểu 6 ký tự"
+          placeholder="Tối thiểu 8 ký tự"
           autoComplete="new-password"
           {...register('newPassword')}
           error={errors.newPassword?.message}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { toast } from 'sonner';
 import { UserResponse, userApi } from '@/services/userApi';
 import { CURRENT_USER_QUERY_KEY } from '@/hooks/queries/useUser';
@@ -9,30 +8,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button';
+import {
+  profileSchema,
+  type ProfileFormValues,
+  resolveYearsOfExperience,
+} from '@/schema/accountSchema';
 
-const profileSchema = z.object({
-  displayName: z
-    .string()
-    .min(2, 'Tên hiển thị phải có ít nhất 2 ký tự')
-    .max(120, 'Tên hiển thị quá dài')
-    .trim(),
-  yearsOfExperience: z
-    .any()
-    .transform((v) => {
-      if (v === '' || v === null || v === undefined) return '';
-      const num = Number(v);
-      return isNaN(num) ? v : num;
-    })
-    .pipe(
-      z.union([
-        z.number().int('Phải là số nguyên').min(0, 'Ít nhất 0 năm').max(60, 'Tối đa 60 năm'),
-        z.literal(''),
-      ])
-    )
-    .optional(),
-});
-
-type ProfileFormValues = z.infer<typeof profileSchema>;
+export { profileSchema, type ProfileFormValues, resolveYearsOfExperience };
 
 interface PersonalInformationCardProps {
   user: UserResponse;
@@ -71,12 +53,14 @@ export const PersonalInformationCard: React.FC<PersonalInformationCardProps> = (
   const onSubmit = async (data: ProfileFormValues) => {
     setFeedback(null);
     try {
+      const resolvedYears = resolveYearsOfExperience(
+        data.yearsOfExperience,
+        user.yearsOfExperience
+      );
+
       const requestData = {
         displayName: data.displayName,
-        yearsOfExperience:
-          data.yearsOfExperience === '' || data.yearsOfExperience === null
-            ? null
-            : Number(data.yearsOfExperience),
+        yearsOfExperience: resolvedYears,
       };
 
       const updated = await userApi.updateProfile(requestData);
@@ -85,11 +69,22 @@ export const PersonalInformationCard: React.FC<PersonalInformationCardProps> = (
       if (onUserUpdated) {
         onUserUpdated(updated);
       }
+
+      const wasClearedWithExisting =
+        user.yearsOfExperience != null &&
+        (data.yearsOfExperience === '' || data.yearsOfExperience === null || data.yearsOfExperience === undefined);
+
       setFeedback({
         type: 'success',
-        message: 'Cập nhật thông tin cá nhân thành công!',
+        message: wasClearedWithExisting
+          ? 'Cập nhật thông tin thành công (số năm kinh nghiệm được giữ nguyên do hệ thống chưa hỗ trợ xóa trắng).'
+          : 'Cập nhật thông tin cá nhân thành công!',
       });
-      toast.success('Đã cập nhật thông tin cá nhân');
+      if (wasClearedWithExisting) {
+        toast.info('Số năm kinh nghiệm được giữ nguyên do hệ thống chưa hỗ trợ xóa trắng');
+      } else {
+        toast.success('Đã cập nhật thông tin cá nhân');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Lỗi khi cập nhật thông tin cá nhân';
       setFeedback({
@@ -147,15 +142,20 @@ export const PersonalInformationCard: React.FC<PersonalInformationCardProps> = (
         </div>
 
         {/* Years of Experience */}
-        <Input
-          type="number"
-          label="Số năm kinh nghiệm làm việc"
-          min={0}
-          max={60}
-          placeholder="Ví dụ: 3"
-          {...register('yearsOfExperience')}
-          error={errors.yearsOfExperience?.message}
-        />
+        <div>
+          <Input
+            type="number"
+            label="Số năm kinh nghiệm làm việc"
+            min={0}
+            max={60}
+            placeholder="Ví dụ: 3"
+            {...register('yearsOfExperience')}
+            error={errors.yearsOfExperience?.message}
+          />
+          <p className="text-[11px] text-on-surface-variant mt-1.5">
+            Nhập từ 0 đến 60. Để trống sẽ giữ nguyên giá trị hiện có (không hỗ trợ xóa trắng sau khi đã lưu).
+          </p>
+        </div>
 
         <div className="pt-2">
           <Button

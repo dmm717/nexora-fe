@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { passwordSchema, resolveYearsOfExperience } from '../src/schema/accountSchema.ts';
 
 const readSource = (relativePath) =>
   readFile(new URL(relativePath, import.meta.url), 'utf8');
@@ -323,4 +324,120 @@ test('Corrective 5: PlanUsageCard does not nest Button inside Link for pricing C
   assert.doesNotMatch(planSource, /import\s*\{[^}]*Button[^}]*\}\s*from/);
   // Ensure Link with href="/pricing" exists directly
   assert.match(planSource, /<Link\s+href="\/pricing"/);
+});
+
+test('Blocker 1: Password change contract requires currentPassword, min 8 chars newPassword, and rejects Google OAuth bypass text', async () => {
+  const userApiSource = await readSource('../src/services/userApi.ts');
+  // API request type makes currentPassword required (not optional)
+  assert.match(userApiSource, /currentPassword:\s*string;/);
+  assert.doesNotMatch(userApiSource, /currentPassword\?:\s*string;/);
+
+  const secSource = await readSource(
+    '../src/components/features/account/SecurityCard.tsx'
+  );
+  // UI does NOT tell OAuth/Google users to leave current password blank
+  assert.doesNotMatch(secSource, /Google/i);
+  assert.doesNotMatch(secSource, /để trống.*Mật khẩu hiện tại/i);
+  assert.doesNotMatch(secSource, /Mật khẩu hiện tại \(nếu có\)/);
+
+  // UI label and placeholder reflect required current password and 8+ char requirement
+  assert.match(secSource, /label="Mật khẩu hiện tại"/);
+  assert.match(secSource, /placeholder="Tối thiểu 8 ký tự"/);
+  assert.doesNotMatch(secSource, /placeholder="Tối thiểu 6 ký tự"/);
+
+  // Request payload does NOT convert current password to undefined
+  assert.doesNotMatch(secSource, /currentPassword\s*\|\|\s*undefined/);
+  assert.match(secSource, /currentPassword:\s*data\.currentPassword/);
+});
+
+test('Blocker 1 (Runtime Schema): passwordSchema enforces 8+ chars new password, required current password, equality check, and max length', () => {
+  // 7-char new password => rejected
+  const res7 = passwordSchema.safeParse({
+    currentPassword: 'currentPassword123',
+    newPassword: 'short7!',
+    confirmPassword: 'short7!',
+  });
+  assert.equal(res7.success, false, '7-char new password must be rejected');
+  const issue7 = res7.error.issues.find((i) => i.path.includes('newPassword'));
+  assert.ok(issue7, 'Must have issue on newPassword');
+  assert.match(issue7.message, /8 ký tự/);
+
+  // 8-char new password => accepted
+  const res8 = passwordSchema.safeParse({
+    currentPassword: 'currentPassword123',
+    newPassword: 'valid8ch',
+    confirmPassword: 'valid8ch',
+  });
+  assert.equal(res8.success, true, '8-char new password must be accepted');
+
+  // empty current password => rejected
+  const resEmptyCurr = passwordSchema.safeParse({
+    currentPassword: '',
+    newPassword: 'valid8chars',
+    confirmPassword: 'valid8chars',
+  });
+  assert.equal(resEmptyCurr.success, false, 'Empty current password must be rejected');
+  const issueEmptyCurr = resEmptyCurr.error.issues.find((i) => i.path.includes('currentPassword'));
+  assert.ok(issueEmptyCurr, 'Must have issue on currentPassword');
+
+  // missing current password => rejected (currentPassword is not optional)
+  const resMissingCurr = passwordSchema.safeParse({
+    newPassword: 'valid8chars',
+    confirmPassword: 'valid8chars',
+  });
+  assert.equal(resMissingCurr.success, false, 'Missing current password must be rejected');
+
+  // newPassword !== confirmPassword => rejected
+  const resMismatch = passwordSchema.safeParse({
+    currentPassword: 'currentPassword123',
+    newPassword: 'valid8chars',
+    confirmPassword: 'differentPassword',
+  });
+  assert.equal(resMismatch.success, false, 'Mismatched passwords must be rejected');
+  const issueMismatch = resMismatch.error.issues.find((i) => i.path.includes('confirmPassword'));
+  assert.ok(issueMismatch, 'Must have issue on confirmPassword');
+  assert.match(issueMismatch.message, /không khớp/);
+
+  // Password exceeding 128 characters => rejected
+  const resTooLong = passwordSchema.safeParse({
+    currentPassword: 'currentPassword123',
+    newPassword: 'a'.repeat(129),
+    confirmPassword: 'a'.repeat(129),
+  });
+  assert.equal(resTooLong.success, false, 'Password > 128 chars must be rejected');
+});
+
+test('Issue 2: yearsOfExperience resolution does not pretend to clear stored values and preserves numeric 0', () => {
+  // blank input does NOT pretend to clear previously stored value (3 => 3)
+  assert.equal(resolveYearsOfExperience('', 3), 3);
+  assert.equal(resolveYearsOfExperience('   '.trim(), 3), 3);
+  assert.equal(resolveYearsOfExperience(null, 3), 3);
+  assert.equal(resolveYearsOfExperience(undefined, 3), 3);
+
+  // 0 is valid and NOT accidentally treated as blank/falsy
+  assert.equal(resolveYearsOfExperience(0, 3), 0);
+  assert.equal(resolveYearsOfExperience('0', 3), 0);
+  assert.equal(resolveYearsOfExperience(0, null), 0);
+
+  // updating to another numeric value works
+  assert.equal(resolveYearsOfExperience(5, 3), 5);
+  assert.equal(resolveYearsOfExperience('5', 3), 5);
+
+  // user with no previous value leaving blank remains null (not error or NaN)
+  assert.equal(resolveYearsOfExperience('', null), null);
+  assert.equal(resolveYearsOfExperience('', undefined), null);
+});
+
+test('Issue 2 (UI Contract): PersonalInformationCard provides clear helper text and does not send null to clear existing years', async () => {
+  const personalInfoSource = await readSource(
+    '../src/components/features/account/PersonalInformationCard.tsx'
+  );
+
+  // Helper text informs user about keeping existing value when blank
+  assert.match(personalInfoSource, /Để trống sẽ giữ nguyên giá trị hiện có/);
+  assert.match(personalInfoSource, /không hỗ trợ xóa trắng/);
+
+  // Uses resolveYearsOfExperience rather than naive null mapping
+  assert.match(personalInfoSource, /resolveYearsOfExperience/);
+  assert.doesNotMatch(personalInfoSource, /data\.yearsOfExperience === ''\s*\|\|\s*data\.yearsOfExperience === null\s*\?\s*null\s*:\s*Number/);
 });
