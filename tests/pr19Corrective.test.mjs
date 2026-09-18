@@ -237,7 +237,7 @@ test('AS-BA: unavailable progress stays distinct from insufficient evidence', as
       targetRole: null,
       needsFirstEvidence: false,
     }).destination,
-    '/career-goals'
+    '/career-profile?section=goals'
   );
 });
 

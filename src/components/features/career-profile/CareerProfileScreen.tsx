@@ -1,14 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { CareerProfileHeader } from './CareerProfileHeader';
 import { CareerIdentityCard } from './CareerIdentityCard';
-import { ActiveCareerGoalCard } from './ActiveCareerGoalCard';
+import { CareerGoalsSection } from './CareerGoalsSection';
 import { ResumeManagementSection } from './ResumeManagementSection';
 import { SkillProfileSection } from './SkillProfileSection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+
+/**
+ * Isolated deep-link controller using useSearchParams so that the outer
+ * CareerProfileScreen renders immediately and displays its normal skeleton
+ * without requiring a full-page null Suspense fallback.
+ */
+const CareerProfileDeepLinkHandler: React.FC = () => {
+  const searchParams = useSearchParams();
+  const section = searchParams?.get('section');
+
+  useEffect(() => {
+    if (section === 'goals') {
+      const el = document.getElementById('goals');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.focus({ preventScroll: true });
+      }
+    }
+  }, [section]);
+
+  return null;
+};
 
 export const CareerProfileScreen: React.FC = () => {
   const { data: profileData, isLoading, isError, refetch } = useCareerProfile();
@@ -93,11 +116,16 @@ export const CareerProfileScreen: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      {/* Isolated deep-link controller wrapped in tiny Suspense */}
+      <Suspense fallback={null}>
+        <CareerProfileDeepLinkHandler />
+      </Suspense>
+
       {/* Title & Introduction */}
       <CareerProfileHeader />
 
-      {/* Grid: Identity + Career Goal */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Grid: Identity + Career Goal Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-5">
           <CareerIdentityCard
             profile={profileData.profile}
@@ -105,8 +133,8 @@ export const CareerProfileScreen: React.FC = () => {
           />
         </div>
         <div className="lg:col-span-7">
-          <ActiveCareerGoalCard
-            activeGoal={profileData.activeCareerGoal}
+          <CareerGoalsSection
+            activeGoalFromProfile={profileData.activeCareerGoal}
           />
         </div>
       </div>

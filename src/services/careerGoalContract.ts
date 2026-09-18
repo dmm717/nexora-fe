@@ -103,42 +103,60 @@ export function buildCreateCareerGoalRequest(
   };
 }
 
+export type UpdatableCareerGoalCurrent = {
+  targetRole?: string | null;
+  seniority?: string | null;
+  industry?: string | null;
+  targetCompany?: string | null;
+  targetDate?: string | null;
+};
+
+const normalizeDate = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.split('T')[0];
+};
+
 /**
  * Builds a PATCH request that marks only changed fields as Specified. Unchanged
  * fields are omitted so editing one field never clears the others.
  */
 export function buildUpdateCareerGoalRequest(
-  current: CareerGoalResponse,
+  current: UpdatableCareerGoalCurrent,
   values: CareerGoalFormValues
 ): UpdateCareerGoalRequest {
   const request: UpdateCareerGoalRequest = {};
 
   const nextRole = values.targetRole.trim();
-  if (nextRole !== current.targetRole) {
+  if (nextRole !== (current.targetRole?.trim() ?? '')) {
     request.targetRoleSpecified = true;
     request.targetRole = nextRole;
   }
 
   const nextSeniority = values.seniority.trim();
-  if (nextSeniority !== current.seniority) {
+  if (nextSeniority !== (current.seniority?.trim() ?? '')) {
     request.senioritySpecified = true;
     request.seniority = nextSeniority;
   }
 
+  const currentIndustry = normalizeOptional(current.industry) ?? null;
   const nextIndustry = normalizeOptional(values.industry) ?? null;
-  if (nextIndustry !== (current.industry ?? null)) {
+  if (nextIndustry !== currentIndustry) {
     request.industrySpecified = true;
     request.industry = nextIndustry;
   }
 
+  const currentCompany = normalizeOptional(current.targetCompany) ?? null;
   const nextCompany = normalizeOptional(values.targetCompany) ?? null;
-  if (nextCompany !== (current.targetCompany ?? null)) {
+  if (nextCompany !== currentCompany) {
     request.targetCompanySpecified = true;
     request.targetCompany = nextCompany;
   }
 
-  const nextDate = normalizeOptional(values.targetDate) ?? null;
-  if (nextDate !== (current.targetDate ?? null)) {
+  const currentDate = normalizeDate(current.targetDate);
+  const nextDate = normalizeDate(values.targetDate);
+  if (nextDate !== currentDate) {
     request.targetDateSpecified = true;
     request.targetDate = nextDate;
   }
@@ -186,4 +204,30 @@ export function buildCareerProfileGoalUpdateRequest(
   }
 
   return request;
+}
+
+/**
+ * Reconciles the canonical active goal from CareerProfile with the management list.
+ * In Nexora's architecture, useCareerProfile() owns the canonical active Career Goal snapshot,
+ * while useCareerGoals() provides the management list.
+ * A stale or failed full-list cache must NEVER override a fresher Career Profile active goal.
+ */
+export function reconcileCareerGoals<
+  TActive extends (UpdatableCareerGoalCurrent & { id?: string }) | null | undefined,
+  TGoal extends { id: string; active?: boolean }
+>(
+  activeGoalFromProfile: TActive,
+  allGoals: TGoal[]
+): {
+  activeGoal: TActive extends object ? TActive : null;
+  otherGoals: TGoal[];
+} {
+  const activeGoal = (activeGoalFromProfile || null) as (TActive extends object ? TActive : null);
+  const activeGoalId = activeGoal?.id;
+
+  const otherGoals = activeGoalId
+    ? allGoals.filter((g) => g.id !== activeGoalId)
+    : allGoals.filter((g) => !g.active);
+
+  return { activeGoal, otherGoals };
 }
