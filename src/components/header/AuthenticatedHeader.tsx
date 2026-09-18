@@ -198,10 +198,8 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
                   <div className="p-1.5 space-y-0.5">
                     {AVATAR_MENU_ITEMS.map((item) => {
                       // Map destination for production routes:
-                      // /career-profile -> /career-goals
                       // settings -> /account
                       let resolvedHref = item.href;
-                      if (item.href === '/career-profile') resolvedHref = '/career-goals';
                       if (item.actionKey === 'settings') resolvedHref = '/account';
 
                       return (

@@ -37,6 +37,7 @@ export interface CareerProfileResponse {
       category: string;
       score: number;
       evidenceCount: number;
+      latestEvidenceAt?: string;
     }>;
     topWeaknessSignals: Array<{
       sourceType: string;
