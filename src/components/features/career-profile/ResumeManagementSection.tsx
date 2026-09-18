@@ -10,10 +10,12 @@ import { ClientDate } from '@/components/ui/ClientDate';
 import {
   useResumes,
   useSetPrimaryResume,
+  useDeleteResume,
   careerProfileKeys,
   resumeKeys,
 } from '@/hooks/queries/useCareerProfile';
-import { cvAnalysisApi, getUploadContentType } from '@/services/cvAnalysisApi';
+import { DeleteResumeModal } from './DeleteResumeModal';
+import { cvAnalysisApi, getUploadContentType, type ResumeView } from '@/services/cvAnalysisApi';
 import { ApiError } from '@/services/apiClient';
 import { toast } from 'sonner';
 
@@ -43,7 +45,9 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: resumes, isLoading, isError, refetch } = useResumes();
-  const { mutate: setPrimaryResume, isPending: isSettingPrimary } = useSetPrimaryResume();
+  const { mutate: setPrimaryResume, isPending: isSettingPrimary, variables: settingPrimaryResumeId } = useSetPrimaryResume();
+  const { isPending: isDeletingResume, variables: deletingResumeId } = useDeleteResume();
+  const [resumeToDelete, setResumeToDelete] = useState<ResumeView | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,13 +220,13 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 self-end sm:self-center flex-shrink-0">
                   {!isPrimary ? (
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={isSettingPrimary || !isReady}
-                      onClick={() => setPrimaryResume(res.id)}
+                      onClick={() => !isDeletingResume && setPrimaryResume(res.id)}
                     >
                       Đặt làm CV chính
                     </Button>
@@ -231,7 +235,7 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
                       variant="ghost"
                       size="sm"
                       disabled={isSettingPrimary}
-                      onClick={() => setPrimaryResume(null)}
+                      onClick={() => !isDeletingResume && setPrimaryResume(null)}
                       className="text-error hover:bg-error-container/20"
                     >
                       Bỏ chọn CV chính
@@ -246,12 +250,34 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
                   >
                     Quét phân tích
                   </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={
+                      (isSettingPrimary && settingPrimaryResumeId === res.id) ||
+                      (isDeletingResume && deletingResumeId === res.id)
+                    }
+                    onClick={() => setResumeToDelete(res)}
+                    className="text-error hover:bg-error-container/20 hover:text-error"
+                    icon={<span className="material-symbols-outlined text-[18px]">delete</span>}
+                    aria-label={`Xóa CV ${res.fileName || 'CV Không tên'}`}
+                  >
+                    <span>Xóa</span>
+                  </Button>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <DeleteResumeModal
+        isOpen={!!resumeToDelete}
+        onClose={() => setResumeToDelete(null)}
+        resume={resumeToDelete}
+        isPrimary={resumeToDelete?.id === primaryResumeId}
+      />
     </Card>
   );
 };
