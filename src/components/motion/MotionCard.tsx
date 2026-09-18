@@ -22,7 +22,7 @@ export const MotionCard: React.FC<MotionCardProps> = ({
   if (!interactive && !onClick) {
     return (
       <motion.div
-        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 12 }}
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: motionTokens.distance.small }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-30px' }}
         transition={{ duration: motionTokens.duration.normal, ease: motionTokens.ease.standard }}
@@ -36,10 +36,10 @@ export const MotionCard: React.FC<MotionCardProps> = ({
   return (
     <motion.div
       onClick={onClick}
-      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 12 }}
+      initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: motionTokens.distance.small }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-30px' }}
-      whileHover={shouldReduceMotion ? undefined : { y: -4, transition: { duration: 0.18, ease: 'easeOut' } }}
+      whileHover={shouldReduceMotion ? undefined : { y: -3, transition: { duration: motionTokens.duration.fast, ease: motionTokens.ease.standard } }}
       whileTap={shouldReduceMotion ? undefined : { scale: 0.985 }}
       transition={{ duration: motionTokens.duration.normal, ease: motionTokens.ease.standard }}
       className={`cursor-pointer ${className}`}

@@ -6,7 +6,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { AnimatedProgressBar } from '@/components/motion/AnimatedProgressBar';
-import { MotionPage } from '@/components/motion';
+import { StaggerContainer, StaggerItem } from '@/components/motion';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 import {
   useLearningPath,
   useGenerateLearningPath,
@@ -25,7 +27,14 @@ import { ApiError } from '@/services/apiClient';
 
 export default function LearningPathView() {
   const router = useRouter();
-  const { data: path, isLoading, error, refetch, isFetching } = useLearningPath();
+  const {
+    data: path,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useLearningPath();
   const { data: careerProfile } = useCareerProfile();
   const generateMutation = useGenerateLearningPath();
   const refreshMutation = useRefreshLearningPath();
@@ -35,6 +44,12 @@ export default function LearningPathView() {
   const apiError = error instanceof ApiError ? error : null;
   const isNoGoal = apiError?.code === 'ACTIVE_CAREER_GOAL_REQUIRED';
   const isNotCreated = apiError?.code === 'LEARNING_PATH_NOT_FOUND' || apiError?.status === 404;
+  const queryPresentation = getQueryPresentation({
+    hasData: path !== undefined,
+    isLoading,
+    isError,
+    isFetching,
+  });
 
   const handleGenerate = async () => {
     setActionError(null);
@@ -91,20 +106,28 @@ export default function LearningPathView() {
     }
   };
 
-  if (isLoading) {
+  if (queryPresentation.showInitialLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center text-on-surface-variant">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-6 text-on-surface-variant" role="status" aria-label="Loading learning path">
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-48 rounded-full" />
+          <Skeleton className="h-9 w-3/4 max-w-xl" />
+          <Skeleton className="h-4 w-full max-w-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <div className="space-y-3" aria-hidden="true">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
           <span>Đang tải lộ trình học...</span>
         </div>
       </div>
     );
   }
 
-  if (isNoGoal) {
+  if (!path && isNoGoal) {
     return (
-      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
         <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
             <span className="material-symbols-outlined text-[28px]">flag</span>
@@ -119,13 +142,13 @@ export default function LearningPathView() {
             </Button>
           </div>
         </Card>
-      </MotionPage>
+      </div>
     );
   }
 
-  if (isNotCreated) {
+  if (!path && isNotCreated) {
     return (
-      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
         <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-primary-fixed text-primary flex items-center justify-center">
             <span className="material-symbols-outlined text-[28px]">route</span>
@@ -150,13 +173,13 @@ export default function LearningPathView() {
             </Button>
           </div>
         </Card>
-      </MotionPage>
+      </div>
     );
   }
 
-  if (error || !path) {
+  if (!path) {
     return (
-      <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
         <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-error/10 text-error flex items-center justify-center">
             <span className="material-symbols-outlined text-[28px]">cloud_off</span>
@@ -171,7 +194,7 @@ export default function LearningPathView() {
             </Button>
           </div>
         </Card>
-      </MotionPage>
+      </div>
     );
   }
 
@@ -179,7 +202,7 @@ export default function LearningPathView() {
   const progress = getActiveLearningPathProgress(path.milestones);
 
   return (
-    <MotionPage className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -220,6 +243,18 @@ export default function LearningPathView() {
         <div className="p-3.5 bg-error/10 border border-error/20 rounded-xl text-xs text-error">
           {actionError}
         </div>
+      )}
+
+      {queryPresentation.showBackgroundError && (
+        <div role="alert" className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-300/80 text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <span>Không thể cập nhật lộ trình. Dữ liệu đang hiển thị được giữ nguyên.</span>
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+            {isFetching ? 'Đang thử lại...' : 'Thử lại'}
+          </Button>
+        </div>
+      )}
+      {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+        <p role="status" className="text-xs text-on-surface-variant">Đang cập nhật lộ trình...</p>
       )}
 
       {/* Progress Bar Card */}
@@ -283,22 +318,25 @@ export default function LearningPathView() {
               </div>
 
               {/* Milestone Activities List */}
-              <div className="space-y-3">
-                {milestone.activities.map((activity) => {
+              <StaggerContainer className="space-y-3">
+                {milestone.activities.map((activity, index) => {
                   const disposition = getLearningPathActivityDisposition(activity.status);
                   const isActDone = disposition === 'completed';
                   const isPending = disposition === 'pending';
                   const isObsolete = disposition === 'obsolete';
                   const activityLink = getActivityDeepLink(activity);
+                  const isCompleting = completeMutation.isPending && completeMutation.variables === activity.id;
+                  const ActivityItem = index < 8 ? StaggerItem : React.Fragment;
 
                   return (
+                    <ActivityItem key={activity.id}>
                     <Card
-                      key={activity.id}
                       variant="elevated"
                       padding="md"
                       className={`transition-all ${
                         isActDone ? 'opacity-75 bg-surface-container-low/40' : 'bg-white'
                       }`}
+                      aria-busy={isCompleting || undefined}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-start gap-3">
@@ -320,7 +358,7 @@ export default function LearningPathView() {
                                 title="Đánh dấu đã hoàn thành"
                               >
                                 <span className="material-symbols-outlined text-[22px]">
-                                  radio_button_unchecked
+                                  {isCompleting ? 'progress_activity' : 'radio_button_unchecked'}
                                 </span>
                               </button>
                             ) : (
@@ -374,13 +412,14 @@ export default function LearningPathView() {
                         </div>
                       </div>
                     </Card>
+                    </ActivityItem>
                   );
                 })}
-              </div>
+              </StaggerContainer>
             </div>
           );
         })}
       </div>
-    </MotionPage>
+    </div>
   );
 }

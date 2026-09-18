@@ -8,11 +8,18 @@ import { ClientDate } from '@/components/ui/ClientDate';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProductPageHero } from '@/components/product-visual';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StaggerContainer, StaggerItem } from '@/components/motion/StaggerContainer';
+import { motionTokens } from '@/components/motion/tokens';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 export default function JobDescriptionsIndexPage() {
   const router = useRouter();
-  const { data, isLoading: loading } = useJobDescriptions();
+  const { data, isLoading, isError, isFetching, refetch } = useJobDescriptions();
   const jds = data || [];
+  const hasData = data !== undefined;
+  const queryPresentation = getQueryPresentation({ hasData, isLoading, isError, isFetching });
+  const showInitialLoading = queryPresentation.showInitialLoading || (!hasData && !isError);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
@@ -44,10 +51,40 @@ export default function JobDescriptionsIndexPage() {
           </Button>
         </div>
 
-        {loading ? (
-          <div className="p-12 text-center text-sm text-on-surface-variant flex items-center justify-center gap-3">
-            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span>Đang tải danh sách mô tả công việc...</span>
+        {queryPresentation.showBackgroundError && (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/30 bg-error/5 px-4 py-3 text-sm text-on-surface">
+            <span>Không thể cập nhật danh sách JD. Nội dung đã tải vẫn được giữ lại.</span>
+            <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching} loading={isFetching}>
+              Thử lại
+            </Button>
+          </div>
+        )}
+
+        {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+          <p role="status" aria-live="polite" className="text-xs text-on-surface-variant">
+            Đang cập nhật danh sách JD...
+          </p>
+        )}
+
+        {showInitialLoading ? (
+          <div role="status" aria-live="polite" className="space-y-3">
+            <span className="sr-only">Đang tải danh sách mô tả công việc...</span>
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="p-4 sm:p-5 rounded-2xl border border-outline-variant/60 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-2/3 max-w-72" />
+                  <Skeleton className="h-3 w-1/2 max-w-56" />
+                </div>
+                <Skeleton className="h-4 w-24 self-end sm:self-center" />
+              </div>
+            ))}
+          </div>
+        ) : queryPresentation.showBlockingError ? (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-error/30 bg-error/5 p-6 text-sm text-on-surface">
+            <p>Không thể tải danh sách JD lúc này. Vui lòng thử lại.</p>
+            <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching} loading={isFetching}>
+              Thử tải lại
+            </Button>
           </div>
         ) : jds.length === 0 ? (
           <div className="text-center py-12 px-4 bg-surface-container-low/40 rounded-2xl border-2 border-dashed border-outline-variant/60 space-y-3">
@@ -70,34 +107,41 @@ export default function JobDescriptionsIndexPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {jds.map((jd) => (
-              <div
-                key={jd.id}
-                className="p-4 sm:p-5 rounded-2xl border border-outline-variant/60 bg-white hover:border-primary/40 hover:shadow-subtle transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-              >
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="font-bold text-base text-on-surface">
-                    {jd.title || 'Job Description không tên'}
+          <StaggerContainer className="space-y-3" staggerDelay={motionTokens.stagger.fast}>
+            {jds.map((jd, index) => {
+              const row = (
+                <div
+                  className="p-4 sm:p-5 rounded-2xl border border-outline-variant/60 bg-white hover:border-primary/40 hover:shadow-subtle transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="font-bold text-base text-on-surface">
+                      {jd.title || 'Job Description không tên'}
+                    </div>
+                    <div className="text-xs text-on-surface-variant flex items-center gap-2">
+                      <span>Đã tạo:</span>
+                      <ClientDate date={jd.createdAt} />
+                    </div>
                   </div>
-                  <div className="text-xs text-on-surface-variant flex items-center gap-2">
-                    <span>Đã tạo:</span>
-                    <ClientDate date={jd.createdAt} />
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <Link
-                    href={`/job-descriptions/${jd.id}`}
-                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                  >
-                    <span>Xem chi tiết</span>
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </Link>
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <Link
+                      href={`/job-descriptions/${jd.id}`}
+                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <span>Xem chi tiết</span>
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              );
+
+              return index < 6 ? (
+                <StaggerItem key={jd.id}>{row}</StaggerItem>
+              ) : (
+                <React.Fragment key={jd.id}>{row}</React.Fragment>
+              );
+            })}
+          </StaggerContainer>
         )}
       </Card>
     </div>

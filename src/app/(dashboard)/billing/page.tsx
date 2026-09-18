@@ -12,6 +12,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 import {
   describePlanFeature,
   formatFeatureAvailability,
@@ -19,14 +21,62 @@ import {
   getExactEntitlementFeature,
 } from '@/services/billingPresentation';
 
+function BillingPageHeader() {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-primary text-xs font-semibold mb-2">
+          <span className="material-symbols-outlined text-[16px]">credit_card</span>
+          <span>Quản lý tài khoản & Gói dịch vụ</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
+          Gói dịch vụ & Lịch sử thanh toán
+        </h1>
+        <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
+          Theo dõi hạn mức phỏng vấn, thời hạn gói và mở khóa thêm các tính năng phân tích & phỏng vấn AI mạnh mẽ.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
-  
-  const { data: plans = [], isLoading: loadingPlans } = useBillingPlans();
-  const { data: user, isLoading: loadingUser } = useCurrentUser();
+
+  const plansQuery = useBillingPlans();
+  const currentUserQuery = useCurrentUser();
+  const {
+    data: loadedPlans,
+    isLoading: loadingPlans,
+    isError: plansHaveError,
+    isFetching: fetchingPlans,
+    refetch: refetchPlans,
+  } = plansQuery;
+  const {
+    data: user,
+    isLoading: loadingUser,
+    isError: userHasError,
+    isFetching: fetchingUser,
+    refetch: refetchUser,
+  } = currentUserQuery;
   const queryClient = useQueryClient();
 
-  const loading = loadingPlans || loadingUser;
+  const hasUserData = user !== undefined;
+  const hasPlansData = loadedPlans !== undefined;
+  const userPresentation = getQueryPresentation({
+    hasData: hasUserData,
+    isLoading: loadingUser,
+    isError: userHasError,
+    isFetching: fetchingUser,
+  });
+  const plansPresentation = getQueryPresentation({
+    hasData: hasPlansData,
+    isLoading: loadingPlans,
+    isError: plansHaveError,
+    isFetching: fetchingPlans,
+  });
+  const showUserSkeleton = userPresentation.showInitialLoading || (user === undefined && !userHasError);
+  const showPlansSkeleton = plansPresentation.showInitialLoading || (!hasPlansData && !plansHaveError);
   const currentPlanCode = user?.billing?.entitlement?.planCode || null;
 
   const router = useRouter();
@@ -141,7 +191,14 @@ export default function BillingPage() {
 
   // One-shot auto-checkout when selectedPriceId is passed in query
   useEffect(() => {
-    if (!selectedPriceId || autoCheckoutAttemptedRef.current || loadingPlans || plans.length === 0) {
+    if (
+      !selectedPriceId ||
+      autoCheckoutAttemptedRef.current ||
+      !hasPlansData ||
+      fetchingPlans ||
+      !hasUserData ||
+      userPresentation.showBlockingError
+    ) {
       return;
     }
 
@@ -149,7 +206,7 @@ export default function BillingPage() {
 
     // Validate selectedPriceId against loaded production plans
     let matchedPrice: { id: string; amountMinor: number } | null = null;
-    for (const plan of plans) {
+    for (const plan of loadedPlans ?? []) {
       const found = plan.prices?.find((p) => p.id === selectedPriceId);
       if (found) {
         matchedPrice = found;
@@ -176,15 +233,97 @@ export default function BillingPage() {
     // Invoke canonical checkout
     setError(null);
     createCheckoutMutation.mutate(matchedPrice.id);
-  }, [selectedPriceId, loadingPlans, plans, createCheckoutMutation]);
+  }, [
+    selectedPriceId,
+    hasPlansData,
+    fetchingPlans,
+    hasUserData,
+    loadedPlans,
+    userPresentation.showBlockingError,
+    createCheckoutMutation,
+  ]);
 
-  if (loading) {
+  if (showUserSkeleton) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="p-8 rounded-2xl bg-white border border-outline-variant/60 shadow-subtle text-center text-sm text-on-surface-variant flex items-center justify-center gap-3">
-          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span>Đang tải thông tin gói cước và hạn mức...</span>
+      <div
+        className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8"
+        role="status"
+        aria-label="Đang tải thông tin gói dịch vụ và thanh toán"
+      >
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-6 w-52 rounded-full" />
+          <Skeleton className="h-8 w-80 max-w-full rounded-xl" />
+          <Skeleton className="h-4 w-full max-w-2xl rounded" />
         </div>
+
+        <Card variant="elevated" padding="lg" className="space-y-5 bg-white border border-outline-variant/60">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-outline-variant/30">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-7 w-44" />
+            </div>
+            <div className="space-y-2 sm:text-right">
+              <Skeleton className="h-3 w-28 sm:ml-auto" />
+              <Skeleton className="h-4 w-36 sm:ml-auto" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-3">
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-6 w-1/2" />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <section className="space-y-4 pt-2">
+          <div className="space-y-2 border-b border-outline-variant/30 pb-3">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="h-3 w-full max-w-xl" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Card key={index} variant="elevated" padding="lg" className="space-y-5 bg-white border border-outline-variant/60">
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-9 w-1/2" />
+                <div className="space-y-3">
+                  <Skeleton className="h-3 w-5/6" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </Card>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (userPresentation.showBlockingError) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6">
+        <BillingPageHeader />
+        <Alert
+          variant="error"
+          title="Không thể tải thông tin tài khoản và gói dịch vụ"
+          action={(
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refetchUser()}
+              disabled={fetchingUser}
+              loading={fetchingUser}
+            >
+              Thử tải lại
+            </Button>
+          )}
+        >
+          Chưa thể xác minh gói hiện tại và lịch sử thanh toán. Vui lòng thử lại; thông tin gói sẽ không được hiển thị cho đến khi tải thành công.
+        </Alert>
+        {error && <Alert variant="error" className="shadow-subtle">{error}</Alert>}
       </div>
     );
   }
@@ -208,24 +347,12 @@ export default function BillingPage() {
   const interviewQuotaText = formatFeatureAvailability(interviewFeature, 'phiên');
   const cvAnalysisText = formatFeatureAvailability(cvFeature, 'lần');
   const interviewQuestionLimitText = formatInterviewQuestionLimit(questionLimitFeature);
+  const plansWithPrices = loadedPlans?.filter((plan) => plan.prices[0]) ?? [];
+  const hasNoPlans = loadedPlans?.length === 0;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-primary text-xs font-semibold mb-2">
-            <span className="material-symbols-outlined text-[16px]">credit_card</span>
-            <span>Quản lý tài khoản & Gói dịch vụ</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
-            Gói dịch vụ & Lịch sử thanh toán
-          </h1>
-          <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
-            Theo dõi hạn mức phỏng vấn, thời hạn gói và mở khóa thêm các tính năng phân tích & phỏng vấn AI mạnh mẽ.
-          </p>
-        </div>
-      </div>
+      <BillingPageHeader />
 
       {error && (
         <Alert variant="error" className="shadow-subtle">
@@ -235,6 +362,19 @@ export default function BillingPage() {
 
       {/* Current Entitlement Card */}
       <Card variant="elevated" padding="lg" className="border border-outline-variant/60 shadow-floating space-y-5 bg-white">
+        {userPresentation.showBackgroundError && (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/30 bg-error/5 px-3 py-2 text-xs text-on-surface">
+            <span>Không thể cập nhật thông tin tài khoản. Gói và lịch sử đã tải vẫn được giữ lại.</span>
+            <Button variant="outline" size="sm" onClick={() => void refetchUser()} disabled={fetchingUser} loading={fetchingUser}>
+              Thử lại
+            </Button>
+          </div>
+        )}
+        {userPresentation.showRefreshing && !userPresentation.showBackgroundError && (
+          <p role="status" aria-live="polite" className="text-xs text-on-surface-variant">
+            Đang cập nhật thông tin gói và thanh toán...
+          </p>
+        )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-outline-variant/30">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Gói hiện tại</div>
@@ -288,17 +428,68 @@ export default function BillingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plans.map((plan) => {
-            const price = plan.prices[0];
-            if (!price) return null;
+        {plansPresentation.showBackgroundError && (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/30 bg-error/5 px-3 py-2 text-xs text-on-surface">
+            <span>Không thể cập nhật danh mục gói mới nhất. Các gói đã tải vẫn được giữ lại.</span>
+            <Button variant="outline" size="sm" onClick={() => void refetchPlans()} disabled={fetchingPlans} loading={fetchingPlans}>
+              Thử lại
+            </Button>
+          </div>
+        )}
+        {plansPresentation.showRefreshing && !plansPresentation.showBackgroundError && (
+          <p role="status" aria-live="polite" className="text-xs text-on-surface-variant">
+            Đang cập nhật danh mục gói...
+          </p>
+        )}
 
-            const isCurrentPlan = currentPlanCode === plan.code;
-            const isFree = price.amountMinor === 0;
-            const isHighlighted = plan.isHighlighted;
-            const featureDescriptions = price.features.map(describePlanFeature).filter(Boolean) as string[];
+        {showPlansSkeleton ? (
+          <div role="status" aria-label="Đang tải danh mục gói cước" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Card key={index} variant="elevated" padding="lg" className="space-y-5 bg-white border border-outline-variant/60">
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-9 w-1/2" />
+                <div className="space-y-3">
+                  <Skeleton className="h-3 w-5/6" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </Card>
+            ))}
+          </div>
+        ) : plansPresentation.showBlockingError ? (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-error/30 bg-error/5 p-5 text-sm text-on-surface">
+            <div>
+              <p className="font-semibold">Không thể tải danh mục gói dịch vụ.</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Thông tin gói hiện tại và lịch sử thanh toán vẫn được giữ nguyên.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void refetchPlans()} disabled={fetchingPlans} loading={fetchingPlans}>
+              Thử tải lại
+            </Button>
+          </div>
+        ) : hasNoPlans ? (
+          <div className="text-center py-10 px-4 bg-surface-container-low/40 rounded-2xl border-2 border-dashed border-outline-variant/60 space-y-2">
+            <div className="text-sm font-bold text-on-surface">Hiện chưa có gói dịch vụ khả dụng</div>
+            <p className="text-xs text-on-surface-variant">Danh mục đã tải thành công nhưng chưa có gói nào để lựa chọn.</p>
+          </div>
+        ) : plansWithPrices.length === 0 ? (
+          <div className="text-center py-10 px-4 bg-surface-container-low/40 rounded-2xl border border-outline-variant/40 space-y-2">
+            <div className="text-sm font-bold text-on-surface">Chưa có mức giá khả dụng</div>
+            <p className="text-xs text-on-surface-variant">Các gói dịch vụ hiện có chưa được cấu hình mức giá để thanh toán.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {plansWithPrices.map((plan) => {
+              const price = plan.prices[0];
+              if (!price) return null;
 
-            return (
+              const isCurrentPlan = currentPlanCode === plan.code;
+              const isFree = price.amountMinor === 0;
+              const isHighlighted = plan.isHighlighted;
+              const featureDescriptions = price.features.map(describePlanFeature).filter(Boolean) as string[];
+
+              return (
               <Card
                 key={plan.id}
                 variant="elevated"
@@ -372,9 +563,10 @@ export default function BillingPage() {
                   </Button>
                 </div>
               </Card>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Orders History */}

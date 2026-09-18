@@ -20,11 +20,40 @@ import {
 import { resolveNextBestAction } from '@/services/nextBestAction';
 import { hasAvailableLearningPath } from '@/services/learningPathAvailability';
 import { ApiError } from '@/services/apiClient';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StaggerContainer, StaggerItem } from '@/components/motion/StaggerContainer';
+import { motionTokens } from '@/components/motion/tokens';
+import { getQueryPresentation } from '@/utils/queryPresentation';
+
+function QueryRetryNotice({
+  message,
+  isRetrying,
+  onRetry,
+}: {
+  message: string;
+  isRetrying: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/30 bg-error/5 px-4 py-3 text-xs text-on-surface">
+      <span>{message}</span>
+      <Button variant="outline" size="sm" onClick={onRetry} disabled={isRetrying} loading={isRetrying}>
+        Thử lại
+      </Button>
+    </div>
+  );
+}
 
 export default function OverviewPage() {
   const router = useRouter();
 
-  const { data: dashboardData, isLoading: loadingDashboard } = useDashboardSummary();
+  const {
+    data: dashboardData,
+    isLoading: loadingDashboard,
+    isError: dashboardError,
+    isFetching: refreshingDashboard,
+    refetch: refetchDashboard,
+  } = useDashboardSummary();
   const {
     data: progressData,
     isLoading: loadingProgress,
@@ -32,17 +61,83 @@ export default function OverviewPage() {
     refetch: refetchProgress,
     isFetching: refreshingProgress,
   } = useProgressDashboard();
-  const { data: careerProfile, isLoading: loadingProfile } = useCareerProfile();
-  const { data: learningPathData } = useLearningPath();
-  const { data: recommendationData } = useNextRecommendation();
+  const {
+    data: careerProfile,
+    isLoading: loadingProfile,
+    isError: profileError,
+    isFetching: refreshingProfile,
+    refetch: refetchProfile,
+  } = useCareerProfile();
+  const {
+    data: learningPathData,
+    isLoading: loadingLearningPath,
+    isError: learningPathError,
+    error: learningPathQueryError,
+    isFetching: refreshingLearningPath,
+    refetch: refetchLearningPath,
+  } = useLearningPath();
+  const {
+    data: recommendationData,
+    isLoading: loadingRecommendation,
+    isError: recommendationError,
+    error: recommendationQueryError,
+    isFetching: refreshingRecommendation,
+    refetch: refetchRecommendation,
+  } = useNextRecommendation();
 
   const progressLocked =
     progressError instanceof ApiError &&
     (progressError.code === 'FEATURE_NOT_AVAILABLE' || progressError.status === 403);
-  const progressUnavailable = Boolean(progressError) && !progressLocked;
-  const progressPending =
-    loadingProgress && progressData === undefined && progressError == null;
-  const hasProgressData = progressData !== undefined && progressError == null;
+  const hasProgressData = progressData !== undefined && !progressLocked;
+  const progressUnavailable = Boolean(progressError) && !progressLocked && !hasProgressData;
+  const dashboardPresentation = getQueryPresentation({
+    hasData: dashboardData !== undefined,
+    isLoading: loadingDashboard,
+    isError: dashboardError,
+    isFetching: refreshingDashboard,
+  });
+  const profilePresentation = getQueryPresentation({
+    hasData: careerProfile !== undefined,
+    isLoading: loadingProfile,
+    isError: profileError,
+    isFetching: refreshingProfile,
+  });
+  const progressPresentation = getQueryPresentation({
+    hasData: hasProgressData,
+    isLoading: loadingProgress,
+    isError: Boolean(progressError) && !progressLocked,
+    isFetching: refreshingProgress,
+  });
+  const learningPathPresentation = getQueryPresentation({
+    hasData: learningPathData !== undefined,
+    isLoading: loadingLearningPath,
+    isError: learningPathError,
+    isFetching: refreshingLearningPath,
+  });
+  const recommendationPresentation = getQueryPresentation({
+    hasData: recommendationData !== undefined,
+    isLoading: loadingRecommendation,
+    isError: recommendationError,
+    isFetching: refreshingRecommendation,
+  });
+  const hasProfileData = careerProfile !== undefined;
+  const profilePending = !hasProfileData && !profileError;
+  const progressPending = !hasProgressData && !progressError;
+  const dashboardPending = dashboardPresentation.showInitialLoading ||
+    (dashboardData === undefined && !dashboardError);
+  const learningPathPending = learningPathPresentation.showInitialLoading ||
+    (learningPathData === undefined && !learningPathError);
+  const hasRecommendationResult =
+    recommendationData !== undefined ||
+    (recommendationQueryError instanceof ApiError &&
+      (recommendationQueryError.status === 404 ||
+        recommendationQueryError.code === 'ACTIVE_CAREER_GOAL_REQUIRED' ||
+        recommendationQueryError.code === 'LEARNING_PATH_NOT_FOUND'));
+  const learningPathConfirmedMissing =
+    learningPathQueryError instanceof ApiError &&
+    (learningPathQueryError.status === 404 ||
+      learningPathQueryError.code === 'ACTIVE_CAREER_GOAL_REQUIRED' ||
+      learningPathQueryError.code === 'LEARNING_PATH_NOT_FOUND');
   const hasInsufficientEvidence =
     hasProgressData && progressData.readiness.score === null;
   const activeGoal = careerProfile?.activeCareerGoal;
@@ -55,12 +150,28 @@ export default function OverviewPage() {
     recommendationData ||
     null;
 
-  const nextAction = resolveNextBestAction({
-    recommendation: rec,
-    targetRole: activeGoal?.targetRole,
-    needsFirstEvidence: hasInsufficientEvidence,
-  });
-  const showFirstEvidenceOnboarding = hasInsufficientEvidence && rec === null;
+  const canResolveFallbackAction =
+    hasProfileData &&
+    (!activeGoal || ((hasProgressData || progressLocked) && hasRecommendationResult));
+  const canResolveAction = Boolean(rec) || canResolveFallbackAction;
+  const nextActionPending =
+    !canResolveAction &&
+    (profilePending || progressPending || (!hasRecommendationResult && !recommendationError));
+  const nextAction = canResolveAction
+    ? resolveNextBestAction({
+        recommendation: rec,
+        targetRole: hasProfileData ? activeGoal?.targetRole : undefined,
+        needsFirstEvidence: hasInsufficientEvidence,
+      })
+    : {
+        label: 'Đang xác định bước tiếp theo',
+        description: 'Các đề xuất sẽ hiển thị khi dữ liệu liên quan đã tải xong.',
+        destination: undefined,
+        estimatedMinutes: undefined,
+        activityType: 'unknown',
+      };
+  const showFirstEvidenceOnboarding =
+    canResolveFallbackAction && hasInsufficientEvidence && rec === null;
 
   const availablePath = hasAvailableLearningPath(
     learningPathData,
@@ -102,23 +213,12 @@ export default function OverviewPage() {
     });
   }
 
-  if (loadingDashboard && loadingProgress && loadingProfile) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center text-slate-500">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span>Đang tải dữ liệu tổng quan...</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
       {/* 1. Context first: what should I do next? */}
       <ProductPageHero
         feature="overview"
-        title={`Xin chào, ${careerProfile?.profile?.displayName || 'ứng viên'}!`}
+        title={`Xin chào, ${careerProfile?.profile?.displayName || (hasProfileData ? 'ứng viên' : 'bạn')}!`}
         description={
           hasInsufficientEvidence
             ? 'Chưa đủ dữ liệu để tính chỉ số sẵn sàng. Nexora vẫn giữ các đề xuất khác do máy chủ cung cấp.'
@@ -132,19 +232,52 @@ export default function OverviewPage() {
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
-          <EvidenceCard
-            label="Mục tiêu hiện tại"
-            value={activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Chưa thiết lập mục tiêu'}
-            detail={activeGoal ? (activeGoal.industry || 'Đã có mục tiêu, chưa chốt ngành') : 'Thiết lập để kết quả có bối cảnh'}
-            tone={activeGoal ? 'positive' : 'attention'}
-          />
-          <EvidenceCard
-            label="CV chính"
-            value={primaryResume?.fileName || 'Chưa có CV chính'}
-            detail={primaryResume ? 'Đã sẵn sàng để đối chiếu' : 'Thêm CV khi bạn sẵn sàng'}
-            tone={primaryResume ? 'positive' : 'neutral'}
-          />
+          {profilePending ? (
+            <>
+              <div className="rounded-xl border border-outline-variant/60 bg-white p-4 space-y-2" role="status" aria-label="Đang tải hồ sơ nghề nghiệp">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+              <div className="rounded-xl border border-outline-variant/60 bg-white p-4 space-y-2" aria-hidden="true">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </>
+          ) : hasProfileData ? (
+            <>
+              <EvidenceCard
+                label="Mục tiêu hiện tại"
+                value={activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Chưa thiết lập mục tiêu'}
+                detail={activeGoal ? (activeGoal.industry || 'Đã có mục tiêu, chưa chốt ngành') : 'Thiết lập để kết quả có bối cảnh'}
+                tone={activeGoal ? 'positive' : 'attention'}
+              />
+              <EvidenceCard
+                label="CV chính"
+                value={primaryResume?.fileName || 'Chưa có CV chính'}
+                detail={primaryResume ? 'Đã sẵn sàng để đối chiếu' : 'Thêm CV khi bạn sẵn sàng'}
+                tone={primaryResume ? 'positive' : 'neutral'}
+              />
+            </>
+          ) : (
+            <>
+              <EvidenceCard label="Mục tiêu hiện tại" value="Chưa thể tải hồ sơ" detail="Trạng thái mục tiêu chưa xác định" />
+              <EvidenceCard label="CV chính" value="Chưa thể tải hồ sơ" detail="Trạng thái CV chưa xác định" />
+            </>
+          )}
         </div>
+        {profileError && (
+          <div className="mt-4">
+            <QueryRetryNotice
+              message={profilePresentation.showBackgroundError
+                ? 'Không thể cập nhật hồ sơ nghề nghiệp. Thông tin đã tải vẫn được giữ lại.'
+                : 'Không thể tải hồ sơ nghề nghiệp. Trạng thái mục tiêu và CV hiện chưa xác định.'}
+              isRetrying={refreshingProfile}
+              onRetry={() => void refetchProfile()}
+            />
+          </div>
+        )}
         <div className="flex flex-wrap gap-3 mt-4">
           <Button variant="primary" size="md" onClick={() => nextAction.destination && router.push(nextAction.destination)} disabled={!nextAction.destination}>
             {nextAction.label}
@@ -152,9 +285,9 @@ export default function OverviewPage() {
           <Button
             variant="outline"
             size="md"
-            onClick={() => router.push(primaryResume ? '/career-profile?section=goals' : '/resume-analyses')}
+            onClick={() => router.push(!hasProfileData ? '/career-profile' : primaryResume ? '/career-profile?section=goals' : '/resume-analyses')}
           >
-            {primaryResume ? 'Xem hồ sơ nghề nghiệp' : 'Thiết lập bối cảnh'}
+            {!hasProfileData ? 'Mở hồ sơ nghề nghiệp' : primaryResume ? 'Xem hồ sơ nghề nghiệp' : 'Thiết lập bối cảnh'}
           </Button>
         </div>
       </ProductPageHero>
@@ -184,7 +317,7 @@ export default function OverviewPage() {
       )}
 
       {/* Onboarding Incomplete Reminder Banner (if applicable) */}
-      {onboarding && !onboarding.isComplete && (
+      {hasProfileData && onboarding && !onboarding.isComplete && (
         <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5 text-amber-900">
             <span className="material-symbols-outlined text-[20px] text-amber-700">info</span>
@@ -210,6 +343,17 @@ export default function OverviewPage() {
         {/* QUESTION 4: Tôi nên làm gì tiếp theo? (Spotlight Next Best Action) */}
         <div className="lg:col-span-7 flex flex-col justify-between relative overflow-hidden rounded-2xl bg-white p-6 sm:p-7 border border-outline-variant/60 shadow-card group">
           <div className="relative z-10">
+            {recommendationError && (
+              <div className="mb-4">
+                <QueryRetryNotice
+                  message={recommendationPresentation.showBackgroundError
+                    ? 'Không thể cập nhật đề xuất. Đề xuất đã tải vẫn được giữ lại.'
+                    : 'Không thể tải đề xuất tiếp theo. Nexora chưa tự tạo hành động thay thế.'}
+                  isRetrying={refreshingRecommendation}
+                  onRetry={() => void refetchRecommendation()}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-xs font-semibold uppercase tracking-wider">
                 <span className="material-symbols-outlined text-[16px] text-primary">
@@ -251,7 +395,7 @@ export default function OverviewPage() {
             ) : (
               <div className="space-y-3">
                 <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
-                  {nextAction.label}
+                  {nextActionPending ? <Skeleton className="h-7 w-3/4 max-w-md" /> : nextAction.label}
                 </h3>
                 <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
                   {nextAction.description}
@@ -296,6 +440,16 @@ export default function OverviewPage() {
               </button>
             </div>
 
+            {progressPresentation.showBackgroundError && (
+              <div className="mb-4">
+                <QueryRetryNotice
+                  message="Không thể cập nhật Progress Dashboard. Chỉ số đã tải vẫn được giữ lại."
+                  isRetrying={refreshingProgress}
+                  onRetry={() => void refetchProgress()}
+                />
+              </div>
+            )}
+
             {hasProgressData && progressData.readiness.score != null ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
@@ -333,9 +487,15 @@ export default function OverviewPage() {
                 }
               />
             ) : progressPending ? (
-              <div className="min-h-36 flex items-center justify-center gap-3 text-sm text-on-surface-variant">
-                <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-                <span>Đang tải chỉ số sẵn sàng...</span>
+              <div className="min-h-36 space-y-4 py-2" role="status" aria-label="Đang tải chỉ số sẵn sàng">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-[88px] w-[88px] rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-full max-w-64" />
+                  </div>
+                </div>
+                <Skeleton className="h-16 w-full rounded-lg" />
               </div>
             ) : (
               <MotionEmptyState
@@ -357,8 +517,8 @@ export default function OverviewPage() {
           </div>
 
           <div className="pt-4 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
-            <span>Mục tiêu: {activeGoal?.targetRole || 'Chưa thiết lập'}</span>
-            <span className="font-semibold text-primary">{activeGoal?.industry || 'Chưa chọn ngành'}</span>
+            <span>Mục tiêu: {activeGoal?.targetRole || (hasProfileData ? 'Chưa thiết lập' : 'Chưa thể xác định')}</span>
+            <span className="font-semibold text-primary">{activeGoal?.industry || (hasProfileData ? 'Chưa chọn ngành' : 'Chưa thể xác định')}</span>
           </div>
         </div>
       </div>
@@ -385,8 +545,36 @@ export default function OverviewPage() {
           )}
         </div>
 
-        {recentActivities.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {dashboardPresentation.showBackgroundError && (
+          <QueryRetryNotice
+            message="Không thể cập nhật hoạt động gần đây. Dữ liệu đã tải vẫn được giữ lại."
+            isRetrying={refreshingDashboard}
+            onRetry={() => void refetchDashboard()}
+          />
+        )}
+
+        {dashboardPending ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" role="status" aria-label="Đang tải hoạt động gần đây">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="p-4 rounded-xl bg-white border border-outline-variant/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-7 w-7 rounded-lg" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : dashboardPresentation.showBlockingError ? (
+          <QueryRetryNotice
+            message="Không thể tải hoạt động gần đây. Trạng thái hiện chưa xác định."
+            isRetrying={refreshingDashboard}
+            onRetry={() => void refetchDashboard()}
+          />
+        ) : recentActivities.length > 0 ? (
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" staggerDelay={motionTokens.stagger.fast}>
             {recentActivities.slice(0, 4).map((act) => {
               const iconMap: Record<string, { icon: string; bg: string; text: string }> = {
                 cv_analysis: { icon: 'document_scanner', bg: 'bg-primary-fixed/40', text: 'text-primary' },
@@ -403,11 +591,11 @@ export default function OverviewPage() {
               });
 
               return (
-                <div
-                  key={act.id}
-                  onClick={() => router.push(act.destinationUrl)}
-                  className="p-4 rounded-xl bg-white border border-outline-variant/60 shadow-subtle hover:border-primary hover:shadow-card cursor-pointer transition-all flex flex-col justify-between space-y-3 group"
-                >
+                <StaggerItem key={act.id}>
+                  <div
+                    onClick={() => router.push(act.destinationUrl)}
+                    className="h-full p-4 rounded-xl bg-white border border-outline-variant/60 shadow-subtle hover:border-primary hover:shadow-card cursor-pointer transition-all flex flex-col justify-between space-y-3 group"
+                  >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -449,10 +637,11 @@ export default function OverviewPage() {
                       <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
                     </span>
                   </div>
-                </div>
+                  </div>
+                </StaggerItem>
               );
             })}
-          </div>
+          </StaggerContainer>
         ) : (
           <Card variant="flat" padding="md" className="text-center py-6 border-dashed">
             <div className="w-10 h-10 mx-auto rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-2">
@@ -477,11 +666,11 @@ export default function OverviewPage() {
             <span className="material-symbols-outlined text-primary text-[20px]">badge</span>
           </div>
           <div className="text-sm font-bold text-on-surface">
-            {careerProfile?.profile?.displayName || 'Chưa đặt tên'}
+            {careerProfile?.profile?.displayName || (hasProfileData ? 'Chưa đặt tên' : profilePending ? 'Đang tải hồ sơ...' : 'Chưa thể tải hồ sơ')}
           </div>
           <div className="text-xs text-on-surface-variant space-y-1">
-            <div>Kinh nghiệm: {careerProfile?.profile?.yearsOfExperience != null ? `${careerProfile.profile.yearsOfExperience} năm` : 'Chưa cập nhật'}</div>
-            <div>CV chính: {primaryResume ? primaryResume.fileName : 'Chưa chọn'}</div>
+            <div>Kinh nghiệm: {hasProfileData ? careerProfile.profile?.yearsOfExperience != null ? `${careerProfile.profile.yearsOfExperience} năm` : 'Chưa cập nhật' : profilePending ? 'Đang tải hồ sơ...' : 'Chưa thể xác định'}</div>
+            <div>CV chính: {hasProfileData ? primaryResume ? primaryResume.fileName : 'Chưa chọn' : profilePending ? 'Đang tải hồ sơ...' : 'Chưa thể xác định'}</div>
           </div>
           <button
             onClick={() => router.push('/career-profile')}
@@ -501,11 +690,11 @@ export default function OverviewPage() {
             <span className="material-symbols-outlined text-primary text-[20px]">ads_click</span>
           </div>
           <div className="text-sm font-bold text-on-surface">
-            {activeGoal ? `${activeGoal.targetRole} (${activeGoal.seniority})` : 'Chưa thiết lập'}
+            {activeGoal ? `${activeGoal.targetRole} (${activeGoal.seniority})` : hasProfileData ? 'Chưa thiết lập' : profilePending ? 'Đang tải hồ sơ...' : 'Chưa thể xác định'}
           </div>
           <div className="text-xs text-on-surface-variant space-y-1">
-            <div>Ngành: {activeGoal?.industry || 'Chưa chọn ngành'}</div>
-            <div>Công ty mục tiêu: {activeGoal?.targetCompany || 'Chưa chọn công ty mục tiêu'}</div>
+            <div>Ngành: {activeGoal?.industry || (hasProfileData ? 'Chưa chọn ngành' : profilePending ? 'Đang tải hồ sơ...' : 'Chưa thể xác định')}</div>
+            <div>Công ty mục tiêu: {activeGoal?.targetCompany || (hasProfileData ? 'Chưa chọn công ty mục tiêu' : profilePending ? 'Đang tải hồ sơ...' : 'Chưa thể xác định')}</div>
           </div>
           <button
             onClick={() => router.push('/career-profile?section=goals')}
@@ -524,23 +713,66 @@ export default function OverviewPage() {
             </span>
             <span className="material-symbols-outlined text-primary text-[20px]">route</span>
           </div>
-          <div className="text-sm font-bold text-on-surface">
-            {!availablePath
-              ? 'Chưa đủ dữ liệu để tạo lộ trình'
-              : `Hoàn thành ${availablePath.progress.completedActivityCount}/${availablePath.progress.totalActivityCount} hoạt động (${availablePath.progress.percentage}%)`}
-          </div>
-          <div className="text-xs text-on-surface-variant">
-            {!availablePath
-              ? 'Thiết lập mục tiêu và thêm bằng chứng từ CV hoặc hoạt động luyện tập.'
-              : nextMilestone
-              ? `Cột mốc tiếp theo: ${nextMilestone.title}`
-              : 'Chưa có cột mốc tiếp theo.'}
-          </div>
+          {learningPathError && learningPathData !== undefined && (
+            <QueryRetryNotice
+              message="Không thể cập nhật lộ trình. Dữ liệu đã tải vẫn được giữ lại."
+              isRetrying={refreshingLearningPath}
+              onRetry={() => void refetchLearningPath()}
+            />
+          )}
+          {learningPathError && learningPathData === undefined && !learningPathConfirmedMissing && (
+            <QueryRetryNotice
+              message="Không thể tải lộ trình học tập. Các phần khác của tổng quan vẫn khả dụng."
+              isRetrying={refreshingLearningPath}
+              onRetry={() => void refetchLearningPath()}
+            />
+          )}
+          {learningPathPending ? (
+            <div role="status" aria-label="Đang tải lộ trình học tập" className="space-y-2">
+              <Skeleton className="h-5 w-4/5" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          ) : (
+            <>
+              <div className="text-sm font-bold text-on-surface">
+                {availablePath
+                  ? `Hoàn thành ${availablePath.progress.completedActivityCount}/${availablePath.progress.totalActivityCount} hoạt động (${availablePath.progress.percentage}%)`
+                  : !hasProfileData
+                    ? profilePending ? 'Đang chờ dữ liệu hồ sơ nghề nghiệp' : 'Chưa thể xác định lộ trình'
+                    : !activeGoal
+                      ? 'Chưa thiết lập mục tiêu nghề nghiệp'
+                      : learningPathConfirmedMissing
+                        ? 'Chưa có lộ trình học tập'
+                        : learningPathError
+                          ? 'Không thể tải lộ trình lúc này'
+                          : learningPathData
+                            ? 'Lộ trình chưa có hoạt động khả dụng'
+                            : 'Đang chờ dữ liệu lộ trình'}
+              </div>
+              <div className="text-xs text-on-surface-variant">
+                {availablePath
+                  ? nextMilestone
+                    ? `Cột mốc tiếp theo: ${nextMilestone.title}`
+                    : 'Chưa có cột mốc tiếp theo.'
+                  : !hasProfileData
+                    ? 'Thông tin mục tiêu chưa được xác nhận.'
+                    : !activeGoal
+                      ? 'Thiết lập mục tiêu nghề nghiệp để có bối cảnh cho lộ trình.'
+                      : learningPathConfirmedMissing
+                        ? 'Khi có lộ trình, tiến độ và cột mốc sẽ hiển thị tại đây.'
+                        : learningPathError
+                          ? 'Thông tin lộ trình hiện chưa xác định; hãy thử tải lại.'
+                          : learningPathData
+                            ? 'Dữ liệu hiện tại chưa có hoạt động để hiển thị tiến độ.'
+                            : 'Đang chờ dữ liệu lộ trình học tập.'}
+              </div>
+            </>
+          )}
           <button
-            onClick={() => router.push(availablePath ? '/learning-path' : '/resume-analyses')}
+            onClick={() => router.push(availablePath ? '/learning-path' : hasProfileData && !activeGoal ? '/career-profile?section=goals' : '/learning-path')}
             className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
           >
-            {availablePath ? 'Mở lộ trình chi tiết' : 'Thiết lập mục tiêu & CV'}
+            {availablePath ? 'Mở lộ trình chi tiết' : hasProfileData && !activeGoal ? 'Thiết lập mục tiêu' : 'Kiểm tra lộ trình'}
             <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
           </button>
         </Card>
