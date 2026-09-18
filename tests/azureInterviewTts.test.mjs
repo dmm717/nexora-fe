@@ -84,7 +84,10 @@ function createFakeSdk() {
     onAudioStart = () => undefined;
     onAudioEnd = () => undefined;
     pauseCount = 0;
+    resumeCount = 0;
     closeCount = 0;
+    resumeBehavior = 'pending';
+    resumeError = new Error('NotAllowedError: blocked by autoplay policy');
 
     constructor() {
       calls.speakers.push(this);
@@ -92,6 +95,12 @@ function createFakeSdk() {
 
     pause() {
       this.pauseCount += 1;
+    }
+
+    resume(success, error) {
+      this.resumeCount += 1;
+      if (this.resumeBehavior === 'resolve') success?.();
+      if (this.resumeBehavior === 'reject') error?.(this.resumeError);
     }
 
     close() {
@@ -131,7 +140,14 @@ function createFakeSdk() {
   const sdk = {
     AudioConfig: {
       fromSpeakerOutput(speaker) {
-        const config = { speaker, closeCount: 0, close() { this.closeCount += 1; } };
+        const config = {
+          speaker,
+          closeCount: 0,
+          close() {
+            this.closeCount += 1;
+            speaker.close();
+          },
+        };
         calls.audioConfigs.push(config);
         return config;
       },
@@ -164,6 +180,8 @@ function makeController(overrides = {}) {
   });
   return { ...fake, controller, states };
 }
+
+const flushDeferredPlayback = () => new Promise((resolve) => setImmediate(resolve));
 
 test('uses the exact product-selected voice and the authenticated token endpoint', () => {
   assert.match(voiceConfigSource, /voiceName:\s*'de-DE-Seraphina:DragonHDLatestNeural'/);
@@ -203,6 +221,8 @@ test('loads the official SDK lazily and makes one whole-question synthesis reque
   const speaker = fake.calls.speakers[0];
   speaker.onAudioStart(speaker);
   assert.equal(states.at(-1).status, 'loading', 'SDK setup is not mistaken for audible playback');
+  await flushDeferredPlayback();
+  assert.equal(speaker.resumeCount, 1, 'the deferred resume owns the play Promise');
   speaker.internalAudio.emit('playing');
   assert.equal(states.at(-1).status, 'speaking');
 
@@ -264,6 +284,7 @@ test('stop invalidates late playback callbacks and pauses the actual destination
   const speaker = calls.speakers[0];
   speaker.onAudioStart(speaker);
   await controller.stop();
+  assert.equal(speaker.resumeCount, 0, 'stop invalidates deferred playback before resume');
   speaker.internalAudio.emit('playing');
   speaker.onAudioEnd(speaker);
 
@@ -280,13 +301,79 @@ test('a second replay releases the previous player and ignores its callbacks', a
   firstSpeaker.onAudioStart(firstSpeaker);
 
   await controller.speak('Câu hỏi hai');
+  assert.equal(firstSpeaker.resumeCount, 0, 'the replaced question cannot resume stale audio');
   firstSpeaker.internalAudio.emit('playing');
 
   assert.equal(calls.synthesizers.length, 2);
   assert.equal(calls.synthesizers[0].requests[0].text, 'Câu hỏi một');
   assert.equal(calls.synthesizers[1].requests[0].text, 'Câu hỏi hai');
-  assert.equal(firstSpeaker.pauseCount, 1);
+  assert.equal(firstSpeaker.pauseCount, 2, 'playback interception and resource cleanup both pause it');
+  assert.equal(firstSpeaker.closeCount, 1);
+  assert.equal(calls.audioConfigs[0].closeCount, 1);
   assert.equal(states.at(-1).status, 'loading');
+});
+
+test('autoplay rejection reaches safe error and an explicit manual retry succeeds', async () => {
+  const { calls, controller, states } = makeController();
+  await controller.speak('Câu hỏi tự động đọc');
+
+  const blockedSpeaker = calls.speakers[0];
+  blockedSpeaker.resumeBehavior = 'reject';
+  blockedSpeaker.resumeError = new Error('NotAllowedError: SECRET provider details');
+  blockedSpeaker.onAudioStart(blockedSpeaker);
+  await flushDeferredPlayback();
+
+  assert.deepEqual(states.map((state) => state.status), ['loading', 'error']);
+  assert.equal(blockedSpeaker.resumeCount, 1);
+  assert.equal(blockedSpeaker.closeCount, 1);
+  assert.equal(calls.synthesizers[0].closeCount, 1);
+  assert.equal(calls.audioConfigs[0].closeCount, 1);
+  assert.equal(states.at(-1).error, getAzureSpeechErrorMessage(blockedSpeaker.resumeError));
+  assert.match(states.at(-1).error, /tạm thời không khả dụng/i);
+  assert.doesNotMatch(states.at(-1).error, /SECRET|NotAllowedError|provider details/i);
+
+  // QuestionSpeaker's error-state button calls speak() only after explicit user input.
+  await controller.speak('Câu hỏi được thử lại thủ công');
+  const retrySpeaker = calls.speakers[1];
+  retrySpeaker.resumeBehavior = 'resolve';
+  retrySpeaker.onAudioStart(retrySpeaker);
+  await flushDeferredPlayback();
+
+  assert.equal(retrySpeaker.resumeCount, 1);
+  assert.equal(states.at(-1).status, 'speaking');
+  retrySpeaker.internalAudio.emit('ended');
+  assert.equal(states.at(-1).status, 'idle');
+});
+
+test('question change before deferred resume cannot start the old question audio', async () => {
+  const { calls, controller } = makeController();
+  await controller.speak('Câu hỏi cũ');
+  const oldSpeaker = calls.speakers[0];
+  oldSpeaker.onAudioStart(oldSpeaker);
+
+  await controller.speak('Câu hỏi mới');
+
+  assert.equal(oldSpeaker.resumeCount, 0);
+  assert.equal(oldSpeaker.closeCount, 1);
+  assert.equal(calls.speakers.length, 2);
+  await controller.stop();
+});
+
+test('unmount stop before deferred resume prevents playback', async () => {
+  const { calls, controller, states } = makeController();
+  await controller.speak('Question before unmount');
+  const speaker = calls.speakers[0];
+  speaker.onAudioStart(speaker);
+
+  // The synthesis hook's unmount cleanup uses this generation-invalidating stop.
+  await controller.stop();
+  await flushDeferredPlayback();
+
+  assert.equal(speaker.resumeCount, 0);
+  assert.equal(speaker.closeCount, 1);
+  assert.equal(calls.synthesizers[0].closeCount, 1);
+  assert.equal(calls.audioConfigs[0].closeCount, 1);
+  assert.equal(states.some((state) => state.status === 'speaking'), false);
 });
 
 test('provider errors stay concise and never expose raw SDK diagnostics', () => {

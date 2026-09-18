@@ -208,6 +208,22 @@ export function createAzureSpeechPlaybackController({
         audioElement.addEventListener('playing', resources.audioPlaying);
         audioElement.addEventListener('ended', resources.audioEnded);
         audioElement.addEventListener('error', resources.audioError);
+
+        // SDK 1.51.0 calls onAudioStart before its own audio.play(). Pause here
+        // so notifyPlayback skips that unobserved call, then resume after this
+        // callback returns; resume exposes the actual play Promise rejection.
+        speaker.pause();
+        queueMicrotask(() => {
+          if (!isCurrent(attempt)) return;
+          try {
+            speaker.resume(
+              resources.audioPlaying,
+              (playbackError) => fail(attempt, playbackError)
+            );
+          } catch (playbackError) {
+            fail(attempt, playbackError);
+          }
+        });
       };
       speaker.onAudioEnd = resources.audioEnded;
       // SDK onAudioStart fires before HTMLMediaElement.play() succeeds. Actual
