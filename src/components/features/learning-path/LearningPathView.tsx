@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { AnimatedProgressBar } from '@/components/motion/AnimatedProgressBar';
 import { StaggerContainer, StaggerItem } from '@/components/motion';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { getQueryPresentation } from '@/utils/queryPresentation';
+import { getLearningPathPresentation } from '@/utils/queryPresentation';
 import {
   useLearningPath,
   useGenerateLearningPath,
@@ -28,7 +28,7 @@ import { ApiError } from '@/services/apiClient';
 export default function LearningPathView() {
   const router = useRouter();
   const {
-    data: path,
+    data: fetchedPath,
     isLoading,
     isError,
     error,
@@ -42,14 +42,15 @@ export default function LearningPathView() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const apiError = error instanceof ApiError ? error : null;
-  const isNoGoal = apiError?.code === 'ACTIVE_CAREER_GOAL_REQUIRED';
-  const isNotCreated = apiError?.code === 'LEARNING_PATH_NOT_FOUND' || apiError?.status === 404;
-  const queryPresentation = getQueryPresentation({
-    hasData: path !== undefined,
+  const queryPresentation = getLearningPathPresentation({
+    data: fetchedPath,
+    errorCode: apiError?.code,
+    errorStatus: apiError?.status,
     isLoading,
     isError,
     isFetching,
   });
+  const path = queryPresentation.data;
 
   const handleGenerate = async () => {
     setActionError(null);
@@ -125,7 +126,7 @@ export default function LearningPathView() {
     );
   }
 
-  if (!path && isNoGoal) {
+  if (queryPresentation.domainState === 'no_goal') {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
         <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">
@@ -146,7 +147,7 @@ export default function LearningPathView() {
     );
   }
 
-  if (!path && isNotCreated) {
+  if (queryPresentation.domainState === 'not_created') {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
         <Card variant="elevated" padding="lg" className="space-y-5 text-center py-12">

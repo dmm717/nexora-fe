@@ -23,7 +23,7 @@ import { ApiError } from '@/services/apiClient';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/motion/StaggerContainer';
 import { motionTokens } from '@/components/motion/tokens';
-import { getQueryPresentation } from '@/utils/queryPresentation';
+import { getLearningPathPresentation, getQueryPresentation } from '@/utils/queryPresentation';
 
 function QueryRetryNotice({
   message,
@@ -108,8 +108,11 @@ export default function OverviewPage() {
     isError: Boolean(progressError) && !progressLocked,
     isFetching: refreshingProgress,
   });
-  const learningPathPresentation = getQueryPresentation({
-    hasData: learningPathData !== undefined,
+  const learningPathApiError = learningPathQueryError instanceof ApiError ? learningPathQueryError : null;
+  const learningPathPresentation = getLearningPathPresentation({
+    data: learningPathData,
+    errorCode: learningPathApiError?.code,
+    errorStatus: learningPathApiError?.status,
     isLoading: loadingLearningPath,
     isError: learningPathError,
     isFetching: refreshingLearningPath,
@@ -125,19 +128,17 @@ export default function OverviewPage() {
   const progressPending = !hasProgressData && !progressError;
   const dashboardPending = dashboardPresentation.showInitialLoading ||
     (dashboardData === undefined && !dashboardError);
+  const learningPathDataForDisplay = learningPathPresentation.data;
   const learningPathPending = learningPathPresentation.showInitialLoading ||
-    (learningPathData === undefined && !learningPathError);
+    (learningPathDataForDisplay === undefined && !learningPathError);
   const hasRecommendationResult =
     recommendationData !== undefined ||
     (recommendationQueryError instanceof ApiError &&
       (recommendationQueryError.status === 404 ||
         recommendationQueryError.code === 'ACTIVE_CAREER_GOAL_REQUIRED' ||
         recommendationQueryError.code === 'LEARNING_PATH_NOT_FOUND'));
-  const learningPathConfirmedMissing =
-    learningPathQueryError instanceof ApiError &&
-    (learningPathQueryError.status === 404 ||
-      learningPathQueryError.code === 'ACTIVE_CAREER_GOAL_REQUIRED' ||
-      learningPathQueryError.code === 'LEARNING_PATH_NOT_FOUND');
+  const learningPathNoGoal = learningPathPresentation.domainState === 'no_goal';
+  const learningPathNotCreated = learningPathPresentation.domainState === 'not_created';
   const hasInsufficientEvidence =
     hasProgressData && progressData.readiness.score === null;
   const activeGoal = careerProfile?.activeCareerGoal;
@@ -174,16 +175,49 @@ export default function OverviewPage() {
     canResolveFallbackAction && hasInsufficientEvidence && rec === null;
 
   const availablePath = hasAvailableLearningPath(
-    learningPathData,
+    learningPathDataForDisplay,
     careerProfile,
     progressData
   )
-    ? learningPathData
+    ? learningPathDataForDisplay
     : null;
 
   const nextMilestone = availablePath?.milestones?.find(
     (milestone) => (milestone.status as string) === 'in_progress' || (milestone.status as string) === 'pending'
   );
+  const learningPathSummary = availablePath
+    ? `Hoàn thành ${availablePath.progress.completedActivityCount}/${availablePath.progress.totalActivityCount} hoạt động (${availablePath.progress.percentage}%)`
+    : learningPathNoGoal
+      ? 'Chưa thiết lập mục tiêu nghề nghiệp'
+      : learningPathNotCreated
+        ? 'Chưa có lộ trình học tập'
+        : !hasProfileData
+          ? profilePending ? 'Đang chờ dữ liệu hồ sơ nghề nghiệp' : 'Chưa thể xác định lộ trình'
+          : !activeGoal
+            ? 'Chưa thiết lập mục tiêu nghề nghiệp'
+            : learningPathPresentation.showBlockingError
+              ? 'Không thể tải lộ trình lúc này'
+              : learningPathDataForDisplay
+                ? 'Lộ trình chưa có hoạt động khả dụng'
+                : 'Đang chờ dữ liệu lộ trình';
+  const learningPathDetail = availablePath
+    ? nextMilestone
+      ? `Cột mốc tiếp theo: ${nextMilestone.title}`
+      : 'Chưa có cột mốc tiếp theo.'
+    : learningPathNoGoal
+      ? 'Thiết lập mục tiêu nghề nghiệp để có bối cảnh cho lộ trình.'
+      : learningPathNotCreated
+        ? 'Khi có lộ trình, tiến độ và cột mốc sẽ hiển thị tại đây.'
+        : !hasProfileData
+          ? 'Thông tin mục tiêu chưa được xác nhận.'
+          : !activeGoal
+            ? 'Thiết lập mục tiêu nghề nghiệp để có bối cảnh cho lộ trình.'
+            : learningPathPresentation.showBlockingError
+              ? 'Thông tin lộ trình hiện chưa xác định; hãy thử tải lại.'
+              : learningPathDataForDisplay
+                ? 'Dữ liệu hiện tại chưa có hoạt động để hiển thị tiến độ.'
+                : 'Đang chờ dữ liệu lộ trình học tập.';
+  const shouldSetupGoal = learningPathNoGoal || (hasProfileData && !activeGoal);
 
   // Derive real recent activities
   const recentActivities: Array<{
@@ -713,14 +747,14 @@ export default function OverviewPage() {
             </span>
             <span className="material-symbols-outlined text-primary text-[20px]">route</span>
           </div>
-          {learningPathError && learningPathData !== undefined && (
+          {learningPathPresentation.showBackgroundError && (
             <QueryRetryNotice
               message="Không thể cập nhật lộ trình. Dữ liệu đã tải vẫn được giữ lại."
               isRetrying={refreshingLearningPath}
               onRetry={() => void refetchLearningPath()}
             />
           )}
-          {learningPathError && learningPathData === undefined && !learningPathConfirmedMissing && (
+          {learningPathPresentation.showBlockingError && (
             <QueryRetryNotice
               message="Không thể tải lộ trình học tập. Các phần khác của tổng quan vẫn khả dụng."
               isRetrying={refreshingLearningPath}
@@ -734,45 +768,25 @@ export default function OverviewPage() {
             </div>
           ) : (
             <>
-              <div className="text-sm font-bold text-on-surface">
-                {availablePath
-                  ? `Hoàn thành ${availablePath.progress.completedActivityCount}/${availablePath.progress.totalActivityCount} hoạt động (${availablePath.progress.percentage}%)`
-                  : !hasProfileData
-                    ? profilePending ? 'Đang chờ dữ liệu hồ sơ nghề nghiệp' : 'Chưa thể xác định lộ trình'
-                    : !activeGoal
-                      ? 'Chưa thiết lập mục tiêu nghề nghiệp'
-                      : learningPathConfirmedMissing
-                        ? 'Chưa có lộ trình học tập'
-                        : learningPathError
-                          ? 'Không thể tải lộ trình lúc này'
-                          : learningPathData
-                            ? 'Lộ trình chưa có hoạt động khả dụng'
-                            : 'Đang chờ dữ liệu lộ trình'}
-              </div>
-              <div className="text-xs text-on-surface-variant">
-                {availablePath
-                  ? nextMilestone
-                    ? `Cột mốc tiếp theo: ${nextMilestone.title}`
-                    : 'Chưa có cột mốc tiếp theo.'
-                  : !hasProfileData
-                    ? 'Thông tin mục tiêu chưa được xác nhận.'
-                    : !activeGoal
-                      ? 'Thiết lập mục tiêu nghề nghiệp để có bối cảnh cho lộ trình.'
-                      : learningPathConfirmedMissing
-                        ? 'Khi có lộ trình, tiến độ và cột mốc sẽ hiển thị tại đây.'
-                        : learningPathError
-                          ? 'Thông tin lộ trình hiện chưa xác định; hãy thử tải lại.'
-                          : learningPathData
-                            ? 'Dữ liệu hiện tại chưa có hoạt động để hiển thị tiến độ.'
-                            : 'Đang chờ dữ liệu lộ trình học tập.'}
-              </div>
+              <div className="text-sm font-bold text-on-surface">{learningPathSummary}</div>
+              <div className="text-xs text-on-surface-variant">{learningPathDetail}</div>
             </>
           )}
           <button
-            onClick={() => router.push(availablePath ? '/learning-path' : hasProfileData && !activeGoal ? '/career-profile?section=goals' : '/learning-path')}
+            onClick={() => router.push(
+              availablePath
+                ? '/learning-path'
+                : shouldSetupGoal
+                  ? '/career-profile?section=goals'
+                  : '/learning-path'
+            )}
             className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
           >
-            {availablePath ? 'Mở lộ trình chi tiết' : hasProfileData && !activeGoal ? 'Thiết lập mục tiêu' : 'Kiểm tra lộ trình'}
+            {availablePath
+              ? 'Mở lộ trình chi tiết'
+              : shouldSetupGoal
+                ? 'Thiết lập mục tiêu'
+                : 'Kiểm tra lộ trình'}
             <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
           </button>
         </Card>

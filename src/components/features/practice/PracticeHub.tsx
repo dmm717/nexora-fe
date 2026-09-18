@@ -16,6 +16,8 @@ import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
 import { useLearningPath } from '@/hooks/queries/useLearningPath';
 import { resolveNextBestAction } from '@/services/nextBestAction';
 import { hasAvailableLearningPath } from '@/services/learningPathAvailability';
+import { ApiError } from '@/services/apiClient';
+import { getLearningPathPresentation } from '@/utils/queryPresentation';
 
 type PracticeFeatureState = 'enabled' | 'locked' | 'unknown';
 
@@ -45,7 +47,24 @@ export default function PracticeHub() {
   const { data: careerProfile } = useCareerProfile();
   const { data: recommendation } = useNextRecommendation();
   const { data: progress } = useProgressDashboard();
-  const { data: learningPath } = useLearningPath();
+  const {
+    data: fetchedLearningPath,
+    isLoading: loadingLearningPath,
+    isError: isLearningPathError,
+    error: learningPathError,
+    isFetching: refreshingLearningPath,
+    refetch: refetchLearningPath,
+  } = useLearningPath();
+  const learningPathApiError = learningPathError instanceof ApiError ? learningPathError : null;
+  const learningPathPresentation = getLearningPathPresentation({
+    data: fetchedLearningPath,
+    errorCode: learningPathApiError?.code,
+    errorStatus: learningPathApiError?.status,
+    isLoading: loadingLearningPath,
+    isError: isLearningPathError,
+    isFetching: refreshingLearningPath,
+  });
+  const learningPath = learningPathPresentation.data;
 
   const [historyFilter, setHistoryFilter] = useState<'all' | 'interview' | 'scenario' | 'star'>('all');
   const historyLoading = interviews.isLoading || scenarios.isLoading || stars.isLoading;
@@ -64,6 +83,24 @@ export default function PracticeHub() {
 
   // Check learning path availability
   const hasLearningPath = hasAvailableLearningPath(learningPath ?? null, careerProfile, progress);
+  const learningPathNeedsGoal = learningPathPresentation.domainState === 'no_goal';
+  const learningPathNotCreated = learningPathPresentation.domainState === 'not_created';
+  const learningPathCtaHref = hasLearningPath
+    ? '/learning-path'
+    : learningPathNeedsGoal
+      ? '/career-profile?section=goals'
+      : learningPathNotCreated || learningPathPresentation.showBlockingError
+        ? '/learning-path'
+        : '/resume-analyses';
+  const learningPathCtaLabel = hasLearningPath
+    ? 'Khám phá lộ trình'
+    : learningPathNeedsGoal
+      ? 'Thiết lập mục tiêu'
+      : learningPathNotCreated
+        ? 'Tạo lộ trình học'
+        : learningPathPresentation.showBlockingError
+          ? 'Kiểm tra lộ trình'
+          : 'Thiết lập mục tiêu & CV';
 
   // Unified practice history
   const allPracticeHistory = useMemo(() => {
@@ -357,6 +394,19 @@ export default function PracticeHub() {
 
       {/* Learning Path Banner */}
       <Card variant="elevated" padding="lg" className="bg-surface-container-low border-primary/20">
+        {learningPathPresentation.showBackgroundError && (
+          <p role="alert" className="mb-4 rounded-lg bg-amber-50/80 border border-amber-300/80 px-3 py-2 text-xs text-amber-950">
+            Không thể cập nhật lộ trình. Dữ liệu đã tải trước đó vẫn được giữ.
+          </p>
+        )}
+        {learningPathPresentation.showBlockingError && (
+          <div role="alert" className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-amber-50/80 border border-amber-300/80 px-3 py-2 text-xs text-amber-950">
+            <span>Không thể tải lộ trình lúc này; hãy thử lại để xác nhận trạng thái.</span>
+            <Button variant="outline" size="sm" onClick={() => void refetchLearningPath()} disabled={refreshingLearningPath}>
+              {refreshingLearningPath ? 'Đang thử lại...' : 'Thử lại'}
+            </Button>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-white text-2xl font-bold shadow-md flex-shrink-0">
@@ -367,7 +417,11 @@ export default function PracticeHub() {
                 <h3 className="font-bold text-base text-on-surface">
                   {hasLearningPath
                     ? 'Lộ trình học tập & phát triển cá nhân'
-                    : 'Chưa có lộ trình cá nhân hóa'}
+                    : learningPathNeedsGoal
+                      ? 'Chưa thiết lập mục tiêu nghề nghiệp'
+                      : learningPathPresentation.showBlockingError
+                        ? 'Chưa thể tải lộ trình lúc này'
+                        : 'Chưa có lộ trình cá nhân hóa'}
                 </h3>
                 {hasLearningPath && learningPath?.progress && (
                   <Badge variant="primary" size="sm">
@@ -380,6 +434,12 @@ export default function PracticeHub() {
                   <>
                     Đã hoàn thành {learningPath?.progress?.completedActivityCount ?? 0}/{learningPath?.progress?.totalActivityCount ?? 0} hoạt động được cá nhân hóa cho bạn.
                   </>
+                ) : learningPathNeedsGoal ? (
+                  'Thiết lập mục tiêu nghề nghiệp để Nexora có bối cảnh xây dựng lộ trình.'
+                ) : learningPathNotCreated ? (
+                  'Tạo lộ trình học tập để xem các cột mốc và hoạt động được cá nhân hóa.'
+                ) : learningPathPresentation.showBlockingError ? (
+                  'Trạng thái lộ trình hiện chưa xác định; các hoạt động luyện tập khác vẫn khả dụng.'
                 ) : (
                   'Thiết lập mục tiêu và thêm bằng chứng từ CV hoặc hoạt động luyện tập để Nexora có thể đề xuất lộ trình cá nhân hóa.'
                 )}
@@ -390,12 +450,12 @@ export default function PracticeHub() {
           <Button
             variant="primary"
             size="md"
-            onClick={() => router.push(hasLearningPath ? '/learning-path' : '/resume-analyses')}
+            onClick={() => router.push(learningPathCtaHref)}
             className="w-full sm:w-auto flex-shrink-0"
             icon={<span className="material-symbols-outlined text-[18px]">map</span>}
             iconPosition="right"
           >
-            {hasLearningPath ? 'Khám phá lộ trình' : 'Thiết lập mục tiêu & CV'}
+            {learningPathCtaLabel}
           </Button>
         </div>
       </Card>

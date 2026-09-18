@@ -15,13 +15,17 @@ import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
 import { getRecommendationDeepLink } from '@/services/recommendationContract';
 import { ApiError } from '@/services/apiClient';
 import { ClientDate } from '@/components/ui/ClientDate';
-import { getQueryPresentation } from '@/utils/queryPresentation';
+import {
+  getProgressDashboardPresentation,
+  getQueryPresentation,
+  isProgressDashboardFeatureLocked,
+} from '@/utils/queryPresentation';
 import { motionTokens } from '@/components/motion/tokens';
 
 export default function AnalyticsPage() {
   const router = useRouter();
   const {
-    data: progress,
+    data: queriedProgress,
     isLoading: loadingProgress,
     isError: isProgressError,
     error: progressError,
@@ -45,14 +49,15 @@ export default function AnalyticsPage() {
   } = useSkillProfile();
 
   const progressLocked =
-    progressError instanceof ApiError &&
-    (progressError.code === 'FEATURE_NOT_AVAILABLE' || progressError.status === 403);
-  const progressPresentation = getQueryPresentation({
-    hasData: progress !== undefined && !progressLocked,
+    progressError instanceof ApiError && isProgressDashboardFeatureLocked(progressError);
+  const progressPresentation = getProgressDashboardPresentation({
+    hasData: queriedProgress !== undefined,
     isLoading: loadingProgress,
-    isError: isProgressError && !progressLocked,
+    isError: isProgressError,
     isFetching: refreshingProgress,
+    featureLocked: progressLocked,
   });
+  const progress = progressPresentation.hasData ? queriedProgress : undefined;
   const profilePresentation = getQueryPresentation({
     hasData: careerProfile !== undefined,
     isLoading: loadingProfile,
@@ -99,8 +104,8 @@ export default function AnalyticsPage() {
     : activeGoal
       ? `${activeGoal.targetRole} · ${activeGoal.seniority}${activeGoal.industry ? ` (${activeGoal.industry})` : ' (Chưa xác định lĩnh vực)'}`
       : 'Chưa thiết lập';
-  const progressUnavailable = Boolean(progressError) && !progressLocked;
-  const hasProgressData = progress !== undefined && !progressLocked;
+  const progressUnavailable = progressPresentation.showBlockingError;
+  const hasProgressData = progress !== undefined;
   const hasCompetencyData =
     skillProfile?.competencies !== undefined ||
     careerProfile?.skillProfileSummary?.topCompetencies !== undefined;
@@ -225,14 +230,16 @@ export default function AnalyticsPage() {
         <p role="status" className="text-xs text-on-surface-variant">Đang cập nhật chỉ số tiến độ...</p>
       )}
 
-      {(progressLocked || progressUnavailable) && (
+      {(progressLocked || progressUnavailable || progressPresentation.showBackgroundError) && (
         <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
           <span>
             {progressLocked
               ? 'Gói hiện tại chưa hỗ trợ Progress Dashboard. Các chỉ số sẵn sàng và hoạt động tuần không khả dụng.'
-              : 'Không thể tải Progress Dashboard. Dữ liệu lịch sử khác không được dùng thay cho các chỉ số này.'}
+              : progressPresentation.showBackgroundError
+                ? 'Không thể cập nhật Progress Dashboard. Dữ liệu đã tải trước đó vẫn được giữ.'
+                : 'Không thể tải Progress Dashboard. Dữ liệu lịch sử khác không được dùng thay cho các chỉ số này.'}
           </span>
-          {progressUnavailable && (
+          {(progressUnavailable || progressPresentation.showBackgroundError) && (
             <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
               {refreshingProgress ? 'Đang thử lại...' : 'Thử lại'}
             </Button>

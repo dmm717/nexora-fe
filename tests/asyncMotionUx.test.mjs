@@ -17,6 +17,9 @@ const queryPresentationModule = await import(
   `data:text/javascript;base64,${Buffer.from(queryPresentationJs).toString('base64')}`
 );
 const getQueryPresentation = queryPresentationModule.getQueryPresentation;
+const getLearningPathPresentation = queryPresentationModule.getLearningPathPresentation;
+const getProgressDashboardPresentation = queryPresentationModule.getProgressDashboardPresentation;
+const isProgressDashboardFeatureLocked = queryPresentationModule.isProgressDashboardFeatureLocked;
 
 test('query presentation distinguishes initial loading from loaded empty data', () => {
   assert.deepEqual(
@@ -99,13 +102,117 @@ test('history errors cannot fall through to confirmed-empty presentation', async
   assert.match(jobDescriptions, /showBackgroundError/);
 });
 
-test('learning path retains deterministic domain states without dropping cached content', async () => {
-  const learningPath = await source('src/components/features/learning-path/LearningPathView.tsx');
+test('learning path deterministic responses override cached data while transient errors preserve it', async () => {
+  const cachedPath = { id: 'cached-path' };
+  const noGoal = getLearningPathPresentation({
+    data: cachedPath,
+    errorCode: 'ACTIVE_CAREER_GOAL_REQUIRED',
+    errorStatus: 404,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+  });
+  assert.equal(noGoal.domainState, 'no_goal');
+  assert.equal(noGoal.data, undefined);
+  assert.equal(noGoal.showBackgroundError, false);
+  assert.equal(noGoal.showBlockingError, false);
 
-  assert.doesNotMatch(learningPath, /if\s*\(\s*error\s*\|\|\s*!path\s*\)/);
-  assert.match(learningPath, /ACTIVE_CAREER_GOAL_REQUIRED/);
-  assert.match(learningPath, /LEARNING_PATH_NOT_FOUND/);
-  assert.match(learningPath, /showBackgroundError/);
+  const notCreated = getLearningPathPresentation({
+    data: cachedPath,
+    errorCode: 'LEARNING_PATH_NOT_FOUND',
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+  });
+  assert.equal(notCreated.domainState, 'not_created');
+  assert.equal(notCreated.data, undefined);
+
+  const notCreatedByStatus = getLearningPathPresentation({
+    data: cachedPath,
+    errorStatus: 404,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+  });
+  assert.equal(notCreatedByStatus.domainState, 'not_created');
+  assert.equal(notCreatedByStatus.data, undefined);
+
+  const transientWithCache = getLearningPathPresentation({
+    data: cachedPath,
+    errorStatus: 503,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+  });
+  assert.equal(transientWithCache.domainState, 'normal');
+  assert.equal(transientWithCache.data, cachedPath);
+  assert.equal(transientWithCache.showBackgroundError, true);
+  assert.equal(transientWithCache.showBlockingError, false);
+
+  const transientWithoutCache = getLearningPathPresentation({
+    data: undefined,
+    errorStatus: 503,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+  });
+  assert.equal(transientWithoutCache.showBlockingError, true);
+  assert.equal(transientWithoutCache.showBackgroundError, false);
+
+  const learningPath = await source('src/components/features/learning-path/LearningPathView.tsx');
+  const overview = await source('src/app/(dashboard)/overview/page.tsx');
+  const practiceHub = await source('src/components/features/practice/PracticeHub.tsx');
+
+  assert.match(learningPath, /getLearningPathPresentation/);
+  assert.match(overview, /getLearningPathPresentation/);
+  assert.match(overview, /learningPathDataForDisplay/);
+  assert.match(overview, /hasAvailableLearningPath\(\s*learningPathDataForDisplay/);
+  assert.doesNotMatch(overview, /hasAvailableLearningPath\(\s*learningPathData,/);
+  assert.match(practiceHub, /getLearningPathPresentation/);
+  assert.match(practiceHub, /const learningPath = learningPathPresentation\.data/);
+});
+
+test('Progress Dashboard distinguishes unavailable, cached background errors, and feature locks', async () => {
+  const unavailable = getProgressDashboardPresentation({
+    hasData: false,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+    featureLocked: false,
+  });
+  assert.equal(unavailable.showBlockingError, true);
+  assert.equal(unavailable.showBackgroundError, false);
+
+  const cachedFailure = getProgressDashboardPresentation({
+    hasData: true,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+    featureLocked: false,
+  });
+  assert.equal(cachedFailure.hasData, true);
+  assert.equal(cachedFailure.showBackgroundError, true);
+  assert.equal(cachedFailure.showBlockingError, false);
+
+  const lockedCachedProgress = getProgressDashboardPresentation({
+    hasData: true,
+    isLoading: false,
+    isError: true,
+    isFetching: false,
+    featureLocked: isProgressDashboardFeatureLocked({ code: 'FEATURE_NOT_AVAILABLE', status: 403 }),
+  });
+  assert.equal(lockedCachedProgress.hasData, false);
+  assert.equal(lockedCachedProgress.showBackgroundError, false);
+  assert.equal(lockedCachedProgress.showBlockingError, false);
+  assert.equal(isProgressDashboardFeatureLocked({ status: 403 }), true);
+  assert.equal(isProgressDashboardFeatureLocked({ code: 'FEATURE_NOT_AVAILABLE' }), true);
+  assert.equal(isProgressDashboardFeatureLocked({ status: 503 }), false);
+
+  const analytics = await source('src/app/(dashboard)/analytics/page.tsx');
+  assert.match(analytics, /getProgressDashboardPresentation/);
+  assert.match(analytics, /isProgressDashboardFeatureLocked/);
+  assert.match(analytics, /progressPresentation\.showBackgroundError/);
+  assert.match(analytics, /Không thể cập nhật Progress Dashboard\. Dữ liệu đã tải trước đó vẫn được giữ\./);
 });
 
 test('career goals only call the list empty when its authority is known', async () => {
