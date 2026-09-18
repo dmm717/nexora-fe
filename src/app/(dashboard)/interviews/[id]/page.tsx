@@ -22,6 +22,7 @@ import {
   type AnswerIntent,
   type CompleteIntentState,
   type AnswerEvaluation,
+  safeAnswerEvaluation,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
@@ -64,6 +65,7 @@ export default function InterviewRoomPage() {
   // Coaching & Q3 boundary UI state
   const [showCoaching, setShowCoaching] = useState<boolean>(false);
   const [latestEvaluation, setLatestEvaluation] = useState<AnswerEvaluation | null>(null);
+  const [latestCandidateAnswer, setLatestCandidateAnswer] = useState<string | null>(null);
   const [latestEvaluatedSeq, setLatestEvaluatedSeq] = useState<number>(1);
   const [showQ3BoundaryModal, setShowQ3BoundaryModal] = useState<boolean>(false);
 
@@ -254,7 +256,12 @@ export default function InterviewRoomPage() {
       setCurrentDraftContent('');
 
       // Extract evaluation
-      const evalData = (result.answer.evaluation as AnswerEvaluation) || null;
+      const evalData = result.answer.evaluation
+        ? safeAnswerEvaluation(result.answer.evaluation)
+        : null;
+      setLatestCandidateAnswer(
+        typeof result.answer.content === 'string' ? result.answer.content : null
+      );
       setLatestEvaluation(evalData);
       setLatestEvaluatedSeq(currentSequence);
       setShowCoaching(true);
@@ -738,6 +745,7 @@ export default function InterviewRoomPage() {
           <QuickCoachingDrawer
             isOpen={showCoaching}
             coaching={latestEvaluation}
+            candidateAnswer={latestCandidateAnswer}
             questionSequence={latestEvaluatedSeq}
             totalQuestions={isBeyondFreeBoundary ? null : 3}
             canContinueQuestion={

@@ -17,6 +17,8 @@ import {
   getAnsweredQuestions,
   isStarApplicable,
   normalizeStarComponent,
+  normalizeSampleInterviewAnswer,
+  shouldShowGroundedRewrite,
   safeAnswerEvaluation,
   isReportProcessingError,
   isReportFailedError,
@@ -1290,4 +1292,179 @@ test('46. pending post-payment entitlement exposes refetch-only action', () => {
   assert.match(recheckHandler, /interviewApi\.getById\(id\)/);
   assert.doesNotMatch(recheckHandler, /interviewApi\.continue/);
   assert.doesNotMatch(recheckHandler, /router\.push\(`\/pricing/);
+});
+
+const validStarSample = {
+  framework: 'star',
+  situation: 'Một lần API gặp truy vấn chậm.',
+  task: 'Tôi cần xác định điểm nghẽn.',
+  action: 'Tôi đo thời gian từng truy vấn và tối ưu phần chậm nhất.',
+  result: 'Thời gian phản hồi giảm sau khi kiểm tra lại.',
+  fullAnswer: 'Khi API gặp truy vấn chậm, tôi đo từng bước, xử lý điểm nghẽn và kiểm tra kết quả.',
+};
+
+test('47. sample answer normalizer accepts structured STAR and rejects incomplete samples only', () => {
+  assert.deepEqual(normalizeSampleInterviewAnswer(validStarSample), validStarSample);
+  assert.equal(normalizeSampleInterviewAnswer(null), null);
+  assert.equal(normalizeSampleInterviewAnswer('sample'), null);
+  assert.equal(normalizeSampleInterviewAnswer({ ...validStarSample, framework: 'STAR' }), null);
+  assert.equal(normalizeSampleInterviewAnswer({ ...validStarSample, fullAnswer: '  ' }), null);
+
+  for (const key of ['situation', 'task', 'action', 'result']) {
+    assert.equal(
+      normalizeSampleInterviewAnswer({ ...validStarSample, [key]: '  ' }),
+      null,
+      `blank STAR ${key} must invalidate only the sample`
+    );
+  }
+
+  const evaluation = safeAnswerEvaluation({
+    scores: [{ criterion: 'Clarity', score: 12, evidence: 'alo alo' }],
+    feedback: 'Cần bổ sung bối cảnh.',
+    improvements: ['Nêu hành động và kết quả.'],
+    improvedAnswer: 'alo alo',
+    sampleAnswer: { ...validStarSample, framework: 'invalid' },
+  });
+  assert.equal(evaluation.sampleAnswer, null);
+  assert.equal(evaluation.improvedAnswer, 'alo alo');
+  assert.equal(evaluation.scores[0].score, 12);
+  assert.deepEqual(evaluation.improvements, ['Nêu hành động và kết quả.']);
+});
+
+test('48. non-STAR sample keeps its framework and clears accidental STAR fragments', () => {
+  const sample = normalizeSampleInterviewAnswer({
+    framework: 'technical',
+    situation: 'must not render',
+    task: 'must not render',
+    action: 'must not render',
+    result: 'must not render',
+    fullAnswer: 'Tôi sẽ kiểm tra log và truy vấn để xác định nguyên nhân.',
+  });
+
+  assert.deepEqual(sample, {
+    framework: 'technical',
+    situation: null,
+    task: null,
+    action: null,
+    result: null,
+    fullAnswer: 'Tôi sẽ kiểm tra log và truy vấn để xác định nguyên nhân.',
+  });
+});
+
+test('49. historical answer and report contracts work without sampleAnswer', () => {
+  assert.equal(safeAnswerEvaluation({ improvedAnswer: 'Câu trả lời cũ.' }).sampleAnswer, null);
+
+  const report = normalizeReportView({
+    questionReviews: [{
+      questionId: 'q-1',
+      sequence: 1,
+      kind: 'primary',
+      topic: 'behavioral_star',
+      question: 'Hãy kể về một lần bạn giải quyết vấn đề.',
+      answer: 'Câu trả lời cũ.',
+      rubric: [],
+      feedback: '',
+      strengths: [],
+      improvements: [],
+    }],
+  });
+
+  assert.equal(report.questionReviews.length, 1);
+  assert.equal(report.questionReviews[0].sampleAnswer, null);
+});
+
+test('50. malformed report sample becomes null without discarding its question review', () => {
+  const report = normalizeReportView({
+    questionReviews: [{
+      questionId: 'q-1',
+      sequence: 1,
+      kind: 'primary',
+      topic: 'technical',
+      question: 'Bạn xử lý API chậm thế nào?',
+      answer: 'Tôi kiểm tra log.',
+      feedback: 'Ổn.',
+      sampleAnswer: { framework: 'unknown', fullAnswer: 'not a supported contract' },
+    }],
+  });
+
+  assert.equal(report.questionReviews.length, 1);
+  assert.equal(report.questionReviews[0].sampleAnswer, null);
+});
+
+test('51. grounded rewrite visibility uses conservative normalized equality only', () => {
+  for (const candidateAnswer of ['alo alo', '  alo   alo ', 'ALO ALO', '“alo alo”', 'alo alo.']) {
+    assert.equal(
+      shouldShowGroundedRewrite({ candidateAnswer, improvedAnswer: 'alo alo' }),
+      false,
+      `${JSON.stringify(candidateAnswer)} should be equivalent to alo alo`
+    );
+  }
+
+  assert.equal(shouldShowGroundedRewrite({ candidateAnswer: 'alo alo', improvedAnswer: '   ' }), false);
+  assert.equal(
+    shouldShowGroundedRewrite({
+      candidateAnswer: 'Tôi debug API và tìm ra query chậm.',
+      improvedAnswer: 'Tôi đã debug API, xác định query chậm là nguyên nhân chính và tập trung xử lý điểm nghẽn đó.',
+    }),
+    true
+  );
+  assert.equal(shouldShowGroundedRewrite({ improvedAnswer: 'Câu trả lời được giữ nguyên.' }), true);
+});
+
+test('52. Quick Coaching keeps nonsense feedback, hides identical rewrite, and shows the sample separately', () => {
+  const roomSource = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const drawerSource = readFileSync(
+    new URL('../src/components/features/coaching/QuickCoachingDrawer.tsx', import.meta.url),
+    'utf8'
+  );
+  const cardSource = readFileSync(
+    new URL('../src/components/features/coaching/SampleAnswerCard.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(roomSource, /result\.answer\.content : null/);
+  assert.match(roomSource, /candidateAnswer=\{latestCandidateAnswer\}/);
+  assert.match(drawerSource, /shouldShowGroundedRewrite/);
+  assert.match(drawerSource, /showGroundedRewrite && coaching\.improvedAnswer/);
+  assert.match(drawerSource, /coaching\.sampleAnswer && <SampleAnswerCard/);
+  assert.match(drawerSource, /Chưa ghi nhận điểm mạnh có bằng chứng\./);
+  assert.match(cardSource, /Ví dụ câu trả lời tốt/);
+  assert.match(cardSource, /Ví dụ minh họa — không phải kinh nghiệm thực tế của bạn\./);
+  assert.match(cardSource, /Cấu trúc STAR minh họa/);
+  assert.match(cardSource, /normalizedSample\.framework === 'star'/);
+  assert.match(cardSource, /self_intro: 'Giới thiệu bản thân'/);
+  assert.match(cardSource, /technical: 'Kỹ thuật'/);
+  assert.match(cardSource, /direct: 'Trả lời trực tiếp'/);
+  assert.match(cardSource, /Câu trả lời mẫu hoàn chỉnh/);
+  assert.ok(
+    drawerSource.indexOf('Cách diễn đạt tốt hơn từ câu trả lời của bạn') <
+      drawerSource.indexOf('coaching.sampleAnswer && <SampleAnswerCard'),
+    'the optional grounded rewrite should appear before the illustrative sample'
+  );
+});
+
+test('53. report uses the same grounded comparison and renders the normalized sample', () => {
+  const reportSource = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(reportSource, /candidateAnswer:\s*activeReview\.answer/);
+  assert.match(reportSource, /showGroundedRewrite && activeReview\.suggestedImprovedAnswer/);
+  assert.match(reportSource, /activeReview\.sampleAnswer &&/);
+  assert.match(reportSource, /<SampleAnswerCard sample=\{activeReview\.sampleAnswer\} \/>/);
+});
+
+test('54. illustrative sample stays display-only and never enters the submitted answer payload', () => {
+  const request = buildSubmitAnswerRequest(
+    'interview-1',
+    { questionId: 'q-1', content: 'alo alo' },
+    'stable-key'
+  );
+
+  assert.deepEqual(request.data, { questionId: 'q-1', content: 'alo alo' });
+  assert.equal('sampleAnswer' in request.data, false);
 });

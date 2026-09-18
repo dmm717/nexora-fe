@@ -86,6 +86,17 @@ export interface StarEvaluation {
   scoreScale?: string;
 }
 
+export type SampleAnswerFramework = 'star' | 'self_intro' | 'technical' | 'direct';
+
+export interface SampleInterviewAnswer {
+  framework: SampleAnswerFramework;
+  situation: string | null;
+  task: string | null;
+  action: string | null;
+  result: string | null;
+  fullAnswer: string;
+}
+
 export interface AnswerEvaluation {
   scores?: RubricScore[];
   feedback?: string;
@@ -94,6 +105,7 @@ export interface AnswerEvaluation {
   strengths?: string[];
   improvements?: string[];
   improvedAnswer?: string | null;
+  sampleAnswer?: SampleInterviewAnswer | null;
 }
 
 export interface AnswerView {
@@ -187,6 +199,7 @@ export interface InterviewQuestionReviewView {
   strengths: string[];
   improvements: string[];
   suggestedImprovedAnswer?: string | null;
+  sampleAnswer?: SampleInterviewAnswer | null;
 }
 
 export interface SuggestedImprovedAnswerView {
@@ -238,6 +251,95 @@ const asNumber = (value: unknown, fallback = 0) =>
 
 const normalizeStringCollection = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+const isSampleAnswerFramework = (value: unknown): value is SampleAnswerFramework =>
+  value === 'star' || value === 'self_intro' || value === 'technical' || value === 'direct';
+
+const normalizeSampleAnswerText = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+/**
+ * Normalizes the optional illustrative answer without allowing malformed sample data
+ * to invalidate the rest of an interview evaluation or report.
+ */
+export function normalizeSampleInterviewAnswer(value: unknown): SampleInterviewAnswer | null {
+  const record = asRecord(value);
+  if (!record || !isSampleAnswerFramework(record.framework)) return null;
+
+  const fullAnswer = normalizeSampleAnswerText(record.fullAnswer);
+  if (!fullAnswer) return null;
+
+  if (record.framework === 'star') {
+    const situation = normalizeSampleAnswerText(record.situation);
+    const task = normalizeSampleAnswerText(record.task);
+    const action = normalizeSampleAnswerText(record.action);
+    const result = normalizeSampleAnswerText(record.result);
+    if (!situation || !task || !action || !result) return null;
+
+    return {
+      framework: 'star',
+      situation,
+      task,
+      action,
+      result,
+      fullAnswer,
+    };
+  }
+
+  return {
+    framework: record.framework,
+    situation: null,
+    task: null,
+    action: null,
+    result: null,
+    fullAnswer,
+  };
+}
+
+const normalizeAnswerForComparison = (value: string): string => {
+  let normalized = value.normalize('NFKC').trim().toLowerCase().replace(/\s+/gu, ' ');
+  const wrappingQuotes: ReadonlyArray<readonly [string, string]> = [
+    ['"', '"'],
+    ["'", "'"],
+    ['“', '”'],
+    ['‘', '’'],
+    ['«', '»'],
+    ['「', '」'],
+    ['『', '』'],
+  ];
+
+  for (const [opening, closing] of wrappingQuotes) {
+    if (normalized.startsWith(opening) && normalized.endsWith(closing)) {
+      normalized = normalized.slice(opening.length, normalized.length - closing.length).trim();
+      break;
+    }
+  }
+
+  return normalized.replace(/[.!?…]+$/u, '').trim();
+};
+
+/**
+ * Hides a grounded rewrite only when it is blank or conservatively equivalent
+ * to the actual submitted answer. No fuzzy similarity is used.
+ */
+export function shouldShowGroundedRewrite(params: {
+  candidateAnswer?: string | null;
+  improvedAnswer?: string | null;
+}): boolean {
+  const improvedAnswer = typeof params.improvedAnswer === 'string'
+    ? normalizeAnswerForComparison(params.improvedAnswer)
+    : '';
+  if (!improvedAnswer) return false;
+
+  const candidateAnswer = typeof params.candidateAnswer === 'string'
+    ? normalizeAnswerForComparison(params.candidateAnswer)
+    : '';
+
+  return !candidateAnswer || candidateAnswer !== improvedAnswer;
+}
 
 const normalizeRubricCollection = (value: unknown): RubricScore[] => {
   if (!Array.isArray(value)) return [];
@@ -352,6 +454,7 @@ const normalizeQuestionReviews = (value: unknown): InterviewQuestionReviewView[]
       improvements: normalizeStringCollection(record.improvements),
       suggestedImprovedAnswer:
         typeof record.suggestedImprovedAnswer === 'string' ? record.suggestedImprovedAnswer : null,
+      sampleAnswer: normalizeSampleInterviewAnswer(record.sampleAnswer),
     }];
   });
 };
@@ -708,6 +811,7 @@ export function safeAnswerEvaluation(evaluation?: AnswerEvaluation | null): {
   strengths: string[];
   improvements: string[];
   improvedAnswer: string | null;
+  sampleAnswer: SampleInterviewAnswer | null;
 } {
   return {
     scores: Array.isArray(evaluation?.scores) ? evaluation.scores : [],
@@ -717,6 +821,7 @@ export function safeAnswerEvaluation(evaluation?: AnswerEvaluation | null): {
     strengths: Array.isArray(evaluation?.strengths) ? evaluation.strengths : [],
     improvements: Array.isArray(evaluation?.improvements) ? evaluation.improvements : [],
     improvedAnswer: evaluation?.improvedAnswer || null,
+    sampleAnswer: normalizeSampleInterviewAnswer(evaluation?.sampleAnswer),
   };
 }
 

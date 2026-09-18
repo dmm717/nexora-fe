@@ -549,6 +549,56 @@
   color: #d5dcff !important;
 }
 
+.product-interview-room .coaching-dialog-improved-answer-description {
+  color: #c7cbea !important;
+}
+
+.product-interview-room .coaching-sample-answer {
+  background: #1b2855 !important;
+  border-color: #7181e4 !important;
+  color: #e5e9ff !important;
+}
+
+.product-interview-room .coaching-sample-answer-title {
+  color: #f3f5ff !important;
+}
+
+.product-interview-room .coaching-sample-answer-framework {
+  background: #31427a !important;
+  color: #eef0ff !important;
+}
+
+.product-interview-room .coaching-sample-answer-disclaimer {
+  background: #4d391c !important;
+  border-color: #bc8b45 !important;
+  color: #fff8e8 !important;
+}
+
+.product-interview-room .coaching-sample-answer-section {
+  background: #253361 !important;
+  border-color: #53649b !important;
+}
+
+.product-interview-room .coaching-sample-answer-section--action {
+  background: #31427a !important;
+  border-color: #7181e4 !important;
+}
+
+.product-interview-room .coaching-sample-answer-section-title,
+.product-interview-room .coaching-sample-answer-section-copy {
+  color: #e5e9ff !important;
+}
+
+.product-interview-room .coaching-sample-answer-full-answer-title {
+  color: #e5e9ff !important;
+}
+
+.product-interview-room .coaching-sample-answer-full-answer {
+  background: #17254d !important;
+  border-color: #53649b !important;
+  color: #dce2ff !important;
+}
+
 .product-interview-room .coaching-dialog-improved-answer-copy,
 .product-interview-room .coaching-rubric-evidence,
 .product-interview-room .coaching-star-evidence {
