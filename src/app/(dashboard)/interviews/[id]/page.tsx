@@ -37,7 +37,10 @@ import { useFocusedPracticeShell } from '@/components/layouts/FocusedPracticeShe
 // Feature components
 import { AiInterviewerPresence, type InterviewPresenceState } from '@/components/features/interview/AiInterviewerPresence';
 import { CurrentAnswerCaption } from '@/components/features/interview/CurrentAnswerCaption';
-import { QuestionSpeaker } from '@/components/features/interview/QuestionSpeaker';
+import {
+  QuestionSpeaker,
+  type QuestionSpeakerHandle,
+} from '@/components/features/interview/QuestionSpeaker';
 import { AudioSpeechDock, type AudioSpeechState } from '@/components/features/interview/AudioSpeechDock';
 import { QuickCoachingDrawer } from '@/components/features/coaching/QuickCoachingDrawer';
 
@@ -55,6 +58,9 @@ export default function InterviewRoomPage() {
   const [pendingEntitlementRecheck, setPendingEntitlementRecheck] = useState<boolean>(false);
 
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const [isPreparingCandidateInput, setIsPreparingCandidateInput] =
+    useState<boolean>(false);
+  const questionSpeakerRef = useRef<QuestionSpeakerHandle>(null);
   const [candidateState, setCandidateState] = useState<AudioSpeechState>({
     listening: false,
     mode: 'voice',
@@ -639,14 +645,28 @@ export default function InterviewRoomPage() {
                 setCandidateState(state);
                 if (state.listening) setIsAiSpeaking(false);
               }}
-              onBeforeListening={() => setIsAiSpeaking(false)}
+              onListeningPreparationChange={setIsPreparingCandidateInput}
+              onBeforeListening={async () => {
+                await questionSpeakerRef.current?.stop();
+              }}
+              onBeforeSubmit={async () => {
+                await questionSpeakerRef.current?.stop();
+              }}
               controls={
                 <>
                   <QuestionSpeaker
+                    ref={questionSpeakerRef}
+                    interviewId={id}
                     text={activeQuestion.content}
                     questionId={activeQuestion.id}
                     autoSpeak
-                    disabled={candidateState.listening || submitting || isEvaluating || showCoaching}
+                    disabled={
+                      candidateState.listening ||
+                      isPreparingCandidateInput ||
+                      submitting ||
+                      isEvaluating ||
+                      showCoaching
+                    }
                     onSpeakingChange={setIsAiSpeaking}
                     className="interview-call-button"
                   />

@@ -1,156 +1,137 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from 'react';
+import { useAzureSpeechSynthesis } from '@/hooks/useAzureSpeechSynthesis';
 
 export interface QuestionSpeakerProps {
+  interviewId: string;
+  questionId: string;
   text: string;
   className?: string;
-  questionId?: string;
   onSpeakingChange?: (speaking: boolean) => void;
   autoSpeak?: boolean;
   disabled?: boolean;
 }
 
-export const QuestionSpeaker: React.FC<QuestionSpeakerProps> = ({
-  text,
-  questionId,
-  className = '',
-  onSpeakingChange,
-  autoSpeak = false,
-  disabled = false,
-}) => {
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [supported] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-  });
+export interface QuestionSpeakerHandle {
+  stop: () => Promise<void>;
+}
 
-  const callbackRef = useRef(onSpeakingChange);
-  const attemptedRef = useRef(new Set<string>());
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+const labelForState = (status: string) => {
+  if (status === 'loading') return 'Đang chuẩn bị giọng AI...';
+  if (status === 'speaking') return 'Dừng đọc';
+  if (status === 'error') return 'Thử lại giọng AI';
+  return 'Nghe lại câu hỏi';
+};
 
-  useEffect(() => {
-    callbackRef.current = onSpeakingChange;
-  }, [onSpeakingChange]);
+export const QuestionSpeaker = forwardRef<
+  QuestionSpeakerHandle,
+  QuestionSpeakerProps
+>(function QuestionSpeaker(
+  {
+    interviewId,
+    questionId,
+    text,
+    className = '',
+    onSpeakingChange,
+    autoSpeak = false,
+    disabled = false,
+  },
+  ref
+) {
+  const attemptedQuestionsRef = useRef(new Set<string>());
+  const { status, error, speak, stop } = useAzureSpeechSynthesis(
+    interviewId,
+    onSpeakingChange
+  );
 
-  const reportSpeaking = useCallback((speaking: boolean) => {
-    setIsSpeaking(speaking);
-    callbackRef.current?.(speaking);
-  }, []);
-
-  const stop = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    utteranceRef.current = null;
-    reportSpeaking(false);
-  }, [reportSpeaking]);
-
-  const speak = useCallback(() => {
-    if (disabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    stop();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utteranceRef.current = utterance;
-    utterance.lang = 'vi-VN';
-    utterance.rate = 0.95;
-
-    const voices = window.speechSynthesis.getVoices();
-    const viVoice = voices.find((v) => v.lang.toLowerCase().startsWith('vi'));
-    if (viVoice) {
-      utterance.voice = viVoice;
-    }
-
-    utterance.onstart = () => {
-      if (utteranceRef.current === utterance) {
-        reportSpeaking(true);
-      }
-    };
-
-    const finish = () => {
-      if (utteranceRef.current === utterance) {
-        utteranceRef.current = null;
-        reportSpeaking(false);
-      }
-    };
-
-    utterance.onend = finish;
-    utterance.onerror = finish;
-
-    try {
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      finish();
-    }
-  }, [disabled, text, stop, reportSpeaking]);
+  useImperativeHandle(ref, () => ({ stop }), [stop]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const available = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-    const key = questionId || text;
-    if (available && autoSpeak && !disabled && !attemptedRef.current.has(key)) {
-      attemptedRef.current.add(key);
-      speak();
-    }
-
     if (disabled) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      stop();
+      void stop().catch(() => undefined);
+      return;
+    }
+    if (
+      !autoSpeak ||
+      !questionId ||
+      !text.trim() ||
+      attemptedQuestionsRef.current.has(questionId)
+    ) {
+      return;
     }
 
-    const pollInterval = window.setInterval(() => {
-      if (
-        utteranceRef.current &&
-        !window.speechSynthesis.speaking &&
-        !window.speechSynthesis.pending
-      ) {
-        utteranceRef.current = null;
-        reportSpeaking(false);
-      }
-    }, 100);
+    // Deferring the mark-and-speak to a microtask lets StrictMode's simulated
+    // cleanup cancel the first setup, so development does not consume the one
+    // allowed auto-attempt before the live effect runs.
+    let effectIsCurrent = true;
+    queueMicrotask(() => {
+      if (!effectIsCurrent || attemptedQuestionsRef.current.has(questionId)) return;
+      attemptedQuestionsRef.current.add(questionId);
+      void speak(text);
+    });
 
     return () => {
-      clearInterval(pollInterval);
-      stop();
+      effectIsCurrent = false;
+      void stop().catch(() => undefined);
     };
-  }, [autoSpeak, disabled, questionId, text, speak, stop, reportSpeaking]);
+  }, [autoSpeak, disabled, questionId, speak, stop, text]);
+
+  const isActive = status === 'loading' || status === 'speaking';
+  const label = labelForState(status);
 
   const handleToggleSpeak = () => {
-    if (!supported || disabled) return;
-    if (isSpeaking) {
-      stop();
-    } else {
-      speak();
+    if (disabled || !text.trim()) return;
+    if (isActive) {
+      void stop().catch(() => undefined);
+      return;
     }
+
+    // A manual action wins if it races the initial auto-speak microtask.
+    attemptedQuestionsRef.current.add(questionId);
+    void speak(text);
   };
 
   return (
-    <button
-      type="button"
-      disabled={!supported || disabled}
-      aria-label={isSpeaking ? 'Dừng đọc câu hỏi' : 'Nghe lại câu hỏi'}
-      aria-pressed={isSpeaking}
-      onClick={handleToggleSpeak}
-      title={isSpeaking ? 'Dừng đọc câu hỏi' : 'Đọc to câu hỏi'}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-        isSpeaking
-          ? 'bg-primary text-white animate-pulse'
-          : 'bg-surface-container-high hover:bg-surface-container text-primary'
-      } ${className}`}
-    >
-      <span className="material-symbols-outlined text-[16px]">
-        {isSpeaking ? 'volume_up' : 'volume_down'}
-      </span>
-      <span>
-        {!supported
-          ? 'Đọc câu hỏi trên màn hình'
-          : isSpeaking
-          ? 'Dừng đọc'
-          : 'Nghe lại câu hỏi'}
-      </span>
-    </button>
+    <div className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        disabled={disabled || !text.trim()}
+        aria-label={label}
+        aria-pressed={status === 'speaking'}
+        aria-busy={status === 'loading'}
+        onClick={handleToggleSpeak}
+        title={label}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+          status === 'speaking'
+            ? 'bg-primary text-white animate-pulse'
+            : 'bg-surface-container-high hover:bg-surface-container text-primary'
+        } ${className}`}
+      >
+        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+          {status === 'speaking'
+            ? 'volume_up'
+            : status === 'loading'
+            ? 'progress_activity'
+            : 'volume_down'}
+        </span>
+        <span>{label}</span>
+      </button>
+
+      {status === 'error' && error && (
+        <p className="max-w-xs text-xs text-muted-foreground" role="status">
+          {error}
+        </p>
+      )}
+    </div>
   );
-};
+});
+
+QuestionSpeaker.displayName = 'QuestionSpeaker';
 
 export default QuestionSpeaker;
