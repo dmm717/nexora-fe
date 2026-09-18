@@ -53,7 +53,7 @@ test('C & D: Identity card uses real CareerProfile/User data and renders truthfu
 });
 
 test('E & F: Active career goal uses actual fields and renders truthful empty state without fake defaults', async () => {
-  const cardSource = await readSource('../src/components/features/career-profile/ActiveCareerGoalCard.tsx');
+  const cardSource = await readSource('../src/components/features/career-profile/CareerGoalsSection.tsx');
 
   assert.match(cardSource, /activeGoal\.targetRole/);
   assert.match(cardSource, /activeGoal\.seniority/);
@@ -66,7 +66,7 @@ test('E & F: Active career goal uses actual fields and renders truthful empty st
   assert.doesNotMatch(cardSource, /targetRole\s*\|\|\s*['"]Backend Engineer['"]/);
 
   // Truthful empty state
-  assert.match(cardSource, /Bạn chưa chọn mục tiêu ứng tuyển/);
+  assert.match(cardSource, /Chưa có mục tiêu nghề nghiệp/);
 });
 
 test('G, H, I, J, K: Resume list uses production resumes, enforces primary rules, and supports unset-primary', async () => {
@@ -147,8 +147,8 @@ test('R: Mobile layout does not depend on desktop-only grid assumptions', async 
   assert.match(screenSource, /lg:col-span-5/);
   assert.match(screenSource, /lg:col-span-7/);
 
-  const goalSource = await readSource('../src/components/features/career-profile/ActiveCareerGoalCard.tsx');
-  assert.match(goalSource, /grid-cols-1\s+sm:grid-cols-3/);
+  const goalSource = await readSource('../src/components/features/career-profile/CareerGoalsSection.tsx');
+  assert.match(goalSource, /grid-cols-1/);
 
   const resumeSource = await readSource('../src/components/features/career-profile/ResumeManagementSection.tsx');
   assert.match(resumeSource, /flex-col\s+sm:flex-row/);

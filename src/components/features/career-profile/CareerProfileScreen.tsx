@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { CareerProfileHeader } from './CareerProfileHeader';
@@ -11,8 +11,12 @@ import { SkillProfileSection } from './SkillProfileSection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
-export const CareerProfileScreen: React.FC = () => {
-  const { data: profileData, isLoading, isError, refetch } = useCareerProfile();
+/**
+ * Isolated deep-link controller using useSearchParams so that the outer
+ * CareerProfileScreen renders immediately and displays its normal skeleton
+ * without requiring a full-page null Suspense fallback.
+ */
+const CareerProfileDeepLinkHandler: React.FC = () => {
   const searchParams = useSearchParams();
   const section = searchParams?.get('section');
 
@@ -24,7 +28,13 @@ export const CareerProfileScreen: React.FC = () => {
         el.focus({ preventScroll: true });
       }
     }
-  }, [section, isLoading]);
+  }, [section]);
+
+  return null;
+};
+
+export const CareerProfileScreen: React.FC = () => {
+  const { data: profileData, isLoading, isError, refetch } = useCareerProfile();
 
   if (isLoading) {
     return (
@@ -106,6 +116,11 @@ export const CareerProfileScreen: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      {/* Isolated deep-link controller wrapped in tiny Suspense */}
+      <Suspense fallback={null}>
+        <CareerProfileDeepLinkHandler />
+      </Suspense>
+
       {/* Title & Introduction */}
       <CareerProfileHeader />
 

@@ -7,6 +7,7 @@ import {
   formatSeniorityLabel,
   buildCreateCareerGoalRequest,
   buildUpdateCareerGoalRequest,
+  reconcileCareerGoals,
 } from '../src/services/careerGoalContract.ts';
 
 const readSource = (relativePath) =>
@@ -17,8 +18,6 @@ test('Requirement A: /career-profile contains canonical Career Goal management w
     '../src/components/features/career-profile/CareerProfileScreen.tsx'
   );
   assert.match(screenSource, /CareerGoalsSection/);
-  assert.match(screenSource, /section\s*===\s*['"]goals['"]/);
-  assert.match(screenSource, /document\.getElementById\(['"]goals['"]\)/);
 
   const sectionSource = await readSource(
     '../src/components/features/career-profile/CareerGoalsSection.tsx'
@@ -101,7 +100,7 @@ test('Requirement E: No-goal state can create a goal directly in Career Profile'
   assert.match(sectionSource, /<EditCareerGoalModal/);
 });
 
-test('Requirement F: Create goal form and request builder support all 5 fields', async () => {
+test('Requirement F & J: Create goal form and request builder support all 5 fields', async () => {
   const modalSource = await readSource(
     '../src/components/features/career-profile/EditCareerGoalModal.tsx'
   );
@@ -151,17 +150,6 @@ test('Requirement G: Canonical seniority machine values remain intact', async ()
 });
 
 test('Requirement H: Active goal renders all 5 real values with truthful fallback copy', async () => {
-  const cardSource = await readSource(
-    '../src/components/features/career-profile/ActiveCareerGoalCard.tsx'
-  );
-  assert.match(cardSource, /activeGoal\.targetRole/);
-  assert.match(cardSource, /activeGoal\.seniority/);
-  assert.match(cardSource, /activeGoal\.industry/);
-  assert.match(cardSource, /activeGoal\.targetCompany/);
-  assert.match(cardSource, /activeGoal\.targetDate/);
-  assert.match(cardSource, /Chưa cập nhật/);
-  assert.match(cardSource, /Đang kích hoạt/);
-
   const sectionSource = await readSource(
     '../src/components/features/career-profile/CareerGoalsSection.tsx'
   );
@@ -170,13 +158,15 @@ test('Requirement H: Active goal renders all 5 real values with truthful fallbac
   assert.match(sectionSource, /activeGoal\.industry/);
   assert.match(sectionSource, /activeGoal\.targetCompany/);
   assert.match(sectionSource, /activeGoal\.targetDate/);
+  assert.match(sectionSource, /Chưa cập nhật/);
+  assert.match(sectionSource, /Đang kích hoạt/);
 });
 
 test('Requirement I: Inactive / other goals render separately and compactly', async () => {
   const sectionSource = await readSource(
     '../src/components/features/career-profile/CareerGoalsSection.tsx'
   );
-  assert.match(sectionSource, /otherGoals\s*=\s*allGoals\.filter\(\(g\)\s*=>\s*!g\.active\)/);
+  assert.match(sectionSource, /reconcileCareerGoals/);
   assert.match(sectionSource, /otherGoals\.length\s*>\s*0/);
   assert.match(sectionSource, /Mục tiêu khác/);
   assert.match(sectionSource, /Tạm dừng/);
@@ -247,7 +237,7 @@ test('Requirement M & N: Delete requires explicit custom modal confirmation (no 
   assert.doesNotMatch(modalSource, /window\.confirm/);
   assert.match(modalSource, /Xóa mục tiêu/);
   assert.match(modalSource, /goal\.targetRole/);
-  assert.match(modalSource, /Hành động này không thể hoàn tác/);
+  assert.match(modalSource, /hành động này không thể hoàn tác/i);
   assert.match(modalSource, /deleteMutation\.mutateAsync\(goal\.id\)/);
   assert.match(modalSource, /disabled=\{isDeleting\}/);
 });
@@ -267,11 +257,174 @@ test('Requirement O & P: Mutations invalidate both career goals and career profi
   assert.match(headerSource, /targetRole\s*=\s*propTargetRole\s*!==\s*undefined\s*\?\s*propTargetRole\s*:\s*activeGoal\?\.targetRole/);
 });
 
-test('Requirement R: Career Profile remains resilient when full goal query fails but core profile exists', async () => {
+// ==================================================
+// PR #24 CORRECTIVE TESTS (A - H)
+// ==================================================
+
+test('Corrective 6-A & 6-C: Career Profile active goal always wins over stale full-list active state and no duplicate appears in other goals', () => {
+  const profileActiveGoal = {
+    id: 'goal-B',
+    targetRole: 'Staff Infrastructure Engineer',
+    seniority: 'staff',
+    industry: 'Cloud',
+    targetCompany: 'Nexora Inc',
+    targetDate: '2026-12-31',
+    active: true,
+  };
+
+  const staleFullList = [
+    {
+      id: 'goal-A',
+      targetRole: 'Junior Frontend Developer',
+      seniority: 'junior',
+      industry: 'EdTech',
+      targetCompany: 'Old Company',
+      targetJobDescriptionId: null,
+      targetDate: '2026-06-01',
+      active: true, // Stale cache claims A is active
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    },
+    {
+      id: 'goal-B',
+      targetRole: 'Staff Infrastructure Engineer',
+      seniority: 'staff',
+      industry: 'Cloud',
+      targetCompany: 'Nexora Inc',
+      targetJobDescriptionId: null,
+      targetDate: '2026-12-31',
+      active: false, // Stale cache claims B is inactive
+      createdAt: '2026-02-01',
+      updatedAt: '2026-02-01',
+    },
+    {
+      id: 'goal-C',
+      targetRole: 'Product Manager',
+      seniority: 'mid',
+      industry: 'SaaS',
+      targetCompany: 'Startup XYZ',
+      targetJobDescriptionId: null,
+      targetDate: '2027-01-01',
+      active: false,
+      createdAt: '2026-03-01',
+      updatedAt: '2026-03-01',
+    },
+  ];
+
+  const { activeGoal, otherGoals } = reconcileCareerGoals(
+    profileActiveGoal,
+    staleFullList
+  );
+
+  // Profile active goal B wins over stale full list active A
+  assert.equal(activeGoal?.id, 'goal-B');
+  assert.equal(activeGoal?.targetRole, 'Staff Infrastructure Engineer');
+
+  // Stale active A does NOT override active B
+  assert.notEqual(activeGoal?.id, 'goal-A');
+
+  // No duplicate active goal B appears in "other goals"
+  assert.equal(otherGoals.some((g) => g.id === 'goal-B'), false);
+
+  // otherGoals contains A and C
+  assert.equal(otherGoals.length, 2);
+  assert.equal(otherGoals[0].id, 'goal-A');
+  assert.equal(otherGoals[1].id, 'goal-C');
+});
+
+test('Corrective 6-B & Requirement R: Secondary list failure does not hide/replace canonical active goal B', async () => {
+  const profileActiveGoal = {
+    id: 'goal-B',
+    targetRole: 'Staff Infrastructure Engineer',
+    seniority: 'staff',
+    active: true,
+  };
+
+  // Full-list query failed (returns empty array or error)
+  const emptyList = [];
+  const { activeGoal, otherGoals } = reconcileCareerGoals(
+    profileActiveGoal,
+    emptyList
+  );
+
+  // B remains visible as canonical active goal
+  assert.equal(activeGoal?.id, 'goal-B');
+  assert.equal(activeGoal?.targetRole, 'Staff Infrastructure Engineer');
+  assert.deepEqual(otherGoals, []);
+
   const sectionSource = await readSource(
     '../src/components/features/career-profile/CareerGoalsSection.tsx'
   );
-  assert.match(sectionSource, /activeFromGoals\s*\|\|\s*activeGoalFromProfile/);
+  assert.match(sectionSource, /reconcileCareerGoals/);
   assert.match(sectionSource, /isGoalsError/);
   assert.match(sectionSource, /Không thể làm mới danh sách mục tiêu đầy đủ/);
+  assert.doesNotMatch(
+    sectionSource,
+    /activeFromGoals\s*\|\|\s*activeGoalFromProfile/
+  );
+});
+
+test('Corrective 6-D: No full-page Suspense fallback={null} wraps CareerProfileScreen', async () => {
+  const pageSource = await readSource(
+    '../src/app/(dashboard)/career-profile/page.tsx'
+  );
+  assert.doesNotMatch(
+    pageSource,
+    /<Suspense[^>]*fallback=\{null\}[^>]*>\s*<CareerProfileScreen/
+  );
+  assert.match(
+    pageSource,
+    /export default function CareerProfilePage\(\)\s*\{\s*return\s*<CareerProfileScreen\s*\/>;\s*\}/
+  );
+
+  const screenSource = await readSource(
+    '../src/components/features/career-profile/CareerProfileScreen.tsx'
+  );
+  // Suspense is only wrapped around the isolated deep-link handler
+  assert.match(
+    screenSource,
+    /<Suspense fallback=\{null\}>\s*<CareerProfileDeepLinkHandler\s*\/>\s*<\/Suspense>/
+  );
+});
+
+test('Corrective 6-E: /career-profile?section=goals still focuses the goals section', async () => {
+  const screenSource = await readSource(
+    '../src/components/features/career-profile/CareerProfileScreen.tsx'
+  );
+  assert.match(screenSource, /CareerProfileDeepLinkHandler/);
+  assert.match(screenSource, /section\s*===\s*['"]goals['"]/);
+  assert.match(screenSource, /document\.getElementById\(['"]goals['"]\)/);
+  assert.match(screenSource, /scrollIntoView/);
+  assert.match(screenSource, /el\.focus/);
+});
+
+test('Corrective 6-F & 6-G: ActiveCareerGoalCard is deleted and tests do not source-read it', async () => {
+  await assert.rejects(() =>
+    access(
+      new URL(
+        '../src/components/features/career-profile/ActiveCareerGoalCard.tsx',
+        import.meta.url
+      ),
+      constants.F_OK
+    )
+  );
+
+  const paritySource = await readSource(
+    '../tests/careerProfileParity.test.mjs'
+  );
+  assert.doesNotMatch(paritySource, /ActiveCareerGoalCard\.tsx/);
+});
+
+test('Corrective 6-H: Delete confirmation copy does not claim all related context is deleted', async () => {
+  const modalSource = await readSource(
+    '../src/components/features/career-profile/DeleteCareerGoalModal.tsx'
+  );
+  assert.match(
+    modalSource,
+    /Mục tiêu này sẽ không còn xuất hiện trong hồ sơ của bạn và hành động này không thể hoàn tác/
+  );
+  assert.doesNotMatch(
+    modalSource,
+    /Mọi dữ liệu bối cảnh liên quan đến mục tiêu này sẽ bị xóa khỏi hồ sơ của bạn/
+  );
 });

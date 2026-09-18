@@ -11,7 +11,10 @@ import {
   type CareerGoalResponse,
 } from '@/hooks/queries/useCareerGoals';
 import type { CareerProfileResponse } from '@/services/profileApi';
-import { formatSeniorityLabel } from '@/services/careerGoalContract';
+import {
+  formatSeniorityLabel,
+  reconcileCareerGoals,
+} from '@/services/careerGoalContract';
 import {
   EditCareerGoalModal,
   type CareerGoalModalGoal,
@@ -62,12 +65,11 @@ export const CareerGoalsSection: React.FC<CareerGoalsSectionProps> = ({
 
   const [pendingGoalId, setPendingGoalId] = useState<string | null>(null);
 
-  // Reconcile active goal
-  const activeFromGoals = allGoals.find((g) => g.active);
-  const activeGoal = activeFromGoals || activeGoalFromProfile || null;
-
-  // Inactive goals
-  const otherGoals = allGoals.filter((g) => !g.active);
+  // Reconcile active goal from canonical profile with management list
+  const { activeGoal, otherGoals } = reconcileCareerGoals(
+    activeGoalFromProfile,
+    allGoals
+  );
 
   const handleOpenCreateModal = () => {
     setGoalToEdit(null);

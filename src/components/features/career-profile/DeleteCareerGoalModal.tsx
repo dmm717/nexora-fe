@@ -56,7 +56,7 @@ export const DeleteCareerGoalModal: React.FC<DeleteCareerGoalModalProps> = ({
               Xóa mục tiêu &ldquo;{goal.targetRole}&rdquo;?
             </p>
             <p className="text-on-surface-variant">
-              Hành động này không thể hoàn tác. Mọi dữ liệu bối cảnh liên quan đến mục tiêu này sẽ bị xóa khỏi hồ sơ của bạn.
+              Mục tiêu này sẽ không còn xuất hiện trong hồ sơ của bạn và hành động này không thể hoàn tác.
             </p>
           </div>
         </div>

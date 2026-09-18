@@ -205,3 +205,29 @@ export function buildCareerProfileGoalUpdateRequest(
 
   return request;
 }
+
+/**
+ * Reconciles the canonical active goal from CareerProfile with the management list.
+ * In Nexora's architecture, useCareerProfile() owns the canonical active Career Goal snapshot,
+ * while useCareerGoals() provides the management list.
+ * A stale or failed full-list cache must NEVER override a fresher Career Profile active goal.
+ */
+export function reconcileCareerGoals<
+  TActive extends (UpdatableCareerGoalCurrent & { id?: string }) | null | undefined,
+  TGoal extends { id: string; active?: boolean }
+>(
+  activeGoalFromProfile: TActive,
+  allGoals: TGoal[]
+): {
+  activeGoal: TActive extends object ? TActive : null;
+  otherGoals: TGoal[];
+} {
+  const activeGoal = (activeGoalFromProfile || null) as (TActive extends object ? TActive : null);
+  const activeGoalId = activeGoal?.id;
+
+  const otherGoals = activeGoalId
+    ? allGoals.filter((g) => g.id !== activeGoalId)
+    : allGoals.filter((g) => !g.active);
+
+  return { activeGoal, otherGoals };
+}
