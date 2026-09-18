@@ -1,116 +1,176 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AdminUserView } from '@/services/adminApi';
-import Link from 'next/link';
 import { useAdminUsers } from '@/hooks/queries/useAdminUsers';
 import { Button } from '@/components/ui/Button/Button';
+import { Badge } from '@/components/ui/Badge';
+import { AdminPageShell } from '@/components/features/admin/AdminPageShell';
+import { AdminAsyncNotice } from '@/components/features/admin/AdminAsyncNotice';
+import { AdminTableShell } from '@/components/features/admin/AdminTableShell';
+import { AdminTableSkeleton } from '@/components/features/admin/AdminTableSkeleton';
 import { UserRolesModal } from '@/components/features/admin/users/UserRolesModal';
 import { UserStatusModal } from '@/components/features/admin/users/UserStatusModal';
 import { UserDetailModal } from '@/components/features/admin/users/UserDetailModal';
+import { getQueryPresentation } from '@/utils/queryPresentation';
+
+const USER_TABLE_HEADERS = ['Email', 'Tên', 'Quyền', 'Gói cước', 'Trạng thái', 'Thao tác'];
 
 export default function AdminUsersPage() {
-  // Cursor Stack Pagination
+  // Keep the cursor stack as the source of truth for back navigation.
   const [cursorStack, setCursorStack] = useState<string[]>([]);
-  const currentCursor = cursorStack.length > 0 ? cursorStack[cursorStack.length - 1] : undefined;
+  const cursorActionLock = useRef(false);
+  const currentCursor = cursorStack.at(-1);
 
-  const { data, isLoading, error, isFetching } = useAdminUsers(currentCursor);
-  const users = data?.users || [];
-  const hasNextPage = !!data?.lastId;
+  const {
+    data,
+    isLoading,
+    isError,
+    isFetching,
+    isPlaceholderData,
+    refetch,
+  } = useAdminUsers(currentCursor);
+  const hasCurrentPageData = data !== undefined && !isPlaceholderData;
+  const presentation = getQueryPresentation({
+    hasData: hasCurrentPageData,
+    isLoading,
+    isError,
+    isFetching,
+  });
+  const users = data?.users ?? [];
+  const hasNextPage = hasCurrentPageData && Boolean(data?.lastId);
+  const pageNumber = cursorStack.length + 1;
 
-  // Modals state
   const [selectedUserForRoles, setSelectedUserForRoles] = useState<AdminUserView | null>(null);
   const [selectedUserForStatus, setSelectedUserForStatus] = useState<AdminUserView | null>(null);
   const [selectedUserIdForDetails, setSelectedUserIdForDetails] = useState<string | null>(null);
 
   const handleNext = () => {
-    if (data?.lastId) {
-      setCursorStack(prev => [...prev, data.lastId!]);
-    }
+    if (cursorActionLock.current || isFetching || isPlaceholderData || !data?.lastId) return;
+    cursorActionLock.current = true;
+    window.setTimeout(() => { cursorActionLock.current = false; }, 0);
+    setCursorStack((stack) => [...stack, data.lastId!]);
   };
 
   const handlePrevious = () => {
-    setCursorStack(prev => prev.slice(0, -1));
+    if (cursorActionLock.current || isFetching || cursorStack.length === 0) return;
+    cursorActionLock.current = true;
+    window.setTimeout(() => { cursorActionLock.current = false; }, 0);
+    setCursorStack((stack) => stack.slice(0, -1));
+  };
+
+  const retry = () => {
+    void refetch();
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1.5rem', color: '#111827' }}>Quản trị hệ thống</h1>
-      
-      {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem' }}>
-        <Link href="/admin/users" style={{ fontWeight: '600', color: '#0ea5e9', borderBottom: '2px solid #0ea5e9', paddingBottom: '0.5rem' }}>Người dùng</Link>
-        <Link href="/admin/scenarios" style={{ color: '#4b5563', paddingBottom: '0.5rem' }}>Kịch bản</Link>
-        <Link href="/admin/plans" style={{ color: '#4b5563', paddingBottom: '0.5rem' }}>Gói cước</Link>
-      </div>
+    <AdminPageShell
+      active="users"
+      actions={(
+        <Button type="button" variant="outline" onClick={retry} disabled={isFetching} loading={isFetching}>
+          Làm mới danh sách
+        </Button>
+      )}
+    >
+      {presentation.showBackgroundError && (
+        <AdminAsyncNotice kind="error" onRetry={retry} className="mb-4" />
+      )}
+      {presentation.showRefreshing && !presentation.showBackgroundError && !isPlaceholderData && (
+        <AdminAsyncNotice kind="refreshing" className="mb-2" />
+      )}
 
-      {isLoading && <div>Đang tải danh sách người dùng...</div>}
-      {error && <div style={{ color: 'red' }}>Lỗi khi tải danh sách người dùng. Vui lòng kiểm tra quyền truy cập.</div>}
-      
-      {!isLoading && !error && users.length === 0 && (
-        <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-          Chưa có dữ liệu người dùng.
+      {presentation.showBlockingError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-error/30 bg-error-container/30 p-5 text-sm text-on-surface sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-on-surface-variant">Không thể tải danh sách người dùng. Vui lòng thử lại.</p>
+          <Button type="button" variant="outline" onClick={retry} loading={isFetching}>
+            Thử lại
+          </Button>
         </div>
       )}
 
-      {!isLoading && !error && users.length > 0 && (
-        <>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative' }}>
-            {/* Loading Overlay when fetching next page */}
-            {isFetching && !isLoading && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.5)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <span style={{ backgroundColor: 'white', padding: '0.5rem 1rem', borderRadius: '999px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>Đang tải...</span>
-              </div>
-            )}
-            
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+      {presentation.showInitialLoading && !isPlaceholderData && (
+        <AdminTableSkeleton
+          headers={USER_TABLE_HEADERS}
+          rows={6}
+          minWidthClass="min-w-[900px]"
+          statusLabel="Đang tải danh sách người dùng"
+        />
+      )}
+
+      {isPlaceholderData && (
+        <p role="status" aria-live="polite" className="mb-2 text-xs font-medium text-on-surface-variant">
+          Đang chuyển sang trang {pageNumber}. Kết quả đang hiển thị tạm thời thuộc trang trước
+          {users.length > 0 ? '; thao tác trên hàng đang tạm khóa.' : '.'}
+        </p>
+      )}
+
+      {(hasCurrentPageData && users.length === 0) && (
+        <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low px-5 py-10 text-center">
+          <p className="font-semibold text-on-surface">Chưa có người dùng</p>
+          <p className="mt-1 text-sm text-on-surface-variant">Danh sách hiện chưa có người dùng ở trang này.</p>
+        </div>
+      )}
+
+      {(hasCurrentPageData || isPlaceholderData) && users.length > 0 && (
+        <div aria-busy={isFetching || isPlaceholderData}>
+          <AdminTableShell minWidthClass="min-w-[900px]">
+              <caption className="sr-only">Danh sách người dùng quản trị</caption>
+              <thead className="border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
                 <tr>
-                  <th style={{ padding: '1rem', fontWeight: '600', color: '#374151' }}>Email</th>
-                  <th style={{ padding: '1rem', fontWeight: '600', color: '#374151' }}>Tên</th>
-                  <th style={{ padding: '1rem', fontWeight: '600', color: '#374151' }}>Quyền</th>
-                  <th style={{ padding: '1rem', fontWeight: '600', color: '#374151' }}>Gói cước</th>
-                  <th style={{ padding: '1rem', fontWeight: '600', color: '#374151' }}>Trạng thái</th>
-                  <th style={{ padding: '1rem', fontWeight: '600', color: '#374151', textAlign: 'right' }}>Thao tác</th>
+                  {USER_TABLE_HEADERS.map((header) => (
+                    <th key={header} scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {users.map(user => (
-                  <tr key={user.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '1rem', color: '#111827' }}>{user.email}</td>
-                    <td style={{ padding: '1rem', color: '#4b5563' }}>{user.displayName || '-'}</td>
-                    <td style={{ padding: '1rem' }}>
-                      {(user.roles || []).map(r => (
-                        <span key={r} style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '0.25rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-block' }}>
-                          {r}
-                        </span>
-                      ))}
+                {users.map((user) => (
+                  <tr key={user.id} className="border-b border-outline-variant/50 last:border-b-0 hover:bg-surface-container-low/70">
+                    <td className="px-4 py-4 font-medium text-on-surface">{user.email}</td>
+                    <td className="px-4 py-4 text-on-surface-variant">{user.displayName || '—'}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        {(user.roles || []).length > 0
+                          ? user.roles.map((role) => <Badge key={role} variant="primary" size="sm">{role}</Badge>)
+                          : <span className="text-on-surface-variant">—</span>}
+                      </div>
                     </td>
-                    <td style={{ padding: '1rem', color: '#4b5563' }}>
-                      {user.currentPlanCode ? (
-                        <span style={{ fontWeight: '500', color: '#0ea5e9' }}>{user.currentPlanCode.toUpperCase()}</span>
-                      ) : (
-                        <span>-</span>
-                      )}
+                    <td className="px-4 py-4 font-semibold text-primary">
+                      {user.currentPlanCode ? user.currentPlanCode.toUpperCase() : '—'}
                     </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{ 
-                        backgroundColor: user.active ? '#dcfce7' : '#fee2e2', 
-                        color: user.active ? '#166534' : '#991b1b', 
-                        padding: '0.25rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem' 
-                      }}>
+                    <td className="px-4 py-4">
+                      <Badge variant={user.active ? 'success' : 'error'} size="sm">
                         {user.active ? 'Hoạt động' : 'Đã khóa'}
-                      </span>
+                      </Badge>
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <Button onClick={() => setSelectedUserForRoles(user)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: 'white', color: '#4b5563', border: '1px solid #d1d5db' }}>
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isPlaceholderData}
+                          onClick={() => setSelectedUserForRoles(user)}
+                        >
                           Sửa quyền
                         </Button>
-                        <Button onClick={() => setSelectedUserForStatus(user)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: 'white', color: user.active ? '#ef4444' : '#10b981', border: `1px solid ${user.active ? '#fca5a5' : '#6ee7b7'}` }}>
+                        <Button
+                          type="button"
+                          variant={user.active ? 'danger' : 'outline'}
+                          size="sm"
+                          disabled={isPlaceholderData}
+                          onClick={() => setSelectedUserForStatus(user)}
+                        >
                           {user.active ? 'Khóa' : 'Mở khóa'}
                         </Button>
-                        <Button onClick={() => setSelectedUserIdForDetails(user.id)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          disabled={isPlaceholderData}
+                          onClick={() => setSelectedUserIdForDetails(user.id)}
+                        >
                           Chi tiết
                         </Button>
                       </div>
@@ -118,51 +178,52 @@ export default function AdminUsersPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Toolbar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-            <div style={{ color: '#4b5563', fontSize: '0.875rem' }}>
-              Trang {cursorStack.length + 1} {isFetching && <span style={{ marginLeft: '0.5rem', color: '#9ca3af' }}>(Đang làm mới...)</span>}
-            </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <Button 
-                onClick={handlePrevious} 
-                disabled={cursorStack.length === 0 || isFetching}
-                style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', opacity: cursorStack.length === 0 ? 0.5 : 1 }}
-              >
-                &larr; Trang trước
-              </Button>
-              <Button 
-                onClick={handleNext} 
-                disabled={!hasNextPage || isFetching}
-                style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', opacity: !hasNextPage ? 0.5 : 1 }}
-              >
-                Trang sau &rarr;
-              </Button>
-            </div>
-          </div>
-        </>
+          </AdminTableShell>
+        </div>
       )}
 
-      {/* Modals */}
-      <UserRolesModal 
-        isOpen={!!selectedUserForRoles} 
-        onClose={() => setSelectedUserForRoles(null)} 
-        user={selectedUserForRoles} 
-      />
-      <UserStatusModal 
-        isOpen={!!selectedUserForStatus} 
-        onClose={() => setSelectedUserForStatus(null)} 
-        user={selectedUserForStatus} 
-      />
-      <UserDetailModal 
-        isOpen={!!selectedUserIdForDetails} 
-        onClose={() => setSelectedUserIdForDetails(null)} 
-        userId={selectedUserIdForDetails} 
-      />
+      {(hasCurrentPageData || isPlaceholderData || cursorStack.length > 0) && (
+        <nav aria-label="Phân trang người dùng" className="mt-4 flex flex-col gap-3 rounded-xl border border-outline-variant/60 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-on-surface-variant">
+              Trang {pageNumber}
+              {isPlaceholderData && <span className="ml-2 text-xs">(đang chuyển trang)</span>}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={cursorStack.length === 0 || isFetching}
+              >
+                ← Trang trước
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleNext}
+                disabled={!hasNextPage || isFetching || isPlaceholderData}
+              >
+                Trang sau →
+              </Button>
+            </div>
+        </nav>
+      )}
 
-    </div>
+      <UserRolesModal
+        isOpen={!!selectedUserForRoles}
+        onClose={() => setSelectedUserForRoles(null)}
+        user={selectedUserForRoles}
+      />
+      <UserStatusModal
+        isOpen={!!selectedUserForStatus}
+        onClose={() => setSelectedUserForStatus(null)}
+        user={selectedUserForStatus}
+      />
+      <UserDetailModal
+        isOpen={!!selectedUserIdForDetails}
+        onClose={() => setSelectedUserIdForDetails(null)}
+        userId={selectedUserIdForDetails}
+      />
+    </AdminPageShell>
   );
 }

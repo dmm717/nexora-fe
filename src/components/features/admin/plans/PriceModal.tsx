@@ -2,8 +2,10 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
+import { Modal } from '@/components/ui/Modal';
 import { AdminPlanPriceView } from '@/services/adminApi';
 import { useAddPlanPrice, useUpdatePlanPrice } from '@/hooks/queries/useAdminPlans';
 
@@ -25,126 +27,133 @@ interface PriceModalProps {
 }
 
 export function PriceModal({ isOpen, onClose, planId, editingPrice }: PriceModalProps) {
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<z.input<typeof priceSchema>, unknown, PriceFormValues>({
     resolver: zodResolver(priceSchema),
     defaultValues: {
-      amountMinor: 0, currency: 'VND', durationDays: null, interviewQuota: null, isActive: true
-    }
+      amountMinor: 0, currency: 'VND', durationDays: null, interviewQuota: null, isActive: true,
+    },
   });
 
-  const createMutation = useAddPlanPrice();
-  const updateMutation = useUpdatePlanPrice();
+  const {
+    mutate: addPrice,
+    isPending: isAdding,
+    isError: addError,
+    reset: resetAddMutation,
+  } = useAddPlanPrice();
+  const {
+    mutate: updatePrice,
+    isPending: isUpdating,
+    isError: updateError,
+    reset: resetUpdateMutation,
+  } = useUpdatePlanPrice();
+  const isPending = isAdding || isUpdating;
 
   useEffect(() => {
-    if (isOpen) {
-      if (editingPrice) {
-        setValue('amountMinor', editingPrice.amountMinor);
-        setValue('currency', editingPrice.currency);
-        setValue('durationDays', editingPrice.durationDays);
-        setValue('interviewQuota', editingPrice.interviewQuota);
-        setValue('isActive', editingPrice.isActive);
-      } else {
-        reset();
-      }
+    if (!isOpen) return;
+    resetAddMutation();
+    resetUpdateMutation();
+    if (editingPrice) {
+      reset({
+        amountMinor: editingPrice.amountMinor,
+        currency: editingPrice.currency,
+        durationDays: editingPrice.durationDays,
+        interviewQuota: editingPrice.interviewQuota,
+        isActive: editingPrice.isActive,
+      });
+    } else {
+      reset();
     }
-  }, [isOpen, editingPrice, setValue, reset]);
+  }, [isOpen, editingPrice, reset, resetAddMutation, resetUpdateMutation]);
+
+  const handleClose = () => {
+    if (isPending) return;
+    onClose();
+  };
 
   if (!isOpen) return null;
 
   const onSubmit = (data: PriceFormValues) => {
-    // Convert nulls to undefined for API if needed, or pass directly
+    if (isPending) return;
     const payload = {
       amountMinor: data.amountMinor,
       currency: data.currency,
       durationDays: data.durationDays || undefined,
       interviewQuota: data.interviewQuota || undefined,
-      isActive: data.isActive
+      isActive: data.isActive,
     };
 
     if (editingPrice) {
-      updateMutation.mutate({
-        priceId: editingPrice.id,
-        data: payload
-      }, {
-        onSuccess: () => onClose()
-      });
+      updatePrice({ priceId: editingPrice.id, data: payload }, { onSuccess: onClose });
     } else {
-      createMutation.mutate({
-        planId,
-        data: payload
-      }, {
-        onSuccess: () => onClose()
-      });
+      addPrice({ planId, data: payload }, { onSuccess: onClose });
     }
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', 
-        width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-            {editingPrice ? 'Sửa Giá Gói Cước' : 'Thêm Giá Mới'}
-          </h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
-        </div>
-        
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <Input 
-            label="Số tiền (Amount)" 
-            type="number" 
-            {...register('amountMinor')} 
-            error={errors.amountMinor?.message} 
-            disabled={!!editingPrice} 
-            placeholder="VD: 599000"
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={editingPrice ? 'Sửa giá gói cước' : 'Thêm mức giá'}
+      description="Thiết lập mức giá và giới hạn đi kèm cho gói."
+      size="md"
+    >
+      <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" aria-busy={isPending}>
+          {(addError || updateError) && (
+            <Alert variant="error" title="Chưa lưu được mức giá">
+              Các giá trị đã nhập vẫn được giữ lại. Bạn có thể thử lưu lại.
+            </Alert>
+          )}
+
+          <Input
+            label="Số tiền (Amount)"
+            type="number"
+            {...register('amountMinor')}
+            error={errors.amountMinor?.message}
+            disabled={!!editingPrice || isPending}
+            placeholder="Ví dụ: 599000"
           />
-          <Input 
-            label="Tiền tệ (Currency)" 
-            {...register('currency')} 
-            error={errors.currency?.message} 
-            disabled={!!editingPrice} 
+          <Input
+            label="Tiền tệ (Currency)"
+            {...register('currency')}
+            error={errors.currency?.message}
+            disabled={!!editingPrice || isPending}
           />
-          <Input 
-            label="Thời hạn (Số ngày - tùy chọn)" 
-            type="number" 
-            {...register('durationDays')} 
-            error={errors.durationDays?.message} 
-            disabled={!!editingPrice} 
-            placeholder="VD: 30"
+          <Input
+            label="Thời hạn (số ngày, tùy chọn)"
+            type="number"
+            {...register('durationDays')}
+            error={errors.durationDays?.message}
+            disabled={!!editingPrice || isPending}
+            placeholder="Ví dụ: 30"
           />
-          <Input 
-            label="Hạn mức phỏng vấn (tùy chọn)" 
-            type="number" 
-            {...register('interviewQuota')} 
-            error={errors.interviewQuota?.message} 
-            disabled={!!editingPrice} 
-            placeholder="VD: 10"
+          <Input
+            label="Hạn mức phỏng vấn (tùy chọn)"
+            type="number"
+            {...register('interviewQuota')}
+            error={errors.interviewQuota?.message}
+            disabled={!!editingPrice || isPending}
+            placeholder="Ví dụ: 10"
           />
 
           {editingPrice && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="checkbox" {...register('isActive')} />
-              Đang hoạt động (Kích hoạt)
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+              <input type="checkbox" {...register('isActive')} disabled={isPending} className="h-4 w-4 accent-primary" />
+              Đang hoạt động
             </label>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <Button type="button" onClick={onClose} disabled={isPending} style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db' }}>Hủy</Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang xử lý...' : 'Lưu lại'}
-            </Button>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-outline-variant/50 pt-4">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>Hủy</Button>
+            <Button type="submit" loading={isPending}>{isPending ? 'Đang xử lý…' : 'Lưu mức giá'}</Button>
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

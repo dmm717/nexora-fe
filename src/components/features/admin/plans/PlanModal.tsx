@@ -2,8 +2,10 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
+import { Modal } from '@/components/ui/Modal';
 import { AdminPlanView } from '@/services/adminApi';
 import { useCreatePlan, useUpdatePlan } from '@/hooks/queries/useAdminPlans';
 
@@ -13,7 +15,7 @@ const planSchema = z.object({
   description: z.string().optional(),
   badge: z.string().optional(),
   isHighlighted: z.boolean(),
-  isActive: z.boolean().optional(), // only for update
+  isActive: z.boolean().optional(),
 });
 
 export type PlanFormValues = z.infer<typeof planSchema>;
@@ -25,106 +27,120 @@ interface PlanModalProps {
 }
 
 export function PlanModal({ isOpen, onClose, editingPlan }: PlanModalProps) {
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm<PlanFormValues>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<PlanFormValues>({
     resolver: zodResolver(planSchema),
     defaultValues: {
-      code: '', name: '', description: '', badge: '', isHighlighted: false, isActive: true
-    }
+      code: '', name: '', description: '', badge: '', isHighlighted: false, isActive: true,
+    },
   });
 
-  const createMutation = useCreatePlan();
-  const updateMutation = useUpdatePlan();
+  const {
+    mutate: createPlan,
+    isPending: isCreating,
+    isError: createError,
+    reset: resetCreateMutation,
+  } = useCreatePlan();
+  const {
+    mutate: updatePlan,
+    isPending: isUpdating,
+    isError: updateError,
+    reset: resetUpdateMutation,
+  } = useUpdatePlan();
+  const isPending = isCreating || isUpdating;
 
   useEffect(() => {
-    if (isOpen) {
-      if (editingPlan) {
-        setValue('code', editingPlan.code);
-        setValue('name', editingPlan.name);
-        setValue('description', editingPlan.description || '');
-        setValue('badge', editingPlan.badge || '');
-        setValue('isHighlighted', editingPlan.isHighlighted);
-        setValue('isActive', editingPlan.isActive);
-      } else {
-        reset();
-      }
+    if (!isOpen) return;
+    resetCreateMutation();
+    resetUpdateMutation();
+    if (editingPlan) {
+      reset({
+        code: editingPlan.code,
+        name: editingPlan.name,
+        description: editingPlan.description || '',
+        badge: editingPlan.badge || '',
+        isHighlighted: editingPlan.isHighlighted,
+        isActive: editingPlan.isActive,
+      });
+    } else {
+      reset();
     }
-  }, [isOpen, editingPlan, setValue, reset]);
+  }, [isOpen, editingPlan, reset, resetCreateMutation, resetUpdateMutation]);
+
+  const handleClose = () => {
+    if (isPending) return;
+    onClose();
+  };
 
   if (!isOpen) return null;
 
   const onSubmit = (data: PlanFormValues) => {
+    if (isPending) return;
     if (editingPlan) {
-      updateMutation.mutate({
+      updatePlan({
         id: editingPlan.id,
         data: {
           name: data.name,
           description: data.description,
           badge: data.badge,
           isHighlighted: data.isHighlighted,
-          isActive: data.isActive
-        }
-      }, {
-        onSuccess: () => onClose()
-      });
+          isActive: data.isActive,
+        },
+      }, { onSuccess: onClose });
     } else {
-      createMutation.mutate({
+      createPlan({
         code: data.code,
         name: data.name,
         description: data.description,
         badge: data.badge,
-        isHighlighted: data.isHighlighted
-      }, {
-        onSuccess: () => onClose()
-      });
+        isHighlighted: data.isHighlighted,
+      }, { onSuccess: onClose });
     }
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', 
-        width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-            {editingPlan ? 'Sửa Gói Cước' : 'Tạo Gói Cước Mới'}
-          </h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
-        </div>
-        
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <Input label="Mã gói (Code)" {...register('code')} error={errors.code?.message} disabled={!!editingPlan} />
-          <Input label="Tên gói" {...register('name')} error={errors.name?.message} />
-          <Input label="Mô tả" {...register('description')} error={errors.description?.message} />
-          <Input label="Badge (VD: Phổ biến)" {...register('badge')} error={errors.badge?.message} />
-          
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input type="checkbox" {...register('isHighlighted')} />
-            Gói nổi bật (Highlighted)
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={editingPlan ? 'Sửa gói cước' : 'Tạo gói cước mới'}
+      description="Cập nhật thông tin hiển thị và trạng thái của gói."
+      size="md"
+    >
+      <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" aria-busy={isPending}>
+          {(createError || updateError) && (
+            <Alert variant="error" title="Chưa lưu được gói cước">
+              Thông tin vẫn được giữ lại. Bạn có thể thử lưu lại.
+            </Alert>
+          )}
+
+          <Input label="Mã gói (Code)" {...register('code')} error={errors.code?.message} disabled={!!editingPlan || isPending} />
+          <Input label="Tên gói" {...register('name')} error={errors.name?.message} disabled={isPending} />
+          <Input label="Mô tả" {...register('description')} error={errors.description?.message} disabled={isPending} />
+          <Input label="Badge (ví dụ: Phổ biến)" {...register('badge')} error={errors.badge?.message} disabled={isPending} />
+
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+            <input type="checkbox" {...register('isHighlighted')} disabled={isPending} className="h-4 w-4 accent-primary" />
+            Gói nổi bật
           </label>
 
           {editingPlan && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="checkbox" {...register('isActive')} />
-              Đang hoạt động (Kích hoạt)
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+              <input type="checkbox" {...register('isActive')} disabled={isPending} className="h-4 w-4 accent-primary" />
+              Đang hoạt động
             </label>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <Button type="button" onClick={onClose} disabled={isPending} style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db' }}>Hủy</Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang xử lý...' : 'Lưu lại'}
-            </Button>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-outline-variant/50 pt-4">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>Hủy</Button>
+            <Button type="submit" loading={isPending}>{isPending ? 'Đang xử lý…' : 'Lưu gói'}</Button>
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

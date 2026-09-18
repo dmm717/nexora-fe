@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/services/adminApi';
 import { toast } from 'sonner';
 
@@ -17,6 +17,7 @@ export function useAdminUsers(cursor?: string) {
     queryKey: adminUserKeys.list(cursor),
     queryFn: () => adminApi.getUsers(cursor),
     staleTime: 30000, // Keep data fresh enough for back/forward navigation
+    placeholderData: keepPreviousData,
   });
 }
 
