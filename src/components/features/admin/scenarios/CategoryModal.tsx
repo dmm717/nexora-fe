@@ -1,20 +1,29 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button/Button';
-import { Input } from '@/components/ui/Input/Input';
+import { Modal } from '@/components/ui/Modal';
+import { AdminTextField } from './AdminTextField';
 import { AdminScenarioCategoryView } from '@/services/adminApi';
 import { useCreateScenarioCategory, useUpdateScenarioCategory } from '@/hooks/queries/useAdminScenarios';
 
 const categorySchema = z.object({
-  slug: z.string().min(1, 'Vui lòng nhập slug (mã danh mục)'),
-  name: z.string().min(1, 'Vui lòng nhập tên danh mục'),
+  slug: z.string().min(1, 'Nhập mã danh mục.'),
+  name: z.string().min(1, 'Nhập tên danh mục.'),
   description: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
+
+const emptyCategory: CategoryFormValues = {
+  slug: '',
+  name: '',
+  description: '',
+  isActive: true,
+};
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -23,106 +32,128 @@ interface CategoryModalProps {
 }
 
 export function CategoryModal({ isOpen, onClose, editingCategory }: CategoryModalProps) {
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm<CategoryFormValues>({
-    resolver: zodResolver(categorySchema),
-    defaultValues: { slug: '', name: '', description: '', isActive: true }
-  });
-
   const createMutation = useCreateScenarioCategory();
   const updateMutation = useUpdateScenarioCategory();
-
-  useEffect(() => {
-    if (isOpen) {
-      if (editingCategory) {
-        setValue('slug', editingCategory.slug);
-        setValue('name', editingCategory.name);
-        setValue('description', editingCategory.description || '');
-        setValue('isActive', editingCategory.isActive);
-      } else {
-        reset();
-      }
-    }
-  }, [isOpen, editingCategory, setValue, reset]);
-
-  if (!isOpen) return null;
-
-  const onSubmit = (data: CategoryFormValues) => {
-    if (editingCategory) {
-      updateMutation.mutate({
-        id: editingCategory.id,
-        data: {
-          name: data.name,
-          description: data.description,
-          isActive: data.isActive
-        }
-      }, {
-        onSuccess: () => onClose()
-      });
-    } else {
-      createMutation.mutate({
-        slug: data.slug,
-        name: data.name,
-        description: data.description
-      }, {
-        onSuccess: () => onClose()
-      });
-    }
-  };
-
+  const resetCreateMutation = createMutation.reset;
+  const resetUpdateMutation = updateMutation.reset;
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: emptyCategory,
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    resetCreateMutation();
+    resetUpdateMutation();
+    reset(
+      editingCategory
+        ? {
+            slug: editingCategory.slug,
+            name: editingCategory.name,
+            description: editingCategory.description || '',
+            isActive: editingCategory.isActive,
+          }
+        : emptyCategory,
+    );
+  }, [isOpen, editingCategory, reset, resetCreateMutation, resetUpdateMutation]);
+
+  const closeIfIdle = () => {
+    if (!isPending) onClose();
+  };
+
+  const onSubmit = (data: CategoryFormValues) => {
+    if (isPending) return;
+
+    if (editingCategory) {
+      updateMutation.mutate(
+        {
+          id: editingCategory.id,
+          data: {
+            name: data.name,
+            description: data.description,
+            isActive: data.isActive,
+          },
+        },
+        { onSuccess: onClose },
+      );
+      return;
+    }
+
+    createMutation.mutate(
+      {
+        slug: data.slug,
+        name: data.name,
+        description: data.description,
+      },
+      { onSuccess: onClose },
+    );
+  };
+
+  const mutationFailed = editingCategory ? updateMutation.isError : createMutation.isError;
+
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', zIndex: 1100
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', 
-        width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-            {editingCategory ? 'Sửa Danh mục' : 'Thêm Danh mục mới'}
-          </h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+    <Modal
+      isOpen={isOpen}
+      onClose={closeIfIdle}
+      title={editingCategory ? 'Chỉnh sửa danh mục' : 'Tạo danh mục mới'}
+      description="Quản lý các nhóm kịch bản đang có trong hệ thống."
+      maxWidth="sm"
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        {mutationFailed && (
+          <Alert variant="error" title="Chưa lưu được danh mục">
+            Thông tin đã nhập vẫn được giữ lại. Hãy kiểm tra rồi thử lưu lại.
+          </Alert>
+        )}
+
+        <AdminTextField
+          label="Mã danh mục (slug)"
+          placeholder="Ví dụ: frontend-interview"
+          disabled={isPending || Boolean(editingCategory)}
+          error={errors.slug?.message}
+          {...register('slug')}
+        />
+        <AdminTextField
+          label="Tên danh mục"
+          disabled={isPending}
+          error={errors.name?.message}
+          {...register('name')}
+        />
+        <AdminTextField
+          label="Mô tả"
+          disabled={isPending}
+          error={errors.description?.message}
+          {...register('description')}
+        />
+
+        {editingCategory && (
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-outline-variant/60 bg-surface-container-low px-3 text-sm text-on-surface">
+            <input
+              type="checkbox"
+              {...register('isActive')}
+              disabled={isPending}
+              className="h-4 w-4 rounded border-outline accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            />
+            Danh mục đang hoạt động
+          </label>
+        )}
+
+        <div className="flex flex-col-reverse gap-2 border-t border-outline-variant/50 pt-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={closeIfIdle} disabled={isPending}>
+            Hủy
+          </Button>
+          <Button type="submit" loading={isPending} disabled={isPending}>
+            Lưu danh mục
+          </Button>
         </div>
-        
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <Input 
-            label="Mã danh mục (Slug)" 
-            {...register('slug')} 
-            error={errors.slug?.message} 
-            disabled={!!editingCategory} 
-            placeholder="VD: frontend-interview"
-          />
-          <Input 
-            label="Tên danh mục" 
-            {...register('name')} 
-            error={errors.name?.message} 
-          />
-          <Input 
-            label="Mô tả" 
-            {...register('description')} 
-            error={errors.description?.message} 
-          />
-
-          {editingCategory && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem' }}>
-              <input type="checkbox" {...register('isActive')} />
-              Đang hoạt động (Kích hoạt)
-            </label>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <Button type="button" onClick={onClose} disabled={isPending} style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db' }}>Hủy</Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang xử lý...' : 'Lưu lại'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button/Button';
+import { Modal } from '@/components/ui/Modal';
+import { AdminAsyncNotice } from '@/components/features/admin/AdminAsyncNotice';
+import { AdminTableShell } from '@/components/features/admin/AdminTableShell';
+import { AdminTableSkeleton } from '@/components/features/admin/AdminTableSkeleton';
 import { useAdminScenarioCategories } from '@/hooks/queries/useAdminScenarios';
 import { AdminScenarioCategoryView } from '@/services/adminApi';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 import { CategoryModal } from './CategoryModal';
 
 interface CategoryListModalProps {
@@ -9,95 +15,146 @@ interface CategoryListModalProps {
   onClose: () => void;
 }
 
+const categoryHeaders = ['Mã danh mục', 'Tên', 'Mô tả', 'Trạng thái', 'Thao tác'];
+
 export function CategoryListModal({ isOpen, onClose }: CategoryListModalProps) {
-  const { data: categories = [], isLoading, error } = useAdminScenarioCategories();
-  
+  const categoriesQuery = useAdminScenarioCategories();
+  const categories = categoriesQuery.data;
+  const presentation = getQueryPresentation({
+    hasData: categories !== undefined,
+    isLoading: categoriesQuery.isLoading,
+    isError: categoriesQuery.isError,
+    isFetching: categoriesQuery.isFetching,
+  });
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AdminScenarioCategoryView | null>(null);
 
-  if (!isOpen) return null;
-
-  const handleCreate = () => {
+  const openCreate = () => {
     setEditingCategory(null);
     setCategoryModalOpen(true);
   };
 
-  const handleEdit = (category: AdminScenarioCategoryView) => {
+  const openEdit = (category: AdminScenarioCategoryView) => {
     setEditingCategory(category);
     setCategoryModalOpen(true);
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', 
-        width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Quản lý Danh mục Kịch bản</h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-          <Button onClick={handleCreate}>+ Thêm danh mục mới</Button>
-        </div>
-        
-        {isLoading && <div>Đang tải danh sách danh mục...</div>}
-        {error && <div style={{ color: 'red' }}>Lỗi khi tải danh sách danh mục.</div>}
-
-        {!isLoading && !error && categories.length === 0 && (
-          <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-            Chưa có danh mục nào.
+    <>
+      <Modal
+        isOpen={isOpen && !isCategoryModalOpen}
+        onClose={onClose}
+        title="Danh mục kịch bản"
+        description="Danh mục giúp nhóm các kịch bản luyện tập."
+        maxWidth="xl"
+      >
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={openCreate}>+ Tạo danh mục</Button>
           </div>
-        )}
 
-        {!isLoading && !error && categories.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e5e7eb' }}>
-            <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <tr>
-                <th style={{ padding: '0.75rem', fontWeight: '600', color: '#374151' }}>Mã (Slug)</th>
-                <th style={{ padding: '0.75rem', fontWeight: '600', color: '#374151' }}>Tên danh mục</th>
-                <th style={{ padding: '0.75rem', fontWeight: '600', color: '#374151' }}>Mô tả</th>
-                <th style={{ padding: '0.75rem', fontWeight: '600', color: '#374151' }}>Trạng thái</th>
-                <th style={{ padding: '0.75rem', fontWeight: '600', color: '#374151', textAlign: 'right' }}>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map(cat => (
-                <tr key={cat.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '0.75rem', color: '#4b5563', fontSize: '0.875rem' }}>{cat.slug}</td>
-                  <td style={{ padding: '0.75rem', color: '#111827', fontWeight: '500' }}>{cat.name}</td>
-                  <td style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.875rem' }}>{cat.description || '-'}</td>
-                  <td style={{ padding: '0.75rem' }}>
-                    <span style={{ 
-                      backgroundColor: cat.isActive ? '#dcfce7' : '#f3f4f6', 
-                      color: cat.isActive ? '#166534' : '#4b5563', 
-                      padding: '0.25rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem' 
-                    }}>
-                      {cat.isActive ? 'Hoạt động' : 'Đã ẩn'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                    <Button onClick={() => handleEdit(cat)} style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db' }}>
-                      Sửa
-                    </Button>
-                  </td>
+          {presentation.showInitialLoading && (
+            <div aria-label="Đang tải danh mục" aria-busy="true">
+              <AdminTableSkeleton headers={categoryHeaders} rows={4} minWidthClass="min-w-[760px]" />
+            </div>
+          )}
+
+          {presentation.showBlockingError && (
+            <Alert
+              variant="error"
+              title="Không thể tải danh mục"
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void categoriesQuery.refetch()}
+                >
+                  Thử lại
+                </Button>
+              }
+            >
+              Chưa có dữ liệu danh mục để hiển thị. Bạn vẫn có thể thử tạo danh mục mới.
+            </Alert>
+          )}
+
+          {presentation.showRefreshing && !presentation.showBackgroundError && (
+            <AdminAsyncNotice kind="refreshing" />
+          )}
+          {presentation.showBackgroundError && (
+            <AdminAsyncNotice kind="error" onRetry={() => void categoriesQuery.refetch()} />
+          )}
+
+          {categories !== undefined && categories.length === 0 && (
+            <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest px-5 py-8 text-center">
+              <h3 className="font-semibold text-on-surface">Chưa có danh mục</h3>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                Tạo danh mục trước khi thêm kịch bản mới.
+              </p>
+              <Button className="mt-4" onClick={openCreate}>
+                Tạo danh mục
+              </Button>
+            </div>
+          )}
+
+          {categories !== undefined && categories.length > 0 && (
+            <AdminTableShell minWidthClass="min-w-[760px]">
+              <caption className="sr-only">Các danh mục kịch bản đã thiết lập</caption>
+              <thead className="border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
+                <tr>
+                  {categoryHeaders.map((header) => (
+                    <th
+                      key={header}
+                      scope="col"
+                      className={`px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide ${header === 'Thao tác' ? 'text-right' : ''}`}
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {categories.map((category) => (
+                  <tr
+                    key={category.id}
+                    className="border-b border-outline-variant/50 last:border-b-0 hover:bg-surface-container-low/50"
+                  >
+                    <th scope="row" className="px-3 py-3 text-left text-xs font-medium text-on-surface-variant">
+                      <span className="break-all">{category.slug}</span>
+                    </th>
+                    <td className="px-3 py-3 text-sm font-semibold text-on-surface">{category.name}</td>
+                    <td className="max-w-xs px-3 py-3 text-sm text-on-surface-variant">
+                      {category.description || '—'}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          category.isActive
+                            ? 'bg-secondary-container/60 text-on-secondary-container'
+                            : 'bg-surface-container-high text-on-surface-variant'
+                        }`}
+                      >
+                        {category.isActive ? 'Đang hoạt động' : 'Đã ẩn'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <Button variant="outline" size="sm" onClick={() => openEdit(category)}>
+                        Sửa
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </AdminTableShell>
+          )}
+        </div>
+      </Modal>
 
-        <CategoryModal 
-          isOpen={isCategoryModalOpen}
-          onClose={() => setCategoryModalOpen(false)}
-          editingCategory={editingCategory}
-        />
-      </div>
-    </div>
+      <CategoryModal
+        isOpen={isOpen && isCategoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        editingCategory={editingCategory}
+      />
+    </>
   );
 }

@@ -1,12 +1,18 @@
-import React, { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
+import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
+import { Alert } from '@/components/ui/Alert';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminAsyncNotice } from '@/components/features/admin/AdminAsyncNotice';
 import { AdminUserView } from '@/services/adminApi';
 import { useGrantPlan } from '@/hooks/queries/useAdminUsers';
 import { useAdminPlans } from '@/hooks/queries/useAdminPlans';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 const grantSchema = z.object({
   planPriceId: z.string().min(1, 'Vui lòng chọn một Gói cước (Price)'),
@@ -23,109 +29,164 @@ interface GrantPlanModalProps {
 }
 
 export function GrantPlanModal({ isOpen, onClose, user }: GrantPlanModalProps) {
+  const plansQuery = useAdminPlans();
   const grantMutation = useGrantPlan();
-  const { data: plans = [] } = useAdminPlans();
-
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<GrantFormValues>({
-    resolver: zodResolver(grantSchema),
-    defaultValues: { planPriceId: '', replaceCurrent: true, reason: '' }
+  const currentUser = isOpen ? user : null;
+  const queryPresentation = getQueryPresentation({
+    hasData: plansQuery.data !== undefined,
+    isLoading: plansQuery.isLoading,
+    isError: plansQuery.isError,
+    isFetching: plansQuery.isFetching,
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      reset({ planPriceId: '', replaceCurrent: true, reason: '' });
-    }
-  }, [isOpen, reset]);
-
-  // Flatten plans to extract active prices
   const activePrices = useMemo(() => {
     const list: { id: string; label: string }[] = [];
-    plans.filter(p => p.isActive).forEach(p => {
-      p.prices?.filter(pr => pr.isActive).forEach(pr => {
+    (plansQuery.data ?? []).filter((plan) => plan.isActive).forEach((plan) => {
+      plan.prices?.filter((price) => price.isActive).forEach((price) => {
         list.push({
-          id: pr.id,
-          label: `[${p.name}] - ${pr.durationDays ? pr.durationDays + ' ngày' : 'Vĩnh viễn'} - ${pr.amountMinor.toLocaleString('vi-VN')} ${pr.currency}`
+          id: price.id,
+          label: `[${plan.name}] - ${price.durationDays ? `${price.durationDays} ngày` : 'Vĩnh viễn'} - ${price.amountMinor.toLocaleString('vi-VN')} ${price.currency}`,
         });
       });
     });
     return list;
-  }, [plans]);
+  }, [plansQuery.data]);
 
-  if (!isOpen || !user) return null;
-
-  const onSubmit = (data: GrantFormValues) => {
+  const safeClose = () => {
+    if (!grantMutation.isPending) onClose();
+  };
+  const saveGrant = (formValues: GrantFormValues) => {
+    if (!currentUser) return;
     grantMutation.mutate({
-      userId: user.id,
+      userId: currentUser.id,
       data: {
-        planPriceId: data.planPriceId,
-        replaceCurrent: data.replaceCurrent,
-        reason: data.reason,
-      }
-    }, {
-      onSuccess: () => onClose()
-    });
+        planPriceId: formValues.planPriceId,
+        replaceCurrent: formValues.replaceCurrent,
+        reason: formValues.reason,
+      },
+    }, { onSuccess: safeClose });
   };
 
-  const isPending = grantMutation.isPending;
+  return (
+    <Modal
+      isOpen={Boolean(currentUser)}
+      onClose={safeClose}
+      title="Cấp phát gói cước"
+      description="Cấp gói trực tiếp cho người dùng; hành động sẽ tạo entitlement ngay lập tức."
+      size="md"
+    >
+      {currentUser && (
+        <GrantForm
+          key={currentUser.id}
+          user={currentUser}
+          activePrices={activePrices}
+          plansLoaded={plansQuery.data !== undefined}
+          plansEmpty={plansQuery.data?.length === 0}
+          isPending={grantMutation.isPending}
+          queryPresentation={queryPresentation}
+          onRetry={() => { void plansQuery.refetch(); }}
+          onSubmit={saveGrant}
+          onCancel={safeClose}
+        />
+      )}
+    </Modal>
+  );
+}
+
+interface GrantFormProps {
+  user: AdminUserView;
+  activePrices: { id: string; label: string }[];
+  plansLoaded: boolean;
+  plansEmpty: boolean;
+  isPending: boolean;
+  queryPresentation: ReturnType<typeof getQueryPresentation>;
+  onRetry: () => void;
+  onSubmit: (values: GrantFormValues) => void;
+  onCancel: () => void;
+}
+
+function GrantForm({
+  user,
+  activePrices,
+  plansLoaded,
+  plansEmpty,
+  isPending,
+  queryPresentation,
+  onRetry,
+  onSubmit,
+  onCancel,
+}: GrantFormProps) {
+  const { register, handleSubmit, formState: { errors } } = useForm<GrantFormValues>({
+    resolver: zodResolver(grantSchema),
+    defaultValues: { planPriceId: '', replaceCurrent: true, reason: '' },
+  });
+  const hasAvailablePrice = activePrices.length > 0;
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', zIndex: 1100
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', 
-        width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Cấp phát Gói cước (Manual Grant)</h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+    <form onSubmit={handleSubmit(onSubmit)} aria-busy={isPending} className="space-y-5">
+      <Alert variant="info">
+        Bạn đang cấp gói trực tiếp cho <strong>{user.email}</strong>. Gói được chọn sẽ tạo một entitlement theo cấu hình hiện tại.
+      </Alert>
+
+      {queryPresentation.showBackgroundError && (
+        <AdminAsyncNotice kind="error" onRetry={onRetry} />
+      )}
+      {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+        <AdminAsyncNotice kind="refreshing" />
+      )}
+      {queryPresentation.showInitialLoading && (
+        <div role="status" aria-label="Đang tải gói cước" className="space-y-3">
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-10 w-full" />
         </div>
-        
-        <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#eff6ff', borderRadius: '0.5rem', border: '1px solid #bfdbfe' }}>
-          <p style={{ margin: 0, color: '#1e3a8a', fontSize: '0.875rem' }}>
-            Bạn đang cấp gói cước trực tiếp cho người dùng <strong>{user.email}</strong>. 
-            Hành động này sẽ tạo ngay lập tức một <strong>Entitlement</strong> dựa trên cấu hình (snapshot) của gói được chọn.
-          </p>
+      )}
+      {queryPresentation.showBlockingError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-error/30 bg-error-container/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-on-surface-variant">Không thể tải các gói cước khả dụng.</p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>Thử lại</Button>
         </div>
+      )}
+      {plansLoaded && !hasAvailablePrice && (
+        <Alert variant="info">
+          {plansEmpty
+            ? 'Chưa có gói cước để cấp.'
+            : 'Chưa có mức giá đang hoạt động để cấp gói.'}
+        </Alert>
+      )}
 
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>Chọn gói cước khả dụng</label>
-            <select 
-              {...register('planPriceId')} 
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #d1d5db' }}
-            >
-              <option value="">-- Chọn Gói --</option>
-              {activePrices.map((p) => (
-                <option key={p.id} value={p.id}>{p.label}</option>
-              ))}
-            </select>
-            {errors.planPriceId && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.planPriceId.message}</span>}
-          </div>
+      <fieldset disabled={isPending} className="min-w-0 space-y-4">
+        <Select
+          label="Chọn gói cước khả dụng"
+          {...register('planPriceId')}
+          error={errors.planPriceId?.message}
+          disabled={isPending || !hasAvailablePrice}
+        >
+          <option value="">-- Chọn gói --</option>
+          {activePrices.map((price) => (
+            <option key={price.id} value={price.id}>{price.label}</option>
+          ))}
+        </Select>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem', fontSize: '0.875rem' }}>
-            <input type="checkbox" {...register('replaceCurrent')} style={{ width: '1rem', height: '1rem' }} />
-            Thay thế gói cước hiện tại (Nếu bỏ chọn, gói sẽ tự cộng dồn ngày - Stackable)
-          </label>
-
-          <Input 
-            label="Lý do cấp (Bắt buộc)" 
-            {...register('reason')} 
-            error={errors.reason?.message} 
-            placeholder="VD: Khách hàng mua qua chuyển khoản tay, Đền bù sự cố..."
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-on-surface">
+          <input
+            type="checkbox"
+            {...register('replaceCurrent')}
+            className="mt-0.5 h-4 w-4 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           />
+          <span>Thay thế gói cước hiện tại (bỏ chọn để cộng dồn thời hạn nếu gói hỗ trợ).</span>
+        </label>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <Button type="button" onClick={onClose} disabled={isPending} style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db' }}>Hủy</Button>
-            <Button type="submit" disabled={isPending} style={{ backgroundColor: '#2563eb' }}>
-              {isPending ? 'Đang cấp phát...' : 'Cấp phát gói cước'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <Input
+          label="Lý do cấp (Bắt buộc)"
+          {...register('reason')}
+          error={errors.reason?.message}
+          placeholder="VD: Khách hàng mua qua chuyển khoản tay, đền bù sự cố..."
+        />
+
+        <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>Hủy</Button>
+          <Button type="submit" loading={isPending} disabled={!hasAvailablePrice}>Cấp gói cước</Button>
+        </div>
+      </fieldset>
+    </form>
   );
 }
