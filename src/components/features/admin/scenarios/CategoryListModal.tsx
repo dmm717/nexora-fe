@@ -78,7 +78,9 @@ export function CategoryListModal({ isOpen, onClose }: CategoryListModalProps) {
             </Alert>
           )}
 
-          {presentation.showRefreshing && <AdminAsyncNotice kind="refreshing" />}
+          {presentation.showRefreshing && !presentation.showBackgroundError && (
+            <AdminAsyncNotice kind="refreshing" />
+          )}
           {presentation.showBackgroundError && (
             <AdminAsyncNotice kind="error" onRetry={() => void categoriesQuery.refetch()} />
           )}

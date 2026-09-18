@@ -17,7 +17,7 @@ interface AdminPageShellProps {
 
 export function AdminPageShell({ active, actions, children }: AdminPageShellProps) {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-on-surface sm:text-3xl">
@@ -55,6 +55,6 @@ export function AdminPageShell({ active, actions, children }: AdminPageShellProp
       </nav>
 
       <div className="mt-6 min-w-0">{children}</div>
-    </main>
+    </div>
   );
 }

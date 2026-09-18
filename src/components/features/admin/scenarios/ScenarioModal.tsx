@@ -209,7 +209,9 @@ export function ScenarioModal({ isOpen, onClose, editingScenario }: ScenarioModa
           {categoryPresentation.showBackgroundError && (
             <AdminAsyncNotice kind="error" onRetry={() => void categoryQuery.refetch()} />
           )}
-          {categoryPresentation.showRefreshing && <AdminAsyncNotice kind="refreshing" />}
+          {categoryPresentation.showRefreshing && !categoryPresentation.showBackgroundError && (
+            <AdminAsyncNotice kind="refreshing" />
+          )}
           {categories !== undefined && categories.length === 0 && (
             <p role="status" className="text-xs text-on-surface-variant">
               Chưa có danh mục. Hãy tạo danh mục trước khi lưu kịch bản.

@@ -12,6 +12,13 @@ const queryPresentationJs = ts.transpileModule(queryPresentationSource, {
 const { getQueryPresentation } = await import(
   `data:text/javascript;base64,${Buffer.from(queryPresentationJs).toString('base64')}`
 );
+const userStatusTransitionSource = await source('src/utils/userStatusTransition.ts');
+const userStatusTransitionJs = ts.transpileModule(userStatusTransitionSource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const { getUserStatusTransition } = await import(
+  `data:text/javascript;base64,${Buffer.from(userStatusTransitionJs).toString('base64')}`
+);
 
 test('admin query presentation distinguishes unavailable data, cached refresh, errors, and loaded empty collections', () => {
   assert.deepEqual(
@@ -30,11 +37,83 @@ test('admin query presentation distinguishes unavailable data, cached refresh, e
     getQueryPresentation({ hasData: true, isLoading: false, isError: true, isFetching: false }),
     { showInitialLoading: false, showBlockingError: false, showBackgroundError: true, showRefreshing: false },
   );
+  const retryAfterBackgroundError = getQueryPresentation({
+    hasData: true,
+    isLoading: false,
+    isError: true,
+    isFetching: true,
+  });
+  assert.deepEqual(retryAfterBackgroundError, {
+    showInitialLoading: false,
+    showBlockingError: false,
+    showBackgroundError: true,
+    showRefreshing: true,
+  });
   // A successful [] is authoritative because the caller reports hasData=true.
   assert.equal(
     getQueryPresentation({ hasData: true, isLoading: false, isError: false, isFetching: false }).showBlockingError,
     false,
   );
+});
+
+test('admin page shell leaves the main landmark to the shared dashboard layout', async () => {
+  const shell = await source('src/components/features/admin/AdminPageShell.tsx');
+  const dashboardShell = await source('src/components/layouts/FocusedPracticeShellContext.tsx');
+
+  assert.doesNotMatch(shell, /<main\b/i);
+  assert.match(dashboardShell, /<main\b/i);
+  assert.match(shell, /return\s*\(\s*<div\b/);
+  assert.match(shell, /<h1\b/);
+  assert.match(shell, /<nav\s+aria-label=/);
+});
+
+test('scenario retry after a background error shows the error notice without a contradictory refreshing notice', async () => {
+  const retryState = getQueryPresentation({
+    hasData: true,
+    isLoading: false,
+    isError: true,
+    isFetching: true,
+  });
+  const consumers = [
+    ['src/app/(dashboard)/admin/scenarios/page.tsx', 'presentation'],
+    ['src/components/features/admin/scenarios/CategoryListModal.tsx', 'presentation'],
+    ['src/components/features/admin/scenarios/ScenarioModal.tsx', 'categoryPresentation'],
+  ];
+
+  for (const [path, stateName] of consumers) {
+    const component = await source(path);
+    assert.match(
+      component,
+      new RegExp(`${stateName}\\.showRefreshing\\s*&&\\s*!${stateName}\\.showBackgroundError\\s*&&\\s*\\(`),
+      `${path} should suppress refreshing while its cached query is in background-error state`,
+    );
+    assert.match(
+      component,
+      new RegExp(`${stateName}\\.showBackgroundError\\s*&&\\s*\\([\\s\\S]*?<AdminAsyncNotice kind="error"`),
+      `${path} should retain the retryable background error notice`,
+    );
+  }
+
+  const visibleNotices = {
+    refreshing: retryState.showRefreshing && !retryState.showBackgroundError,
+    error: retryState.showBackgroundError,
+  };
+  assert.deepEqual(visibleNotices, { refreshing: false, error: true });
+});
+
+test('user status modal only submits a real lock or unlock transition', async () => {
+  const modal = await source('src/components/features/admin/users/UserStatusModal.tsx');
+
+  assert.equal(getUserStatusTransition(true, true), null);
+  assert.equal(getUserStatusTransition(true, false), 'lock');
+  assert.equal(getUserStatusTransition(false, false), null);
+  assert.equal(getUserStatusTransition(false, true), 'unlock');
+  assert.match(modal, /disabled=\{!transition\s*\|\|\s*isPending\}/);
+  assert.match(modal, /if\s*\(isPending\s*\|\|\s*!transition\)\s*return/);
+  assert.match(modal, /variant=\{transition === 'lock' \? 'danger' : 'primary'\}/);
+  assert.match(modal, /transition === 'lock'[\s\S]*?'Xác nhận khóa tài khoản'[\s\S]*?transition === 'unlock'[\s\S]*?'Xác nhận mở khóa'/);
+  assert.match(modal, /reason:\s*z\.string\(\)\.min\(5/);
+  assert.match(modal, /data:\s*\{\s*active:\s*formValues\.active,\s*reason:\s*formValues\.reason\s*\}/);
 });
 
 test('admin collection surfaces do not collapse missing/error data into empty arrays', async () => {

@@ -112,7 +112,9 @@ export default function AdminScenariosPage() {
           </Alert>
         )}
 
-        {presentation.showRefreshing && <AdminAsyncNotice kind="refreshing" />}
+        {presentation.showRefreshing && !presentation.showBackgroundError && (
+          <AdminAsyncNotice kind="refreshing" />
+        )}
         {presentation.showBackgroundError && (
           <AdminAsyncNotice kind="error" onRetry={retryScenarios} />
         )}

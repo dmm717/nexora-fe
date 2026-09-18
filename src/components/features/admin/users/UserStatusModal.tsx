@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input/Input';
 import { Modal } from '@/components/ui/Modal';
 import { AdminUserView } from '@/services/adminApi';
 import { useUpdateUserStatus } from '@/hooks/queries/useAdminUsers';
+import { getUserStatusTransition } from '@/utils/userStatusTransition';
 
 const statusSchema = z.object({
   active: z.boolean(),
@@ -69,9 +70,14 @@ function StatusForm({ user, isPending, onSubmit, onCancel }: StatusFormProps) {
     defaultValues: { active: user.active, reason: '' },
   });
   const isActive = useWatch({ control, name: 'active' });
+  const transition = getUserStatusTransition(user.active, isActive);
+  const submitStatus = (values: StatusFormValues) => {
+    if (isPending || !transition) return;
+    onSubmit(values);
+  };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} aria-busy={isPending} className="space-y-5">
+    <form onSubmit={handleSubmit(submitStatus)} aria-busy={isPending} className="space-y-5">
       <p className="text-sm text-on-surface-variant">
         Người dùng <strong className="font-semibold text-on-surface">{user.email}</strong>
       </p>
@@ -99,8 +105,17 @@ function StatusForm({ user, isPending, onSubmit, onCancel }: StatusFormProps) {
 
         <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>Hủy</Button>
-          <Button type="submit" variant={isActive ? 'primary' : 'danger'} loading={isPending}>
-            {isActive ? 'Xác nhận mở khóa' : 'Xác nhận khóa tài khoản'}
+          <Button
+            type="submit"
+            variant={transition === 'lock' ? 'danger' : 'primary'}
+            disabled={!transition || isPending}
+            loading={isPending}
+          >
+            {transition === 'lock'
+              ? 'Xác nhận khóa tài khoản'
+              : transition === 'unlock'
+                ? 'Xác nhận mở khóa'
+                : 'Chọn trạng thái thay đổi'}
           </Button>
         </div>
       </fieldset>
