@@ -14,12 +14,14 @@ import {
   getInterviewReportRenderState,
   generateIdempotencyKey,
   SCORE_SCALE,
+  shouldShowGroundedRewrite,
 } from '@/services/interviewContract';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { RadialScore } from '@/components/ui/RadialScore';
 import { StarEvaluationCard } from '@/components/features/coaching/StarEvaluationCard';
+import { SampleAnswerCard } from '@/components/features/coaching/SampleAnswerCard';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -198,6 +200,12 @@ export default function InterviewReportPage() {
   const reviews = report.questionReviews || [];
   const safeSelectedIdx = Math.min(selectedQuestionIdx, Math.max(0, reviews.length - 1));
   const activeReview = reviews[safeSelectedIdx] || null;
+  const showGroundedRewrite = activeReview
+    ? shouldShowGroundedRewrite({
+        candidateAnswer: activeReview.answer,
+        improvedAnswer: activeReview.suggestedImprovedAnswer,
+      })
+    : false;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
@@ -484,17 +492,24 @@ export default function InterviewReportPage() {
                 </div>
               )}
 
-              {/* Suggested Improved Answer */}
-              {activeReview.suggestedImprovedAnswer && (
+              {/* Grounded rewrite is distinct from the illustrative sample below. */}
+              {showGroundedRewrite && activeReview.suggestedImprovedAnswer && (
                 <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200 space-y-1">
                   <h4 className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
-                    <span>Gợi ý cách trả lời hoàn thiện hơn (Grounded AI Suggestion)</span>
+                    <span>Cách diễn đạt tốt hơn từ câu trả lời của bạn</span>
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed pt-1">
-                    &ldquo;{activeReview.suggestedImprovedAnswer}&rdquo;
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Phiên bản này chỉ sử dụng những thông tin bạn đã thực sự nêu.
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-xs sm:text-sm text-slate-800 italic leading-relaxed pt-1">
+                    {activeReview.suggestedImprovedAnswer}
                   </p>
                 </div>
+              )}
+
+              {activeReview.sampleAnswer && (
+                <SampleAnswerCard sample={activeReview.sampleAnswer} />
               )}
             </Card>
           ) : (
