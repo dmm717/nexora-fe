@@ -3,9 +3,9 @@ export const motionTokens = {
     instant: 0.05,
     fast: 0.18,
     normal: 0.32,
-    slow: 0.55,
-    reveal: 0.75,
-    count: 1.1,
+    slow: 0.42,
+    reveal: 0.42,
+    count: 0.72,
   },
   ease: {
     standard: [0.2, 0, 0, 1] as const,
@@ -20,8 +20,8 @@ export const motionTokens = {
   },
   stagger: {
     fast: 0.04,
-    normal: 0.07,
-    slow: 0.12,
+    normal: 0.055,
+    slow: 0.07,
   },
   distance: {
     small: 8,

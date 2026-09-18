@@ -10,6 +10,8 @@ import { ResumeManagementSection } from './ResumeManagementSection';
 import { SkillProfileSection } from './SkillProfileSection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 /**
  * Isolated deep-link controller using useSearchParams so that the outer
@@ -34,19 +36,35 @@ const CareerProfileDeepLinkHandler: React.FC = () => {
 };
 
 export const CareerProfileScreen: React.FC = () => {
-  const { data: profileData, isLoading, isError, refetch } = useCareerProfile();
+  const {
+    data: profileData,
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useCareerProfile();
+  const queryPresentation = getQueryPresentation({
+    hasData: profileData !== undefined,
+    isLoading,
+    isError,
+    isFetching,
+  });
 
-  if (isLoading) {
+  if (queryPresentation.showInitialLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8 animate-pulse">
+      <div
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8"
+        role="status"
+        aria-label="Đang tải hồ sơ nghề nghiệp"
+      >
         {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="w-36 h-6 rounded-full bg-surface-container-high" />
-            <div className="w-72 sm:w-96 h-8 rounded-xl bg-surface-container-high" />
-            <div className="w-64 sm:w-80 h-4 rounded bg-surface-container" />
+            <Skeleton className="w-36 h-6 rounded-full" />
+            <Skeleton className="w-72 sm:w-96 h-8 rounded-xl" />
+            <Skeleton className="w-64 sm:w-80 h-4 rounded" />
           </div>
-          <div className="w-44 h-10 rounded-lg bg-surface-container-high" />
+          <Skeleton className="w-44 h-10 rounded-lg" />
         </div>
 
         {/* Identity & Goal Grid Skeleton */}
@@ -54,46 +72,46 @@ export const CareerProfileScreen: React.FC = () => {
           <div className="lg:col-span-5">
             <Card variant="elevated" padding="md" className="h-64 flex flex-col justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-surface-container-high" />
-                <div className="space-y-2 flex-1">
-                  <div className="w-32 h-4 rounded bg-surface-container-high" />
-                  <div className="w-44 h-3 rounded bg-surface-container" />
-                  <div className="w-28 h-5 rounded-full bg-surface-container" />
+              <Skeleton className="w-14 h-14 rounded-2xl" />
+              <div className="space-y-2 flex-1">
+                  <Skeleton className="w-32 h-4 rounded" />
+                  <Skeleton className="w-44 h-3 rounded" />
+                  <Skeleton className="w-28 h-5 rounded-full" />
                 </div>
               </div>
-              <div className="w-full h-9 rounded-lg bg-surface-container-high" />
+              <Skeleton className="w-full h-9 rounded-lg" />
             </Card>
           </div>
           <div className="lg:col-span-7">
             <Card variant="elevated" padding="md" className="h-64 flex flex-col justify-between">
               <div className="space-y-4">
-                <div className="w-48 h-5 rounded bg-surface-container-high" />
-                <div className="w-full h-24 rounded-xl bg-surface-container-low" />
+                <Skeleton className="w-48 h-5 rounded" />
+                <Skeleton className="w-full h-24 rounded-xl" />
               </div>
-              <div className="w-32 h-9 rounded-lg bg-surface-container-high self-end" />
+              <Skeleton className="w-32 h-9 rounded-lg self-end" />
             </Card>
           </div>
         </div>
 
         {/* Resume Management Skeleton */}
         <Card variant="elevated" padding="lg" className="h-56 space-y-4">
-          <div className="w-56 h-6 rounded bg-surface-container-high" />
-          <div className="w-full h-16 rounded-xl bg-surface-container-low" />
+          <Skeleton className="w-56 h-6 rounded" />
+          <Skeleton className="w-full h-16 rounded-xl" />
         </Card>
 
         {/* Skill Profile Skeleton */}
         <Card variant="elevated" padding="lg" className="h-64 space-y-4">
-          <div className="w-64 h-6 rounded bg-surface-container-high" />
+          <Skeleton className="w-64 h-6 rounded" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="w-full h-28 rounded-xl bg-surface-container-low" />
-            <div className="w-full h-28 rounded-xl bg-surface-container-low" />
+            <Skeleton className="w-full h-28 rounded-xl" />
+            <Skeleton className="w-full h-28 rounded-xl" />
           </div>
         </Card>
       </div>
     );
   }
 
-  if (isError || !profileData) {
+  if (queryPresentation.showBlockingError || !profileData) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="p-8 rounded-2xl bg-error-container/20 border border-error/30 text-center space-y-4 max-w-lg mx-auto">
@@ -120,6 +138,27 @@ export const CareerProfileScreen: React.FC = () => {
       <Suspense fallback={null}>
         <CareerProfileDeepLinkHandler />
       </Suspense>
+
+      {queryPresentation.showBackgroundError && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-on-surface">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] text-amber-600" aria-hidden="true">
+              warning
+            </span>
+            <span>
+              Không thể đồng bộ hồ sơ mới nhất. Dữ liệu đang hiển thị được giữ nguyên.
+            </span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Thử lại
+          </Button>
+        </div>
+      )}
+      {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+        <p className="text-xs text-on-surface-variant" role="status" aria-live="polite">
+          Đang cập nhật hồ sơ...
+        </p>
+      )}
 
       {/* Title & Introduction */}
       <CareerProfileHeader />

@@ -18,6 +18,8 @@ import { DeleteResumeModal } from './DeleteResumeModal';
 import { cvAnalysisApi, getUploadContentType, type ResumeView } from '@/services/cvAnalysisApi';
 import { ApiError } from '@/services/apiClient';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 export interface ResumeManagementSectionProps {
   primaryResumeId?: string | null;
@@ -44,7 +46,19 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: resumes, isLoading, isError, refetch } = useResumes();
+  const {
+    data: resumes,
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useResumes();
+  const queryPresentation = getQueryPresentation({
+    hasData: resumes !== undefined,
+    isLoading,
+    isError,
+    isFetching,
+  });
   const { mutate: setPrimaryResume, isPending: isSettingPrimary, variables: settingPrimaryResumeId } = useSetPrimaryResume();
   const deleteResumeMutation = useDeleteResume();
   const isDeletingResume = deleteResumeMutation.isPending;
@@ -138,19 +152,42 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
         </label>
       </div>
 
-      {isLoading ? (
-        <div className="p-8 text-center text-sm text-on-surface-variant">
-          <span className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2 align-middle" />
-          Đang tải danh sách CV...
+      {queryPresentation.showInitialLoading ? (
+        <div className="space-y-3" role="status" aria-label="Đang tải danh sách CV">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="p-4 rounded-xl border border-outline-variant/40 flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="w-2/5 h-4" />
+                <Skeleton className="w-3/5 h-3" />
+              </div>
+              <Skeleton className="hidden sm:block w-28 h-9 rounded-lg" />
+            </div>
+          ))}
         </div>
-      ) : isError ? (
+      ) : queryPresentation.showBlockingError || resumes === undefined ? (
         <div className="p-4 rounded-xl bg-error-container/30 border border-error/30 flex items-center justify-between">
           <span className="text-xs text-error font-medium">Không thể tải danh sách CV.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
             Thử lại
           </Button>
         </div>
-      ) : !resumes || resumes.length === 0 ? (
+      ) : (
+        <>
+      {queryPresentation.showBackgroundError && (
+        <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-on-surface">
+          <span>Không thể đồng bộ danh sách CV mới nhất. Các CV đang hiển thị được giữ nguyên.</span>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Thử lại
+          </Button>
+        </div>
+      )}
+      {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+        <p className="mb-3 text-xs text-on-surface-variant" role="status" aria-live="polite">
+          Đang cập nhật danh sách CV...
+        </p>
+      )}
+      {resumes.length === 0 ? (
         <div className="text-center py-10 px-4 bg-surface-container-low rounded-xl border border-dashed border-outline-variant/60 space-y-3">
           <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface-variant mx-auto">
             <span className="material-symbols-outlined text-[26px]">description</span>
@@ -272,6 +309,8 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       <DeleteResumeModal

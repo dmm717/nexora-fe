@@ -142,7 +142,7 @@ test('AA-AE: null scores and history state stay truthful in source', async () =>
     readSource('../src/components/features/practice/PracticeHub.tsx'),
   ]);
   assert.match(analytics, /score === null \? 'Chưa chấm'/);
-  assert.match(analytics, /score !== null && <AnimatedProgressBar/);
+  assert.match(analytics, /score !== null && \([\s\S]{0,80}<AnimatedProgressBar/);
   assert.doesNotMatch(analytics, /\/ 6/);
   assert.match(skills, /Chưa đủ dữ liệu để xác định điểm cần cải thiện/);
   assert.match(practice, /historyLoading/);
@@ -276,6 +276,6 @@ test('BB-BG: server recommendation priority and truthful progress states', async
   assert.doesNotMatch(analytics, /Tín hiệu yếu điểm cần lưu ý|Luyện tập khắc phục/);
   assert.match(analytics, /Năng lực có điểm thấp nhất hiện tại/);
   assert.match(analytics, /Xem bài luyện phù hợp/);
-  assert.match(overview, /const progressPending\s*=\s*[\s\S]{0,160}loadingProgress[\s\S]{0,160}progressError == null/);
+  assert.match(overview, /const progressPending\s*=\s*!hasProgressData\s*&&\s*!progressError/);
   assert.match(overview, /progressPending \? \([\s\S]{0,300}Đang tải chỉ số sẵn sàng/);
 });

@@ -9,6 +9,10 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProductPageHero } from '@/components/product-visual';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StaggerContainer, StaggerItem } from '@/components/motion/StaggerContainer';
+import { motionTokens } from '@/components/motion/tokens';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 function renderStatusBadge(status: string) {
   const normalized = status.toLowerCase();
@@ -32,8 +36,20 @@ function renderStatusBadge(status: string) {
 
 export default function InterviewsIndexPage() {
   const router = useRouter();
-  const { data, isLoading: loading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInterviewsHistory(20);
+  const {
+    data,
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInterviewsHistory(20);
   const interviews = data?.pages.flatMap((page) => page.items) || [];
+  const hasData = data !== undefined;
+  const queryPresentation = getQueryPresentation({ hasData, isLoading, isError, isFetching });
+  const showInitialLoading = queryPresentation.showInitialLoading || (!hasData && !isError);
 
   const interviewTypeLabel: Record<string, string> = {
     technical: 'Kỹ thuật',
@@ -82,10 +98,43 @@ export default function InterviewsIndexPage() {
           </Button>
         </div>
 
-        {loading ? (
-          <div className="p-12 text-center text-sm text-on-surface-variant flex items-center justify-center gap-3">
-            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span>Đang tải lịch sử phỏng vấn...</span>
+        {queryPresentation.showBackgroundError && (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/30 bg-error/5 px-4 py-3 text-sm text-on-surface">
+            <span>Không thể cập nhật lịch sử phỏng vấn. Các phiên đã tải vẫn được giữ lại.</span>
+            <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching} loading={isFetching}>
+              Thử lại
+            </Button>
+          </div>
+        )}
+
+        {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && !isFetchingNextPage && (
+          <p role="status" aria-live="polite" className="text-xs text-on-surface-variant">
+            Đang cập nhật lịch sử...
+          </p>
+        )}
+
+        {showInitialLoading ? (
+          <div role="status" aria-live="polite" className="space-y-3">
+            <span className="sr-only">Đang tải lịch sử phỏng vấn...</span>
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="p-4 sm:p-5 rounded-2xl border border-outline-variant/60 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-2/3 max-w-72" />
+                  <Skeleton className="h-3 w-1/2 max-w-56" />
+                </div>
+                <div className="flex items-center gap-3 self-end sm:self-center">
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : queryPresentation.showBlockingError ? (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-error/30 bg-error/5 p-6 text-sm text-on-surface">
+            <p>Không thể tải lịch sử phỏng vấn lúc này. Vui lòng thử lại.</p>
+            <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching} loading={isFetching}>
+              Thử tải lại
+            </Button>
           </div>
         ) : interviews.length === 0 ? (
           <div className="text-center py-12 px-4 bg-surface-container-low/40 rounded-2xl border-2 border-dashed border-outline-variant/60 space-y-3">
@@ -109,17 +158,16 @@ export default function InterviewsIndexPage() {
           </div>
         ) : (
           <>
-            <div className="space-y-3">
-              {interviews.map((inv) => {
+            <StaggerContainer className="space-y-3" staggerDelay={motionTokens.stagger.fast}>
+              {interviews.map((inv, index) => {
                 const targetUrl = inv.reportAvailable
                   ? `/interviews/${inv.id}/report`
                   : `/interviews/${inv.id}`;
 
                 const typeText = interviewTypeLabel[inv.interviewType] || inv.interviewType;
 
-                return (
+                const row = (
                   <div
-                    key={inv.id}
                     className="p-4 sm:p-5 rounded-2xl border border-outline-variant/60 bg-white hover:border-primary/40 hover:shadow-subtle transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div className="min-w-0 flex-1 space-y-1.5">
@@ -163,8 +211,14 @@ export default function InterviewsIndexPage() {
                     </div>
                   </div>
                 );
+
+                return index < 6 ? (
+                  <StaggerItem key={inv.id}>{row}</StaggerItem>
+                ) : (
+                  <React.Fragment key={inv.id}>{row}</React.Fragment>
+                );
               })}
-            </div>
+            </StaggerContainer>
 
             {hasNextPage && (
               <div className="pt-4 text-center border-t border-outline-variant/30">

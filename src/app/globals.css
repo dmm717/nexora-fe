@@ -241,6 +241,34 @@ select {
   animation: dash-march 1s linear infinite;
 }
 
+@keyframes skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-surface-container-highest) 68%, transparent) 50%,
+    transparent 80%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
 /* Accessible prefers-reduced-motion handling */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -250,5 +278,9 @@ select {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .skeleton-shimmer::after {
+    animation: none !important;
   }
 }

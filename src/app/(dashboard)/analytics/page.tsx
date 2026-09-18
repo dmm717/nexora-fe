@@ -7,37 +7,88 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { RadialScore } from '@/components/ui/RadialScore';
 import { AnimatedProgressBar } from '@/components/motion/AnimatedProgressBar';
-import {
-  MotionPage,
-  StaggerContainer,
-  StaggerItem,
-} from '@/components/motion';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StaggerContainer, StaggerItem } from '@/components/motion';
 import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
 import { getRecommendationDeepLink } from '@/services/recommendationContract';
 import { ApiError } from '@/services/apiClient';
 import { ClientDate } from '@/components/ui/ClientDate';
+import {
+  getProgressDashboardPresentation,
+  getQueryPresentation,
+  isProgressDashboardFeatureLocked,
+} from '@/utils/queryPresentation';
+import { motionTokens } from '@/components/motion/tokens';
 
 export default function AnalyticsPage() {
   const router = useRouter();
   const {
-    data: progress,
+    data: queriedProgress,
     isLoading: loadingProgress,
+    isError: isProgressError,
     error: progressError,
     refetch: refetchProgress,
     isFetching: refreshingProgress,
   } = useProgressDashboard();
-  const { data: careerProfile, isLoading: loadingProfile } = useCareerProfile();
-  const { data: skillProfile } = useSkillProfile();
+  const {
+    data: careerProfile,
+    isLoading: loadingProfile,
+    isError: isProfileError,
+    refetch: refetchProfile,
+    isFetching: refreshingProfile,
+  } = useCareerProfile();
+  const {
+    data: skillProfile,
+    isLoading: loadingSkills,
+    isError: isSkillError,
+    error: skillError,
+    refetch: refetchSkillProfile,
+    isFetching: refreshingSkills,
+  } = useSkillProfile();
 
-  const loading = loadingProgress || loadingProfile;
+  const progressLocked =
+    progressError instanceof ApiError && isProgressDashboardFeatureLocked(progressError);
+  const progressPresentation = getProgressDashboardPresentation({
+    hasData: queriedProgress !== undefined,
+    isLoading: loadingProgress,
+    isError: isProgressError,
+    isFetching: refreshingProgress,
+    featureLocked: progressLocked,
+  });
+  const progress = progressPresentation.hasData ? queriedProgress : undefined;
+  const profilePresentation = getQueryPresentation({
+    hasData: careerProfile !== undefined,
+    isLoading: loadingProfile,
+    isError: isProfileError,
+    isFetching: refreshingProfile,
+  });
+  const skillPresentation = getQueryPresentation({
+    hasData: skillProfile !== undefined,
+    isLoading: loadingSkills,
+    isError: isSkillError,
+    isFetching: refreshingSkills,
+  });
 
-  if (loading) {
+  if (progressPresentation.showInitialLoading && profilePresentation.showInitialLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center text-on-surface-variant">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8 text-on-surface-variant" role="status" aria-label="Loading analytics">
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <Skeleton className="h-6 w-56 rounded-full" />
+            <Skeleton className="h-9 w-3/4 max-w-2xl" />
+            <Skeleton className="h-4 w-full max-w-xl" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Skeleton className="h-40 md:col-span-2 rounded-2xl" />
+            <Skeleton className="h-40 rounded-2xl" />
+            <Skeleton className="h-40 rounded-2xl" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <Skeleton className="h-72 lg:col-span-7 rounded-2xl" />
+            <Skeleton className="h-72 lg:col-span-5 rounded-2xl" />
+          </div>
           <span>Đang tải dữ liệu tiến độ...</span>
         </div>
       </div>
@@ -45,11 +96,19 @@ export default function AnalyticsPage() {
   }
 
   const activeGoal = careerProfile?.activeCareerGoal;
-  const progressLocked =
-    progressError instanceof ApiError &&
-    (progressError.code === 'FEATURE_NOT_AVAILABLE' || progressError.status === 403);
-  const progressUnavailable = Boolean(progressError) && !progressLocked;
-  const hasProgressData = progress !== undefined && progressError == null;
+  const careerProfileKnown = careerProfile !== undefined;
+  const goalSummary = !careerProfileKnown
+    ? loadingProfile
+      ? 'Đang tải mục tiêu...'
+      : 'Chưa thể tải mục tiêu'
+    : activeGoal
+      ? `${activeGoal.targetRole} · ${activeGoal.seniority}${activeGoal.industry ? ` (${activeGoal.industry})` : ' (Chưa xác định lĩnh vực)'}`
+      : 'Chưa thiết lập';
+  const progressUnavailable = progressPresentation.showBlockingError;
+  const hasProgressData = progress !== undefined;
+  const hasCompetencyData =
+    skillProfile?.competencies !== undefined ||
+    careerProfile?.skillProfileSummary?.topCompetencies !== undefined;
   const readiness = hasProgressData ? progress.readiness : null;
   const hasScore = readiness?.score !== null && readiness?.score !== undefined;
   const evidenceCount = hasProgressData ? readiness?.evidenceCount ?? 0 : null;
@@ -63,10 +122,51 @@ export default function AnalyticsPage() {
   const recentImprovements = hasProgressData ? progress.recentImprovements : [];
 
   // Competencies list from skill profile or careerProfile summary
-  const competencies = skillProfile?.competencies || careerProfile?.skillProfileSummary?.topCompetencies || [];
+  const competencies = skillProfile?.competencies ?? careerProfile?.skillProfileSummary?.topCompetencies ?? [];
+  const assessedCompetencyCount =
+    readiness?.assessedCompetencies !== undefined
+      ? readiness.assessedCompetencies
+      : hasCompetencyData
+        ? competencies.filter((item) => item.evidenceCount > 0).length
+        : null;
+  const competencyInitialLoading =
+    !hasCompetencyData && (skillPresentation.showInitialLoading || profilePresentation.showInitialLoading);
+
+  const renderCompetencyCard = (comp: (typeof competencies)[number], idx: number) => {
+    const score = comp.score != null ? Math.round(comp.score) : null;
+    const evidenceNum = 'evidenceCount' in comp ? comp.evidenceCount : 0;
+    const card = (
+      <Card variant="elevated" padding="md" className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs font-bold text-on-surface">{comp.name || comp.code}</div>
+            <div className="text-[11px] text-on-surface-variant">
+              {comp.category || 'Chuyên môn'} {evidenceNum ? `· ${evidenceNum} dẫn chứng` : ''}
+            </div>
+          </div>
+          <div className="text-xs font-bold text-primary">
+            {score === null ? 'Chưa chấm' : `${score}%`}
+          </div>
+        </div>
+        {score !== null && (
+          <AnimatedProgressBar
+            label=""
+            value={score}
+            heightClass="h-2"
+            colorClass="bg-primary"
+            delay={Math.min(idx, 7) * motionTokens.stagger.fast}
+          />
+        )}
+      </Card>
+    );
+
+    return idx < 8
+      ? <StaggerItem key={comp.code || idx}>{card}</StaggerItem>
+      : <div key={comp.code || idx}>{card}</div>;
+  };
 
   return (
-    <MotionPage className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -78,8 +178,7 @@ export default function AnalyticsPage() {
             Chỉ số sẵn sàng & Năng lực cạnh tranh
           </h1>
           <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
-            Mục tiêu hiện tại: {activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Chưa thiết lập'}{' '}
-            {activeGoal?.industry ? `(${activeGoal.industry})` : activeGoal ? '(Chưa xác định lĩnh vực)' : ''}
+            Mục tiêu hiện tại: {goalSummary}
           </p>
         </div>
 
@@ -103,14 +202,44 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {(progressLocked || progressUnavailable) && (
+      {(profilePresentation.showBlockingError || profilePresentation.showBackgroundError) && (
+        <div role="alert" className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+          <span>
+            {profilePresentation.showBackgroundError
+              ? 'Không thể cập nhật hồ sơ mục tiêu. Dữ liệu đã tải trước đó vẫn được giữ.'
+              : 'Không thể tải hồ sơ mục tiêu nên Nexora chưa thể xác nhận trạng thái mục tiêu.'}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void refetchProfile()} disabled={refreshingProfile}>
+            {refreshingProfile ? 'Đang thử lại...' : 'Thử tải hồ sơ'}
+          </Button>
+        </div>
+      )}
+
+      {(skillPresentation.showBlockingError || skillPresentation.showBackgroundError) && (
+        <div role="alert" className="p-3 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+          <span>
+            {skillError instanceof Error ? skillError.message : 'Hồ sơ kỹ năng bổ sung chưa tải được; các nội dung khác vẫn khả dụng.'}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void refetchSkillProfile()} disabled={refreshingSkills}>
+            {refreshingSkills ? 'Đang thử lại...' : 'Thử tải kỹ năng'}
+          </Button>
+        </div>
+      )}
+
+      {progressPresentation.showRefreshing && !progressUnavailable && !progressLocked && (
+        <p role="status" className="text-xs text-on-surface-variant">Đang cập nhật chỉ số tiến độ...</p>
+      )}
+
+      {(progressLocked || progressUnavailable || progressPresentation.showBackgroundError) && (
         <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
           <span>
             {progressLocked
               ? 'Gói hiện tại chưa hỗ trợ Progress Dashboard. Các chỉ số sẵn sàng và hoạt động tuần không khả dụng.'
-              : 'Không thể tải Progress Dashboard. Dữ liệu lịch sử khác không được dùng thay cho các chỉ số này.'}
+              : progressPresentation.showBackgroundError
+                ? 'Không thể cập nhật Progress Dashboard. Dữ liệu đã tải trước đó vẫn được giữ.'
+                : 'Không thể tải Progress Dashboard. Dữ liệu lịch sử khác không được dùng thay cho các chỉ số này.'}
           </span>
-          {progressUnavailable && (
+          {(progressUnavailable || progressPresentation.showBackgroundError) && (
             <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
               {refreshingProgress ? 'Đang thử lại...' : 'Thử lại'}
             </Button>
@@ -122,7 +251,9 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Readiness Metric */}
         <Card variant="elevated" padding="lg" className="md:col-span-2 flex flex-col sm:flex-row items-center gap-6">
-          {hasScore ? (
+            {progressPresentation.showInitialLoading ? (
+              <Skeleton className="w-28 h-28 rounded-full" />
+            ) : hasScore ? (
             <RadialScore score={readiness.score!} size={120} strokeWidth={10} tone="neutral" />
           ) : (
             <div className="w-28 h-28 rounded-full border-4 border-dashed border-outline-variant flex items-center justify-center text-center p-3">
@@ -137,7 +268,9 @@ export default function AnalyticsPage() {
               Mức độ sẵn sàng tuyển dụng
             </div>
             <div className="text-xl font-bold text-on-surface">
-              {hasScore
+              {progressPresentation.showInitialLoading ? (
+                <Skeleton className="h-6 w-56" />
+              ) : hasScore
                 ? `Chỉ số hiện tại: ${readiness.score}/100`
                 : hasProgressData
                   ? 'Chưa đủ dữ liệu đánh giá'
@@ -146,7 +279,9 @@ export default function AnalyticsPage() {
                     : 'Không thể tải chỉ số'}
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              {hasScore
+              {progressPresentation.showInitialLoading
+                ? 'Đang tải chỉ số...'
+                : hasScore
                 ? `Dựa trên ${evidenceCount} bằng chứng được máy chủ tổng hợp.`
                 : hasProgressData
                   ? 'Hoàn thành một hoạt động có bằng chứng để hệ thống tổng hợp chỉ số sẵn sàng.'
@@ -163,7 +298,7 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <div className="text-2xl font-bold text-on-surface">
-              {readiness?.assessedCompetencies ?? competencies.filter((item) => item.evidenceCount > 0).length}
+              {competencyInitialLoading ? <Skeleton className="h-7 w-12" /> : assessedCompetencyCount ?? '—'}
             </div>
             <span className="text-[11px] text-on-surface-variant">Năng lực đã có bằng chứng</span>
           </div>
@@ -177,10 +312,12 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <div className="text-2xl font-bold text-on-surface">
-              {weeklyActivities?.total ?? '—'}
+              {progressPresentation.showInitialLoading ? '…' : weeklyActivities?.total ?? '—'}
             </div>
             <span className="text-[11px] text-on-surface-variant font-medium">
-              {weeklyActivities
+              {progressPresentation.showInitialLoading
+                ? 'Đang tải dữ liệu tuần...'
+                : weeklyActivities
                 ? `Bao gồm ${weeklyActivities.interviews} phiên phỏng vấn`
                 : progressLocked
                   ? 'Không có trong gói hiện tại'
@@ -232,49 +369,35 @@ export default function AnalyticsPage() {
               Chi tiết các năng lực đã được định lượng
             </h3>
             <span className="text-xs text-on-surface-variant">
-              {activeGoal ? `Theo mục tiêu ${activeGoal.targetRole}` : 'Chưa thiết lập vị trí mục tiêu'}
+              {activeGoal
+                ? `Theo mục tiêu ${activeGoal.targetRole}`
+                : careerProfileKnown
+                  ? 'Chưa thiết lập vị trí mục tiêu'
+                  : loadingProfile
+                    ? 'Đang tải mục tiêu...'
+                    : 'Chưa thể tải mục tiêu'}
             </span>
           </div>
 
-          <StaggerContainer className="space-y-3">
-            {competencies.length > 0 ? (
-              competencies.map((comp, idx) => {
-                const score = comp.score != null ? Math.round(comp.score) : null;
-                const evidenceNum = 'evidenceCount' in comp ? comp.evidenceCount : 0;
-                return (
-                  <StaggerItem key={idx}>
-                    <Card variant="elevated" padding="md" className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-on-surface">{comp.name || comp.code}</div>
-                          <div className="text-[11px] text-on-surface-variant">
-                            {comp.category || 'Chuyên môn'} {evidenceNum ? `· ${evidenceNum} dẫn chứng` : ''}
-                          </div>
-                        </div>
-                        <div className="text-xs font-bold text-primary">
-                          {score === null ? 'Chưa chấm' : `${score}%`}
-                        </div>
-                      </div>
-
-                      {score !== null && <AnimatedProgressBar
-                        label=""
-                        value={score}
-                        heightClass="h-2"
-                        colorClass={
-                          'bg-primary'
-                        }
-                        delay={idx * 0.08}
-                      />}
-                    </Card>
-                  </StaggerItem>
-                );
-              })
-            ) : (
-              <div className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
-                Chưa có năng lực nào được đánh giá. Hãy hoàn thành một hoạt động tạo bằng chứng.
+          {!hasCompetencyData ? (
+            competencyInitialLoading ? (
+              <div className="space-y-3" role="status" aria-label="Loading competencies">
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-20 w-full rounded-xl" />
               </div>
-            )}
-          </StaggerContainer>
+            ) : (
+              <div role="status" className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
+                Chưa nhận được dữ liệu năng lực để hiển thị. Thông tin này chưa đủ để kết luận rằng bạn chưa có năng lực được đánh giá.
+              </div>
+            )
+          ) : competencies.length > 0 ? (
+            <StaggerContainer className="space-y-3">{competencies.map(renderCompetencyCard)}</StaggerContainer>
+          ) : (
+            <div className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
+              Chưa có năng lực nào được đánh giá. Hãy hoàn thành một hoạt động tạo bằng chứng.
+            </div>
+          )}
         </div>
 
         {/* Right 5 cols: Weaknesses & Improvements */}
@@ -375,6 +498,6 @@ export default function AnalyticsPage() {
           </Card>
         </div>
       </div>
-    </MotionPage>
+    </div>
   );
 }

@@ -23,6 +23,7 @@ export const useScenarios = (filters?: ScenarioFilterParams) => {
     queryKey: ['scenarios', filters],
     queryFn: () => scenarioApi.getScenarios(filters),
     staleTime: 60 * 1000,
+    placeholderData: (previousData) => previousData,
     enabled: authReady && isAuthenticated,
   });
 };

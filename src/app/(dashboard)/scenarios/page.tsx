@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { StaggerContainer, StaggerItem } from '@/components/motion';
 import {
   useScenarios,
   useScenarioCategories,
@@ -13,6 +15,7 @@ import {
 } from '@/hooks/queries/useScenarios';
 import type { ScenarioFilterParams, ScenarioDifficulty } from '@/types/scenario';
 import { calculatePagination, SCENARIO_PAGE_SIZE } from '@/utils/scenarioHelpers';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 const PAGE_SIZE = SCENARIO_PAGE_SIZE;
 
@@ -35,6 +38,7 @@ export default function ScenarioAcademyPage() {
     data: progressData,
     isLoading: progressLoading,
     isError: progressError,
+    isFetching: progressFetching,
     refetch: refetchProgress,
   } = useScenarioProgress();
 
@@ -43,9 +47,25 @@ export default function ScenarioAcademyPage() {
   const {
     data: scenarioPage,
     isLoading: scenariosLoading,
-    error: scenariosError,
+    isError: scenariosIsError,
+    isFetching: scenariosFetching,
     refetch: refetchScenarios,
   } = useScenarios(queryParams);
+
+  const scenarioPresentation = getQueryPresentation({
+    hasData: scenarioPage !== undefined,
+    isLoading: scenariosLoading,
+    isError: scenariosIsError,
+    isFetching: scenariosFetching,
+  });
+  const progressPresentation = getQueryPresentation({
+    hasData: progressData !== undefined,
+    isLoading: progressLoading,
+    isError: progressError,
+    isFetching: progressFetching,
+  });
+  const showInitialScenarioLoading =
+    scenarioPresentation.showInitialLoading || (scenarioPage === undefined && !scenariosIsError);
 
   const scenarios = useMemo(() => scenarioPage?.items || [], [scenarioPage?.items]);
   const totalScenarios = scenarioPage?.total ?? 0;
@@ -93,7 +113,19 @@ export default function ScenarioAcademyPage() {
     return scenarios[0];
   }, [scenarios, progressData]);
 
-  const isNewUser = (progressData?.completedAttempts ?? 0) === 0;
+  const hasProgressAuthority = progressData !== undefined;
+  const isNewUser = hasProgressAuthority && progressData.completedAttempts === 0;
+  const recommendationLabel = !hasProgressAuthority
+    ? 'Tình huống gợi ý'
+    : isNewUser
+      ? 'Gợi ý để bắt đầu'
+      : 'Tình huống ưu tiên hôm nay';
+  const recommendationAction = !hasProgressAuthority
+    ? 'Xem tình huống'
+    : isNewUser
+      ? 'Bắt đầu giải quyết'
+      : 'Luyện lại tình huống';
+  const displayedScenarioCount = scenarioPage ? totalScenarios : '—';
 
   const renderDifficultyBadge = (diff: string) => {
     const d = (diff || '').toLowerCase();
@@ -135,7 +167,7 @@ export default function ScenarioAcademyPage() {
 
         <div className="flex items-center gap-3">
           <span className="text-xs text-on-surface-variant font-medium bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30">
-            {totalScenarios} tình huống khả dụng
+            {displayedScenarioCount} tình huống khả dụng
           </span>
         </div>
       </div>
@@ -151,7 +183,7 @@ export default function ScenarioAcademyPage() {
             <div className="space-y-3 max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-secondary text-white">
-                  {isNewUser ? 'Gợi ý để bắt đầu' : 'Tình huống ưu tiên hôm nay'}
+                  {recommendationLabel}
                 </span>
                 <Badge variant="outline" size="sm">
                   {recommendedScenario.categoryName}
@@ -192,7 +224,7 @@ export default function ScenarioAcademyPage() {
                 iconPosition="right"
                 className="w-full sm:w-auto shadow-sm"
               >
-                {isNewUser ? 'Bắt đầu giải quyết' : 'Luyện lại tình huống'}
+                {recommendationAction}
               </Button>
             </div>
           </div>
@@ -324,28 +356,47 @@ export default function ScenarioAcademyPage() {
       </div>
 
       {/* Scenarios Grid */}
-      <div className="space-y-4">
+      <div className="space-y-4" aria-busy={scenarioPresentation.showRefreshing || undefined}>
         <div className="flex items-center justify-between border-b border-outline-variant/40 pb-2">
           <h2 className="text-base sm:text-lg font-bold text-on-surface">
-            Tất cả tình huống ({totalScenarios})
+            Tất cả tình huống ({displayedScenarioCount})
           </h2>
+          {scenarioPresentation.showRefreshing && (
+            <span role="status" className="text-xs text-on-surface-variant">
+              Đang cập nhật kết quả…
+            </span>
+          )}
         </div>
 
-        {scenariosLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 py-6">
+        {progressPresentation.showInitialLoading && (
+          <p role="status" className="text-xs text-on-surface-variant">
+            Đang tải tiến độ luyện tập…
+          </p>
+        )}
+        {(progressPresentation.showBlockingError || progressPresentation.showBackgroundError) && (
+          <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-300/80 bg-amber-50/80 p-3.5 text-xs text-amber-950">
+            <span>
+              Không thể cập nhật tiến độ luyện tập.
+              {progressData ? ' Tiến độ hiện có vẫn được giữ nguyên.' : ' Chưa thể xác định trạng thái bắt đầu của bạn.'}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void refetchProgress()} disabled={progressFetching}>
+              {progressFetching ? 'Đang thử lại…' : 'Thử tải lại tiến độ'}
+            </Button>
+          </div>
+        )}
+
+        {showInitialScenarioLoading ? (
+          <div role="status" aria-label="Loading scenarios" className="grid grid-cols-1 md:grid-cols-2 gap-5 py-6">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={`skel-${i}`}
-                className="p-6 rounded-2xl bg-white border border-outline-variant/40 shadow-subtle animate-pulse space-y-3"
-              >
-                <div className="h-4 bg-surface-container-high rounded w-1/3" />
-                <div className="h-6 bg-surface-container-high rounded w-3/4" />
-                <div className="h-4 bg-surface-container-high rounded w-full" />
-                <div className="h-4 bg-surface-container-high rounded w-1/2" />
+              <div key={`skel-${i}`} className="p-6 rounded-2xl bg-white border border-outline-variant/40 shadow-subtle space-y-3" aria-hidden="true">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-1/2" />
               </div>
             ))}
           </div>
-        ) : scenariosError ? (
+        ) : scenarioPresentation.showBlockingError ? (
           <Card variant="subtle" padding="lg" className="text-center py-10 space-y-3">
             <div className="text-sm font-bold text-error">Không thể tải danh sách tình huống</div>
             <p className="text-xs text-on-surface-variant">Vui lòng kiểm tra kết nối và thử lại.</p>
@@ -353,7 +404,7 @@ export default function ScenarioAcademyPage() {
               Thử lại
             </Button>
           </Card>
-        ) : scenarios.length === 0 ? (
+        ) : scenarioPage && scenarios.length === 0 ? (
           <Card variant="subtle" padding="lg" className="text-center py-12 space-y-3">
             <span className="material-symbols-outlined text-[36px] text-on-surface-variant/60">
               filter_list_off
@@ -368,9 +419,21 @@ export default function ScenarioAcademyPage() {
               </Button>
             )}
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {scenarios.map((sc) => (
+        ) : scenarioPage ? (
+          <div className="space-y-4">
+            {scenarioPresentation.showBackgroundError && (
+              <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-300/80 bg-amber-50/80 p-3.5 text-xs text-amber-950">
+                <span>Không thể cập nhật danh sách. Kết quả đang hiển thị được giữ nguyên.</span>
+                <Button variant="outline" size="sm" onClick={() => void refetchScenarios()} disabled={scenariosFetching}>
+                  {scenariosFetching ? 'Đang thử lại…' : 'Thử tải lại'}
+                </Button>
+              </div>
+            )}
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {scenarios.map((sc, index) => {
+              const ScenarioItem = index < 8 ? StaggerItem : React.Fragment;
+              return (
+              <ScenarioItem key={sc.id}>
               <Card
                 key={sc.id}
                 variant="interactive"
@@ -423,9 +486,12 @@ export default function ScenarioAcademyPage() {
                   </span>
                 </div>
               </Card>
-            ))}
+              </ScenarioItem>
+              );
+            })}
+            </StaggerContainer>
           </div>
-        )}
+        ) : null}
 
         {/* Pagination */}
         {pagination.shouldShowPagination && (
@@ -437,7 +503,7 @@ export default function ScenarioAcademyPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!pagination.hasPrevPage}
+                disabled={!pagination.hasPrevPage || scenariosFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 Trang trước
@@ -445,7 +511,7 @@ export default function ScenarioAcademyPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!pagination.hasNextPage}
+                disabled={!pagination.hasNextPage || scenariosFetching}
                 onClick={() => setPage((p) => p + 1)}
               >
                 Trang sau

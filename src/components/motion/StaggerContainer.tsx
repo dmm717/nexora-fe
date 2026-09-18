@@ -49,12 +49,12 @@ export const StaggerItem: React.FC<StaggerItemProps> = ({ children, className = 
   const shouldReduceMotion = useReducedMotion();
 
   const itemVariants = {
-    hidden: shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: motionTokens.distance.medium },
+    hidden: shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: motionTokens.distance.small },
     show: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: shouldReduceMotion ? 0.01 : motionTokens.duration.slow,
+        duration: shouldReduceMotion ? 0.01 : motionTokens.duration.normal,
         ease: motionTokens.ease.emphasized,
       },
     },

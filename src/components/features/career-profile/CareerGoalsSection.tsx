@@ -21,6 +21,8 @@ import {
 } from './EditCareerGoalModal';
 import { DeleteCareerGoalModal } from './DeleteCareerGoalModal';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 export interface CareerGoalsSectionProps {
   activeGoalFromProfile?: CareerProfileResponse['activeCareerGoal'] | null;
@@ -45,11 +47,19 @@ export const CareerGoalsSection: React.FC<CareerGoalsSectionProps> = ({
   activeGoalFromProfile,
 }) => {
   const {
-    data: allGoals = [],
+    data: goalsData,
     isLoading: isGoalsLoading,
     isError: isGoalsError,
+    isFetching: isGoalsFetching,
     refetch: refetchGoals,
   } = useCareerGoals();
+  const allGoals = goalsData ?? [];
+  const goalsPresentation = getQueryPresentation({
+    hasData: goalsData !== undefined,
+    isLoading: isGoalsLoading,
+    isError: isGoalsError,
+    isFetching: isGoalsFetching,
+  });
 
   const archiveMutation = useArchiveCareerGoal();
   const reactivateMutation = useReactivateCareerGoal();
@@ -116,12 +126,14 @@ export const CareerGoalsSection: React.FC<CareerGoalsSectionProps> = ({
     setDeleteModalOpen(true);
   };
 
-  const hasNoGoals = !activeGoal && otherGoals.length === 0 && !isGoalsLoading;
+  const hasNoGoals =
+    goalsData !== undefined && !activeGoal && otherGoals.length === 0;
+  const showInitialGoalsLoading = goalsPresentation.showInitialLoading;
 
   return (
     <section id="goals" tabIndex={-1} className="outline-none space-y-6">
       {/* Secondary query error notice if core profile is usable */}
-      {isGoalsError && (
+      {(goalsPresentation.showBlockingError || goalsPresentation.showBackgroundError) && (
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs text-on-surface">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px] text-amber-600">
@@ -139,6 +151,11 @@ export const CareerGoalsSection: React.FC<CareerGoalsSectionProps> = ({
             Thử lại
           </Button>
         </div>
+      )}
+      {goalsPresentation.showRefreshing && !goalsPresentation.showBackgroundError && (
+        <p className="text-xs text-on-surface-variant" role="status" aria-live="polite">
+          Đang cập nhật danh sách mục tiêu...
+        </p>
       )}
 
       {/* Main Career Goal Card */}
@@ -196,9 +213,8 @@ export const CareerGoalsSection: React.FC<CareerGoalsSectionProps> = ({
               </Button>
             </div>
           </div>
-        ) : (
+        ) : activeGoal ? (
           /* Active Goal Content */
-          activeGoal && (
             <div className="space-y-4">
               <div className="p-4 sm:p-5 rounded-2xl bg-surface-container-low border border-outline-variant/40 space-y-4">
                 <div className="flex items-center justify-between">
@@ -276,7 +292,17 @@ export const CareerGoalsSection: React.FC<CareerGoalsSectionProps> = ({
                 </Button>
               </div>
             </div>
-          )
+        ) : showInitialGoalsLoading ? (
+          <div className="space-y-3" role="status" aria-label="Đang tải danh sách mục tiêu">
+            <Skeleton className="w-full h-28 rounded-2xl" />
+            <Skeleton className="w-2/3 h-10 rounded-xl" />
+          </div>
+        ) : null}
+
+        {activeGoal && showInitialGoalsLoading && (
+          <div className="pt-6 border-t border-outline-variant/30" role="status" aria-label="Đang tải các mục tiêu khác">
+            <Skeleton className="w-full h-14 rounded-xl" />
+          </div>
         )}
 
         {/* Other / Inactive Goals List */}
