@@ -78,8 +78,8 @@ test('B. after successful restoration: public Header renders authenticated dashb
   );
   assert.match(
     headerContent,
-    /!authReady[\s\S]*animate-pulse/,
-    'Header must render placeholder pulse while session is resolving'
+    /!authReady[\s\S]*<Skeleton/,
+    'Header must render a neutral skeleton while session is resolving'
   );
 });
 
@@ -216,9 +216,9 @@ test('G. "/pricing": restores session before choosing authenticated vs public pr
     path.join(rootDir, 'src/components/features/pricing/PricingPageShell.tsx'),
     'utf-8'
   );
-  assert.match(shellContent, /if\s*\(isAuthenticated\)/);
+  assert.match(shellContent, /if\s*\(authReady\s*&&\s*isAuthenticated\)/);
   assert.match(shellContent, /if\s*\(!authReady\)/);
-  assert.match(shellContent, /animate-spin/);
+  assert.match(shellContent, /if\s*\(!authReady\)[\s\S]*<Skeleton/);
 });
 
 test('H. protected routes: restore session before RequireAuth guard resolves', () => {

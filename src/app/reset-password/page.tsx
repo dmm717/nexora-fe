@@ -2,27 +2,29 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
-import { useForm, FieldErrors } from 'react-hook-form';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FieldErrors, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
 
 import styles from '@/components/features/auth/Auth.module.css';
 import { authApi } from '@/services/authApi';
 import { resetPasswordSchema, ResetPasswordFormData } from '@/schema/authSchema';
 import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
+import { AuthPageSkeleton } from '@/components/features/auth/AuthPageSkeleton';
 
 function ResetPasswordContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get('userId');
   const token = searchParams.get('token');
+  const requestKey = userId && token ? `${userId}:${token}` : null;
 
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [isTokenInvalid, setIsTokenInvalid] = useState(!userId || !token);
-  const [tokenErrorMessage, setTokenErrorMessage] = useState(
-    !userId || !token ? 'Liên kết đặt lại mật khẩu không hợp lệ hoặc thiếu thông tin.' : ''
-  );
+  const [successfulRequestKey, setSuccessfulRequestKey] = useState<string | null>(null);
+  const [invalidRequestKey, setInvalidRequestKey] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const isSuccess = Boolean(requestKey && successfulRequestKey === requestKey);
+  const isTokenInvalid = !requestKey || invalidRequestKey === requestKey;
 
   const {
     register,
@@ -34,10 +36,8 @@ function ResetPasswordContent() {
   });
 
   const onSubmit = async (data: ResetPasswordFormData) => {
-    if (!userId || !token) {
-      setIsTokenInvalid(true);
-      return;
-    }
+    if (!userId || !token || !requestKey) return;
+    setSubmitError(null);
 
     try {
       await authApi.resetPassword({
@@ -45,22 +45,19 @@ function ResetPasswordContent() {
         token,
         newPassword: data.password,
       });
-      setIsSuccess(true);
-      toast.success('Mật khẩu đã được đặt lại thành công.');
+      setSuccessfulRequestKey(requestKey);
     } catch (err: unknown) {
       const apiErr = err as { code?: string; message?: string };
-      if (apiErr?.code === 'PASSWORD_RESET_INVALID' || apiErr?.message?.includes('hết hạn') || apiErr?.message?.includes('không hợp lệ')) {
-        setIsTokenInvalid(true);
-        setTokenErrorMessage('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
+      if (apiErr?.code === 'PASSWORD_RESET_INVALID') {
+        setInvalidRequestKey(requestKey);
       } else {
-        const message = err instanceof Error ? err.message : 'Không thể đặt lại mật khẩu. Vui lòng thử lại.';
-        toast.error(message);
+        setSubmitError('Chưa thể cập nhật mật khẩu lúc này. Vui lòng thử lại; liên kết của bạn vẫn được giữ nguyên.');
       }
     }
   };
 
   return (
-    <div className={styles.container}>
+    <main className={styles.container}>
       <Link href="/auth" className={styles.backButton}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -74,7 +71,7 @@ function ResetPasswordContent() {
         </div>
 
         {isSuccess ? (
-          <div className={styles.noticeCard}>
+          <div className={styles.noticeCard} role="status" aria-live="polite">
             <div className={`${styles.iconWrapper} ${styles.iconWrapperSuccess}`}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -85,12 +82,10 @@ function ResetPasswordContent() {
             <p className={styles.noticeText}>
               Mật khẩu mới của bạn đã được cập nhật thành công. Vui lòng đăng nhập lại để tiếp tục.
             </p>
-            <Link href="/auth" style={{ width: '100%' }}>
-              <Button type="button">Đăng nhập ngay</Button>
-            </Link>
+            <Button type="button" fullWidth onClick={() => router.push('/auth')}>Đăng nhập ngay</Button>
           </div>
         ) : isTokenInvalid ? (
-          <div className={styles.noticeCard}>
+          <div className={styles.noticeCard} role="alert">
             <div className={`${styles.iconWrapper} ${styles.iconWrapperError}`}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
@@ -100,19 +95,15 @@ function ResetPasswordContent() {
             </div>
             <h2 className={styles.title}>Liên kết không hợp lệ</h2>
             <p className={styles.noticeText}>
-              {tokenErrorMessage || 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.'}
+              {!requestKey
+                ? 'Liên kết đặt lại mật khẩu đang thiếu thông tin cần thiết.'
+                : 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.'}
             </p>
-            <Link href="/forgot-password" style={{ width: '100%' }}>
-              <Button type="button">Yêu cầu liên kết mới</Button>
-            </Link>
-            <Link href="/auth" style={{ width: '100%' }}>
-              <button type="button" className={styles.secondaryButton}>
-                Quay lại đăng nhập
-              </button>
-            </Link>
+            <Button type="button" fullWidth onClick={() => router.push('/forgot-password')}>Yêu cầu liên kết mới</Button>
+            <Button type="button" fullWidth variant="outline" onClick={() => router.push('/auth')}>Quay lại đăng nhập</Button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate aria-busy={isSubmitting}>
             <h2 className={styles.title}>Đặt lại mật khẩu</h2>
             <p className={styles.subtitle}>
               Nhập mật khẩu mới an toàn cho tài khoản của bạn.
@@ -126,6 +117,12 @@ function ResetPasswordContent() {
               error={errors.password?.message}
               disabled={isSubmitting}
             />
+
+            {submitError && (
+              <div className="mt-4 rounded-xl border border-error/20 bg-error-container/40 p-3 text-sm text-on-error-container" role="alert">
+                {submitError}
+              </div>
+            )}
 
             <Input
               label="Xác nhận mật khẩu"
@@ -152,23 +149,13 @@ function ResetPasswordContent() {
           </form>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense
-      fallback={
-        <div className={styles.container}>
-          <div className={styles.glassCard}>
-            <div className={styles.noticeCard}>
-              <h2 className={styles.title}>Đang tải...</h2>
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthPageSkeleton fieldCount={2} backHref="/auth" backLabel="Đăng nhập" />}>
       <ResetPasswordContent />
     </Suspense>
   );

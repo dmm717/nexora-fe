@@ -13,23 +13,23 @@ export const Footer: React.FC = () => {
             <span className="font-bold text-sm text-on-surface">Nexora AI · Luyện phỏng vấn & Phát triển năng lực</span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-on-surface-variant">
-            <Link href="/#cv-analysis" className="hover:text-primary transition-colors">
+          <nav aria-label="Điều hướng cuối trang" className="flex flex-wrap items-center justify-center gap-6 text-xs text-on-surface-variant">
+            <Link href="/#cv-analysis" className="rounded-sm hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               Phân tích CV
             </Link>
-            <Link href="/#ai-interview" className="hover:text-primary transition-colors">
+            <Link href="/#ai-interview" className="rounded-sm hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               Phỏng vấn AI
             </Link>
-            <Link href="/#practice" className="hover:text-primary transition-colors">
+            <Link href="/#practice" className="rounded-sm hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               Luyện tập
             </Link>
-            <Link href="/#capabilities" className="hover:text-primary transition-colors">
+            <Link href="/#capabilities" className="rounded-sm hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               Năng lực
             </Link>
-            <Link href="/pricing" className="hover:text-primary transition-colors">
+            <Link href="/pricing" className="rounded-sm hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               Bảng giá
             </Link>
-          </div>
+          </nav>
 
           <div className="text-xs text-on-surface-variant text-center md:text-right">
             © {new Date().getFullYear()} Nexora AI. Bản quyền đã được bảo hộ.

@@ -31,22 +31,26 @@ export const AuthGateModal: React.FC<AuthGateModalProps> = ({
     }
   };
 
+  const isCheckoutIntent = pendingIntent?.action === 'checkout';
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Đăng nhập để tiếp tục"
-      description="Bạn cần tài khoản Nexora để lưu hồ sơ, kết quả luyện tập và tiến độ cá nhân."
+      title={isCheckoutIntent ? 'Đăng nhập để tiếp tục thanh toán' : 'Đăng nhập để tiếp tục'}
+      description={isCheckoutIntent
+        ? 'Lựa chọn gói của bạn sẽ được giữ lại để tiếp tục sau khi đăng nhập hoặc tạo tài khoản.'
+        : 'Bạn cần tài khoản Nexora để lưu hồ sơ, kết quả luyện tập và tiến độ cá nhân.'}
       size="md"
     >
       <div className="space-y-4 pt-2">
         {pendingIntent && (
-          <div className="p-3.5 rounded-xl bg-primary-fixed/30 border border-primary/20 flex items-start gap-3">
+          <div role="status" aria-live="polite" className="p-3.5 rounded-xl bg-primary-fixed/30 border border-primary/20 flex items-start gap-3">
             <span className="material-symbols-outlined text-primary text-[20px] mt-0.5" aria-hidden="true">
               bookmark_added
             </span>
             <div className="text-xs">
-              <span className="font-semibold text-on-surface">Đang giữ thao tác của bạn:</span>
+              <span className="font-semibold text-on-surface">Lựa chọn của bạn sẽ được tiếp tục sau khi đăng nhập:</span>
               <p className="text-on-surface-variant mt-0.5">
                 {pendingIntent.action === 'cv_analysis' && 'Phân tích hồ sơ CV & so khớp mục tiêu'}
                 {pendingIntent.action === 'interview' && 'Bắt đầu phiên phỏng vấn thử'}

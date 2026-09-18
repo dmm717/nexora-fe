@@ -9,10 +9,17 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, className, type, ...props }, ref) => {
     const inputId = useId();
+    const {
+      'aria-describedby': describedBy,
+      'aria-invalid': ariaInvalid,
+      ...inputProps
+    } = props;
     const [showPassword, setShowPassword] = useState(false);
-    
+
     const isPasswordType = type === 'password';
     const currentType = isPasswordType && showPassword ? 'text' : type;
+    const errorId = error ? `${inputId}-error` : undefined;
+    const mergedDescribedBy = [describedBy, errorId].filter(Boolean).join(' ') || undefined;
 
     return (
       <div className={styles.formGroup}>
@@ -23,7 +30,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             type={currentType}
             className={`${styles.input} ${error ? styles.inputError : ''} ${className || ''}`}
-            {...props}
+            aria-invalid={error ? true : ariaInvalid}
+            aria-describedby={mergedDescribedBy}
+            {...inputProps}
           />
           {isPasswordType && (
             <button
@@ -47,7 +56,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </button>
           )}
         </div>
-        {error && <span className={styles.errorMessage}>{error}</span>}
+        {error && <span id={errorId} role="alert" className={styles.errorMessage}>{error}</span>}
       </div>
     );
   }
