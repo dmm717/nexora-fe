@@ -133,7 +133,7 @@ export function NextPracticeRecommendationContent({
             Hệ thống cần mục tiêu nghề nghiệp để đề xuất bài luyện tập trọng tâm cho bạn.
           </p>
           <div className={styles.errorActions}>
-            <Link href="/career-goals" className={styles.btnAction}>
+            <Link href="/career-profile?section=goals" className={styles.btnAction}>
               Thiết lập mục tiêu nghề nghiệp →
             </Link>
           </div>

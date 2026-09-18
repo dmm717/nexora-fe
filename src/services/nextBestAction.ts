@@ -55,7 +55,7 @@ export function resolveNextBestAction({
       ...base,
       label: 'Thiết lập mục tiêu nghề nghiệp',
       description: 'Chọn vai trò mục tiêu để các đề xuất tiếp theo có bối cảnh phù hợp.',
-      destination: '/career-goals',
+      destination: '/career-profile?section=goals',
       activityType: 'career_goal',
     };
   }

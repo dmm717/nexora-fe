@@ -7,21 +7,31 @@ import {
   useCreateCareerGoal,
   useUpdateCareerGoal,
 } from '@/hooks/queries/useCareerGoals';
-import type { CareerProfileResponse } from '@/services/profileApi';
 import {
   CAREER_GOAL_SENIORITY_OPTIONS,
-  buildCareerProfileGoalUpdateRequest,
+  buildUpdateCareerGoalRequest,
+  type UpdatableCareerGoalCurrent,
 } from '@/services/careerGoalContract';
 import { toast } from 'sonner';
+
+export interface CareerGoalModalGoal {
+  id: string;
+  targetRole: string;
+  seniority: string;
+  industry?: string | null;
+  targetCompany?: string | null;
+  targetDate?: string | null;
+}
 
 export interface EditCareerGoalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeGoal?: CareerProfileResponse['activeCareerGoal'] | null;
+  activeGoal?: CareerGoalModalGoal | null;
+  goalToEdit?: CareerGoalModalGoal | null;
 }
 
 interface CareerGoalFormContentProps {
-  activeGoal?: CareerProfileResponse['activeCareerGoal'] | null;
+  activeGoal?: CareerGoalModalGoal | null;
   onClose: () => void;
 }
 
@@ -32,6 +42,10 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
   const [targetRole, setTargetRole] = useState(activeGoal?.targetRole || '');
   const [seniority, setSeniority] = useState(activeGoal?.seniority || '');
   const [industry, setIndustry] = useState(activeGoal?.industry || '');
+  const [targetCompany, setTargetCompany] = useState(activeGoal?.targetCompany || '');
+  const [targetDate, setTargetDate] = useState(
+    activeGoal?.targetDate ? activeGoal.targetDate.split('T')[0] : ''
+  );
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useCreateCareerGoal();
@@ -40,7 +54,9 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
 
   const isCustomSeniority =
     !!seniority &&
-    !CAREER_GOAL_SENIORITY_OPTIONS.some((opt) => opt.value === seniority.toLowerCase().trim());
+    !CAREER_GOAL_SENIORITY_OPTIONS.some(
+      (opt) => opt.value === seniority.toLowerCase().trim()
+    );
 
   const handleSaveGoal = async () => {
     const trimmedRole = targetRole.trim();
@@ -56,14 +72,26 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
     }
 
     const trimmedIndustry = industry.trim();
+    const trimmedCompany = targetCompany.trim();
+    const trimmedDate = targetDate.trim();
 
     try {
       if (activeGoal?.id) {
-        const request = buildCareerProfileGoalUpdateRequest(activeGoal, {
+        const currentGoal: UpdatableCareerGoalCurrent = {
+          targetRole: activeGoal.targetRole,
+          seniority: activeGoal.seniority,
+          industry: activeGoal.industry,
+          targetCompany: activeGoal.targetCompany,
+          targetDate: activeGoal.targetDate,
+        };
+        const request = buildUpdateCareerGoalRequest(currentGoal, {
           targetRole: trimmedRole,
           seniority: trimmedSeniority,
           industry: trimmedIndustry,
+          targetCompany: trimmedCompany,
+          targetDate: trimmedDate,
         });
+
         if (Object.keys(request).length > 0) {
           await updateMutation.mutateAsync({ id: activeGoal.id, request });
         }
@@ -73,12 +101,15 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
           targetRole: trimmedRole,
           seniority: trimmedSeniority,
           industry: trimmedIndustry || undefined,
+          targetCompany: trimmedCompany || undefined,
+          targetDate: trimmedDate || undefined,
         });
         toast.success('Thiết lập mục tiêu nghề nghiệp thành công!');
       }
       onClose();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Không thể lưu mục tiêu nghề nghiệp.';
+      const message =
+        err instanceof Error ? err.message : 'Không thể lưu mục tiêu nghề nghiệp.';
       setError(message);
       toast.error(message);
     }
@@ -93,7 +124,10 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
       )}
 
       <div>
-        <label htmlFor="targetRoleInput" className="block text-xs font-semibold text-on-surface mb-1.5">
+        <label
+          htmlFor="targetRoleInput"
+          className="block text-xs font-semibold text-on-surface mb-1.5"
+        >
           Vị trí mục tiêu <span className="text-red-500">*</span>
         </label>
         <input
@@ -111,7 +145,10 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
       </div>
 
       <div>
-        <label htmlFor="seniorityInput" className="block text-xs font-semibold text-on-surface mb-1.5">
+        <label
+          htmlFor="seniorityInput"
+          className="block text-xs font-semibold text-on-surface mb-1.5"
+        >
           Cấp bậc <span className="text-red-500">*</span>
         </label>
         <select
@@ -125,9 +162,7 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
           disabled={isSaving}
         >
           <option value="">Chọn cấp bậc</option>
-          {isCustomSeniority && (
-            <option value={seniority}>{seniority}</option>
-          )}
+          {isCustomSeniority && <option value={seniority}>{seniority}</option>}
           {CAREER_GOAL_SENIORITY_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -136,17 +171,57 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
         </select>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label
+            htmlFor="industryInput"
+            className="block text-xs font-semibold text-on-surface mb-1.5"
+          >
+            Ngành nghề
+          </label>
+          <input
+            id="industryInput"
+            type="text"
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value)}
+            placeholder="VD: Fintech, E-Commerce, SaaS..."
+            className="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant/60 focus:border-primary focus:outline-none text-sm text-on-surface"
+            disabled={isSaving}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="targetCompanyInput"
+            className="block text-xs font-semibold text-on-surface mb-1.5"
+          >
+            Công ty mục tiêu
+          </label>
+          <input
+            id="targetCompanyInput"
+            type="text"
+            value={targetCompany}
+            onChange={(e) => setTargetCompany(e.target.value)}
+            placeholder="VD: Google, VNG, Shopee..."
+            className="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant/60 focus:border-primary focus:outline-none text-sm text-on-surface"
+            disabled={isSaving}
+          />
+        </div>
+      </div>
+
       <div>
-        <label htmlFor="industryInput" className="block text-xs font-semibold text-on-surface mb-1.5">
-          Ngành nghề
+        <label
+          htmlFor="targetDateInput"
+          className="block text-xs font-semibold text-on-surface mb-1.5"
+        >
+          Mốc thời gian mục tiêu
         </label>
         <input
-          id="industryInput"
-          type="text"
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value)}
-          placeholder="VD: Fintech, E-Commerce, Logistics, SaaS..."
-          className="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant/60 focus:border-primary focus:outline-none text-sm text-on-surface"
+          id="targetDateInput"
+          type="date"
+          value={targetDate}
+          onChange={(e) => setTargetDate(e.target.value)}
+          className="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant/60 focus:border-primary focus:outline-none text-sm text-on-surface bg-white"
           disabled={isSaving}
         />
       </div>
@@ -155,7 +230,12 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
         <Button variant="outline" size="sm" onClick={onClose} disabled={isSaving}>
           Hủy
         </Button>
-        <Button variant="primary" size="sm" onClick={handleSaveGoal} loading={isSaving}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleSaveGoal}
+          loading={isSaving}
+        >
           {activeGoal ? 'Lưu thay đổi' : 'Tạo mục tiêu'}
         </Button>
       </div>
@@ -167,19 +247,26 @@ export const EditCareerGoalModal: React.FC<EditCareerGoalModalProps> = ({
   isOpen,
   onClose,
   activeGoal,
+  goalToEdit,
 }) => {
   if (!isOpen) return null;
+
+  const targetGoal = goalToEdit ?? activeGoal ?? null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={activeGoal ? 'Cập nhật Mục tiêu nghề nghiệp' : 'Thiết lập Mục tiêu nghề nghiệp'}
+      title={
+        targetGoal
+          ? 'Cập nhật Mục tiêu nghề nghiệp'
+          : 'Thiết lập Mục tiêu nghề nghiệp'
+      }
       maxWidth="md"
     >
       <CareerGoalFormContent
-        key={activeGoal?.id ?? 'new-goal'}
-        activeGoal={activeGoal}
+        key={targetGoal?.id ?? 'new-goal'}
+        activeGoal={targetGoal}
         onClose={onClose}
       />
     </Modal>

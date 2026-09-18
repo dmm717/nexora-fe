@@ -114,7 +114,7 @@ export default function LearningPathView() {
             Bạn cần có ít nhất một mục tiêu nghề nghiệp đang kích hoạt để Nexora phân tích và tạo lộ trình học tập cá nhân hóa.
           </p>
           <div className="flex justify-center gap-3 pt-2">
-            <Button variant="primary" size="md" onClick={() => router.push('/career-goals')}>
+            <Button variant="primary" size="md" onClick={() => router.push('/career-profile?section=goals')}>
               Thiết lập mục tiêu ngay
             </Button>
           </div>

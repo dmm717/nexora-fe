@@ -28,6 +28,7 @@ export const ALLOWED_PATH_PREFIXES = [
   '/star-builder',
   '/analytics',
   '/career-goals',
+  '/career-profile',
   '/account',
   '/billing',
   '/resumes',

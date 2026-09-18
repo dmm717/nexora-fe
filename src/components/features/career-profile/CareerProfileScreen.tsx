@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { CareerProfileHeader } from './CareerProfileHeader';
 import { CareerIdentityCard } from './CareerIdentityCard';
-import { ActiveCareerGoalCard } from './ActiveCareerGoalCard';
+import { CareerGoalsSection } from './CareerGoalsSection';
 import { ResumeManagementSection } from './ResumeManagementSection';
 import { SkillProfileSection } from './SkillProfileSection';
 import { Card } from '@/components/ui/Card';
@@ -12,6 +13,18 @@ import { Button } from '@/components/ui/Button';
 
 export const CareerProfileScreen: React.FC = () => {
   const { data: profileData, isLoading, isError, refetch } = useCareerProfile();
+  const searchParams = useSearchParams();
+  const section = searchParams?.get('section');
+
+  useEffect(() => {
+    if (section === 'goals') {
+      const el = document.getElementById('goals');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.focus({ preventScroll: true });
+      }
+    }
+  }, [section, isLoading]);
 
   if (isLoading) {
     return (
@@ -96,8 +109,8 @@ export const CareerProfileScreen: React.FC = () => {
       {/* Title & Introduction */}
       <CareerProfileHeader />
 
-      {/* Grid: Identity + Career Goal */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Grid: Identity + Career Goal Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-5">
           <CareerIdentityCard
             profile={profileData.profile}
@@ -105,8 +118,8 @@ export const CareerProfileScreen: React.FC = () => {
           />
         </div>
         <div className="lg:col-span-7">
-          <ActiveCareerGoalCard
-            activeGoal={profileData.activeCareerGoal}
+          <CareerGoalsSection
+            activeGoalFromProfile={profileData.activeCareerGoal}
           />
         </div>
       </div>

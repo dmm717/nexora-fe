@@ -1,6 +1,5 @@
-import React from 'react';
-import CareerGoals from '@/components/features/career-goals/CareerGoals';
+import { redirect } from 'next/navigation';
 
 export default function CareerGoalsPage() {
-  return <CareerGoals />;
+  redirect('/career-profile?section=goals');
 }

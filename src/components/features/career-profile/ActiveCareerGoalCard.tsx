@@ -7,13 +7,61 @@ import { Badge } from '@/components/ui/Badge';
 import { EditCareerGoalModal } from './EditCareerGoalModal';
 import type { CareerProfileResponse } from '@/services/profileApi';
 import { formatSeniorityLabel } from '@/services/careerGoalContract';
+import { useArchiveCareerGoal } from '@/hooks/queries/useCareerGoals';
+import { toast } from 'sonner';
 
 export interface ActiveCareerGoalCardProps {
   activeGoal?: CareerProfileResponse['activeCareerGoal'] | null;
+  onEdit?: () => void;
+  onArchive?: () => void;
 }
 
-export const ActiveCareerGoalCard: React.FC<ActiveCareerGoalCardProps> = ({ activeGoal }) => {
-  const [modalOpen, setModalOpen] = useState(false);
+const formatDate = (isoString?: string | null): string => {
+  if (!isoString) return 'Chưa cập nhật';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'Chưa cập nhật';
+    return d.toLocaleDateString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    return 'Chưa cập nhật';
+  }
+};
+
+export const ActiveCareerGoalCard: React.FC<ActiveCareerGoalCardProps> = ({
+  activeGoal,
+  onEdit,
+  onArchive,
+}) => {
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+  const archiveMutation = useArchiveCareerGoal();
+
+  const handleEditClick = () => {
+    if (onEdit) {
+      onEdit();
+    } else {
+      setInternalModalOpen(true);
+    }
+  };
+
+  const handleArchiveClick = async () => {
+    if (!activeGoal?.id) return;
+    if (onArchive) {
+      onArchive();
+      return;
+    }
+    try {
+      await archiveMutation.mutateAsync(activeGoal.id);
+      toast.success('Đã lưu trữ mục tiêu nghề nghiệp');
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Không thể lưu trữ mục tiêu.';
+      toast.error(message);
+    }
+  };
 
   return (
     <>
@@ -56,6 +104,18 @@ export const ActiveCareerGoalCard: React.FC<ActiveCareerGoalCardProps> = ({ acti
                   {activeGoal.industry?.trim() || 'Chưa cập nhật'}
                 </div>
               </div>
+              <div>
+                <span className="text-[11px] text-on-surface-variant">Công ty mục tiêu:</span>
+                <div className="font-bold text-xs sm:text-sm text-on-surface mt-0.5 truncate">
+                  {activeGoal.targetCompany?.trim() || 'Chưa cập nhật'}
+                </div>
+              </div>
+              <div>
+                <span className="text-[11px] text-on-surface-variant">Mốc thời gian:</span>
+                <div className="font-bold text-xs sm:text-sm text-on-surface mt-0.5">
+                  {formatDate(activeGoal.targetDate)}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="p-4 rounded-xl bg-surface-container-low text-xs text-on-surface-variant text-center">
@@ -65,10 +125,21 @@ export const ActiveCareerGoalCard: React.FC<ActiveCareerGoalCardProps> = ({ acti
         </div>
 
         <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-outline-variant/30">
+          {activeGoal && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleArchiveClick}
+              loading={archiveMutation.isPending}
+              disabled={archiveMutation.isPending}
+            >
+              Lưu trữ
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setModalOpen(true)}
+            onClick={handleEditClick}
             icon={<span className="material-symbols-outlined text-[16px]">tune</span>}
           >
             {activeGoal ? 'Chỉnh sửa mục tiêu' : 'Thiết lập mục tiêu'}
@@ -76,11 +147,13 @@ export const ActiveCareerGoalCard: React.FC<ActiveCareerGoalCardProps> = ({ acti
         </div>
       </Card>
 
-      <EditCareerGoalModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        activeGoal={activeGoal}
-      />
+      {!onEdit && (
+        <EditCareerGoalModal
+          isOpen={internalModalOpen}
+          onClose={() => setInternalModalOpen(false)}
+          activeGoal={activeGoal}
+        />
+      )}
     </>
   );
 };

@@ -259,8 +259,8 @@ test('Seniority J: editing role/industry without changing seniority preserves ca
   assert.equal('activeSpecified' in updateReq, false);
 });
 
-test('Seniority K: existing /career-goals screen uses the same shared option source', async () => {
-  const source = await readSource('../src/components/features/career-goals/CareerGoals.tsx');
+test('Seniority K: consolidated career goal editor uses the shared option source', async () => {
+  const source = await readSource('../src/components/features/career-profile/EditCareerGoalModal.tsx');
 
   assert.match(source, /CAREER_GOAL_SENIORITY_OPTIONS/);
   assert.match(source, /CAREER_GOAL_SENIORITY_OPTIONS\.map/);

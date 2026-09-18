@@ -103,42 +103,60 @@ export function buildCreateCareerGoalRequest(
   };
 }
 
+export type UpdatableCareerGoalCurrent = {
+  targetRole?: string | null;
+  seniority?: string | null;
+  industry?: string | null;
+  targetCompany?: string | null;
+  targetDate?: string | null;
+};
+
+const normalizeDate = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.split('T')[0];
+};
+
 /**
  * Builds a PATCH request that marks only changed fields as Specified. Unchanged
  * fields are omitted so editing one field never clears the others.
  */
 export function buildUpdateCareerGoalRequest(
-  current: CareerGoalResponse,
+  current: UpdatableCareerGoalCurrent,
   values: CareerGoalFormValues
 ): UpdateCareerGoalRequest {
   const request: UpdateCareerGoalRequest = {};
 
   const nextRole = values.targetRole.trim();
-  if (nextRole !== current.targetRole) {
+  if (nextRole !== (current.targetRole?.trim() ?? '')) {
     request.targetRoleSpecified = true;
     request.targetRole = nextRole;
   }
 
   const nextSeniority = values.seniority.trim();
-  if (nextSeniority !== current.seniority) {
+  if (nextSeniority !== (current.seniority?.trim() ?? '')) {
     request.senioritySpecified = true;
     request.seniority = nextSeniority;
   }
 
+  const currentIndustry = normalizeOptional(current.industry) ?? null;
   const nextIndustry = normalizeOptional(values.industry) ?? null;
-  if (nextIndustry !== (current.industry ?? null)) {
+  if (nextIndustry !== currentIndustry) {
     request.industrySpecified = true;
     request.industry = nextIndustry;
   }
 
+  const currentCompany = normalizeOptional(current.targetCompany) ?? null;
   const nextCompany = normalizeOptional(values.targetCompany) ?? null;
-  if (nextCompany !== (current.targetCompany ?? null)) {
+  if (nextCompany !== currentCompany) {
     request.targetCompanySpecified = true;
     request.targetCompany = nextCompany;
   }
 
-  const nextDate = normalizeOptional(values.targetDate) ?? null;
-  if (nextDate !== (current.targetDate ?? null)) {
+  const currentDate = normalizeDate(current.targetDate);
+  const nextDate = normalizeDate(values.targetDate);
+  if (nextDate !== currentDate) {
     request.targetDateSpecified = true;
     request.targetDate = nextDate;
   }

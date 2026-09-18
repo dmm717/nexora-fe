@@ -152,7 +152,7 @@ export default function OverviewPage() {
           <Button
             variant="outline"
             size="md"
-            onClick={() => router.push(primaryResume ? '/career-goals' : '/resume-analyses')}
+            onClick={() => router.push(primaryResume ? '/career-profile?section=goals' : '/resume-analyses')}
           >
             {primaryResume ? 'Xem hồ sơ nghề nghiệp' : 'Thiết lập bối cảnh'}
           </Button>
@@ -198,7 +198,7 @@ export default function OverviewPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push('/career-goals')}
+            onClick={() => router.push('/career-profile?section=goals')}
           >
             Hoàn thiện hồ sơ
           </Button>
@@ -484,7 +484,7 @@ export default function OverviewPage() {
             <div>CV chính: {primaryResume ? primaryResume.fileName : 'Chưa chọn'}</div>
           </div>
           <button
-            onClick={() => router.push('/career-goals')}
+            onClick={() => router.push('/career-profile')}
             className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
           >
             Xem Hồ sơ nghề nghiệp
@@ -508,7 +508,7 @@ export default function OverviewPage() {
             <div>Công ty mục tiêu: {activeGoal?.targetCompany || 'Chưa chọn công ty mục tiêu'}</div>
           </div>
           <button
-            onClick={() => router.push('/career-goals')}
+            onClick={() => router.push('/career-profile?section=goals')}
             className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 pt-1 cursor-pointer"
           >
             Điều chỉnh mục tiêu

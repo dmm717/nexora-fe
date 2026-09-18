@@ -99,7 +99,7 @@ export const useDeleteCareerGoal = () => {
         CAREER_GOALS_QUERY_KEY,
         (old) => (old ? old.filter((goal) => goal.id !== deletedId) : [])
       );
-      // Still need to invalidate dashboard/recommendation since they might depend on the deleted goal
+      void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
