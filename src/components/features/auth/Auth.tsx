@@ -139,7 +139,7 @@ export default function Auth() {
 
         if (intentAction === 'checkout') {
           destination = resolveCheckoutDestination(planPriceId, rawReturnTo)
-            ?? resolveSafeReturnUrl(rawReturnTo, '/overview');
+            ?? '/overview';
           // Explicit URL intent wins, but do not leave an older session intent behind.
           consumeAuthIntent();
         } else if (rawReturnTo && isValidInternalPath(rawReturnTo)) {

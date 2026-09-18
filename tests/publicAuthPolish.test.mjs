@@ -110,7 +110,15 @@ test('login/register navigation preserves checkout and safe return intent', asyn
 
   assert.match(auth, /resolveCheckoutDestination\(planPriceId, rawReturnTo\)/);
   assert.match(auth, /resolveCheckoutDestination\(storedIntent\.planPriceId, storedIntent\.targetUrl\)/);
-  assert.match(auth, /if \(intentAction === ['"]checkout['"]\) \{\s*destination = resolveCheckoutDestination\(planPriceId, rawReturnTo\)/);
+  const explicitCheckoutBranchStart = auth.indexOf("if (intentAction === 'checkout') {");
+  const explicitCheckoutBranchEnd = auth.indexOf('// Explicit URL intent wins', explicitCheckoutBranchStart);
+  const explicitCheckoutBranch = auth.slice(explicitCheckoutBranchStart, explicitCheckoutBranchEnd);
+  assert.ok(explicitCheckoutBranchStart >= 0 && explicitCheckoutBranchEnd > explicitCheckoutBranchStart,
+    'explicit checkout branch can be inspected');
+  assert.match(explicitCheckoutBranch,
+    /destination = resolveCheckoutDestination\(planPriceId, rawReturnTo\)\s*\?\? ['"]\/overview['"]/);
+  assert.doesNotMatch(explicitCheckoutBranch, /resolveSafeReturnUrl\(rawReturnTo/,
+    'invalid explicit checkout intent must not fall back to an arbitrary returnTo');
   assert.match(auth, /storedIntent\.action === ['"]checkout['"]/);
   assert.match(auth, /router\.push\(destination\)/);
   const loginSuccess = auth.indexOf('await authApi.login');
@@ -126,6 +134,9 @@ test('login/register navigation preserves checkout and safe return intent', asyn
   const storedConsumption = storedBranch.indexOf('consumeAuthIntent();');
   assert.ok(storedBranchStart >= 0 && storedBranchEnd > storedBranchStart, 'stored intent branch can be inspected');
   assert.ok(storedResolution >= 0 && storedConsumption > storedResolution, 'stored destination resolves before intent is consumed');
+  assert.match(storedBranch,
+    /resolveCheckoutDestination\(storedIntent\.planPriceId, storedIntent\.targetUrl\)\s*\?\? ['"]\/overview['"]/,
+    'stored checkout intent without a plan price fails closed to overview');
 
   assert.match(gate, /storeAuthIntent\(pendingIntent\)/);
   assert.match(gate, /buildAuthRedirectUrl\(pendingIntent, mode\)/);
@@ -169,6 +180,14 @@ test('checkout destination resolver preserves only one safe post-checkout target
 
   // Explicit checkout intent without a return route still has a canonical destination.
   assertDestination(resolveCheckoutDestination('price-42'), 'price-42', null);
+
+  // A return URL's selectedPriceId cannot substitute for an absent planPriceId.
+  const billingWithSelectedPrice = '/billing?selectedPriceId=price-42';
+  const billingWithWrappedInterview = '/billing?selectedPriceId=price-42&returnTo=%2Finterviews%2Fsession-7';
+  assert.equal(resolveCheckoutDestination(null, billingWithSelectedPrice), null);
+  assert.equal(resolveCheckoutDestination(null, billingWithWrappedInterview), null);
+  assert.equal(resolveCheckoutDestination('   ', billingWithSelectedPrice), null);
+  assert.equal(resolveCheckoutDestination('   ', billingWithWrappedInterview), null);
 
   // Absolute and protocol-relative nested redirects are discarded.
   assertDestination(
