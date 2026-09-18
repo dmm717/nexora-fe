@@ -114,6 +114,71 @@ export function resolveSafeReturnUrl(
   return fallback;
 }
 
+const INTERNAL_URL_ORIGIN = 'https://nexora.internal';
+
+function isBillingOrPricingPath(pathname: string): boolean {
+  return ['/billing', '/pricing'].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+/**
+ * Builds the canonical billing destination for an authenticated checkout.
+ * `planPriceId` is authoritative; a billing/pricing candidate may contribute
+ * one safe nested destination, while a normal safe internal path is already
+ * the post-checkout destination.
+ */
+export function resolveCheckoutDestination(
+  planPriceId: string | null | undefined,
+  candidate?: string | null
+): string | null {
+  const selectedPriceId = typeof planPriceId === 'string' ? planPriceId.trim() : '';
+  if (!selectedPriceId) return null;
+
+  const params = new URLSearchParams();
+  params.set('selectedPriceId', selectedPriceId);
+
+  if (isValidInternalPath(candidate)) {
+    const safeCandidate = candidate!.trim();
+    const parsedCandidate = new URL(safeCandidate, INTERNAL_URL_ORIGIN);
+    let postCheckoutTarget: string | null = safeCandidate;
+
+    if (isBillingOrPricingPath(parsedCandidate.pathname)) {
+      const nestedTargets = parsedCandidate.searchParams.getAll('returnTo');
+      postCheckoutTarget = null;
+
+      // Ambiguous or recursive wrappers fail closed instead of creating a
+      // billing -> billing/pricing -> ... redirect chain.
+      if (nestedTargets.length === 1 && isValidInternalPath(nestedTargets[0])) {
+        const nestedTarget = nestedTargets[0].trim();
+        const parsedNestedTarget = new URL(nestedTarget, INTERNAL_URL_ORIGIN);
+        const nestedCheckoutTargets = parsedNestedTarget.searchParams
+          .getAll('returnTo')
+          .some((value) => {
+            if (!isValidInternalPath(value)) return false;
+            const nestedUrl = new URL(value.trim(), INTERNAL_URL_ORIGIN);
+            return isBillingOrPricingPath(nestedUrl.pathname);
+          });
+
+        if (!isBillingOrPricingPath(parsedNestedTarget.pathname) && !nestedCheckoutTargets) {
+          postCheckoutTarget = nestedTarget;
+        }
+      }
+    } else {
+      const hasNestedCheckoutTarget = parsedCandidate.searchParams.getAll('returnTo').some((value) => {
+        if (!isValidInternalPath(value)) return false;
+        const nestedUrl = new URL(value.trim(), INTERNAL_URL_ORIGIN);
+        return isBillingOrPricingPath(nestedUrl.pathname);
+      });
+      if (hasNestedCheckoutTarget) postCheckoutTarget = null;
+    }
+
+    if (postCheckoutTarget) params.set('returnTo', postCheckoutTarget);
+  }
+
+  return `/billing?${params.toString()}`;
+}
+
 /**
  * Encodes an intent into a safe returnTo query param string for /auth.
  */
@@ -152,6 +217,28 @@ export function storeAuthIntent(intent: AuthIntent): void {
   }
 }
 
+function parseStoredAuthIntent(raw: string): AuthIntent | null {
+  try {
+    const parsed = JSON.parse(raw) as AuthIntent;
+    return parsed && isValidInternalPath(parsed.targetUrl) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads a safe stored intent without clearing it.
+ */
+export function peekAuthIntent(): AuthIntent | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    return raw ? parseStoredAuthIntent(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Retrieves and clears stored intent.
  */
@@ -161,11 +248,7 @@ export function consumeAuthIntent(): AuthIntent | null {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     window.sessionStorage.removeItem(STORAGE_KEY);
-    const parsed = JSON.parse(raw) as AuthIntent;
-    if (parsed && isValidInternalPath(parsed.targetUrl)) {
-      return parsed;
-    }
-    return null;
+    return parseStoredAuthIntent(raw);
   } catch {
     return null;
   }

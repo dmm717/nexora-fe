@@ -108,15 +108,100 @@ test('login/register navigation preserves checkout and safe return intent', asyn
   assert.equal(authUrl.searchParams.get('returnTo'), '/billing?selectedPriceId=price-42&returnTo=%2Finterviews%2Fsession-7');
   assert.equal(isValidInternalPath('https://attacker.invalid/'), false);
 
-  assert.match(auth, /isValidInternalPath/);
-  assert.match(auth, /selectedPriceId/);
+  assert.match(auth, /resolveCheckoutDestination\(planPriceId, rawReturnTo\)/);
+  assert.match(auth, /resolveCheckoutDestination\(storedIntent\.planPriceId, storedIntent\.targetUrl\)/);
+  assert.match(auth, /if \(intentAction === ['"]checkout['"]\) \{\s*destination = resolveCheckoutDestination\(planPriceId, rawReturnTo\)/);
+  assert.match(auth, /storedIntent\.action === ['"]checkout['"]/);
   assert.match(auth, /router\.push\(destination\)/);
+  const loginSuccess = auth.indexOf('await authApi.login');
+  const explicitResolution = auth.indexOf('resolveCheckoutDestination(planPriceId, rawReturnTo)');
+  const staleIntentConsumption = auth.indexOf('consumeAuthIntent();', explicitResolution);
+  assert.ok(loginSuccess >= 0 && explicitResolution > loginSuccess, 'explicit checkout resolves after successful login');
+  assert.ok(staleIntentConsumption > explicitResolution, 'stale stored intent is consumed after explicit destination resolution');
+
+  const storedBranchStart = auth.indexOf('const storedIntent = peekAuthIntent();');
+  const storedBranchEnd = auth.indexOf('router.push(destination)', storedBranchStart);
+  const storedBranch = auth.slice(storedBranchStart, storedBranchEnd);
+  const storedResolution = storedBranch.indexOf('resolveCheckoutDestination(storedIntent.planPriceId, storedIntent.targetUrl)');
+  const storedConsumption = storedBranch.indexOf('consumeAuthIntent();');
+  assert.ok(storedBranchStart >= 0 && storedBranchEnd > storedBranchStart, 'stored intent branch can be inspected');
+  assert.ok(storedResolution >= 0 && storedConsumption > storedResolution, 'stored destination resolves before intent is consumed');
+
   assert.match(gate, /storeAuthIntent\(pendingIntent\)/);
   assert.match(gate, /buildAuthRedirectUrl\(pendingIntent, mode\)/);
   assert.match(pricing, /safeReturnTo/);
   assert.match(pricing, /selectedPriceId/);
   assert.match(pricing, /AuthGateModal/);
   assert.match(pricing, /authReady/);
+});
+
+test('checkout destination resolver preserves only one safe post-checkout target', async () => {
+  const { resolveCheckoutDestination } = await importTypeScript('src/utils/authIntent.ts');
+
+  const assertDestination = (destination, priceId, expectedReturnTo) => {
+    assert.equal(typeof destination, 'string');
+    const parsed = new URL(destination, 'https://nexora.test');
+    assert.equal(parsed.pathname, '/billing');
+    assert.equal(parsed.searchParams.get('selectedPriceId'), priceId);
+    assert.equal(parsed.searchParams.getAll('selectedPriceId').length, 1);
+    assert.equal(parsed.searchParams.get('returnTo'), expectedReturnTo);
+    assert.equal(parsed.hash, '');
+  };
+
+  // Existing checkout targets carry the post-checkout route inside billing.
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/billing?selectedPriceId=stale&returnTo=%2Finterviews%2Fsession-7'),
+    'price-42',
+    '/interviews/session-7'
+  );
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/pricing?selectedPriceId=stale&returnTo=%2Finterviews%2Fsession-7'),
+    'price-42',
+    '/interviews/session-7'
+  );
+
+  // A direct safe route is already the post-checkout target.
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/interviews/session-7'),
+    'price-42',
+    '/interviews/session-7'
+  );
+
+  // Explicit checkout intent without a return route still has a canonical destination.
+  assertDestination(resolveCheckoutDestination('price-42'), 'price-42', null);
+
+  // Absolute and protocol-relative nested redirects are discarded.
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/billing?returnTo=https%3A%2F%2Fevil.example%2F'),
+    'price-42',
+    null
+  );
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/billing?returnTo=%2F%2Fevil.example%2F'),
+    'price-42',
+    null
+  );
+
+  // Unknown internal routes and nested billing/pricing loops fail closed.
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/billing?returnTo=%2Fnot-a-real-route'),
+    'price-42',
+    null
+  );
+  assertDestination(
+    resolveCheckoutDestination('price-42', '/pricing?returnTo=%2Fbilling%3FreturnTo%3D%252Finterviews%252Fsession-7'),
+    'price-42',
+    null
+  );
+
+  // URLSearchParams keeps query delimiters and fragments inside the price ID.
+  const unusualPriceId = 'price /?+#';
+  const encodedDestination = resolveCheckoutDestination(unusualPriceId);
+  assertDestination(encodedDestination, unusualPriceId, null);
+  assert.equal(
+    encodedDestination,
+    `/billing?${new URLSearchParams({ selectedPriceId: unusualPriceId }).toString()}`
+  );
 });
 
 test('auth removes nonfunctional remember-me and dead legal links while retaining password rules', async () => {

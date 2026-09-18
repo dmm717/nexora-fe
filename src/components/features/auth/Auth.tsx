@@ -16,6 +16,8 @@ import { Input } from '../../ui/Input/Input';
 import { Button } from '../../ui/Button/Button';
 import {
   resolveSafeReturnUrl,
+  resolveCheckoutDestination,
+  peekAuthIntent,
   consumeAuthIntent,
   isValidInternalPath,
 } from '@/utils/authIntent';
@@ -135,32 +137,35 @@ export default function Auth() {
 
         let destination = '/overview';
 
-        if (rawReturnTo && isValidInternalPath(rawReturnTo)) {
-          // Explicit returnTo is present and valid
+        if (intentAction === 'checkout') {
+          destination = resolveCheckoutDestination(planPriceId, rawReturnTo)
+            ?? resolveSafeReturnUrl(rawReturnTo, '/overview');
+          // Explicit URL intent wins, but do not leave an older session intent behind.
+          consumeAuthIntent();
+        } else if (rawReturnTo && isValidInternalPath(rawReturnTo)) {
           destination = resolveSafeReturnUrl(rawReturnTo, '/overview');
 
-          // If checkout intent with a planPriceId, route to canonical /billing entry
-          if (planPriceId && (intentAction === 'checkout' || destination.startsWith('/billing') || destination.startsWith('/pricing'))) {
-            destination = `/billing?selectedPriceId=${encodeURIComponent(planPriceId)}`;
-            if (rawReturnTo && !rawReturnTo.startsWith('/pricing') && !rawReturnTo.startsWith('/billing')) {
-              destination += `&returnTo=${encodeURIComponent(rawReturnTo)}`;
-            }
+          // Retain legacy canonicalization for billing/pricing return targets
+          // that predate the explicit intentAction query parameter.
+          if (planPriceId && (destination.startsWith('/billing') || destination.startsWith('/pricing'))) {
+            destination = resolveCheckoutDestination(planPriceId, rawReturnTo) ?? destination;
           }
-          // Consume any stale session intent so it doesn't linger
+
+          // Consume any stale session intent so it doesn't linger.
           consumeAuthIntent();
         } else {
           // Priority 2: Recover from stored session intent (e.g. register -> verify/login flow)
-          const storedIntent = consumeAuthIntent();
+          const storedIntent = peekAuthIntent();
           if (storedIntent && isValidInternalPath(storedIntent.targetUrl)) {
-            if (storedIntent.action === 'checkout' && storedIntent.planPriceId) {
-              destination = `/billing?selectedPriceId=${encodeURIComponent(storedIntent.planPriceId)}`;
-              if (storedIntent.targetUrl && !storedIntent.targetUrl.startsWith('/pricing') && !storedIntent.targetUrl.startsWith('/billing')) {
-                destination += `&returnTo=${encodeURIComponent(storedIntent.targetUrl)}`;
-              }
+            if (storedIntent.action === 'checkout') {
+              destination = resolveCheckoutDestination(storedIntent.planPriceId, storedIntent.targetUrl)
+                ?? '/overview';
             } else {
               destination = resolveSafeReturnUrl(storedIntent.targetUrl, '/overview');
             }
           }
+          // Keep stale intent available until its post-login destination is resolved.
+          consumeAuthIntent();
         }
 
         router.push(destination);
