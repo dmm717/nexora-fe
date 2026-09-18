@@ -8,6 +8,7 @@ import {
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from './useNextRecommendation';
 import { PROGRESS_DASHBOARD_QUERY_KEY } from './useProgressDashboard';
+import { careerProfileKeys } from './useCareerProfile';
 
 export const CAREER_GOALS_QUERY_KEY = ['careerGoals'] as const;
 
@@ -34,6 +35,7 @@ export const useCreateCareerGoal = () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
     },
   });
 };
@@ -48,6 +50,7 @@ export const useUpdateCareerGoal = () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
     },
   });
 };
@@ -63,6 +66,7 @@ export const useArchiveCareerGoal = () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
     },
   });
 };
@@ -78,6 +82,7 @@ export const useReactivateCareerGoal = () => {
       void queryClient.invalidateQueries({ queryKey: CAREER_GOALS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
     },
   });
 };
@@ -97,6 +102,7 @@ export const useDeleteCareerGoal = () => {
       // Still need to invalidate dashboard/recommendation since they might depend on the deleted goal
       void queryClient.invalidateQueries({ queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PROGRESS_DASHBOARD_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
     },
   });
 };

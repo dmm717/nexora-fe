@@ -2,7 +2,11 @@
 
 import React, { useState } from 'react';
 import styles from './CareerGoals.module.css';
-import type { CareerGoalResponse } from '@/services/careerGoalContract';
+import {
+  CAREER_GOAL_SENIORITY_OPTIONS,
+  buildUpdateCareerGoalRequest,
+  type CareerGoalResponse,
+} from '@/services/careerGoalContract';
 import { ApiError } from '@/services/apiClient';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
@@ -19,7 +23,6 @@ import {
   useDeleteCareerGoal,
   type CareerGoalFormValues,
 } from '@/hooks/queries/useCareerGoals';
-import { buildUpdateCareerGoalRequest } from '@/services/careerGoalContract';
 
 const goalSchema = z.object({
   targetRole: z.string().min(2, 'Vị trí mục tiêu phải có ít nhất 2 ký tự'),
@@ -297,15 +300,11 @@ export default function CareerGoals() {
                       {...register('seniority')}
                     >
                       <option value="">Chọn cấp bậc</option>
-                      <option value="intern">Thực tập sinh (Intern)</option>
-                      <option value="entry">Mới đi làm (Entry-level)</option>
-                      <option value="junior">Nhân viên (Junior)</option>
-                      <option value="mid">Chuyên viên (Mid-level)</option>
-                      <option value="senior">Chuyên viên cao cấp (Senior)</option>
-                      <option value="lead">Trưởng nhóm (Lead)</option>
-                      <option value="manager">Quản lý (Manager)</option>
-                      <option value="director">Giám đốc (Director)</option>
-                      <option value="executive">Điều hành (Executive)</option>
+                      {CAREER_GOAL_SENIORITY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   {errors.seniority && <span className={inputStyles.errorMessage}>{errors.seniority.message}</span>}

@@ -113,7 +113,8 @@
 | progressDashboardApi.get | /analytics, /overview | ProgressController: GET /api/v1/progress/dashboard | ProgressDashboardResponse | MATCH |
 | careerGoalsApi.list / create | /career-goals | CareerGoalsController: GET /api/v1/career-goals, POST /api/v1/career-goals | CareerGoalResponse | MATCH |
 | careerGoalsApi.get / update | /career-goals | CareerGoalsController: GET /api/v1/career-goals/{id}, PATCH /api/v1/career-goals/{id} | CareerGoalResponse | MATCH |
-| profileApi.getCareerProfile | /career-goals, /overview | CareerProfileController: GET /api/v1/career-profile | CareerProfileResponse | MATCH |
+| profileApi.getCareerProfile | /career-profile, /career-goals, /overview | CareerProfileController: GET /api/v1/career-profile | CareerProfileResponse | MATCH |
+| profileApi.setPrimaryResume | /career-profile, /resumes | CareerProfileController: PUT /api/v1/me/primary-resume | PrimaryResumeResponse | MATCH |
 | billingApi.getPlans | /billing, /pricing | PlansController: GET /api/v1/plans | PlanView[] | MATCH |
 | billingApi.createCheckoutSession | /billing | CheckoutController: POST /api/v1/checkout-sessions | CheckoutSessionResponse | MATCH |
 | billingApi.getOrderStatus | /billing | CheckoutController: GET /api/v1/checkout-sessions/{orderId} | CheckoutSessionResponse | MATCH |
@@ -154,9 +155,9 @@
 - **LOW / NIT**: 4 (Documented / Verified)
 
 ### Medium Findings (Fixed):
-1. **Broken Link to /settings in Career Profile Onboarding**:
-   - *Issue*: In src/components/features/career/CareerProfileSection.tsx, a CTA navigated to /settings, which is a 404.
-   - *Resolution*: Updated to canonical route /account.
+1. **Legacy CareerProfileSection Retired in Favor of /career-profile**:
+   - *Issue*: In src/components/features/career/CareerProfileSection.tsx, an old inline-styled radar component was orphaned and had a dead link to /settings.
+   - *Resolution*: Fully retired CareerProfileSection and replatformed to the dedicated /career-profile route and CareerProfileScreen matching prototype fidelity with real production queries.
 2. **Dead Button + Thêm JD mới in Job Descriptions Index**:
    - *Issue*: In src/app/(dashboard)/job-descriptions/page.tsx, clicking the button routed to non-existent /job-descriptions/new.
    - *Resolution*: Updated to route to /interviews/new with label + Tạo phỏng vấn với JD.

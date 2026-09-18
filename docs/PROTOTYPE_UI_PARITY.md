@@ -25,7 +25,9 @@ Prototype owns presentation. Production frontend and backend own runtime behavio
 | Authenticated shell | `AuthenticatedMasterShell`, `AuthenticatedHeader` | `/(dashboard)/*`, `DashboardLayout`, `AuthenticatedHeader` | `/me`, career profile | `STATIC_REVIEW_ONLY` | None; authenticated runtime unavailable | Render confirmation pending |
 | Focused practice shell | `(focused)/layout`, `FocusedPracticeShell` | `/interviews/[id]`, `/practice/star`, `/practice/scenarios/[slug]` | session, scenario, STAR query state | `STATIC_REVIEW_ONLY` | None; authenticated runtime unavailable | Render confirmation pending |
 | Overview | `OverviewScreen` | `/overview` | dashboard, progress, career profile, learning path, recommendation | `STATIC_REVIEW_ONLY` | None | Render confirmation pending |
-| Career goals / account | `CareerProfileScreen` | `/career-goals`, `/account` | career goals, `/me`, resumes | `STATIC_REVIEW_ONLY` | None | Separate production forms retained; no claim of pixel identity |
+| Career profile | `CareerProfileScreen` | `/career-profile` | `/me/career-profile`, `/resumes` | `STATIC_REVIEW_ONLY` | None; MANUAL_VISUAL_PARITY_CHECK_REQUIRED | Prototype-complete visual replatform with production data wiring |
+| Career goals | `CareerProfileScreen` | `/career-goals` | career goals | `STATIC_REVIEW_ONLY` | None | Detailed goal management |
+| Account | `AccountSettings` | `/account` | `/me`, `/account` | `STATIC_REVIEW_ONLY` | None | Account / security / privacy / profile configuration |
 | CV library / launch | `CareerProfileScreen`, `CvAnalysisLaunchScreen` | `/resumes`, `/resume-analyses` | resumes, analyses, JD, entitlement | `STATIC_REVIEW_ONLY` | None | Render confirmation pending |
 | CV analysis result | `CvAnalysisResultScreen` | `/resume-analyses/[id]` | resume-analysis polling and persisted result | `STATIC_REVIEW_ONLY` | None | Render confirmation pending |
 | Interview preflight | `InterviewPreflightScreen` | `/interviews/new` | goals, ready resumes, persisted JD, entitlement | `STATIC_REVIEW_ONLY` | None | Render confirmation pending |
