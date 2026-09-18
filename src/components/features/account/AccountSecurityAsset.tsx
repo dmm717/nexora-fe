@@ -32,9 +32,9 @@ export const AccountSecurityAsset: React.FC<AccountSecurityAssetProps> = ({
             gradientUnits="userSpaceOnUse"
             gradientTransform="translate(80 80) rotate(90) scale(70)"
           >
-            <stop stopColor="var(--primary, #6366f1)" stopOpacity="0.16" />
-            <stop offset="0.7" stopColor="var(--primary, #6366f1)" stopOpacity="0.04" />
-            <stop offset="1" stopColor="var(--primary, #6366f1)" stopOpacity="0" />
+            <stop stopColor="var(--color-primary)" stopOpacity="0.16" />
+            <stop offset="0.7" stopColor="var(--color-primary)" stopOpacity="0.04" />
+            <stop offset="1" stopColor="var(--color-primary)" stopOpacity="0" />
           </radialGradient>
 
           {/* Linear gradient for identity circle */}
@@ -46,8 +46,8 @@ export const AccountSecurityAsset: React.FC<AccountSecurityAssetProps> = ({
             y2="120"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stopColor="var(--primary-container, #4f46e5)" />
-            <stop offset="1" stopColor="var(--primary, #6366f1)" />
+            <stop stopColor="var(--color-primary-container)" />
+            <stop offset="1" stopColor="var(--color-primary)" />
           </linearGradient>
         </defs>
 

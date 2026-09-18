@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
 import { UserResponse, userApi } from '@/services/userApi';
+import { CURRENT_USER_QUERY_KEY } from '@/hooks/queries/useUser';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button';
@@ -34,13 +36,14 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 interface PersonalInformationCardProps {
   user: UserResponse;
-  onUserUpdated: (updatedUser: UserResponse) => void;
+  onUserUpdated?: (updatedUser: UserResponse) => void;
 }
 
 export const PersonalInformationCard: React.FC<PersonalInformationCardProps> = ({
   user,
   onUserUpdated,
 }) => {
+  const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -77,7 +80,11 @@ export const PersonalInformationCard: React.FC<PersonalInformationCardProps> = (
       };
 
       const updated = await userApi.updateProfile(requestData);
-      onUserUpdated(updated);
+      queryClient.setQueryData(CURRENT_USER_QUERY_KEY, updated);
+      void queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+      if (onUserUpdated) {
+        onUserUpdated(updated);
+      }
       setFeedback({
         type: 'success',
         message: 'Cập nhật thông tin cá nhân thành công!',

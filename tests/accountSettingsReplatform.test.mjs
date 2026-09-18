@@ -222,3 +222,105 @@ test('Requirement V: Account page remains independent from Career Profile mutati
   assert.doesNotMatch(screenSource, /useDeleteCareerGoal/);
   assert.doesNotMatch(screenSource, /useReactivateCareerGoal/);
 });
+
+// ==========================================
+// Corrective Tests (Items 1 - 5)
+// ==========================================
+
+test('Corrective 1: No localUserOverride store; useCurrentUser is canonical and profile writes through query cache', async () => {
+  const userHookSource = await readSource(
+    '../src/hooks/queries/useUser.ts'
+  );
+  assert.match(userHookSource, /export const CURRENT_USER_QUERY_KEY\s*=\s*\['currentUser'\]/);
+
+  const screenSource = await readSource(
+    '../src/components/features/account/AccountSettings.tsx'
+  );
+  // No local state duplicate user store
+  assert.doesNotMatch(screenSource, /localUserOverride/);
+  assert.doesNotMatch(screenSource, /setLocalUserOverride/);
+  assert.doesNotMatch(screenSource, /effectiveUser/);
+
+  // Directly renders canonical user
+  assert.match(screenSource, /const \{\s*data:\s*user/);
+  assert.match(screenSource, /<AccountHeader user=\{user\} \/>/);
+  assert.match(screenSource, /<PersonalInformationCard user=\{user\} \/>/);
+
+  const personalInfoSource = await readSource(
+    '../src/components/features/account/PersonalInformationCard.tsx'
+  );
+  assert.match(personalInfoSource, /CURRENT_USER_QUERY_KEY/);
+  assert.match(personalInfoSource, /queryClient\.setQueryData\(CURRENT_USER_QUERY_KEY,\s*updated\)/);
+  assert.match(personalInfoSource, /queryClient\.invalidateQueries\(\{\s*queryKey:\s*CURRENT_USER_QUERY_KEY\s*\}\)/);
+});
+
+test('Corrective 2: Background refetch error with existing cached user keeps Account visible', async () => {
+  const screenSource = await readSource(
+    '../src/components/features/account/AccountSettings.tsx'
+  );
+  // Must NOT unconditionally block or throw full-page error on isError alone
+  assert.doesNotMatch(screenSource, /if\s*\(\s*isError\s*\|\|\s*!user\s*\)/);
+  assert.doesNotMatch(screenSource, /if\s*\(\s*isError\s*\|\|\s*!effectiveUser\s*\)/);
+
+  // Must only show full-page error if !user AND isError
+  assert.match(screenSource, /if\s*\(\s*!user\s*\)\s*\{\s*if\s*\(\s*isError\s*\)/);
+});
+
+test('Corrective 3: Account deletion copy is truthful to backend contract and does not claim all sessions terminate', async () => {
+  const dangerZoneSource = await readSource(
+    '../src/components/features/account/DangerZoneCard.tsx'
+  );
+  assert.doesNotMatch(dangerZoneSource, /kết thúc tất cả phiên đăng nhập/i);
+  assert.doesNotMatch(dangerZoneSource, /toàn bộ phiên đăng nhập/i);
+  assert.match(dangerZoneSource, /đăng xuất khỏi phiên hiện tại/i);
+
+  const deleteModalSource = await readSource(
+    '../src/components/features/account/DeleteAccountModal.tsx'
+  );
+  assert.doesNotMatch(deleteModalSource, /kết thúc tất cả phiên đăng nhập/i);
+  assert.doesNotMatch(deleteModalSource, /toàn bộ phiên đăng nhập/i);
+  assert.match(deleteModalSource, /đăng xuất khỏi phiên hiện tại/i);
+
+  // Verify authApi.logoutAll is NOT called in deletion modal
+  assert.doesNotMatch(deleteModalSource, /authApi\.logoutAll/);
+  assert.match(deleteModalSource, /authApi\.logout\(\)/);
+
+  // SessionsCard still preserves genuine logout-all
+  const sessionsSource = await readSource(
+    '../src/components/features/account/SessionsCard.tsx'
+  );
+  assert.match(sessionsSource, /LogoutAllModal/);
+  const logoutAllModalSource = await readSource(
+    '../src/components/features/account/LogoutAllModal.tsx'
+  );
+  assert.match(logoutAllModalSource, /authApi\.logoutAll\(\)/);
+});
+
+test('Corrective 4: AccountSecurityAsset uses actual Nexora --color-* tokens with no #6366f1 or #4f46e5 fallbacks', async () => {
+  const assetSource = await readSource(
+    '../src/components/features/account/AccountSecurityAsset.tsx'
+  );
+
+  // Uses actual Nexora semantic CSS tokens
+  assert.match(assetSource, /var\(--color-primary\)/);
+  assert.match(assetSource, /var\(--color-primary-container\)/);
+
+  // Does NOT use wrong variable names or hardcoded fallback hex colors
+  assert.doesNotMatch(assetSource, /var\(--primary[,)]/);
+  assert.doesNotMatch(assetSource, /var\(--primary-container[,)]/);
+  assert.doesNotMatch(assetSource, /#6366f1/i);
+  assert.doesNotMatch(assetSource, /#4f46e5/i);
+});
+
+test('Corrective 5: PlanUsageCard does not nest Button inside Link for pricing CTAs', async () => {
+  const planSource = await readSource(
+    '../src/components/features/account/PlanUsageCard.tsx'
+  );
+
+  // Ensure no <Link> contains <Button>
+  assert.doesNotMatch(planSource, /<Link[^>]*>[\s\S]*?<Button/);
+  // Ensure Button is not imported or rendered as nested interactive element inside Link
+  assert.doesNotMatch(planSource, /import\s*\{[^}]*Button[^}]*\}\s*from/);
+  // Ensure Link with href="/pricing" exists directly
+  assert.match(planSource, /<Link\s+href="\/pricing"/);
+});

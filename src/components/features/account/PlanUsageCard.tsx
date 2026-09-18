@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { BillingSummaryResponse } from '@/services/userApi';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { ClientDate } from '@/components/ui/ClientDate';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -28,10 +27,11 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
           Chưa có thông tin gói sử dụng.
         </p>
         <div className="pt-2">
-          <Link href="/pricing">
-            <Button variant="outline" size="sm">
-              Khám phá các gói dịch vụ
-            </Button>
+          <Link
+            href="/pricing"
+            className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 select-none active:scale-[0.99] text-xs px-3 py-1.5 gap-1.5 min-h-[32px] bg-white border border-outline-variant hover:bg-surface-container-low text-on-surface hover:border-outline focus:ring-primary-container shadow-sm"
+          >
+            Khám phá các gói dịch vụ
           </Link>
         </div>
       </Card>
@@ -57,10 +57,11 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
             Thông tin quyền lợi và hạn mức sử dụng tính năng AI của tài khoản.
           </p>
         </div>
-        <Link href="/pricing">
-          <Button variant="outline" size="sm">
-            Nâng cấp gói
-          </Button>
+        <Link
+          href="/pricing"
+          className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 select-none active:scale-[0.99] text-xs px-3 py-1.5 gap-1.5 min-h-[32px] bg-white border border-outline-variant hover:bg-surface-container-low text-on-surface hover:border-outline focus:ring-primary-container shadow-sm flex-shrink-0"
+        >
+          Nâng cấp gói
         </Link>
       </div>
 

@@ -57,13 +57,13 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
           <div className="space-y-1">
             <p className="font-semibold text-on-surface">Lưu ý quan trọng</p>
             <p className="text-on-surface-variant leading-relaxed">
-              Yêu cầu này sẽ bắt đầu quy trình xóa tài khoản và bạn sẽ được đăng xuất khỏi hệ thống. Hành động này không thể hoàn tác.
+              Yêu cầu này sẽ bắt đầu quy trình xóa tài khoản và bạn sẽ được đăng xuất. Hành động này không thể hoàn tác.
             </p>
           </div>
         </div>
 
         <p className="text-xs text-on-surface-variant leading-relaxed">
-          Sau khi gửi yêu cầu, toàn bộ phiên đăng nhập của bạn sẽ kết thúc. Nếu bạn cần bản sao dữ liệu của mình, hãy đảm bảo bạn đã xuất dữ liệu trước khi tiếp tục.
+          Sau khi yêu cầu được chấp nhận, bạn sẽ được đăng xuất khỏi phiên hiện tại. Nếu bạn cần bản sao dữ liệu của mình, hãy đảm bảo bạn đã xuất dữ liệu trước khi tiếp tục.
         </p>
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/40">

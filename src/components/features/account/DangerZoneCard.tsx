@@ -23,7 +23,7 @@ export const DangerZoneCard: React.FC = () => {
               Yêu cầu xóa tài khoản người dùng
             </h3>
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              Bắt đầu quy trình xóa tài khoản và kết thúc tất cả phiên đăng nhập. Sau khi gửi yêu cầu thành công, hành động này không thể hoàn tác.
+              Bắt đầu quy trình xóa tài khoản. Sau khi yêu cầu được chấp nhận, bạn sẽ được đăng xuất khỏi phiên hiện tại.
             </p>
           </div>
 
