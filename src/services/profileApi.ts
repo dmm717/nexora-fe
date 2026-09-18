@@ -20,7 +20,7 @@ export interface CareerProfileResponse {
       status: string;
       createdAt: string;
     };
-  };
+  } | null;
   activeCareerGoal?: {
     id: string;
     targetRole: string;
@@ -72,5 +72,8 @@ export const profileApi = {
   setPrimaryResume: async (resumeId: string | null) => {
     const response = await apiClient.put('/me/primary-resume', { resumeId }) as { data: unknown };
     return response.data;
-  }
+  },
+  deleteResume: async (resumeId: string): Promise<void> => {
+    await apiClient.delete(`/resumes/${resumeId}`);
+  },
 };
