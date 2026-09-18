@@ -37,7 +37,6 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
   // to avoid redundant network probes on SPA navigation.
   // Transient failures (5xx, network errors) are NEVER cached as definitive.
   const isDefinitivelyUnauthenticatedRef = useRef(false);
-  const isBootstrappingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +65,11 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
   useEffect(() => {
     let cancelled = false;
 
-    // 2. Perform route-aware session restoration
+    // 2. Perform route-aware session restoration.
+    // Notice: We do NOT skip execution if a bootstrap operation is already in progress.
+    // bootstrapAuthSession internally deduplicates the in-flight network request via its
+    // shared promise. Every relevant route effect awaits that shared promise so the newest,
+    // non-cancelled route effect always receives and publishes the final state.
     const runBootstrapIfNeeded = async () => {
       if (getAccessToken()) {
         if (!cancelled) {
@@ -97,11 +100,6 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
         return;
       }
 
-      if (isBootstrappingRef.current) {
-        return;
-      }
-
-      isBootstrappingRef.current = true;
       if (!cancelled) {
         setBootstrapError(null);
         setSessionInitialized(false);
@@ -135,8 +133,6 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
         setBootstrapError(normalizedError);
         setIsAuthenticated(Boolean(getAccessToken()));
         setSessionInitialized(true);
-      } finally {
-        isBootstrappingRef.current = false;
       }
     };
 
