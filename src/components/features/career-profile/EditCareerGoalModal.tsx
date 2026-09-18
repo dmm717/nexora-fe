@@ -8,7 +8,10 @@ import {
   useUpdateCareerGoal,
 } from '@/hooks/queries/useCareerGoals';
 import type { CareerProfileResponse } from '@/services/profileApi';
-import type { UpdateCareerGoalRequest } from '@/services/careerGoalContract';
+import {
+  CAREER_GOAL_SENIORITY_OPTIONS,
+  buildCareerProfileGoalUpdateRequest,
+} from '@/services/careerGoalContract';
 import { toast } from 'sonner';
 
 export interface EditCareerGoalModalProps {
@@ -16,8 +19,6 @@ export interface EditCareerGoalModalProps {
   onClose: () => void;
   activeGoal?: CareerProfileResponse['activeCareerGoal'] | null;
 }
-
-const SENIORITY_OPTIONS = ['Intern', 'Fresher', 'Junior', 'Middle', 'Senior', 'Lead'] as const;
 
 interface CareerGoalFormContentProps {
   activeGoal?: CareerProfileResponse['activeCareerGoal'] | null;
@@ -29,13 +30,17 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
   onClose,
 }) => {
   const [targetRole, setTargetRole] = useState(activeGoal?.targetRole || '');
-  const [seniority, setSeniority] = useState(activeGoal?.seniority || 'Middle');
+  const [seniority, setSeniority] = useState(activeGoal?.seniority || '');
   const [industry, setIndustry] = useState(activeGoal?.industry || '');
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useCreateCareerGoal();
   const updateMutation = useUpdateCareerGoal();
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  const isCustomSeniority =
+    !!seniority &&
+    !CAREER_GOAL_SENIORITY_OPTIONS.some((opt) => opt.value === seniority.toLowerCase().trim());
 
   const handleSaveGoal = async () => {
     const trimmedRole = targetRole.trim();
@@ -46,7 +51,7 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
 
     const trimmedSeniority = seniority.trim();
     if (!trimmedSeniority) {
-      setError('Vui lòng chọn cấp bậc mong muốn.');
+      setError('Vui lòng chọn cấp bậc.');
       return;
     }
 
@@ -54,15 +59,14 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
 
     try {
       if (activeGoal?.id) {
-        const request: UpdateCareerGoalRequest = {
-          targetRoleSpecified: true,
+        const request = buildCareerProfileGoalUpdateRequest(activeGoal, {
           targetRole: trimmedRole,
-          senioritySpecified: true,
           seniority: trimmedSeniority,
-          industrySpecified: true,
-          industry: trimmedIndustry || null,
-        };
-        await updateMutation.mutateAsync({ id: activeGoal.id, request });
+          industry: trimmedIndustry,
+        });
+        if (Object.keys(request).length > 0) {
+          await updateMutation.mutateAsync({ id: activeGoal.id, request });
+        }
         toast.success('Cập nhật mục tiêu nghề nghiệp thành công!');
       } else {
         await createMutation.mutateAsync({
@@ -113,13 +117,20 @@ const CareerGoalFormContent: React.FC<CareerGoalFormContentProps> = ({
         <select
           id="seniorityInput"
           value={seniority}
-          onChange={(e) => setSeniority(e.target.value)}
+          onChange={(e) => {
+            setSeniority(e.target.value);
+            if (error) setError(null);
+          }}
           className="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant/60 focus:border-primary focus:outline-none text-sm bg-white text-on-surface cursor-pointer"
           disabled={isSaving}
         >
-          {SENIORITY_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s}
+          <option value="">Chọn cấp bậc</option>
+          {isCustomSeniority && (
+            <option value={seniority}>{seniority}</option>
+          )}
+          {CAREER_GOAL_SENIORITY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </select>

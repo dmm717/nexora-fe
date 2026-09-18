@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { EditCareerGoalModal } from './EditCareerGoalModal';
 import type { CareerProfileResponse } from '@/services/profileApi';
+import { formatSeniorityLabel } from '@/services/careerGoalContract';
 
 export interface ActiveCareerGoalCardProps {
   activeGoal?: CareerProfileResponse['activeCareerGoal'] | null;
@@ -46,7 +47,7 @@ export const ActiveCareerGoalCard: React.FC<ActiveCareerGoalCardProps> = ({ acti
               <div>
                 <span className="text-[11px] text-on-surface-variant">Cấp bậc mong muốn:</span>
                 <div className="font-bold text-xs sm:text-sm text-primary mt-0.5">
-                  {activeGoal.seniority}
+                  {formatSeniorityLabel(activeGoal.seniority)}
                 </div>
               </div>
               <div>

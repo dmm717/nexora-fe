@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import {
+  CAREER_GOAL_SENIORITY_OPTIONS,
+  formatSeniorityLabel,
+  buildCreateCareerGoalRequest,
+  buildCareerProfileGoalUpdateRequest,
+} from '../src/services/careerGoalContract.ts';
 
 const readSource = (relativePath) => readFile(new URL(relativePath, import.meta.url), 'utf8');
 
@@ -146,4 +152,120 @@ test('R: Mobile layout does not depend on desktop-only grid assumptions', async 
 
   const resumeSource = await readSource('../src/components/features/career-profile/ResumeManagementSection.tsx');
   assert.match(resumeSource, /flex-col\s+sm:flex-row/);
+});
+
+// ==================================================
+// SENIORITY CONTRACT & REGRESSION TESTS
+// ==================================================
+
+test('Seniority A & B: new Career Profile goal starts with seniority == "" and blocks submission if unselected', async () => {
+  const modalSource = await readSource('../src/components/features/career-profile/EditCareerGoalModal.tsx');
+
+  // Starts with '' when no active goal
+  assert.match(modalSource, /const\s*\[seniority,\s*setSeniority\]\s*=\s*useState\(activeGoal\?\.seniority\s*\|\|\s*''\);/);
+  assert.doesNotMatch(modalSource, /useState\(activeGoal\?\.seniority\s*\|\|\s*['"]Middle['"]\)/);
+  assert.doesNotMatch(modalSource, /useState\(activeGoal\?\.seniority\s*\|\|\s*['"]mid['"]\)/);
+
+  // Validation blocks empty seniority
+  assert.match(modalSource, /if\s*\(!trimmedSeniority\)\s*\{\s*setError\(['"]Vui lòng chọn cấp bậc\.['"]\);/);
+});
+
+test('Seniority C & D: CAREER_GOAL_SENIORITY_OPTIONS uses canonical "mid", NOT "Middle", and excludes "Fresher"', () => {
+  const values = CAREER_GOAL_SENIORITY_OPTIONS.map((opt) => opt.value);
+
+  // Must contain canonical backend values
+  assert.ok(values.includes('mid'), 'CAREER_GOAL_SENIORITY_OPTIONS must include "mid"');
+  assert.ok(values.includes('entry'), 'CAREER_GOAL_SENIORITY_OPTIONS must include "entry"');
+  assert.ok(values.includes('intern'), 'CAREER_GOAL_SENIORITY_OPTIONS must include "intern"');
+  assert.ok(values.includes('junior'), 'CAREER_GOAL_SENIORITY_OPTIONS must include "junior"');
+  assert.ok(values.includes('senior'), 'CAREER_GOAL_SENIORITY_OPTIONS must include "senior"');
+  assert.ok(values.includes('lead'), 'CAREER_GOAL_SENIORITY_OPTIONS must include "lead"');
+
+  // Must NOT contain unnormalized or unsupported values
+  assert.equal(values.includes('Middle'), false, 'Values must not contain "Middle"');
+  assert.equal(values.includes('middle'), false, 'Values must not contain "middle"');
+  assert.equal(values.includes('Fresher'), false, 'Values must not contain "Fresher"');
+  assert.equal(values.includes('fresher'), false, 'Values must not contain "fresher"');
+});
+
+test('Seniority E & F: existing active goal seniority ("mid", "entry") renders and formats correctly', () => {
+  assert.equal(formatSeniorityLabel('mid'), 'Chuyên viên (Mid-level)');
+  assert.equal(formatSeniorityLabel('entry'), 'Mới đi làm (Entry-level)');
+  assert.equal(formatSeniorityLabel('intern'), 'Thực tập sinh (Intern)');
+  assert.equal(formatSeniorityLabel('senior'), 'Chuyên viên cao cấp (Senior)');
+  assert.equal(formatSeniorityLabel('lead'), 'Trưởng nhóm (Lead)');
+});
+
+test('Seniority G & H: manager, director, executive, staff, principal remain representable', () => {
+  const values = CAREER_GOAL_SENIORITY_OPTIONS.map((opt) => opt.value);
+
+  assert.ok(values.includes('staff'), 'staff must be representable');
+  assert.ok(values.includes('principal'), 'principal must be representable');
+  assert.ok(values.includes('manager'), 'manager must be representable');
+  assert.ok(values.includes('director'), 'director must be representable');
+  assert.ok(values.includes('executive'), 'executive must be representable');
+
+  assert.equal(formatSeniorityLabel('staff'), 'Staff');
+  assert.equal(formatSeniorityLabel('principal'), 'Principal');
+  assert.equal(formatSeniorityLabel('manager'), 'Quản lý (Manager)');
+  assert.equal(formatSeniorityLabel('director'), 'Giám đốc (Director)');
+  assert.equal(formatSeniorityLabel('executive'), 'Điều hành (Executive)');
+});
+
+test('Seniority I: create payload with Mid-level UI selection sends seniority: "mid"', () => {
+  const payload = buildCreateCareerGoalRequest({
+    targetRole: 'Backend Engineer',
+    seniority: 'mid',
+    industry: 'Fintech',
+  });
+
+  assert.equal(payload.targetRole, 'Backend Engineer');
+  assert.equal(payload.seniority, 'mid');
+  assert.equal(payload.industry, 'Fintech');
+});
+
+test('Seniority J: editing role/industry without changing seniority preserves canonical seniority and does not clear unrelated fields', () => {
+  const currentGoal = {
+    targetRole: 'Backend Engineer',
+    seniority: 'mid',
+    industry: 'Fintech',
+    targetCompany: 'Acme Corp',
+    targetJobDescriptionId: 'jd-123',
+    targetDate: '2026-12-31',
+    active: true,
+  };
+
+  // User edits only targetRole and industry, leaves seniority as 'mid'
+  const updateReq = buildCareerProfileGoalUpdateRequest(currentGoal, {
+    targetRole: 'Senior Backend Engineer',
+    seniority: 'mid',
+    industry: 'Banking',
+  });
+
+  // Role and industry are specified
+  assert.equal(updateReq.targetRoleSpecified, true);
+  assert.equal(updateReq.targetRole, 'Senior Backend Engineer');
+  assert.equal(updateReq.industrySpecified, true);
+  assert.equal(updateReq.industry, 'Banking');
+
+  // Seniority was unchanged so not marked specified (or if specified, remains 'mid')
+  assert.equal(updateReq.senioritySpecified, undefined);
+
+  // Unrelated fields MUST NOT be specified/cleared
+  assert.equal('targetCompanySpecified' in updateReq, false);
+  assert.equal('targetCompany' in updateReq, false);
+  assert.equal('targetJobDescriptionIdSpecified' in updateReq, false);
+  assert.equal('targetDateSpecified' in updateReq, false);
+  assert.equal('activeSpecified' in updateReq, false);
+});
+
+test('Seniority K: existing /career-goals screen uses the same shared option source', async () => {
+  const source = await readSource('../src/components/features/career-goals/CareerGoals.tsx');
+
+  assert.match(source, /CAREER_GOAL_SENIORITY_OPTIONS/);
+  assert.match(source, /CAREER_GOAL_SENIORITY_OPTIONS\.map/);
+
+  // Ensure hard-coded duplicated lists are removed
+  assert.doesNotMatch(source, /<option value="intern">Thực tập sinh \(Intern\)<\/option>/);
+  assert.doesNotMatch(source, /<option value="mid">Chuyên viên \(Mid-level\)<\/option>/);
 });

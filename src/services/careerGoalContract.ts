@@ -54,6 +54,29 @@ export interface CareerGoalFormValues {
   targetDate?: string;
 }
 
+export const CAREER_GOAL_SENIORITY_OPTIONS = [
+  { value: 'intern', label: 'Thực tập sinh (Intern)' },
+  { value: 'entry', label: 'Mới đi làm (Entry-level)' },
+  { value: 'junior', label: 'Nhân viên (Junior)' },
+  { value: 'mid', label: 'Chuyên viên (Mid-level)' },
+  { value: 'senior', label: 'Chuyên viên cao cấp (Senior)' },
+  { value: 'lead', label: 'Trưởng nhóm (Lead)' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'principal', label: 'Principal' },
+  { value: 'manager', label: 'Quản lý (Manager)' },
+  { value: 'director', label: 'Giám đốc (Director)' },
+  { value: 'executive', label: 'Điều hành (Executive)' },
+] as const;
+
+export type CareerGoalSeniorityValue = (typeof CAREER_GOAL_SENIORITY_OPTIONS)[number]['value'];
+
+export function formatSeniorityLabel(seniority: string | null | undefined): string {
+  if (!seniority) return 'Chưa cập nhật';
+  const trimmed = seniority.trim().toLowerCase();
+  const match = CAREER_GOAL_SENIORITY_OPTIONS.find((opt) => opt.value === trimmed);
+  return match ? match.label : seniority;
+}
+
 const normalizeOptional = (value: string | null | undefined): string | undefined => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -118,6 +141,48 @@ export function buildUpdateCareerGoalRequest(
   if (nextDate !== (current.targetDate ?? null)) {
     request.targetDateSpecified = true;
     request.targetDate = nextDate;
+  }
+
+  return request;
+}
+
+/**
+ * Builds a partial update request for editing goal context from the Career Profile hub,
+ * touching only the fields exposed in the Career Profile edit form (targetRole, seniority, industry)
+ * and strictly leaving all other fields (targetCompany, targetJobDescriptionId, targetDate, active)
+ * unspecified so they are not cleared.
+ */
+export function buildCareerProfileGoalUpdateRequest(
+  current: {
+    targetRole?: string | null;
+    seniority?: string | null;
+    industry?: string | null;
+  },
+  values: {
+    targetRole: string;
+    seniority: string;
+    industry?: string | null;
+  }
+): UpdateCareerGoalRequest {
+  const request: UpdateCareerGoalRequest = {};
+
+  const nextRole = values.targetRole.trim();
+  if (nextRole !== (current.targetRole?.trim() ?? '')) {
+    request.targetRoleSpecified = true;
+    request.targetRole = nextRole;
+  }
+
+  const nextSeniority = values.seniority.trim();
+  if (nextSeniority !== (current.seniority?.trim() ?? '')) {
+    request.senioritySpecified = true;
+    request.seniority = nextSeniority;
+  }
+
+  const currentIndustry = normalizeOptional(current.industry) ?? null;
+  const nextIndustry = normalizeOptional(values.industry) ?? null;
+  if (nextIndustry !== currentIndustry) {
+    request.industrySpecified = true;
+    request.industry = nextIndustry;
   }
 
   return request;
