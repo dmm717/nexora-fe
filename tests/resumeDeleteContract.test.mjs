@@ -95,8 +95,8 @@ test('Requirement J: Deleting primary Resume does NOT first call setPrimaryResum
   );
   assert.doesNotMatch(modalSource, /setPrimaryResume/);
   assert.doesNotMatch(modalSource, /put\(['"]\/me\/primary-resume['"]/);
-  // Directly calls deleteMutation.mutateAsync(resume.id)
-  assert.match(modalSource, /deleteMutation\.mutateAsync\(resume\.id\)/);
+  // Modal confirms via owner-provided onConfirmDelete callback
+  assert.match(modalSource, /onConfirmDelete\(resume\.id\)/);
 });
 
 test('Requirement K: Deleting non-primary Resume leaves primary semantics untouched in modal copy', async () => {
@@ -112,7 +112,7 @@ test('Requirement L: Processing and non-ready Resumes may still be deleted', asy
     '../src/components/features/career-profile/ResumeManagementSection.tsx'
   );
   // The primary button checks !isReady, but the delete button does not
-  assert.match(sectionSource, /disabled=\{isSettingPrimary\s*\|\|\s*!isReady\}/);
+  assert.match(sectionSource, /disabled=\{isSettingPrimary\s*\|\|\s*isDeletingResume\s*\|\|\s*!isReady\}/);
   assert.doesNotMatch(
     sectionSource,
     /onClick=\{\(\) => setResumeToDelete\(res\)\}[^>]*disabled=\{[^}]*!isReady/
@@ -149,16 +149,25 @@ test('Requirement O & P: Cache management removes resume on success and preserve
   assert.deepEqual(filterFn(oldResumes, 'res-1'), [{ id: 'res-2', fileName: 'cv2.pdf' }]);
 });
 
-test('Requirement Q: Career Profile primaryResume becomes null locally if deleted resume was primary', async () => {
+test('Requirement Q & Corrective 2: Career Profile primaryResume becomes null and onboarding isComplete becomes false', async () => {
   const queryHooksSource = await readSource('../src/hooks/queries/useCareerProfile.ts');
   assert.match(queryHooksSource, /if\s*\(old\.primaryResume\?\.id\s*===\s*resumeId\)/);
   assert.match(queryHooksSource, /primaryResume:\s*null/);
+  assert.match(queryHooksSource, /hasPrimaryResume:\s*false/);
+  assert.match(queryHooksSource, /isComplete:\s*false/);
 
-  // Unit verify profile primary clearing logic
+  // Unit verify profile primary clearing and onboarding consistency
   const oldProfile = {
-    profile: { email: 'user@nexora.io' },
+    profile: { email: 'user@nexora.io', displayName: 'Jane Doe', yearsOfExperience: 3 },
     primaryResume: { id: 'res-1', fileName: 'cv1.pdf' },
-    onboarding: { hasPrimaryResume: true, isComplete: true },
+    activeCareerGoal: { id: 'goal-1', targetRole: 'Frontend Engineer' },
+    onboarding: {
+      hasDisplayName: true,
+      hasYearsOfExperience: true,
+      hasPrimaryResume: true,
+      hasActiveCareerGoal: true,
+      isComplete: true,
+    },
   };
 
   const updateProfile = (old, resumeId) => {
@@ -171,6 +180,7 @@ test('Requirement Q: Career Profile primaryResume becomes null locally if delete
           ? {
               ...old.onboarding,
               hasPrimaryResume: false,
+              isComplete: false,
             }
           : old.onboarding,
       };
@@ -178,12 +188,47 @@ test('Requirement Q: Career Profile primaryResume becomes null locally if delete
     return old;
   };
 
+  // 1. Deleting primary resume: primaryResume is null, hasPrimaryResume is false, isComplete is false
   const cleared = updateProfile(oldProfile, 'res-1');
   assert.equal(cleared.primaryResume, null);
   assert.equal(cleared.onboarding.hasPrimaryResume, false);
+  assert.equal(cleared.onboarding.isComplete, false);
 
+  // 2. Deleting non-primary resume: leaves primaryResume and onboarding completion intact
   const untouched = updateProfile(oldProfile, 'res-999');
   assert.deepEqual(untouched, oldProfile);
+  assert.equal(untouched.primaryResume?.id, 'res-1');
+  assert.equal(untouched.onboarding.hasPrimaryResume, true);
+  assert.equal(untouched.onboarding.isComplete, true);
+});
+
+test('Corrective 1: One authoritative useDeleteResume mutation instance owned by ResumeManagementSection', async () => {
+  const sectionSource = await readSource(
+    '../src/components/features/career-profile/ResumeManagementSection.tsx'
+  );
+  const modalSource = await readSource(
+    '../src/components/features/career-profile/DeleteResumeModal.tsx'
+  );
+
+  // 1. Owning component creates the delete mutation instance
+  assert.match(sectionSource, /const\s+deleteResumeMutation\s*=\s*useDeleteResume\(\);/);
+  assert.match(sectionSource, /const\s+isDeletingResume\s*=\s*deleteResumeMutation\.isPending;/);
+  assert.match(sectionSource, /const\s+deletingResumeId\s*=\s*deleteResumeMutation\.variables;/);
+
+  // 2. DeleteResumeModal must NOT create another useDeleteResume() instance
+  assert.doesNotMatch(modalSource, /useDeleteResume/);
+
+  // 3. Section passes its exact mutation execution and state to the modal
+  assert.match(sectionSource, /isDeleting=\{isDeletingResume\}/);
+  assert.match(sectionSource, /onConfirmDelete=\{\(resumeId\)\s*=>\s*deleteResumeMutation\.mutateAsync\(resumeId\)\}/);
+
+  // 4. Modal confirms using the provided onConfirmDelete callback
+  assert.match(modalSource, /onConfirmDelete:\s*\(resumeId:\s*string\)\s*=>\s*Promise<void>;/);
+  assert.match(modalSource, /await\s+onConfirmDelete\(resume\.id\);/);
+
+  // 5. Primary controls are visibly and functionally disabled during deletion
+  assert.match(sectionSource, /disabled=\{isSettingPrimary\s*\|\|\s*isDeletingResume\s*\|\|\s*!isReady\}/);
+  assert.match(sectionSource, /disabled=\{isSettingPrimary\s*\|\|\s*isDeletingResume\}/);
 });
 
 test('Requirement R: Shared resume query invalidation keeps other surfaces in sync without duplicate sync logic', async () => {

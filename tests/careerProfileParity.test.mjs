@@ -86,7 +86,7 @@ test('G, H, I, J, K: Resume list uses production resumes, enforces primary rules
 
   // Set-primary requires ready resume
   assert.match(source, /setPrimaryResume\(res\.id\)/);
-  assert.match(source, /disabled=\{isSettingPrimary\s*\|\|\s*!isReady\}/);
+  assert.match(source, /disabled=\{isSettingPrimary(?:\s*\|\|\s*isDeletingResume)?\s*\|\|\s*!isReady\}/);
 
   // Canonical route for analysis
   assert.match(source, /\/resume-analyses/);

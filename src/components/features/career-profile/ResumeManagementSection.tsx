@@ -46,7 +46,9 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
 
   const { data: resumes, isLoading, isError, refetch } = useResumes();
   const { mutate: setPrimaryResume, isPending: isSettingPrimary, variables: settingPrimaryResumeId } = useSetPrimaryResume();
-  const { isPending: isDeletingResume, variables: deletingResumeId } = useDeleteResume();
+  const deleteResumeMutation = useDeleteResume();
+  const isDeletingResume = deleteResumeMutation.isPending;
+  const deletingResumeId = deleteResumeMutation.variables;
   const [resumeToDelete, setResumeToDelete] = useState<ResumeView | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -225,7 +227,7 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={isSettingPrimary || !isReady}
+                      disabled={isSettingPrimary || isDeletingResume || !isReady}
                       onClick={() => !isDeletingResume && setPrimaryResume(res.id)}
                     >
                       Đặt làm CV chính
@@ -234,7 +236,7 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={isSettingPrimary}
+                      disabled={isSettingPrimary || isDeletingResume}
                       onClick={() => !isDeletingResume && setPrimaryResume(null)}
                       className="text-error hover:bg-error-container/20"
                     >
@@ -277,6 +279,8 @@ export const ResumeManagementSection: React.FC<ResumeManagementSectionProps> = (
         onClose={() => setResumeToDelete(null)}
         resume={resumeToDelete}
         isPrimary={resumeToDelete?.id === primaryResumeId}
+        isDeleting={isDeletingResume}
+        onConfirmDelete={(resumeId) => deleteResumeMutation.mutateAsync(resumeId)}
       />
     </Card>
   );

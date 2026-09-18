@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useDeleteResume } from '@/hooks/queries/useCareerProfile';
 import { ApiError } from '@/services/apiClient';
 import { toast } from 'sonner';
 
@@ -15,6 +14,8 @@ export interface DeleteResumeModalProps {
     fileName?: string;
   } | null;
   isPrimary?: boolean;
+  isDeleting: boolean;
+  onConfirmDelete: (resumeId: string) => Promise<void>;
 }
 
 function safeErrorMessage(error: unknown, fallback: string): string {
@@ -29,9 +30,9 @@ export const DeleteResumeModal: React.FC<DeleteResumeModalProps> = ({
   onClose,
   resume,
   isPrimary = false,
+  isDeleting,
+  onConfirmDelete,
 }) => {
-  const deleteMutation = useDeleteResume();
-  const isDeleting = deleteMutation.isPending;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen || !resume) return null;
@@ -48,7 +49,7 @@ export const DeleteResumeModal: React.FC<DeleteResumeModalProps> = ({
     if (isDeleting) return;
     setErrorMessage(null);
     try {
-      await deleteMutation.mutateAsync(resume.id);
+      await onConfirmDelete(resume.id);
       toast.success('Đã xóa CV khỏi hồ sơ.');
       onClose();
     } catch (err: unknown) {

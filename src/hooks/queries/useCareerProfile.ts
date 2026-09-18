@@ -70,6 +70,7 @@ export function useDeleteResume() {
               ? {
                   ...old.onboarding,
                   hasPrimaryResume: false,
+                  isComplete: false,
                 }
               : old.onboarding,
           };
