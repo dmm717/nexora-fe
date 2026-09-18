@@ -6,7 +6,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProductPageHero } from '@/components/product-visual';
+import { ProductMotionBoundary } from '@/components/product-motion/ProductMotionBoundary';
 import { AuthGateModal } from '@/components/auth/AuthGateModal';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { usePlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
@@ -20,6 +22,48 @@ import {
 import { Check, ArrowUpRight } from 'lucide-react';
 import { describePlanFeature } from '@/services/billingPresentation';
 import { formatPriceMinor } from '@/utils/formatters';
+import { getQueryPresentation } from '@/utils/queryPresentation';
+
+function PricingPlanGridSkeleton() {
+  return (
+    <div role="status" aria-label="Đang tải các gói dịch vụ">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch" aria-hidden="true">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="min-h-[360px] rounded-2xl border border-outline-variant/50 bg-white p-6 space-y-5"
+          >
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-6 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-9 w-1/2" />
+            <div className="space-y-3 pt-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </div>
+        ))}
+      </div>
+      <span className="sr-only">Đang tải thông tin bảng giá...</span>
+    </div>
+  );
+}
+
+export function PricingCardsPageSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12" aria-busy="true">
+      <div className="space-y-4 max-w-3xl">
+        <Skeleton className="h-8 sm:h-10 w-4/5 max-w-2xl" />
+        <Skeleton className="h-4 w-full max-w-2xl" />
+        <Skeleton className="h-4 w-5/6 max-w-xl" />
+      </div>
+      <PricingPlanGridSkeleton />
+    </div>
+  );
+}
 
 export default function PricingCards() {
   const router = useRouter();
@@ -35,13 +79,47 @@ export default function PricingCards() {
   const isInterviewUpgrade = Boolean(safeReturnTo && isInterviewRoute(safeReturnTo));
 
   const { isAuthenticated, authReady } = useAuth();
-  const { data: plans = [], isLoading: loadingPlans } = usePlans();
-  const { data: user } = useCurrentUser();
+  const plansQuery = usePlans();
+  const {
+    data: plans,
+    isLoading: loadingPlans,
+    isError: plansHaveError,
+    isFetching: fetchingPlans,
+    refetch: refetchPlans,
+  } = plansQuery;
+  const currentUserQuery = useCurrentUser();
+  const {
+    data: user,
+    isLoading: loadingUser,
+    isError: userHasError,
+    isFetching: fetchingUser,
+    refetch: refetchUser,
+  } = currentUserQuery;
+  const hasPlansData = plans !== undefined;
+  const hasUserData = user !== undefined;
+  const plansPresentation = getQueryPresentation({
+    hasData: hasPlansData,
+    isLoading: loadingPlans,
+    isError: plansHaveError,
+    isFetching: fetchingPlans,
+  });
+  const userPresentation = getQueryPresentation({
+    hasData: hasUserData,
+    isLoading: loadingUser,
+    isError: userHasError,
+    isFetching: fetchingUser,
+  });
+  const pricedPlans = (plans ?? []).flatMap((plan) => {
+    const price = plan.prices?.[0];
+    return price ? [{ plan, price }] : [];
+  });
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
 
-  const currentPlanCode = user?.billing?.entitlement?.planCode?.toLowerCase() || null;
+  const currentPlanCode = isAuthenticated && hasUserData
+    ? user.billing?.entitlement?.planCode?.toLowerCase() || null
+    : null;
 
   const handleSelectPlan = (plan: PlanView, price: PlanPrice) => {
     // Defense-in-depth: do not trigger premature auth modals or checkout while auth is bootstrapping
@@ -86,12 +164,13 @@ export default function PricingCards() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12">
-      <ProductPageHero
-        feature="pricing"
-        title="Chọn gói đồng hành tối ưu cho hành trình nghề nghiệp của bạn"
-        description="Không ép buộc thanh toán sớm. Bắt đầu với gói Miễn phí để kiểm chứng phương pháp của Nexora, sau đó nâng cấp khi cần tăng tốc độ luyện tập."
-      />
+    <ProductMotionBoundary>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12">
+        <ProductPageHero
+          feature="pricing"
+          title="Chọn gói đồng hành tối ưu cho hành trình nghề nghiệp của bạn"
+          description="Không ép buộc thanh toán sớm. Bắt đầu với gói Miễn phí để kiểm chứng phương pháp của Nexora, sau đó nâng cấp khi cần tăng tốc độ luyện tập."
+        />
 
       {/* Contextual Interview Upgrade Notice */}
       {isInterviewUpgrade && safeReturnTo && (
@@ -119,45 +198,96 @@ export default function PricingCards() {
         </div>
       )}
 
-      {loadingPlans ? (
-        <div className="text-center py-16 text-on-surface-variant">
-          <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-          <p>Đang tải thông tin các gói cước...</p>
+      {isAuthenticated && !hasUserData && (
+        <div
+          role={userPresentation.showBlockingError ? 'alert' : 'status'}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-outline-variant/50 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant"
+        >
+          <p>
+            {userPresentation.showBlockingError
+              ? 'Chưa xác nhận được gói hiện tại. Bạn vẫn có thể xem và chọn gói; trạng thái hiện tại sẽ không được đánh dấu.'
+              : 'Đang xác nhận gói hiện tại. Bạn vẫn có thể xem và chọn các gói dịch vụ.'}
+          </p>
+          {userPresentation.showBlockingError && (
+            <Button variant="outline" size="sm" loading={fetchingUser} onClick={() => void refetchUser()}>
+              Thử tải lại
+            </Button>
+          )}
+        </div>
+      )}
+      {isAuthenticated && userPresentation.showBackgroundError && (
+        <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/25 bg-error-container/25 px-4 py-3 text-sm text-on-surface">
+          <p>Thông tin gói hiện tại chưa cập nhật được. Bảng giá vẫn dùng được; trạng thái đang hiển thị dựa trên dữ liệu đã tải trước đó.</p>
+          <Button variant="outline" size="sm" loading={fetchingUser} onClick={() => void refetchUser()}>
+            Thử tải lại
+          </Button>
+        </div>
+      )}
+      {isAuthenticated && userPresentation.showRefreshing && !userPresentation.showBackgroundError && (
+        <p role="status" className="text-xs text-on-surface-variant">Đang cập nhật trạng thái gói hiện tại...</p>
+      )}
+
+      {plansPresentation.showInitialLoading ? (
+        <PricingPlanGridSkeleton />
+      ) : plansPresentation.showBlockingError ? (
+        <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-error/30 bg-error-container/25 p-5 text-on-surface">
+          <div>
+            <h2 className="font-semibold">Chưa tải được bảng giá</h2>
+            <p className="text-sm text-on-surface-variant mt-1">Kiểm tra kết nối rồi thử tải lại. Bạn chưa thể chọn gói cho đến khi có thông tin mới nhất.</p>
+          </div>
+          <Button variant="outline" size="sm" loading={fetchingPlans} onClick={() => void refetchPlans()}>
+            Thử tải lại
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
-          {plans.map((plan) => {
-            const price = plan.prices && plan.prices.length > 0 ? plan.prices[0] : null;
-            if (!price) return null;
+        <>
+          {plansPresentation.showBackgroundError && (
+            <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-error/25 bg-error-container/25 px-4 py-3 text-sm text-on-surface">
+              <p>Chưa cập nhật được bảng giá. Các thông tin đã tải trước đó vẫn được giữ lại.</p>
+              <Button variant="outline" size="sm" loading={fetchingPlans} onClick={() => void refetchPlans()}>
+                Thử tải lại
+              </Button>
+            </div>
+          )}
+          {plansPresentation.showRefreshing && !plansPresentation.showBackgroundError && (
+            <p role="status" className="text-xs text-on-surface-variant">Đang cập nhật bảng giá...</p>
+          )}
+          {hasPlansData && pricedPlans.length === 0 ? (
+            <div role="status" className="rounded-2xl border border-outline-variant/50 bg-surface-container-low p-8 text-center">
+              <h2 className="font-semibold text-on-surface">Chưa có gói giá khả dụng</h2>
+              <p className="text-sm text-on-surface-variant mt-2">Bảng giá chưa có lựa chọn khả dụng vào lúc này. Bạn có thể quay lại sau.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+              {pricedPlans.map(({ plan, price }) => {
+                const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
+                const isHighlight = plan.isHighlighted;
+                const featureDescriptions = price.features.map(describePlanFeature).filter(Boolean) as string[];
 
-            const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
-            const isHighlight = plan.isHighlighted;
-            const featureDescriptions = price.features.map(describePlanFeature).filter(Boolean) as string[];
-
-            return (
-              <Card
-                key={plan.id}
-                variant={isHighlight ? 'interactive' : 'elevated'}
-                padding="lg"
-                className={`flex flex-col justify-between transition-all relative ${
-                  isHighlight
-                    ? 'border-2 border-primary shadow-floating scale-[1.02] bg-white ring-4 ring-primary-fixed/20'
-                    : 'border border-outline-variant/50 bg-white'
-                }`}
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    {isHighlight && (
-                      <Badge variant="primary" size="sm">
-                        PHỔ BIẾN NHẤT
-                      </Badge>
-                    )}
-                    {isCurrentPlan && (
-                      <Badge variant="secondary" size="sm">
-                        Gói hiện tại
-                      </Badge>
-                    )}
-                  </div>
+                return (
+                  <Card
+                    key={plan.id}
+                    variant={isHighlight ? 'interactive' : 'elevated'}
+                    padding="lg"
+                    className={`flex flex-col justify-between transition-all relative ${
+                      isHighlight
+                        ? 'border-2 border-primary shadow-floating scale-[1.02] bg-white ring-4 ring-primary-fixed/20'
+                        : 'border border-outline-variant/50 bg-white'
+                    }`}
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        {isHighlight && (
+                          <Badge variant="primary" size="sm">
+                            PHỔ BIẾN NHẤT
+                          </Badge>
+                        )}
+                        {isCurrentPlan && (
+                          <Badge variant="secondary" size="sm">
+                            Gói hiện tại
+                          </Badge>
+                        )}
+                      </div>
 
                   <div>
                     <h3 className="font-bold text-lg text-on-surface">{plan.name}</h3>
@@ -194,26 +324,28 @@ export default function PricingCards() {
                   </div>
                 </div>
 
-                <div className="pt-6">
-                  <Button
-                    variant={isHighlight ? 'primary' : 'outline'}
-                    fullWidth
-                    size="sm"
-                    disabled={isCurrentPlan}
-                    onClick={() => handleSelectPlan(plan, price)}
-                    icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
-                  >
-                    {isCurrentPlan
-                      ? 'Đang sử dụng'
-                      : price.amountMinor === 0
-                        ? 'Bắt đầu miễn phí'
-                        : 'Chọn gói này'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                    <div className="pt-6">
+                      <Button
+                        variant={isHighlight ? 'primary' : 'outline'}
+                        fullWidth
+                        size="sm"
+                        disabled={!authReady || isCurrentPlan}
+                        onClick={() => handleSelectPlan(plan, price)}
+                        icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
+                      >
+                        {isCurrentPlan
+                          ? 'Đang sử dụng'
+                          : price.amountMinor === 0
+                            ? 'Bắt đầu miễn phí'
+                            : 'Chọn gói này'}
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Auth Gate Modal */}
@@ -225,6 +357,7 @@ export default function PricingCards() {
           setPendingIntent(null);
         }}
       />
-    </div>
+      </div>
+    </ProductMotionBoundary>
   );
 }

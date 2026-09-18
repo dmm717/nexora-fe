@@ -16,6 +16,8 @@ import { Input } from '../../ui/Input/Input';
 import { Button } from '../../ui/Button/Button';
 import {
   resolveSafeReturnUrl,
+  resolveCheckoutDestination,
+  peekAuthIntent,
   consumeAuthIntent,
   isValidInternalPath,
 } from '@/utils/authIntent';
@@ -24,12 +26,15 @@ export default function Auth() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode');
-
-  const [isLogin, setIsLogin] = useState(mode !== 'register');
+  const isLogin = mode !== 'register';
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [serverError, setServerError] = useState<{
+    mode: 'login' | 'register';
+    message: string;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -47,14 +52,6 @@ export default function Auth() {
     mode: 'onSubmit',
   });
 
-  const [prevMode, setPrevMode] = useState(mode);
-  if (prevMode !== mode) {
-    setPrevMode(mode);
-    setIsLogin(mode !== 'register');
-    setUnverifiedEmail(null);
-    setRegisteredEmail(null);
-  }
-
   useEffect(() => {
     reset();
   }, [mode, reset]);
@@ -65,86 +62,39 @@ export default function Auth() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  const toggleMode = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const newIsLogin = !isLogin;
+  const navigateToMode = (nextIsLogin: boolean) => {
     setUnverifiedEmail(null);
     setRegisteredEmail(null);
+    setServerError(null);
 
     const currentParams = new URLSearchParams(searchParams.toString());
-    if (newIsLogin) {
+    if (nextIsLogin) {
       currentParams.delete('mode');
     } else {
       currentParams.set('mode', 'register');
     }
     const nextUrl = currentParams.toString() ? `/auth?${currentParams.toString()}` : '/auth';
-
-    if (formWrapperRef.current) {
-      const form = formWrapperRef.current;
-
-      gsap.to(form, {
-        opacity: 0,
-        y: -10,
-        duration: 0.2,
-        ease: 'power2.in',
-        onComplete: () => {
-          reset();
-          router.push(nextUrl, { scroll: false });
-          setIsLogin(newIsLogin);
-
-          setTimeout(() => {
-            if (formWrapperRef.current) {
-              gsap.fromTo(
-                formWrapperRef.current,
-                { opacity: 0, y: 10 },
-                {
-                  opacity: 1,
-                  y: 0,
-                  duration: 0.25,
-                  ease: 'power2.out',
-                  clearProps: 'opacity,transform',
-                }
-              );
-            }
-          }, 50);
-        },
-      });
-    } else {
-      reset();
-      router.push(nextUrl, { scroll: false });
-      setIsLogin(newIsLogin);
-    }
+    router.push(nextUrl, { scroll: false });
   };
+
+  const toggleMode = () => navigateToMode(!isLogin);
+
+  const prefersReducedMotion = () =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   useGSAP(
     () => {
+      if (prefersReducedMotion()) return;
+
       if (cardRef.current) {
         gsap.fromTo(
           cardRef.current,
-          { opacity: 0, y: 30 },
+          { opacity: 0, y: 12 },
           {
             opacity: 1,
             y: 0,
-            duration: 0.8,
-            ease: 'power3.out',
-            delay: 0.1,
-            clearProps: 'opacity,transform',
-          }
-        );
-      }
-
-      if (formWrapperRef.current) {
-        const elements = Array.from(formWrapperRef.current.children);
-        gsap.fromTo(
-          elements,
-          { opacity: 0, y: 15 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.5,
-            stagger: 0.05,
-            ease: 'power3.out',
-            delay: 0.2,
+            duration: 0.2,
+            ease: 'power2.out',
             clearProps: 'opacity,transform',
           }
         );
@@ -169,6 +119,8 @@ export default function Auth() {
   };
 
   const onSubmit = async (data: LoginFormData | RegisterFormData) => {
+    setServerError(null);
+    const submittedMode = isLogin ? 'login' : 'register';
     try {
       if (isLogin) {
         const loginData = data as LoginFormData;
@@ -185,32 +137,35 @@ export default function Auth() {
 
         let destination = '/overview';
 
-        if (rawReturnTo && isValidInternalPath(rawReturnTo)) {
-          // Explicit returnTo is present and valid
+        if (intentAction === 'checkout') {
+          destination = resolveCheckoutDestination(planPriceId, rawReturnTo)
+            ?? '/overview';
+          // Explicit URL intent wins, but do not leave an older session intent behind.
+          consumeAuthIntent();
+        } else if (rawReturnTo && isValidInternalPath(rawReturnTo)) {
           destination = resolveSafeReturnUrl(rawReturnTo, '/overview');
 
-          // If checkout intent with a planPriceId, route to canonical /billing entry
-          if (planPriceId && (intentAction === 'checkout' || destination.startsWith('/billing') || destination.startsWith('/pricing'))) {
-            destination = `/billing?selectedPriceId=${encodeURIComponent(planPriceId)}`;
-            if (rawReturnTo && !rawReturnTo.startsWith('/pricing') && !rawReturnTo.startsWith('/billing')) {
-              destination += `&returnTo=${encodeURIComponent(rawReturnTo)}`;
-            }
+          // Retain legacy canonicalization for billing/pricing return targets
+          // that predate the explicit intentAction query parameter.
+          if (planPriceId && (destination.startsWith('/billing') || destination.startsWith('/pricing'))) {
+            destination = resolveCheckoutDestination(planPriceId, rawReturnTo) ?? destination;
           }
-          // Consume any stale session intent so it doesn't linger
+
+          // Consume any stale session intent so it doesn't linger.
           consumeAuthIntent();
         } else {
           // Priority 2: Recover from stored session intent (e.g. register -> verify/login flow)
-          const storedIntent = consumeAuthIntent();
+          const storedIntent = peekAuthIntent();
           if (storedIntent && isValidInternalPath(storedIntent.targetUrl)) {
-            if (storedIntent.action === 'checkout' && storedIntent.planPriceId) {
-              destination = `/billing?selectedPriceId=${encodeURIComponent(storedIntent.planPriceId)}`;
-              if (storedIntent.targetUrl && !storedIntent.targetUrl.startsWith('/pricing') && !storedIntent.targetUrl.startsWith('/billing')) {
-                destination += `&returnTo=${encodeURIComponent(storedIntent.targetUrl)}`;
-              }
+            if (storedIntent.action === 'checkout') {
+              destination = resolveCheckoutDestination(storedIntent.planPriceId, storedIntent.targetUrl)
+                ?? '/overview';
             } else {
               destination = resolveSafeReturnUrl(storedIntent.targetUrl, '/overview');
             }
           }
+          // Keep stale intent available until its post-login destination is resolved.
+          consumeAuthIntent();
         }
 
         router.push(destination);
@@ -230,16 +185,19 @@ export default function Auth() {
       if (apiErr?.code === 'EMAIL_NOT_VERIFIED' || apiErr?.message?.includes('xác minh email')) {
         const loginData = data as LoginFormData;
         setUnverifiedEmail(loginData.email);
-        toast.error('Bạn cần xác minh email trước khi đăng nhập.');
+        setServerError({
+          mode: submittedMode,
+          message: 'Tài khoản này cần xác minh email trước khi đăng nhập. Bạn có thể gửi lại email xác minh bên dưới.',
+        });
         return;
       }
       const errorMessage = err instanceof Error ? err.message : 'Đã có lỗi xảy ra';
-      toast.error(errorMessage);
+      setServerError({ mode: submittedMode, message: errorMessage });
     }
   };
 
   return (
-    <div className={styles.container} ref={containerRef}>
+    <main className={styles.container} ref={containerRef}>
       <Link href="/" className={styles.backButton}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -252,8 +210,8 @@ export default function Auth() {
           <Image src="/logo.png" alt="Nexora" width={160} height={40} style={{ width: 'auto', height: '40px' }} priority />
         </div>
 
-        {registeredEmail ? (
-          <div className={styles.noticeCard}>
+        {registeredEmail && !isLogin ? (
+          <div className={styles.noticeCard} role="status" aria-live="polite">
             <div className={styles.iconWrapper}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="20" height="16" x="2" y="4" rx="2" />
@@ -265,25 +223,22 @@ export default function Auth() {
               Chúng tôi đã gửi liên kết xác minh đến <span className={styles.noticeEmail}>{registeredEmail}</span>. Vui lòng kiểm tra hộp thư (bao gồm cả mục spam) và nhấn vào liên kết để kích hoạt tài khoản.
             </p>
 
-            <Button
-              type="button"
-              fullWidth
-              onClick={() => handleResend(registeredEmail)}
-              isLoading={isResending}
-              disabled={resendCooldown > 0}
-              className="w-full"
-            >
-              {resendCooldown > 0 ? `Gửi lại sau (${resendCooldown}s)` : 'Gửi lại email xác minh'}
+              <Button
+                type="button"
+                fullWidth
+                onClick={() => handleResend(registeredEmail)}
+                isLoading={isResending}
+                disabled={resendCooldown > 0 || isSubmitting}
+                className="w-full"
+              >
+                {resendCooldown > 0 ? `Gửi lại sau (${resendCooldown}s)` : 'Gửi lại email xác minh'}
             </Button>
 
             <button
               type="button"
               className={styles.secondaryButton}
-              onClick={() => {
-                setRegisteredEmail(null);
-                setIsLogin(true);
-                router.push('/auth', { scroll: false });
-              }}
+              onClick={() => navigateToMode(true)}
+              disabled={isSubmitting}
             >
               Quay lại đăng nhập
             </button>
@@ -293,25 +248,34 @@ export default function Auth() {
               <button
                 type="button"
                 className={styles.registerLink}
-                onClick={() => {
-                  setRegisteredEmail(null);
-                  setIsLogin(false);
-                  router.push('/auth?mode=register', { scroll: false });
-                }}
+                onClick={() => navigateToMode(false)}
+                disabled={isSubmitting}
               >
                 Đăng ký lại
               </button>
             </div>
           </div>
         ) : (
-          <form ref={formWrapperRef} onSubmit={handleSubmit(onSubmit)} noValidate>
+          <form
+            key={isLogin ? 'login' : 'register'}
+            ref={formWrapperRef}
+            className={styles.authForm}
+            onSubmit={handleSubmit(onSubmit)}
+            aria-busy={isSubmitting}
+            noValidate
+          >
             <h2 className={styles.title}>{isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}</h2>
             <p className={styles.subtitle}>
               {isLogin ? 'Chào mừng bạn quay trở lại' : 'Bắt đầu hành trình nâng tầm sự nghiệp'}
             </p>
 
+            <fieldset className={styles.formControls} disabled={isSubmitting}>
+              <legend className={styles.visuallyHidden}>
+                {isLogin ? 'Thông tin đăng nhập' : 'Thông tin tạo tài khoản'}
+              </legend>
+
             {isLogin && unverifiedEmail && (
-              <div className={styles.warningBanner}>
+              <div className={styles.warningBanner} role="status">
                 <span>Tài khoản <strong>{unverifiedEmail}</strong> chưa được xác minh.</span>
                 <button
                   type="button"
@@ -322,6 +286,12 @@ export default function Auth() {
                   {isResending ? 'Đang gửi...' : resendCooldown > 0 ? `Gửi lại sau (${resendCooldown}s)` : 'Gửi lại email xác minh'}
                 </button>
               </div>
+            )}
+
+            {serverError?.mode === (isLogin ? 'login' : 'register') && (
+              <p className={styles.serverError} role="alert">
+                {serverError.message}
+              </p>
             )}
 
             {!isLogin && (
@@ -355,7 +325,7 @@ export default function Auth() {
             ) : (
               <>
                 <div className={styles.formRow}>
-                  <div style={{ flex: 1 }}>
+                  <div className={styles.formField}>
                     <Input
                       label="Mật khẩu"
                       type="password"
@@ -365,7 +335,7 @@ export default function Auth() {
                       disabled={isSubmitting}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className={styles.formField}>
                     <Input
                       label="Xác nhận"
                       type="password"
@@ -382,30 +352,27 @@ export default function Auth() {
               </>
             )}
 
-            <div className={styles.options}>
-              {isLogin ? (
-                <>
-                  <label className={styles.checkbox}>
-                    <input type="checkbox" disabled={isSubmitting} /> Ghi nhớ
-                  </label>
-                  <Link href="/forgot-password" className={styles.forgotLink}>
-                    Quên mật khẩu?
-                  </Link>
-                </>
-              ) : (
-                <label className={styles.checkbox}>
-                  <input type="checkbox" required disabled={isSubmitting} />
-                  <span>
-                    Tôi đồng ý với <Link href="#" className={styles.termsLink}>Điều khoản</Link> & <Link href="#" className={styles.termsLink}>Bảo mật</Link>
-                  </span>
-                </label>
-              )}
-            </div>
+            {isLogin && (
+              <div className={styles.options}>
+                <Link
+                  href="/forgot-password"
+                  className={`${styles.forgotLink} ${isSubmitting ? styles.linkDisabled : ''}`}
+                  aria-disabled={isSubmitting}
+                  tabIndex={isSubmitting ? -1 : undefined}
+                  onClick={(event) => {
+                    if (isSubmitting) event.preventDefault();
+                  }}
+                >
+                  Quên mật khẩu?
+                </Link>
+              </div>
+            )}
 
             <Button
               type="submit"
               fullWidth
               isLoading={isSubmitting}
+              disabled={isSubmitting}
               className={`${styles.submitButton} w-full`}
             >
               {isLogin ? 'Đăng nhập ngay' : 'Tạo tài khoản'}
@@ -417,9 +384,10 @@ export default function Auth() {
                 {isLogin ? 'Đăng ký' : 'Đăng nhập'}
               </button>
             </div>
+            </fieldset>
           </form>
         )}
       </div>
-    </div>
+    </main>
   );
 }
