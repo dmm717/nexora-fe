@@ -156,12 +156,18 @@
   width: 365px;
   z-index: 3;
 }
+.heroFloatLayer {
+  display: block;
+  width: 100%;
+}
 .heroRecommendation {
   position: absolute;
   bottom: -5px;
   left: 3%;
   width: 385px;
   z-index: 4;
+}
+.heroRecommendationCard {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -169,10 +175,13 @@
   padding: 17px;
   border-radius: 14px;
   box-shadow: 0 20px 50px #24316c14;
+  width: 100%;
 }
+.heroRecommendationCard b,
 .heroRecommendation b {
   font-size: 12px;
 }
+.heroRecommendationCard p,
 .heroRecommendation p {
   font-size: 11px;
   color: var(--muted);
@@ -1376,7 +1385,8 @@
   .heroRecommendation {
     width: 96%;
   }
-  .heroRecommendation > svg:last-child {
+  .heroRecommendation > svg:last-child,
+  .heroRecommendationCard > svg:last-child {
     display: none;
   }
   .windowTop {
@@ -1440,13 +1450,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing *,
-  .landing *::before,
-  .landing *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
-  }
   .primaryAction:hover,
   .planWrap:hover {
     transform: none;
