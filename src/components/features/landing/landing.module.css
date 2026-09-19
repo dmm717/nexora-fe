@@ -1440,13 +1440,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing *,
-  .landing *::before,
-  .landing *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
-  }
   .primaryAction:hover,
   .planWrap:hover {
     transform: none;

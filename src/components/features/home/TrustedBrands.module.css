@@ -59,3 +59,9 @@
     margin: 0 1rem;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .marqueeTrack {
+    animation: none;
+  }
+}

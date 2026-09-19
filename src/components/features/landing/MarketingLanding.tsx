@@ -181,7 +181,7 @@ function CvPreview({
                   strokeDashoffset="58"
                 />
               </svg>
-              <b ref={scoreRef}>78</b>
+              <b ref={scoreRef} data-count="78">78</b>
             </div>
             <div>
               <strong>CV có nền tảng tốt.</strong>
