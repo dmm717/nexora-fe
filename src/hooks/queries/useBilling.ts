@@ -8,7 +8,6 @@ export const useBillingPlans = () => {
   return useQuery({
     queryKey: ['billingPlans'],
     queryFn: () => billingApi.getPlans(),
-    staleTime: Infinity,
     enabled: authReady && isAuthenticated,
   });
 };

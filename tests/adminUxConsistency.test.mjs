@@ -136,6 +136,22 @@ test('admin collection surfaces do not collapse missing/error data into empty ar
   assert.match(categories, /categories\s*!==\s*undefined\s*&&\s*categories\.length\s*===\s*0/);
 });
 
+test('plan price editor keeps commercial fields editable and submits the current form state', async () => {
+  const modal = await source('src/components/features/admin/plans/PriceModal.tsx');
+
+  assert.match(modal, /Controller/);
+  assert.match(modal, /value=\{field\.value == null \? '' : String\(field\.value\)\}/);
+  assert.match(modal, /onChange=\{\(event\) => field\.onChange\(event\.target\.value\)\}/);
+  assert.doesNotMatch(modal, /disabled=\{!!editingPrice \|\| isPending\}/);
+  assert.match(modal, /disabled=\{isPending\}/);
+  assert.match(modal, /durationDays: data\.durationDays \?\? undefined/);
+  assert.match(modal, /interviewQuota: data\.interviewQuota \?\? undefined/);
+
+  const adminApi = await source('src/services/adminApi.ts');
+  assert.match(adminApi, /updatePlanPrice[\s\S]*?apiClient\.patch/);
+  assert.match(adminApi, /admin\/plan-prices\/\$\{priceId\}/);
+});
+
 test('users retain rows during refresh and keep pagination available after an empty or failed cursor page', async () => {
   const page = await source('src/app/(dashboard)/admin/users/page.tsx');
   const hook = await source('src/hooks/queries/useAdminUsers.ts');

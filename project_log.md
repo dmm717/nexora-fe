@@ -1,5 +1,13 @@
 # Nexora FE Project Log
 
+## 2026-09-19 - Subscription/package flow corrections
+
+- Branch: `fix/payos-payment-result-pages`
+- Scope: Fixed the admin plan-price editor so amount, currency, duration and quota remain editable in edit mode through React Hook Form controlled `value`/`onChange` fields; preserved schema validation and nullish payload handling. Kept pricing/checkout dynamic by `price.id`/`planPriceId`, removed the billing catalog's infinite cache so newly created packages can be fetched in an existing session, and added static flow regressions for the admin form and package-neutral checkout contract.
+- Backend coordination: The paired backend change resolves package name/price from the database and removes payOS package-name hard-coding; frontend sends no client price.
+- Validation: focused admin/pricing regression tests passed 20/20; full `node --test --test-reporter=dot tests/**/*.test.mjs` passed; `npm run lint` passed with 0 errors and existing warnings; `npm run build` passed; `git diff --check` passed.
+- Blockers: No Pull Request or merge was created. Existing untracked `.codex/agents/` files were preserved.
+
 ## 2026-09-10 - Scenario Academy v2 corrective pass
 
 - Branch: `feat/scenario-academy-v2`
