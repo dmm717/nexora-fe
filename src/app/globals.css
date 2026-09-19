@@ -269,18 +269,35 @@ select {
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
-/* Accessible prefers-reduced-motion handling */
+.functional-spinner {
+  animation: functional-spinner-rotate 0.8s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes functional-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes functional-spinner-reduced-pulse {
+  0%, 100% { opacity: 0.58; }
+  50% { opacity: 1; }
+}
+
+/* Reduce decorative motion while keeping ongoing work visible. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  html {
+    scroll-behavior: auto;
   }
 
   .skeleton-shimmer::after {
-    animation: none !important;
+    animation: none;
+  }
+
+  .functional-spinner {
+    animation: functional-spinner-reduced-pulse 1.6s ease-in-out infinite;
+  }
+
+  .animate-spin {
+    animation: functional-spinner-reduced-pulse 1.6s ease-in-out infinite;
   }
 }

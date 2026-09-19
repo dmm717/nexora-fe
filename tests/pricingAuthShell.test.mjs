@@ -59,9 +59,11 @@ test('I: Pricing current-plan badge still uses real entitlement from user billin
   assert.match(pricingCardsSource, /Gói hiện tại/);
 });
 
-test('J: Selecting paid price while authenticated routes to canonical billing with selectedPriceId and safe returnTo', async () => {
+test('J: Selecting paid price while authenticated starts direct PayOS checkout from Pricing', async () => {
   const pricingCardsSource = await readSource('../src/components/features/pricing/PricingCards.tsx');
-  assert.match(pricingCardsSource, /\/billing\?selectedPriceId=\$\{encodeURIComponent\(price\.id\)\}/);
-  assert.match(pricingCardsSource, /&returnTo=\$\{encodeURIComponent\(safeReturnTo\)\}/);
-  assert.match(pricingCardsSource, /price\.amountMinor === 0/);
+  assert.match(pricingCardsSource, /startPayOSCheckout\(/);
+  assert.match(pricingCardsSource, /billingApi\.createCheckoutSession/);
+  assert.doesNotMatch(pricingCardsSource, /router\.push\(checkoutUrl\)/);
+  assert.doesNotMatch(pricingCardsSource, /\/billing\?selectedPriceId=/);
+  assert.match(pricingCardsSource, /price\.amountMinor <= 0/);
 });

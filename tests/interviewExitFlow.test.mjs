@@ -7,6 +7,8 @@ import {
   isFocusedPracticeRoute,
   shouldRenderFocusedPracticeHeader,
   resolveDefaultFocusedExit,
+  resolveFocusedExitDestination,
+  navigateFocusedExitOnce,
 } from '../src/services/focusedPracticeRoutes.ts';
 
 const readSource = (relPath) => readFile(new URL(relPath, import.meta.url), 'utf8');
@@ -22,22 +24,31 @@ test('A & B: Interview room confirmation invokes exit navigation once to /interv
   assert.match(roomSource, /exitTo:\s*'\/interviews'/);
 
   // Shell context resolves exit destination defaulting to '/interviews' for interview routes
-  assert.match(contextSource, /resolveDefaultFocusedExit\(pathname\)/);
+  assert.match(contextSource, /resolveFocusedExitDestination\(pathname, config\?\.exitTo\)/);
   assert.match(contextSource, /exitTo=\{exitDestination\}/);
-  assert.match(contextSource, /router\.push\(exitDestination\)/);
+  assert.doesNotMatch(contextSource, /handleExit|router\.push/);
 
-  // Header handleConfirmExit executes onExit / router.push exactly once and closes modal
+  // Header owns the confirmation and navigates once after confirmation.
   assert.match(headerSource, /handleConfirmExit/);
   assert.match(headerSource, /onClick=\{handleConfirmExit\}/);
+  assert.match(headerSource, /router\.replace\(destination\)/);
+  assert.match(headerSource, /navigateFocusedExitOnce\(exitTo/);
+  assert.match(roomSource, /const handleCandidateStateChange = useCallback/);
+  assert.match(roomSource, /onStateChange=\{handleCandidateStateChange\}/);
 });
 
 test('C & D: Cancel and closing modal do not trigger navigation', async () => {
-  const headerSource = await readSource('../src/components/header/FocusedPracticeHeader.tsx');
+  const [headerSource, modalSource] = await Promise.all([
+    readSource('../src/components/header/FocusedPracticeHeader.tsx'),
+    readSource('../src/components/ui/Modal.tsx'),
+  ]);
 
   // Cancel button only sets modal state to false
   assert.match(headerSource, /onClick=\{\(\)\s*=>\s*setShowExitConfirm\(false\)\}/);
   // Modal onClose only sets modal state to false
   assert.match(headerSource, /onClose=\{\(\)\s*=>\s*setShowExitConfirm\(false\)\}/);
+  assert.match(modalSource, /onClick=\{onClose\}/);
+  assert.match(modalSource, /if \(e\.key === 'Escape'\)[\s\S]*onCloseRef\.current\(\)/);
 
   // Neither cancel nor onClose call onExit or router.push
   const cancelSection = headerSource.slice(
@@ -108,4 +119,16 @@ test('G: Preflight exit destination routes safely to /interviews without mutatio
   // Practice routes exit to /practice
   assert.equal(resolveDefaultFocusedExit('/practice/star'), '/practice');
   assert.equal(resolveDefaultFocusedExit('/practice/scenarios/tech-lead'), '/practice');
+  assert.equal(resolveFocusedExitDestination('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33', '/interviews'), '/interviews');
+  assert.equal(resolveFocusedExitDestination('/interviews/8f6b6920-5c29-4d69-a1b7-995f57de3b33', 'https://evil.example'), '/interviews');
+});
+
+test('confirmed focused exit calls the navigation authority at most once', () => {
+  const navigations = [];
+  const request = { requested: false };
+  const navigate = (destination) => navigations.push(destination);
+
+  assert.equal(navigateFocusedExitOnce('/interviews', navigate, request), true);
+  assert.equal(navigateFocusedExitOnce('/interviews', navigate, request), false);
+  assert.deepEqual(navigations, ['/interviews']);
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,9 +13,12 @@ import { usePlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
+import { billingApi } from '@/services/billingApi';
+import { startPayOSCheckout } from '@/services/payOSCheckout';
 import {
   AuthIntent,
   resolveSafeReturnUrl,
+  resolveCheckoutDestination,
   isValidInternalPath,
   isInterviewRoute,
 } from '@/utils/authIntent';
@@ -69,6 +72,7 @@ export default function PricingCards() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawReturnTo = searchParams.get('returnTo');
+  const checkoutPriceId = searchParams.get('checkoutPriceId');
 
   // Validate returnTo once: fail closed if invalid
   const safeReturnTo = rawReturnTo && isValidInternalPath(rawReturnTo)
@@ -116,6 +120,77 @@ export default function PricingCards() {
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
+  const [checkoutPriceInProgress, setCheckoutPriceInProgress] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const checkoutInProgressRef = useRef(false);
+  const autoCheckoutAttemptedRef = useRef<string | null>(null);
+
+  const beginCheckout = useCallback(async (planPriceId: string) => {
+    if (checkoutInProgressRef.current) return;
+
+    const authoritativePriceId = typeof planPriceId === 'string' ? planPriceId.trim() : '';
+    const matchedPrice = (plans ?? [])
+      .flatMap((plan) => plan.prices ?? [])
+      .find((candidate) => candidate.id === authoritativePriceId);
+
+    if (!authoritativePriceId || !matchedPrice || matchedPrice.amountMinor <= 0) {
+      setCheckoutError('Gói bạn chọn không còn khả dụng. Vui lòng chọn lại.');
+      return;
+    }
+
+    checkoutInProgressRef.current = true;
+    setCheckoutPriceInProgress(authoritativePriceId);
+    setCheckoutError(null);
+
+    try {
+      await startPayOSCheckout(
+        { planPriceId: authoritativePriceId, returnTo: safeReturnTo },
+        {
+          createCheckoutSession: billingApi.createCheckoutSession,
+          isValidInternalPath,
+        },
+      );
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : 'Chưa thể tạo phiên thanh toán. Vui lòng thử lại.',
+      );
+    } finally {
+      checkoutInProgressRef.current = false;
+      setCheckoutPriceInProgress(null);
+    }
+  }, [plans, safeReturnTo]);
+
+  // Consume the post-auth Pricing handoff once, only after auth and backend plans are ready.
+  React.useEffect(() => {
+    if (!checkoutPriceId || !authReady) return;
+
+    const cleanedUrl = safeReturnTo
+      ? `/pricing?returnTo=${encodeURIComponent(safeReturnTo)}`
+      : '/pricing';
+
+    if (!isAuthenticated) {
+      window.history.replaceState(window.history.state, '', cleanedUrl);
+      return;
+    }
+
+    if (!hasPlansData || fetchingPlans || autoCheckoutAttemptedRef.current === checkoutPriceId) {
+      return;
+    }
+
+    autoCheckoutAttemptedRef.current = checkoutPriceId;
+    window.history.replaceState(window.history.state, '', cleanedUrl);
+    void beginCheckout(checkoutPriceId);
+  }, [
+    authReady,
+    beginCheckout,
+    checkoutPriceId,
+    fetchingPlans,
+    hasPlansData,
+    isAuthenticated,
+    safeReturnTo,
+  ]);
 
   const currentPlanCode = isAuthenticated && hasUserData
     ? user.billing?.entitlement?.planCode?.toLowerCase() || null
@@ -126,18 +201,15 @@ export default function PricingCards() {
     if (!authReady) return;
 
     if (isAuthenticated) {
-      if (price.amountMinor === 0) {
+      if (price.amountMinor <= 0) {
         // Free plan navigation: return to safeReturnTo or /overview
         router.push(safeReturnTo || '/overview');
         return;
       }
-      // Authenticated user selecting a paid plan: redirect to canonical checkout entry
-      const checkoutUrl = safeReturnTo
-        ? `/billing?selectedPriceId=${encodeURIComponent(price.id)}&returnTo=${encodeURIComponent(safeReturnTo)}`
-        : `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
-      router.push(checkoutUrl);
+      // Use the backend-loaded plan price as the only checkout authority.
+      void beginCheckout(price.id);
     } else {
-      if (price.amountMinor === 0) {
+      if (price.amountMinor <= 0) {
         setPendingIntent({
           action: 'navigation',
           targetUrl: safeReturnTo || '/overview',
@@ -145,10 +217,8 @@ export default function PricingCards() {
         setAuthModalOpen(true);
         return;
       }
-      // Anonymous user selecting a paid plan: intent carries exact planPriceId and returnTo
-      const targetUrl = safeReturnTo
-        ? `/billing?selectedPriceId=${encodeURIComponent(price.id)}&returnTo=${encodeURIComponent(safeReturnTo)}`
-        : `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
+      // Preserve the authoritative price through auth and return to Pricing for handoff.
+      const targetUrl = resolveCheckoutDestination(price.id, safeReturnTo) ?? '/pricing';
 
       setPendingIntent({
         action: 'checkout',
@@ -171,6 +241,26 @@ export default function PricingCards() {
           title="Chọn gói đồng hành tối ưu cho hành trình nghề nghiệp của bạn"
           description="Không ép buộc thanh toán sớm. Bắt đầu với gói Miễn phí để kiểm chứng phương pháp của Nexora, sau đó nâng cấp khi cần tăng tốc độ luyện tập."
         />
+
+        {checkoutPriceInProgress && (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary-fixed/30 px-4 py-3 text-sm font-medium text-primary"
+          >
+            <span
+              aria-hidden="true"
+              className="functional-spinner inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full flex-shrink-0"
+            />
+            <span>Đang chuyển đến cổng thanh toán...</span>
+          </div>
+        )}
+        {checkoutError && (
+          <div role="alert" className="rounded-xl border border-error/25 bg-error-container/25 px-4 py-3 text-sm text-on-surface">
+            {checkoutError}
+          </div>
+        )}
 
       {/* Contextual Interview Upgrade Notice */}
       {isInterviewUpgrade && safeReturnTo && (
@@ -329,13 +419,14 @@ export default function PricingCards() {
                         variant={isHighlight ? 'primary' : 'outline'}
                         fullWidth
                         size="sm"
-                        disabled={!authReady || isCurrentPlan}
+                        disabled={!authReady || isCurrentPlan || (checkoutPriceInProgress !== null && price.amountMinor > 0)}
+                        loading={checkoutPriceInProgress === price.id}
                         onClick={() => handleSelectPlan(plan, price)}
                         icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
                       >
                         {isCurrentPlan
                           ? 'Đang sử dụng'
-                          : price.amountMinor === 0
+                          : price.amountMinor <= 0
                             ? 'Bắt đầu miễn phí'
                             : 'Chọn gói này'}
                       </Button>

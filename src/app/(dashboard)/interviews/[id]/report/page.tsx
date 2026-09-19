@@ -103,7 +103,7 @@ export default function InterviewReportPage() {
   if (reportRenderState === 'loading') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="functional-spinner w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full" />
         <p className="text-sm text-slate-500">Đang tải báo cáo đánh giá phỏng vấn...</p>
       </div>
     );
@@ -169,7 +169,7 @@ export default function InterviewReportPage() {
   if (reportRenderState === 'processing') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="functional-spinner w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
         <h2 className="text-xl font-bold text-slate-900">Báo cáo đang được tổng hợp...</h2>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
           Nexora AI đang phân tích dữ liệu câu trả lời, đối soát thang điểm Rubric và mô hình STAR. Quá trình này diễn ra hoàn toàn tự động.

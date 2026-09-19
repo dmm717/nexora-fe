@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { billingApi } from '@/services/billingApi';
+import { startPayOSCheckout } from '@/services/payOSCheckout';
 import { useBillingPlans } from '@/hooks/queries/useBilling';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -86,6 +87,7 @@ export default function BillingPage() {
   const safeReturnTo = rawReturnTo && isValidInternalPath(rawReturnTo) ? rawReturnTo : null;
 
   const autoCheckoutAttemptedRef = useRef(false);
+  const checkoutInProgressRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -152,42 +154,39 @@ export default function BillingPage() {
   }, [queryClient, router]);
 
   const createCheckoutMutation = useMutation({
-    mutationFn: (planPriceId: string) => billingApi.createCheckoutSession(planPriceId),
-    onSuccess: (res) => {
+    mutationFn: (planPriceId: string) => startPayOSCheckout(
+      { planPriceId, returnTo: safeReturnTo },
+      {
+        createCheckoutSession: billingApi.createCheckoutSession,
+        isValidInternalPath,
+      },
+    ),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['billingPlans'] });
-      if (res.checkout) {
-        sessionStorage.setItem('pendingPaymentOrderId', res.orderId);
-        if (safeReturnTo) {
-          sessionStorage.setItem('postPaymentReturnTo', safeReturnTo);
-        }
-        
-        const form = document.createElement('form');
-        form.method = res.checkout.method;
-        form.action = res.checkout.url;
-        
-        res.checkout.fields.forEach((field) => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = field.name;
-          input.value = field.value;
-          form.appendChild(input);
-        });
-
-        document.body.appendChild(form);
-        form.submit();
-      } else {
-        setError('Không nhận được thông tin thanh toán từ server.');
-      }
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'Lỗi khi tạo phiên thanh toán.');
-    }
+      setError(err instanceof Error ? err.message : 'Chưa thể tạo phiên thanh toán. Vui lòng thử lại.');
+    },
+    onSettled: () => {
+      checkoutInProgressRef.current = false;
+    },
   });
 
-  const handleBuyPlan = (planPriceId: string) => {
+  const handleBuyPlan = useCallback((planPriceId: string) => {
+    if (checkoutInProgressRef.current || createCheckoutMutation.isPending) return;
+
+    const matchedPrice = (loadedPlans ?? [])
+      .flatMap((plan) => plan.prices ?? [])
+      .find((price) => price.id === planPriceId);
+    if (!matchedPrice || matchedPrice.amountMinor <= 0) {
+      setError('Gói bạn chọn không còn khả dụng. Vui lòng chọn lại.');
+      return;
+    }
+
+    checkoutInProgressRef.current = true;
     setError(null);
-    createCheckoutMutation.mutate(planPriceId);
-  };
+    createCheckoutMutation.mutate(matchedPrice.id);
+  }, [createCheckoutMutation, loadedPlans]);
 
   // One-shot auto-checkout when selectedPriceId is passed in query
   useEffect(() => {
@@ -232,7 +231,7 @@ export default function BillingPage() {
 
     // Invoke canonical checkout
     setError(null);
-    createCheckoutMutation.mutate(matchedPrice.id);
+    handleBuyPlan(matchedPrice.id);
   }, [
     selectedPriceId,
     hasPlansData,
@@ -241,6 +240,7 @@ export default function BillingPage() {
     loadedPlans,
     userPresentation.showBlockingError,
     createCheckoutMutation,
+    handleBuyPlan,
   ]);
 
   if (showUserSkeleton) {

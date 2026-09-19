@@ -91,21 +91,25 @@ test('auth suspense fallback matches the auth surface and auth mode comes only f
 });
 
 test('login/register navigation preserves checkout and safe return intent', async () => {
-  const { buildAuthRedirectUrl, isValidInternalPath } = await importTypeScript('src/utils/authIntent.ts');
+  const { buildAuthRedirectUrl, isValidInternalPath, resolveCheckoutDestination } = await importTypeScript('src/utils/authIntent.ts');
   const auth = await source('src/components/features/auth/Auth.tsx');
   const gate = await source('src/components/auth/AuthGateModal.tsx');
   const pricing = await source('src/components/features/pricing/PricingCards.tsx');
 
+  const canonicalPricingTarget = resolveCheckoutDestination(
+    'price-42',
+    '/interviews/session-7?sessionContinuation=true',
+  );
   const authUrl = new URL(buildAuthRedirectUrl({
     action: 'checkout',
-    targetUrl: '/billing?selectedPriceId=price-42&returnTo=%2Finterviews%2Fsession-7',
+    targetUrl: canonicalPricingTarget,
     planPriceId: 'price-42',
   }, 'register'), 'https://nexora.test');
   assert.equal(authUrl.pathname, '/auth');
   assert.equal(authUrl.searchParams.get('mode'), 'register');
   assert.equal(authUrl.searchParams.get('planPriceId'), 'price-42');
   assert.equal(authUrl.searchParams.get('intentAction'), 'checkout');
-  assert.equal(authUrl.searchParams.get('returnTo'), '/billing?selectedPriceId=price-42&returnTo=%2Finterviews%2Fsession-7');
+  assert.equal(authUrl.searchParams.get('returnTo'), '/pricing?checkoutPriceId=price-42&returnTo=%2Finterviews%2Fsession-7%3FsessionContinuation%3Dtrue');
   assert.equal(isValidInternalPath('https://attacker.invalid/'), false);
 
   assert.match(auth, /resolveCheckoutDestination\(planPriceId, rawReturnTo\)/);
@@ -141,25 +145,26 @@ test('login/register navigation preserves checkout and safe return intent', asyn
   assert.match(gate, /storeAuthIntent\(pendingIntent\)/);
   assert.match(gate, /buildAuthRedirectUrl\(pendingIntent, mode\)/);
   assert.match(pricing, /safeReturnTo/);
-  assert.match(pricing, /selectedPriceId/);
+  assert.match(pricing, /checkoutPriceId/);
+  assert.doesNotMatch(pricing, /router\.push\(checkoutUrl\)/);
   assert.match(pricing, /AuthGateModal/);
   assert.match(pricing, /authReady/);
 });
 
-test('checkout destination resolver preserves only one safe post-checkout target', async () => {
+test('checkout destination resolver creates canonical Pricing handoffs with one safe post-checkout target', async () => {
   const { resolveCheckoutDestination } = await importTypeScript('src/utils/authIntent.ts');
 
   const assertDestination = (destination, priceId, expectedReturnTo) => {
     assert.equal(typeof destination, 'string');
     const parsed = new URL(destination, 'https://nexora.test');
-    assert.equal(parsed.pathname, '/billing');
-    assert.equal(parsed.searchParams.get('selectedPriceId'), priceId);
-    assert.equal(parsed.searchParams.getAll('selectedPriceId').length, 1);
+    assert.equal(parsed.pathname, '/pricing');
+    assert.equal(parsed.searchParams.get('checkoutPriceId'), priceId);
+    assert.equal(parsed.searchParams.getAll('checkoutPriceId').length, 1);
     assert.equal(parsed.searchParams.get('returnTo'), expectedReturnTo);
     assert.equal(parsed.hash, '');
   };
 
-  // Existing checkout targets carry the post-checkout route inside billing.
+  // Existing Billing and Pricing wrappers are canonicalized back to Pricing.
   assertDestination(
     resolveCheckoutDestination('price-42', '/billing?selectedPriceId=stale&returnTo=%2Finterviews%2Fsession-7'),
     'price-42',
@@ -219,7 +224,7 @@ test('checkout destination resolver preserves only one safe post-checkout target
   assertDestination(encodedDestination, unusualPriceId, null);
   assert.equal(
     encodedDestination,
-    `/billing?${new URLSearchParams({ selectedPriceId: unusualPriceId }).toString()}`
+    `/pricing?${new URLSearchParams({ checkoutPriceId: unusualPriceId }).toString()}`
   );
 });
 
@@ -312,7 +317,7 @@ test('pricing keeps an unknown current-user state distinct and preserves the aut
   assert.match(pricing, /currentPlanCode/);
   assert.match(pricing, /authReady/);
   assert.match(pricing, /planPriceId/);
-  assert.match(pricing, /selectedPriceId/);
+  assert.match(pricing, /checkoutPriceId/);
   assert.match(pricing, /safeReturnTo/);
   assert.match(pricing, /pendingIntent/);
   assert.match(shell, /if \(!authReady\)/);

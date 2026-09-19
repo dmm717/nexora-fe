@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { navigateFocusedExitOnce, type FocusedExitDestination } from '@/services/focusedPracticeRoutes';
 
 export interface FocusedPracticeHeaderProps {
   title?: string;
   subtitle?: string;
   stepInfo?: string;
   statusLabel?: string;
-  exitTo?: string;
-  onExit?: () => void;
+  exitTo?: FocusedExitDestination;
 }
 
 export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
@@ -20,18 +20,14 @@ export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
   stepInfo,
   statusLabel,
   exitTo = '/interviews',
-  onExit,
 }) => {
   const router = useRouter();
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const exitRequestRef = useRef({ requested: false });
 
   const handleConfirmExit = () => {
     setShowExitConfirm(false);
-    if (onExit) {
-      onExit();
-    } else {
-      router.push(exitTo || '/interviews');
-    }
+    navigateFocusedExitOnce(exitTo, (destination) => router.replace(destination), exitRequestRef.current);
   };
 
   return (
