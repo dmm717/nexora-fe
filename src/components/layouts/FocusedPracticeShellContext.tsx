@@ -1,11 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { FocusedPracticeHeader } from '@/components/header/FocusedPracticeHeader';
 import { ProductMotionBoundary } from '@/components/product-motion/ProductMotionBoundary';
 import {
-  resolveDefaultFocusedExit,
+  resolveFocusedExitDestination,
   shouldRenderFocusedPracticeHeader,
 } from '@/services/focusedPracticeRoutes';
 
@@ -25,16 +25,10 @@ const FocusedPracticeShellContext = createContext<FocusedPracticeShellContextVal
 
 export function FocusedPracticeShellProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [config, setConfig] = useState<FocusedPracticeShellConfig | null>(null);
   const contextValue = useMemo(() => ({ setConfig }), []);
 
-  const defaultExit = resolveDefaultFocusedExit(pathname);
-  const exitDestination = config?.exitTo || defaultExit;
-
-  const handleExit = () => {
-    router.push(exitDestination);
-  };
+  const exitDestination = resolveFocusedExitDestination(pathname, config?.exitTo);
 
   const showFocusedHeader = shouldRenderFocusedPracticeHeader(pathname);
 
@@ -48,7 +42,6 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
             stepInfo={config?.stepInfo}
             statusLabel={config?.statusLabel}
             exitTo={exitDestination}
-            onExit={handleExit}
           />
         ) : null}
 

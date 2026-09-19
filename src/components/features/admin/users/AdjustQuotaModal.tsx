@@ -1,20 +1,26 @@
-import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
+import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
+import { Alert } from '@/components/ui/Alert';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminAsyncNotice } from '@/components/features/admin/AdminAsyncNotice';
 import { AdminUserView } from '@/services/adminApi';
 import { useAdjustFeature } from '@/hooks/queries/useAdminUsers';
 import { useAdminFeatureDefinitions } from '@/hooks/queries/useAdminPlans';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 
 const adjustSchema = z.object({
   featureCode: z.string().min(1, 'Vui lòng chọn một tính năng'),
-  quantity: z.coerce.number().refine(val => val !== 0, 'Số lượng không được bằng 0'),
+  quantity: z.coerce.number().refine((value) => value !== 0, 'Số lượng không được bằng 0'),
   reason: z.string().min(5, 'Vui lòng nhập lý do (tối thiểu 5 ký tự)'),
 });
 
-type AdjustFormValues = z.infer<typeof adjustSchema>;
+type AdjustFormValues = z.output<typeof adjustSchema>;
+type FeatureDefinition = { id: string; code: string; name: string; description: string; isActive: boolean; sortOrder: number };
 
 interface AdjustQuotaModalProps {
   isOpen: boolean;
@@ -23,96 +29,139 @@ interface AdjustQuotaModalProps {
 }
 
 export function AdjustQuotaModal({ isOpen, onClose, user }: AdjustQuotaModalProps) {
+  const featuresQuery = useAdminFeatureDefinitions();
   const adjustMutation = useAdjustFeature();
-  const { data: features = [] } = useAdminFeatureDefinitions() as { data: { code: string; name: string }[] };
-
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
-    resolver: zodResolver(adjustSchema),
-    defaultValues: { featureCode: '', quantity: 1, reason: '' }
+  const currentUser = isOpen ? user : null;
+  const queryPresentation = getQueryPresentation({
+    hasData: featuresQuery.data !== undefined,
+    isLoading: featuresQuery.isLoading,
+    isError: featuresQuery.isError,
+    isFetching: featuresQuery.isFetching,
   });
+  const features = featuresQuery.data as FeatureDefinition[] | undefined;
 
-  useEffect(() => {
-    if (isOpen) {
-      reset({ featureCode: '', quantity: 1, reason: '' });
-    }
-  }, [isOpen, reset]);
-
-  if (!isOpen || !user) return null;
-
-  const onSubmit = (data: AdjustFormValues) => {
+  const safeClose = () => {
+    if (!adjustMutation.isPending) onClose();
+  };
+  const saveAdjustment = (formValues: AdjustFormValues) => {
+    if (!currentUser) return;
     adjustMutation.mutate({
-      userId: user.id,
+      userId: currentUser.id,
       data: {
-        featureCode: data.featureCode,
-        quantity: data.quantity,
-        reason: data.reason,
-      }
-    }, {
-      onSuccess: () => onClose()
-    });
+        featureCode: formValues.featureCode,
+        quantity: formValues.quantity,
+        reason: formValues.reason,
+      },
+    }, { onSuccess: safeClose });
   };
 
-  const isPending = adjustMutation.isPending;
+  return (
+    <Modal
+      isOpen={Boolean(currentUser)}
+      onClose={safeClose}
+      title="Điều chỉnh hạn mức"
+      description="Tăng hoặc thu hồi hạn mức và ghi lại lý do điều chỉnh."
+      size="md"
+    >
+      {currentUser && (
+        <AdjustForm
+          key={currentUser.id}
+          user={currentUser}
+          features={features}
+          isPending={adjustMutation.isPending}
+          queryPresentation={queryPresentation}
+          onRetry={() => { void featuresQuery.refetch(); }}
+          onSubmit={saveAdjustment}
+          onCancel={safeClose}
+        />
+      )}
+    </Modal>
+  );
+}
+
+interface AdjustFormProps {
+  user: AdminUserView;
+  features: FeatureDefinition[] | undefined;
+  isPending: boolean;
+  queryPresentation: ReturnType<typeof getQueryPresentation>;
+  onRetry: () => void;
+  onSubmit: (values: AdjustFormValues) => void;
+  onCancel: () => void;
+}
+
+function AdjustForm({ user, features, isPending, queryPresentation, onRetry, onSubmit, onCancel }: AdjustFormProps) {
+  const { register, handleSubmit, formState: { errors } } = useForm<
+    z.input<typeof adjustSchema>,
+    unknown,
+    AdjustFormValues
+  >({
+    resolver: zodResolver(adjustSchema),
+    defaultValues: { featureCode: '', quantity: 1, reason: '' },
+  });
+  const hasFeatures = Boolean(features?.length);
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', zIndex: 1100
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem', 
-        width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Điều chỉnh Hạn mức (Quota)</h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+    <form onSubmit={handleSubmit(onSubmit)} aria-busy={isPending} className="space-y-5">
+      <Alert variant="warning">
+        Điều chỉnh số dư của <strong>{user.email}</strong>. Có thể nhập số âm để thu hồi; số dư không thể thấp hơn 0.
+      </Alert>
+
+      {queryPresentation.showBackgroundError && (
+        <AdminAsyncNotice kind="error" onRetry={onRetry} />
+      )}
+      {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+        <AdminAsyncNotice kind="refreshing" />
+      )}
+      {queryPresentation.showInitialLoading && (
+        <div role="status" aria-label="Đang tải tính năng" className="space-y-3">
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-10 w-full" />
         </div>
-        
-        <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fde68a' }}>
-          <p style={{ margin: 0, color: '#92400e', fontSize: '0.875rem' }}>
-            Điều chỉnh số dư của <strong>{user.email}</strong>. Bạn có thể nhập <strong>số âm</strong> để thu hồi. Lưu ý: Không thể thu hồi khiến số dư nhỏ hơn 0.
-          </p>
+      )}
+      {queryPresentation.showBlockingError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-error/30 bg-error-container/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-on-surface-variant">Không thể tải danh sách tính năng.</p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>Thử lại</Button>
         </div>
+      )}
+      {features?.length === 0 && (
+        <Alert variant="info">Chưa có tính năng khả dụng để điều chỉnh.</Alert>
+      )}
 
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>Chọn tính năng</label>
-            <select 
-              {...register('featureCode')} 
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #d1d5db' }}
-            >
-              <option value="">-- Chọn tính năng --</option>
-              {features.map((f: { code: string; name: string }) => (
-                <option key={f.code} value={f.code}>{f.name} ({f.code})</option>
-              ))}
-            </select>
-            {errors.featureCode && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.featureCode.message}</span>}
-          </div>
+      <fieldset disabled={isPending} className="min-w-0 space-y-4">
+        <Select
+          label="Chọn tính năng"
+          {...register('featureCode')}
+          error={errors.featureCode?.message}
+          disabled={isPending || !hasFeatures}
+        >
+          <option value="">-- Chọn tính năng --</option>
+          {features?.map((feature) => (
+            <option key={feature.code} value={feature.code}>{feature.name} ({feature.code})</option>
+          ))}
+        </Select>
 
-          <Input 
-            label="Số lượng (Nhập số âm để thu hồi)" 
-            type="number"
-            {...register('quantity')} 
-            error={errors.quantity?.message} 
-          />
+        <Input
+          label="Số lượng (nhập số âm để thu hồi)"
+          type="number"
+          {...register('quantity')}
+          error={errors.quantity?.message}
+        />
 
-          <Input 
-            label="Lý do điều chỉnh (Bắt buộc)" 
-            {...register('reason')} 
-            error={errors.reason?.message} 
-            placeholder="VD: Khuyến mãi sự kiện, Thu hồi do lỗi hệ thống..."
-          />
+        <Input
+          label="Lý do điều chỉnh (Bắt buộc)"
+          {...register('reason')}
+          error={errors.reason?.message}
+          placeholder="VD: Khuyến mãi sự kiện, thu hồi do lỗi hệ thống..."
+        />
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <Button type="button" onClick={onClose} disabled={isPending} style={{ backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db' }}>Hủy</Button>
-            <Button type="submit" disabled={isPending} style={{ backgroundColor: '#f59e0b' }}>
-              {isPending ? 'Đang điều chỉnh...' : 'Xác nhận điều chỉnh'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>Hủy</Button>
+          <Button type="submit" variant="primary" loading={isPending} disabled={!hasFeatures}>
+            Xác nhận điều chỉnh
+          </Button>
+        </div>
+      </fieldset>
+    </form>
   );
 }

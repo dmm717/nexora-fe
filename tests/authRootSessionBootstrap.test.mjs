@@ -147,7 +147,7 @@ test('7. Header consumes root auth context and prevents false logged-out flicker
   );
   assert.match(
     headerContent,
-    /!authReady[\s\S]*animate-pulse/,
+    /!authReady[\s\S]*<Skeleton/,
     'Header must render neutral placeholder while authReady is false'
   );
   assert.match(

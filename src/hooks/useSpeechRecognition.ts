@@ -32,7 +32,7 @@ export interface UseSpeechRecognitionResult {
   finalTranscript: string;
   preview: string;
   error: SpeechErrorUi | null;
-  start: () => void;
+  start: () => boolean;
   stop: () => void;
   reset: () => void;
 }
@@ -129,13 +129,13 @@ export function useSpeechRecognition(
     setError(empty.error);
   }, [teardown]);
 
-  const start = useCallback(() => {
-    if (!canStartSpeechSession(listeningRef.current)) return; // already listening
+  const start = useCallback((): boolean => {
+    if (!canStartSpeechSession(listeningRef.current)) return false; // already listening
 
     const ctor = resolveSpeechRecognitionConstructor(globalThis);
     if (!ctor) {
       setError(unsupportedSpeechError());
-      return;
+      return false;
     }
 
     // Fresh session: clear transcript state.
@@ -151,7 +151,7 @@ export function useSpeechRecognition(
       recognition = new ctor();
     } catch {
       setError(speechErrorToUi('generic'));
-      return;
+      return false;
     }
 
     recognition.lang = 'vi-VN';
@@ -213,10 +213,12 @@ export function useSpeechRecognition(
     recognitionRef.current = recognition;
     try {
       recognition.start();
+      return true;
     } catch {
       // start() throws if already started; treat as a safe no-op.
       teardown();
       setListening(false);
+      return false;
     }
   }, [teardown]);
 

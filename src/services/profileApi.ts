@@ -1,6 +1,19 @@
 import { apiClient } from './apiClient';
 import type { ResumeView } from './cvAnalysisApi';
 
+export interface PrimaryResumeSummary {
+  id: string;
+  fileName: string;
+  status: string;
+  createdAt: string;
+  latestAnalysis?: {
+    id: string;
+    mode: string;
+    status: string;
+    createdAt: string;
+  } | null;
+}
+
 export interface CareerProfileResponse {
   profile: {
     userId: string;
@@ -9,18 +22,7 @@ export interface CareerProfileResponse {
     yearsOfExperience?: number | null;
     avatarUrl?: string;
   };
-  primaryResume?: {
-    id: string;
-    fileName: string;
-    status: string;
-    createdAt: string;
-    latestAnalysis?: {
-      id: string;
-      mode: string;
-      status: string;
-      createdAt: string;
-    };
-  } | null;
+  primaryResume?: PrimaryResumeSummary | null;
   activeCareerGoal?: {
     id: string;
     targetRole: string;
@@ -70,7 +72,9 @@ export const profileApi = {
     return response.data;
   },
   setPrimaryResume: async (resumeId: string | null) => {
-    const response = await apiClient.put('/me/primary-resume', { resumeId }) as { data: unknown };
+    const response = await apiClient.put('/me/primary-resume', { resumeId }) as {
+      data: PrimaryResumeSummary | null;
+    };
     return response.data;
   },
   deleteResume: async (resumeId: string): Promise<void> => {

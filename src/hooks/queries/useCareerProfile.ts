@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi, type CareerProfileResponse } from '@/services/profileApi';
 import type { ResumeView } from '@/services/cvAnalysisApi';
 import { toast } from 'sonner';
+import { CURRENT_USER_QUERY_KEY } from './useUser';
+import {
+  applyPrimaryResumeToCareerProfile,
+  getPrimaryResumeErrorMessage,
+  shouldRetryCareerProfileRequest,
+} from './careerProfilePolicy';
 
 export const careerProfileKeys = {
   all: ['careerProfile'] as const,
@@ -16,6 +22,9 @@ export function useCareerProfile() {
     queryKey: careerProfileKeys.all,
     queryFn: profileApi.getCareerProfile,
     staleTime: 60000, // Cache for 1 minute
+    retry: shouldRetryCareerProfileRequest,
+    retryOnMount: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -32,18 +41,25 @@ export function useSetPrimaryResume() {
   
   return useMutation({
     mutationFn: (resumeId: string | null) => profileApi.setPrimaryResume(resumeId),
-    onSuccess: (_, variables) => {
+    onSuccess: async (primaryResume, variables) => {
+      queryClient.setQueryData<CareerProfileResponse>(careerProfileKeys.all, (current) =>
+        applyPrimaryResumeToCareerProfile(current, primaryResume),
+      );
+
       if (variables === null) {
         toast.success('Đã gỡ CV mặc định thành công!');
       } else {
         toast.success('Đã đặt CV làm mặc định thành công!');
       }
-      // Refresh the career profile and resume list
-      queryClient.invalidateQueries({ queryKey: careerProfileKeys.all });
-      queryClient.invalidateQueries({ queryKey: resumeKeys.all });
+      // Reconcile related server-owned views without discarding the authoritative mutation result.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: careerProfileKeys.all }),
+        queryClient.invalidateQueries({ queryKey: resumeKeys.all }),
+        queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY }),
+      ]);
     },
-    onError: () => {
-      toast.error('Lỗi khi thiết lập CV chính. CV có thể chưa sẵn sàng hoặc không thuộc quyền sở hữu của bạn.');
+    onError: (error) => {
+      toast.error(getPrimaryResumeErrorMessage(error));
     },
   });
 }

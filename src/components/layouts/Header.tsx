@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Menu, X, LogIn, Rocket } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
-import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export interface NavItem {
   label: string;
@@ -43,9 +43,10 @@ export const CANONICAL_PUBLIC_NAV: NavItem[] = [
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null);
+  const isMobileMenuOpen = mobileMenuPath === pathname;
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const { authReady, isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -56,11 +57,21 @@ export const Header: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleNavClick = (e: React.MouseEvent, item: NavItem) => {
-    if (item.href === '/pricing') {
-      router.push('/pricing');
-      return;
-    }
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMobileMenuPath(null);
+      mobileMenuButtonRef.current?.focus();
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: NavItem) => {
+    if (item.href === '/pricing') return;
 
     if (pathname === '/') {
       e.preventDefault();
@@ -74,8 +85,6 @@ export const Header: React.FC = () => {
           });
         }
       }
-    } else {
-      router.push(`/#${item.sectionId || ''}`);
     }
   };
 
@@ -91,7 +100,7 @@ export const Header: React.FC = () => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 motion-reduce:transition-none motion-reduce:duration-0 border-b ${
         isScrolled
           ? 'bg-surface/90 backdrop-blur-md border-outline-variant/40 py-2.5 shadow-sm'
           : 'bg-surface/60 backdrop-blur-sm border-outline-variant/20 py-4'
@@ -103,7 +112,7 @@ export const Header: React.FC = () => {
           href="/"
           onClick={handleLogoClick}
           aria-label="Nexora AI — Trang chủ"
-          className="flex items-center gap-2.5 select-none group"
+          className="flex items-center gap-2.5 select-none rounded-xl group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black text-lg shadow-sm transition-transform group-hover:scale-105">
             N
@@ -123,18 +132,19 @@ export const Header: React.FC = () => {
           {CANONICAL_PUBLIC_NAV.map((item) => {
             const isPricing = item.href === '/pricing' && pathname === '/pricing';
             return (
-              <button
+              <Link
                 key={item.label}
-                type="button"
+                href={item.href}
                 onClick={(e) => handleNavClick(e, item)}
-                className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                aria-current={isPricing ? 'page' : undefined}
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                   isPricing
                     ? 'text-primary bg-primary-fixed/40 font-semibold'
                     : 'text-on-surface hover:text-primary hover:bg-surface-container-low'
                 }`}
               >
                 {item.label}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -142,7 +152,7 @@ export const Header: React.FC = () => {
         {/* Desktop Auth Status Actions */}
         <div className="hidden lg:flex items-center gap-3" style={{ minHeight: '40px' }}>
           {!authReady ? (
-            <div className="w-32 h-9 rounded-full bg-gray-100/70 animate-pulse" aria-hidden="true" />
+            <Skeleton className="w-32 h-9 rounded-full" />
           ) : isAuthenticated ? (
             <Link
               href="/overview"
@@ -152,22 +162,20 @@ export const Header: React.FC = () => {
             </Link>
           ) : (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/auth')}
-                icon={<LogIn size={16} aria-hidden="true" />}
+              <Link
+                href="/auth"
+                className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-white px-3 py-1.5 text-xs font-semibold text-on-surface shadow-sm transition-all hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
+                <LogIn size={16} aria-hidden="true" />
                 Đăng nhập
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => router.push('/auth?mode=register')}
-                icon={<Rocket size={16} aria-hidden="true" />}
+              </Link>
+              <Link
+                href="/auth?mode=register"
+                className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg bg-primary-container px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
+                <Rocket size={16} aria-hidden="true" />
                 Bắt đầu miễn phí
-              </Button>
+              </Link>
             </>
           )}
         </div>
@@ -175,27 +183,27 @@ export const Header: React.FC = () => {
         {/* Mobile Hamburger & Action */}
         <div className="flex lg:hidden items-center gap-2">
           {!authReady ? (
-            <div className="w-20 h-8 rounded-lg bg-gray-100 animate-pulse" aria-hidden="true" />
+            <Skeleton className="w-20 h-8 rounded-lg" />
           ) : isAuthenticated ? (
             <Link
               href="/overview"
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-white"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Dashboard
             </Link>
           ) : (
-            <button
-              type="button"
-              onClick={() => router.push('/auth')}
-              className="px-2.5 py-1 text-primary font-semibold text-xs rounded hover:bg-surface-container"
+            <Link
+              href="/auth"
+              className="inline-flex min-h-9 items-center rounded px-2.5 py-1 text-primary font-semibold text-xs hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Đăng nhập
-            </button>
+            </Link>
           )}
 
           <button
+            ref={mobileMenuButtonRef}
             type="button"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => setMobileMenuPath(isMobileMenuOpen ? null : pathname)}
             aria-label={isMobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
             aria-expanded={isMobileMenuOpen}
             aria-controls="public-mobile-menu"
@@ -212,41 +220,38 @@ export const Header: React.FC = () => {
 
       {/* Mobile Dropdown Menu */}
       {isMobileMenuOpen && (
-        <div
+        <nav
           id="public-mobile-menu"
-          role="navigation"
           aria-label="Điều hướng di động"
           className="lg:hidden border-t border-outline-variant/30 bg-white px-4 py-3 space-y-2 shadow-lg"
         >
           {CANONICAL_PUBLIC_NAV.map((item) => (
-            <button
+            <Link
               key={item.label}
-              type="button"
+              href={item.href}
               onClick={(e) => {
                 handleNavClick(e, item);
-                setIsMobileMenuOpen(false);
+                setMobileMenuPath(null);
               }}
-              className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-low"
+              aria-current={item.href === '/pricing' && pathname === '/pricing' ? 'page' : undefined}
+              className="block w-full px-3 py-2.5 rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {item.label}
-            </button>
+            </Link>
           ))}
           <div className="pt-2 border-t border-outline-variant/20 flex flex-col gap-2">
             {!isAuthenticated && (
-              <Button
-                variant="primary"
-                fullWidth
-                size="sm"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  router.push('/auth?mode=register');
-                }}
+              <Link
+                href="/auth?mode=register"
+                onClick={() => setMobileMenuPath(null)}
+                className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary-container px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
+                <Rocket size={16} aria-hidden="true" />
                 Bắt đầu miễn phí
-              </Button>
+              </Link>
             )}
           </div>
-        </div>
+        </nav>
       )}
     </header>
   );

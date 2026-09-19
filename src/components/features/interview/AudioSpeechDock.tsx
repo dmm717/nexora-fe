@@ -22,7 +22,9 @@ export interface AudioSpeechDockProps {
   variant?: 'default' | 'call';
   controls?: React.ReactNode;
   onStateChange?: (state: AudioSpeechState) => void;
-  onBeforeListening?: () => void;
+  onListeningPreparationChange?: (preparing: boolean) => void;
+  onBeforeListening?: () => void | Promise<void>;
+  onBeforeSubmit?: () => void | Promise<void>;
   editorOpen?: boolean;
   onEditorOpenChange?: (open: boolean) => void;
 }
@@ -37,7 +39,9 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   variant = 'call',
   controls,
   onStateChange,
+  onListeningPreparationChange,
   onBeforeListening,
+  onBeforeSubmit,
   editorOpen,
   onEditorOpenChange,
 }) => {
@@ -54,9 +58,24 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
 
   const [content, setContent] = useState<string>(initialContent);
   const [durationSeconds, setDurationSeconds] = useState<number>(0);
+  const [isStartingListening, setIsStartingListening] = useState(false);
+  const [preparationError, setPreparationError] = useState<string | null>(null);
 
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const contentRef = useRef<string>(content);
+  const mountedRef = useRef(true);
+  const onListeningPreparationChangeRef = useRef(onListeningPreparationChange);
+  const listeningAttemptRef = useRef(0);
+  const listeningStartInFlightRef = useRef(false);
+  const isSubmittingRef = useRef(isSubmitting);
+
+  useEffect(() => {
+    onListeningPreparationChangeRef.current = onListeningPreparationChange;
+  }, [onListeningPreparationChange]);
+
+  useEffect(() => {
+    isSubmittingRef.current = isSubmitting;
+  }, [isSubmitting]);
 
   useEffect(() => {
     contentRef.current = content;
@@ -73,6 +92,16 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   }, [onTranscriptChange]);
 
   const speech = useSpeechRecognition({ onFinalSegment: handleFinalSegment });
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      listeningAttemptRef.current += 1;
+      listeningStartInFlightRef.current = false;
+      onListeningPreparationChangeRef.current?.(false);
+    };
+  }, []);
 
   // Notify parent of state change
   useEffect(() => {
@@ -102,31 +131,92 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
     onDurationUpdate?.(durationSeconds);
   }, [durationSeconds, onDurationUpdate]);
 
-  const stopQuestionTts = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {
-        // ignore
+  useEffect(() => {
+    if (!isStartingListening || (!speech.listening && !speech.error)) return;
+    listeningStartInFlightRef.current = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsStartingListening(false);
+    onListeningPreparationChangeRef.current?.(false);
+  }, [isStartingListening, speech.error, speech.listening]);
+
+  const cancelPendingListeningStart = () => {
+    listeningAttemptRef.current += 1;
+    listeningStartInFlightRef.current = false;
+    setIsStartingListening(false);
+    onListeningPreparationChangeRef.current?.(false);
+  };
+
+  const handleStartListening = async () => {
+    if (
+      listeningStartInFlightRef.current ||
+      speech.listening ||
+      isSubmittingRef.current
+    ) {
+      return;
+    }
+
+    listeningStartInFlightRef.current = true;
+    const attempt = ++listeningAttemptRef.current;
+    setIsStartingListening(true);
+    onListeningPreparationChangeRef.current?.(true);
+    setPreparationError(null);
+    let startAccepted = false;
+
+    try {
+      // Await parent-owned interviewer playback shutdown before opening STT.
+      await onBeforeListening?.();
+      if (
+        !mountedRef.current ||
+        listeningAttemptRef.current !== attempt ||
+        isSubmittingRef.current
+      ) {
+        return;
+      }
+      startAccepted = speech.start();
+      if (!startAccepted) {
+        setPreparationError(
+          'Không thể bắt đầu microphone. Hãy kiểm tra quyền truy cập rồi thử lại.'
+        );
+      }
+    } catch {
+      if (mountedRef.current && listeningAttemptRef.current === attempt) {
+        setPreparationError(
+          'Không thể dừng giọng AI. Hãy thử lại trước khi bật microphone.'
+        );
+      }
+    } finally {
+      if (
+        !startAccepted &&
+        mountedRef.current &&
+        listeningAttemptRef.current === attempt
+      ) {
+        listeningStartInFlightRef.current = false;
+        setIsStartingListening(false);
+        onListeningPreparationChangeRef.current?.(false);
       }
     }
   };
 
-  const handleStartListening = () => {
-    stopQuestionTts();
-    onBeforeListening?.();
-    speech.start();
-  };
-
   const handleStopListening = () => {
+    cancelPendingListeningStart();
     speech.stop();
   };
 
-  const handleSubmit = () => {
-    if (speech.listening) {
-      handleStopListening();
+  const handleSubmit = async () => {
+    const wasPreparingListening =
+      isStartingListening || listeningStartInFlightRef.current;
+    cancelPendingListeningStart();
+    if (speech.listening || wasPreparingListening) speech.stop();
+
+    try {
+      await onBeforeSubmit?.();
+      setPreparationError(null);
+    } catch {
+      // Text submission stays available even if presentation audio cannot stop.
+      setPreparationError(
+        'Không thể dừng giọng AI. Câu trả lời văn bản vẫn có thể được gửi.'
+      );
     }
-    stopQuestionTts();
 
     const trimmed = content.trim();
     if (!trimmed || !onSubmit) return;
@@ -150,18 +240,27 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
               type="button"
               className={`interview-mic-button ${speech.listening ? 'is-listening' : ''}`}
               aria-label={
-                speech.listening
+                isStartingListening
+                  ? 'Đang dừng giọng AI trước khi bật microphone'
+                  : speech.listening
                   ? 'Dừng microphone và xem lại câu trả lời'
                   : 'Bắt đầu trả lời bằng microphone'
               }
               aria-pressed={speech.listening}
-              disabled={isSubmitting}
-              onClick={speech.listening ? handleStopListening : handleStartListening}
+              aria-busy={isStartingListening}
+              disabled={isSubmitting || isStartingListening}
+              onClick={speech.listening ? handleStopListening : () => void handleStartListening()}
             >
               <span aria-hidden="true" className="material-symbols-outlined">
                 {speech.listening ? 'stop_circle' : 'mic'}
               </span>
-              <span>{speech.listening ? 'Dừng nói' : 'Trả lời'}</span>
+              <span>
+                {isStartingListening
+                  ? 'Đang chuẩn bị micro...'
+                  : speech.listening
+                  ? 'Dừng nói'
+                  : 'Trả lời'}
+              </span>
             </button>
           )}
 
@@ -177,7 +276,14 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
                 : 'Chuyển sang giọng nói'
             }
             onClick={() => {
-              if (speech.listening) handleStopListening();
+              const wasPreparingListening =
+                isStartingListening || listeningStartInFlightRef.current;
+              if (wasPreparingListening) {
+                cancelPendingListeningStart();
+                speech.stop();
+              } else if (speech.listening) {
+                handleStopListening();
+              }
               const next = forcedTextOnly || effectiveMode === 'voice' ? 'chatbox' : 'voice';
               setDeviceMode(next);
               onEditorOpenChange?.(next === 'chatbox');
@@ -205,6 +311,12 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
         {speech.error && (
           <p className="interview-mic-error" role="alert">
             {speech.error.message}
+          </p>
+        )}
+
+        {preparationError && (
+          <p className="interview-mic-error" role="alert">
+            {preparationError}
           </p>
         )}
 
@@ -268,7 +380,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={speech.listening ? handleStopListening : handleStartListening}
+          onClick={speech.listening ? handleStopListening : () => void handleStartListening()}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold"
           disabled={isSubmitting}
         >

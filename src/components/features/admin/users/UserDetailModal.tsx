@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { AdminAsyncNotice } from '@/components/features/admin/AdminAsyncNotice';
 import { AdminUserView, EntitlementFeatureResponse, OrderResponse } from '@/services/adminApi';
 import { useAdminUserDetail } from '@/hooks/queries/useAdminUsers';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 import { GrantPlanModal } from './GrantPlanModal';
 import { AdjustQuotaModal } from './AdjustQuotaModal';
 
@@ -12,153 +17,206 @@ interface UserDetailModalProps {
 }
 
 export function UserDetailModal({ isOpen, onClose, userId }: UserDetailModalProps) {
-  const { data: user, isLoading, error } = useAdminUserDetail(userId);
-
+  const detailsQuery = useAdminUserDetail(userId);
   const [isGrantOpen, setIsGrantOpen] = useState(false);
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
 
-  if (!isOpen) return null;
+  // The modal can remain mounted while its selected id changes. Never present
+  // data belonging to the previous key during that transition.
+  const user = detailsQuery.data?.id === userId ? detailsQuery.data : undefined;
+  const queryPresentation = getQueryPresentation({
+    hasData: user !== undefined,
+    isLoading: detailsQuery.isLoading,
+    isError: detailsQuery.isError,
+    isFetching: detailsQuery.isFetching,
+  });
+  const showSubModal = isGrantOpen || isAdjustOpen;
+  const retry = () => { void detailsQuery.refetch(); };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white', borderRadius: '0.75rem', padding: '2rem',
-        width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Chi tiết Người dùng</h3>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
-        </div>
+    <>
+      <Modal
+        isOpen={isOpen && Boolean(userId) && !showSubModal}
+        onClose={onClose}
+        title="Chi tiết người dùng"
+        description="Thông tin tài khoản, gói cước, hạn mức và các giao dịch gần đây."
+        size="xl"
+      >
+        {queryPresentation.showBackgroundError && (
+          <AdminAsyncNotice kind="error" onRetry={retry} className="mb-4" />
+        )}
+        {queryPresentation.showRefreshing && !queryPresentation.showBackgroundError && (
+          <AdminAsyncNotice kind="refreshing" className="mb-2" />
+        )}
 
-        {isLoading && <div>Đang tải thông tin...</div>}
-        {error && <div style={{ color: 'red' }}>Lỗi khi tải dữ liệu chi tiết.</div>}
-
-        {!isLoading && !error && user && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-            {/* Thông tin cơ bản */}
-            <div>
-              <h4 style={{ fontSize: '1rem', fontWeight: '600', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Thông tin cơ bản</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.875rem' }}>
-                <div><span style={{ color: '#6b7280' }}>ID:</span> <span style={{ fontWeight: '500' }}>{user.id}</span></div>
-                <div><span style={{ color: '#6b7280' }}>Email:</span> <span style={{ fontWeight: '500' }}>{user.email}</span></div>
-                <div><span style={{ color: '#6b7280' }}>Tên hiển thị:</span> <span style={{ fontWeight: '500' }}>{user.displayName || '-'}</span></div>
-                <div><span style={{ color: '#6b7280' }}>Ngày tham gia:</span> <span style={{ fontWeight: '500' }}>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</span></div>
-                <div><span style={{ color: '#6b7280' }}>Trạng thái:</span> <span style={{ fontWeight: '500', color: user.active ? '#166534' : '#991b1b' }}>{user.active ? 'Hoạt động' : 'Đã khóa'}</span></div>
-                <div>
-                  <span style={{ color: '#6b7280' }}>Phân quyền: </span>
-                  {(user.roles || []).map((r: string) => (
-                    <span key={r} style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '0.1rem 0.4rem', borderRadius: '4px', marginRight: '0.5rem' }}>{r}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Gói cước và Hạn mức */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>Gói cước & Hạn mức</h4>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Button onClick={() => setIsAdjustOpen(true)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: 'white', color: '#f59e0b', border: '1px solid #fcd34d' }}>+ Chỉnh Quota</Button>
-                  <Button onClick={() => setIsGrantOpen(true)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: '#2563eb' }}>Cấp gói cước</Button>
-                </div>
-              </div>
-
-              {!user.currentEntitlement ? (
-                <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem', color: '#6b7280', fontSize: '0.875rem' }}>
-                  Người dùng chưa có gói cước nào đang kích hoạt.
-                </div>
-              ) : (
-                <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', overflow: 'hidden' }}>
-                  <div style={{ padding: '1rem', backgroundColor: '#f0fdf4', display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontWeight: '600', color: '#166534' }}>Gói hiện tại: {user.currentEntitlement.planCode.toUpperCase()}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#15803d', marginTop: '0.25rem' }}>
-                        Hiệu lực: {new Date(user.currentEntitlement.startsAt).toLocaleDateString('vi-VN')} {user.currentEntitlement.endsAt ? `- ${new Date(user.currentEntitlement.endsAt).toLocaleDateString('vi-VN')}` : '- Vĩnh viễn'}
-                      </div>
-                    </div>
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                    <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      <tr>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4b5563' }}>Tính năng</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'center', color: '#4b5563' }}>Giới hạn</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'center', color: '#4b5563' }}>Đã dùng</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'center', color: '#4b5563' }}>Điều chỉnh</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'center', color: '#111827', fontWeight: '600' }}>Còn lại</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {user.currentEntitlement.features.map((f: EntitlementFeatureResponse) => (
-                        <tr key={f.code} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={{ padding: '0.75rem' }}>
-                            <div style={{ fontWeight: '500' }}>{f.name}</div>
-                            <div style={{ color: '#6b7280', fontSize: '0.75rem' }}>{f.code} {f.enabled ? '(Bật)' : '(Tắt)'}</div>
-                          </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>{f.unlimited ? '∞' : f.limit}</td>
-                          <td style={{ padding: '0.75rem', textAlign: 'center', color: '#ef4444' }}>{f.consumed}</td>
-                          <td style={{ padding: '0.75rem', textAlign: 'center', color: f.adjustment > 0 ? '#10b981' : f.adjustment < 0 ? '#ef4444' : '#6b7280' }}>
-                            {f.adjustment > 0 ? `+${f.adjustment}` : f.adjustment}
-                          </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600', color: '#2563eb' }}>
-                            {f.unlimited ? '∞' : f.available}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Lịch sử đơn hàng */}
-            <div>
-              <h4 style={{ fontSize: '1rem', fontWeight: '600', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Lịch sử giao dịch gần đây</h4>
-              {(!user.recentOrders || user.recentOrders.length === 0) ? (
-                <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem', color: '#6b7280', fontSize: '0.875rem' }}>
-                  Chưa có giao dịch nào.
-                </div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                    <tr>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4b5563' }}>Mã ĐH</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4b5563' }}>Gói</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', color: '#4b5563' }}>Số tiền</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'center', color: '#4b5563' }}>Trạng thái</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', color: '#4b5563' }}>Ngày tạo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {user.recentOrders.map((o: OrderResponse) => (
-                      <tr key={o.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '0.75rem', color: '#6b7280' }}>{o.id.substring(0, 8)}...</td>
-                        <td style={{ padding: '0.75rem', fontWeight: '500' }}>{o.planCode.toUpperCase()}</td>
-                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>{(o.amountMinor).toLocaleString()} {o.currency}</td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                          <span style={{ backgroundColor: o.status === 'paid' ? '#dcfce7' : '#f3f4f6', color: o.status === 'paid' ? '#166534' : '#4b5563', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem' }}>
-                            {o.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.75rem', textAlign: 'right', color: '#6b7280' }}>{new Date(o.createdAt).toLocaleDateString('vi-VN')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
+        {queryPresentation.showInitialLoading && <UserDetailSkeleton />}
+        {queryPresentation.showBlockingError && (
+          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-error/30 bg-error-container/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-on-surface-variant">Không thể tải thông tin chi tiết người dùng.</p>
+            <Button type="button" variant="outline" onClick={retry}>Thử lại</Button>
           </div>
         )}
-      </div>
+        {!user && !queryPresentation.showBlockingError && !queryPresentation.showInitialLoading && (
+          <UserDetailSkeleton />
+        )}
+        {user && <UserDetailContent user={user} onGrant={() => setIsGrantOpen(true)} onAdjust={() => setIsAdjustOpen(true)} />}
+      </Modal>
 
-      {/* Sub-modals */}
-      <GrantPlanModal isOpen={isGrantOpen} onClose={() => setIsGrantOpen(false)} user={user as AdminUserView} />
-      <AdjustQuotaModal isOpen={isAdjustOpen} onClose={() => setIsAdjustOpen(false)} user={user as AdminUserView} />
+      {/* Render child dialogs as siblings so their focus traps do not compete with this dialog. */}
+      <GrantPlanModal
+        isOpen={isOpen && isGrantOpen}
+        onClose={() => setIsGrantOpen(false)}
+        user={user ?? null}
+      />
+      <AdjustQuotaModal
+        isOpen={isOpen && isAdjustOpen}
+        onClose={() => setIsAdjustOpen(false)}
+        user={user ?? null}
+      />
+    </>
+  );
+}
+
+function UserDetailSkeleton() {
+  return (
+    <div role="status" aria-label="Đang tải thông tin người dùng" className="space-y-6">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-5 w-4/5" />)}
+      </div>
+      <Skeleton className="h-36 w-full" />
+      <Skeleton className="h-28 w-full" />
+    </div>
+  );
+}
+
+function UserDetailContent({ user, onGrant, onAdjust }: { user: AdminUserView & { currentEntitlement?: { id: string; planCode: string; startsAt: string; endsAt?: string; features: EntitlementFeatureResponse[] }; recentOrders: OrderResponse[] }; onGrant: () => void; onAdjust: () => void }) {
+  return (
+    <div className="space-y-7">
+      <section aria-labelledby="admin-user-basics" className="space-y-3">
+        <h3 id="admin-user-basics" className="border-b border-outline-variant pb-2 text-sm font-bold text-on-surface">Thông tin cơ bản</h3>
+        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <DetailField label="ID" value={user.id} />
+          <DetailField label="Email" value={user.email} />
+          <DetailField label="Tên hiển thị" value={user.displayName || '—'} />
+          <DetailField label="Ngày tham gia" value={new Date(user.createdAt).toLocaleDateString('vi-VN')} />
+          <div className="flex flex-col gap-1">
+            <dt className="text-xs font-medium text-on-surface-variant">Trạng thái</dt>
+            <dd><Badge variant={user.active ? 'success' : 'error'} size="sm">{user.active ? 'Hoạt động' : 'Đã khóa'}</Badge></dd>
+          </div>
+          <div className="flex flex-col gap-1">
+            <dt className="text-xs font-medium text-on-surface-variant">Phân quyền</dt>
+            <dd className="flex flex-wrap gap-1.5">
+              {(user.roles || []).length > 0
+                ? user.roles.map((role) => <Badge key={role} variant="primary" size="sm">{role}</Badge>)
+                : <span className="text-on-surface">—</span>}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section aria-labelledby="admin-user-entitlement" className="space-y-3">
+        <div className="flex flex-col gap-3 border-b border-outline-variant pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 id="admin-user-entitlement" className="text-sm font-bold text-on-surface">Gói cước & hạn mức</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onAdjust}>Chỉnh quota</Button>
+            <Button type="button" size="sm" onClick={onGrant}>Cấp gói cước</Button>
+          </div>
+        </div>
+
+        {!user.currentEntitlement ? (
+          <p className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 text-sm text-on-surface-variant">
+            Người dùng chưa có gói cước nào đang kích hoạt.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-outline-variant/60">
+            <div className="flex flex-col gap-1 bg-surface-container-low px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="font-semibold text-on-surface">Gói hiện tại: {user.currentEntitlement.planCode.toUpperCase()}</p>
+              <p className="text-xs text-on-surface-variant">
+                Hiệu lực: {new Date(user.currentEntitlement.startsAt).toLocaleDateString('vi-VN')}{' '}
+                {user.currentEntitlement.endsAt
+                  ? `– ${new Date(user.currentEntitlement.endsAt).toLocaleDateString('vi-VN')}`
+                  : '– Vĩnh viễn'}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] border-collapse text-left text-sm">
+                <caption className="sr-only">Hạn mức tính năng của gói hiện tại</caption>
+                <thead className="border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
+                  <tr>
+                    <th scope="col" className="px-3 py-3 text-left text-xs font-semibold">Tính năng</th>
+                    <th scope="col" className="px-3 py-3 text-center text-xs font-semibold">Giới hạn</th>
+                    <th scope="col" className="px-3 py-3 text-center text-xs font-semibold">Đã dùng</th>
+                    <th scope="col" className="px-3 py-3 text-center text-xs font-semibold">Điều chỉnh</th>
+                    <th scope="col" className="px-3 py-3 text-center text-xs font-semibold">Còn lại</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {user.currentEntitlement.features.map((feature: EntitlementFeatureResponse) => (
+                    <tr key={feature.code} className="border-b border-outline-variant/50 last:border-b-0">
+                      <td className="px-3 py-3">
+                        <p className="font-medium text-on-surface">{feature.name}</p>
+                        <p className="mt-0.5 text-xs text-on-surface-variant">{feature.code} · {feature.enabled ? 'Bật' : 'Tắt'}</p>
+                      </td>
+                      <td className="px-3 py-3 text-center text-on-surface">{feature.unlimited ? '∞' : feature.limit}</td>
+                      <td className="px-3 py-3 text-center text-on-surface">{feature.consumed}</td>
+                      <td className={`px-3 py-3 text-center ${feature.adjustment > 0 ? 'text-primary' : feature.adjustment < 0 ? 'text-error' : 'text-on-surface-variant'}`}>
+                        {feature.adjustment > 0 ? `+${feature.adjustment}` : feature.adjustment}
+                      </td>
+                      <td className="px-3 py-3 text-center font-semibold text-primary">{feature.unlimited ? '∞' : feature.available}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="admin-user-orders" className="space-y-3">
+        <h3 id="admin-user-orders" className="border-b border-outline-variant pb-2 text-sm font-bold text-on-surface">Lịch sử giao dịch gần đây</h3>
+        {user.recentOrders.length === 0 ? (
+          <p className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-4 text-sm text-on-surface-variant">
+            Chưa có giao dịch nào.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-outline-variant/60">
+            <table className="w-full min-w-[680px] border-collapse text-left text-sm">
+              <caption className="sr-only">Các giao dịch gần đây của người dùng</caption>
+              <thead className="border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
+                <tr>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold">Mã ĐH</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold">Gói</th>
+                  <th scope="col" className="px-3 py-3 text-right text-xs font-semibold">Số tiền</th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-semibold">Trạng thái</th>
+                  <th scope="col" className="px-3 py-3 text-right text-xs font-semibold">Ngày tạo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {user.recentOrders.map((order: OrderResponse) => (
+                  <tr key={order.id} className="border-b border-outline-variant/50 last:border-b-0">
+                    <td className="px-3 py-3 font-mono text-xs text-on-surface-variant">{order.id.substring(0, 8)}…</td>
+                    <td className="px-3 py-3 font-medium text-on-surface">{order.planCode.toUpperCase()}</td>
+                    <td className="px-3 py-3 text-right text-on-surface">{order.amountMinor.toLocaleString('vi-VN')} {order.currency}</td>
+                    <td className="px-3 py-3 text-center">
+                      <Badge variant={order.status === 'paid' ? 'success' : 'neutral'} size="sm">{order.status}</Badge>
+                    </td>
+                    <td className="px-3 py-3 text-right text-on-surface-variant">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <dt className="text-xs font-medium text-on-surface-variant">{label}</dt>
+      <dd className="break-all font-medium text-on-surface">{value}</dd>
     </div>
   );
 }

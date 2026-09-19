@@ -64,7 +64,7 @@ export const Button: React.FC<ButtonProps> = ({
         <>
           <span
             aria-hidden="true"
-            className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0"
+            className="functional-spinner inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full flex-shrink-0"
           />
           <span className="sr-only">Đang xử lý</span>
           {children && <span>{children}</span>}

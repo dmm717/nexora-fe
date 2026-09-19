@@ -21,12 +21,15 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import { AuthGateModal } from '@/components/auth/AuthGateModal';
+import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { LandingPlanCard } from './LandingPlanCard';
 import { useLandingMotion } from './useLandingMotion';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { usePlans } from '@/hooks/queries/useBilling';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
 import type { AuthIntent } from '@/utils/authIntent';
+import { getQueryPresentation } from '@/utils/queryPresentation';
 import styles from './landing.module.css';
 
 const loopSteps = [
@@ -64,7 +67,7 @@ const starSteps = [
   { letter: 'R', title: 'Kết quả', text: 'Điều gì thay đổi sau đó?' },
 ];
 
-function Meter({ label, value }: { label: string; value: number }) {
+function Meter({ label, value, demo = false }: { label: string; value: number; demo?: boolean }) {
   return (
     <div className={styles.meterRow}>
       <div>
@@ -72,7 +75,11 @@ function Meter({ label, value }: { label: string; value: number }) {
         <b>{value}/100</b>
       </div>
       <div className={styles.meterTrack}>
-        <span data-meter style={{ width: `${value}%` }} />
+        <span
+          data-meter={demo ? undefined : ''}
+          data-cv-meter={demo ? '' : undefined}
+          style={{ width: `${value}%` }}
+        />
       </div>
     </div>
   );
@@ -99,30 +106,89 @@ function CvPreview({
   onStartDemo?: () => void;
 }) {
   const scoreRef = useRef<HTMLElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (compact || demoStage !== 'result' || !scoreRef.current) return undefined;
+    if (compact || demoStage !== 'result' || !resultRef.current) return undefined;
 
     let cancelled = false;
     let context: { revert: () => void } | undefined;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const showFinalState = () => {
+      const result = resultRef.current;
+      if (!result) return;
+
+      result.style.opacity = '1';
+      result.style.transform = 'none';
+      result.querySelectorAll<SVGCircleElement>('[data-cv-radial]').forEach((element) => {
+        element.style.strokeDashoffset = element.dataset.radialFinal || '58';
+      });
+      result.querySelectorAll<HTMLElement>('[data-cv-meter]').forEach((element) => {
+        element.style.transform = 'none';
+      });
+      if (scoreRef.current) scoreRef.current.textContent = '78';
+    };
+    const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        context?.revert();
+        showFinalState();
+      }
+    };
+
+    if (reducedMotion.matches) {
+      showFinalState();
+      return undefined;
+    }
+
+    reducedMotion.addEventListener('change', handleMotionPreferenceChange);
     import('gsap').then(({ gsap }) => {
-      if (cancelled || !scoreRef.current) return;
+      if (cancelled || !resultRef.current || !scoreRef.current) return;
+      if (reducedMotion.matches) {
+        showFinalState();
+        return;
+      }
+
+      scoreRef.current.textContent = '0';
       const score = { value: 0 };
       context = gsap.context(() => {
-        gsap.to(score, {
-          value: 78,
-          duration: 0.9,
-          ease: 'power2.out',
-          onUpdate: () => {
-            if (scoreRef.current) scoreRef.current.textContent = String(Math.round(score.value));
-          },
-        });
-      }, scoreRef.current);
+        const timeline = gsap.timeline();
+        timeline
+          .from(resultRef.current, { y: 18, opacity: 0.6, duration: 0.45, ease: 'power2.out' })
+          .fromTo(
+            '[data-cv-radial]',
+            { strokeDashoffset: 264 },
+            { strokeDashoffset: 58, duration: 0.9, ease: 'power2.out' },
+            0.1,
+          )
+          .fromTo(
+            '[data-cv-meter]',
+            { scaleX: 0, transformOrigin: 'left center' },
+            { scaleX: 1, duration: 0.75, stagger: 0.12, ease: 'power2.out' },
+            0.2,
+          )
+          .to(
+            score,
+            {
+              value: 78,
+              duration: 0.9,
+              ease: 'power2.out',
+              onUpdate: () => {
+                if (scoreRef.current) scoreRef.current.textContent = String(Math.round(score.value));
+              },
+            },
+            0.1,
+          );
+      }, resultRef.current);
+    }).catch((error: unknown) => {
+      showFinalState();
+      console.error('[cv-demo-motion] Initialization failed; using the visible fallback state.', error);
     });
 
     return () => {
       cancelled = true;
+      reducedMotion.removeEventListener('change', handleMotionPreferenceChange);
       context?.revert();
+      showFinalState();
     };
   }, [compact, demoStage]);
 
@@ -139,13 +205,15 @@ function CvPreview({
         <SampleLabel label={compact ? 'Demo minh họa' : 'Dữ liệu minh họa'} />
       </div>
       {showResult ? (
-        <>
+        <div ref={compact ? undefined : resultRef} data-cv-demo-result={compact ? undefined : ''}>
           <div className={styles.scoreSummary}>
             <div className={styles.scoreRing}>
               <svg viewBox="0 0 100 100" aria-hidden="true">
                 <circle cx="50" cy="50" r="42" />
                 <circle
-                  data-radial
+                  data-radial={compact ? '' : undefined}
+                  data-cv-radial={compact ? undefined : ''}
+                  data-radial-final="58"
                   cx="50"
                   cy="50"
                   r="42"
@@ -153,7 +221,13 @@ function CvPreview({
                   strokeDashoffset="58"
                 />
               </svg>
-              <b ref={scoreRef} data-count="78">{compact ? '78' : '0'}</b>
+              <b
+                ref={scoreRef}
+                data-count={compact ? '78' : undefined}
+                data-cv-count={compact ? undefined : '78'}
+              >
+                78
+              </b>
             </div>
             <div>
               <strong>CV có nền tảng tốt.</strong>
@@ -166,8 +240,8 @@ function CvPreview({
           </div>
           {!compact && (
             <>
-              <Meter label="Kinh nghiệm phù hợp" value={82} />
-              <Meter label="Bằng chứng kết quả" value={64} />
+              <Meter label="Kinh nghiệm phù hợp" value={82} demo />
+              <Meter label="Bằng chứng kết quả" value={64} demo />
               <div className={styles.feedback}>
                 <Sparkles size={18} />
                 <p>
@@ -182,7 +256,7 @@ function CvPreview({
               </button>
             </>
           )}
-        </>
+        </div>
       ) : (
         <>
           {showSampleContext && (
@@ -311,8 +385,26 @@ export function MarketingLanding() {
   const root = useRef<HTMLDivElement>(null);
   useLandingMotion(root);
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
-  const { data: plans = [] } = usePlans();
+  const { isAuthenticated, authReady } = useAuth();
+  const plansQuery = usePlans();
+  const {
+    data: plans,
+    isLoading: loadingPlans,
+    isError: plansHaveError,
+    isFetching: fetchingPlans,
+    refetch: refetchPlans,
+  } = plansQuery;
+  const hasPlansData = plans !== undefined;
+  const plansPresentation = getQueryPresentation({
+    hasData: hasPlansData,
+    isLoading: loadingPlans,
+    isError: plansHaveError,
+    isFetching: fetchingPlans,
+  });
+  const pricedPlans = (plans ?? []).flatMap((plan) => {
+    const price = plan.prices?.[0];
+    return price ? [{ plan, price }] : [];
+  });
 
   const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
   const [preview, setPreview] = useState<'cv' | 'interview' | 'recommendation'>('cv');
@@ -336,6 +428,7 @@ export function MarketingLanding() {
   };
 
   const start = (action: AuthIntent['action'], targetUrl: string) => {
+    if (!authReady) return;
     if (isAuthenticated) {
       router.push(targetUrl);
     } else {
@@ -344,6 +437,7 @@ export function MarketingLanding() {
   };
 
   const handleSelectPlan = (plan: PlanView, price: PlanPrice) => {
+    if (!authReady) return;
     if (price.amountMinor === 0) {
       start('navigation', '/overview');
       return;
@@ -370,6 +464,7 @@ export function MarketingLanding() {
     <button
       type="button"
       className={`${styles.primaryAction} ${light ? styles.lightAction : ''}`}
+      disabled={!authReady}
       onClick={() => start(type, url)}
     >
       {text}
@@ -431,21 +526,27 @@ export function MarketingLanding() {
               sizes="(max-width: 760px) 100vw, 55vw"
               priority
             />
-            <div data-hero-card data-float className={styles.heroCv}>
-              <CvPreview compact />
-            </div>
-            <div data-hero-card data-float className={styles.heroInterview}>
-              <InterviewPreview />
-            </div>
-            <div data-hero-card data-float className={styles.heroRecommendation}>
-              <span className={styles.suggestionIcon}>
-                <RotateCcw size={18} />
-              </span>
-              <div>
-                <b>Bước tiếp theo của bạn</b>
-                <p>Luyện lại cách trình bày kết quả theo STAR.</p>
+            <div data-hero-card className={styles.heroCv}>
+              <div data-float className={styles.heroFloatLayer}>
+                <CvPreview compact />
               </div>
-              <ArrowRight size={17} />
+            </div>
+            <div data-hero-card className={styles.heroInterview}>
+              <div data-float className={styles.heroFloatLayer}>
+                <InterviewPreview />
+              </div>
+            </div>
+            <div data-hero-card className={styles.heroRecommendation}>
+              <div data-float className={styles.heroRecommendationCard}>
+                <span className={styles.suggestionIcon}>
+                  <RotateCcw size={18} />
+                </span>
+                <div>
+                  <b>Bước tiếp theo của bạn</b>
+                  <p>Luyện lại cách trình bày kết quả theo STAR.</p>
+                </div>
+                <ArrowRight size={17} />
+              </div>
             </div>
           </div>
         </div>
@@ -587,9 +688,9 @@ export function MarketingLanding() {
               true
             )}
             <p className={styles.freeNote}>
-              Gói miễn phí có 3 câu hỏi và lối đi tới báo cáo.
+              Thông tin gói và hạn mức hiện có được cập nhật trực tiếp trong bảng giá.
               <br />
-              Chỉ nâng cấp khi muốn tiếp tục từ câu 4.
+              Xem chi tiết trước khi chọn gói luyện tập.
             </p>
           </div>
           <div data-reveal>
@@ -766,22 +867,74 @@ export function MarketingLanding() {
             năng chuyên sâu.
           </p>
         </div>
-        <div className={styles.pricingGrid}>
-          {plans.map((plan, index) => {
-            const price = plan.prices && plan.prices.length > 0 ? plan.prices[0] : null;
-            if (!price) return null;
-            return (
+        {plansPresentation.showInitialLoading && (
+          <div role="status">
+            <div className={styles.pricingGrid} aria-hidden="true">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} className={styles.planSkeleton}>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-6 w-2/3" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <Skeleton className="h-9 w-1/2" />
+                  <div className="space-y-3 pt-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-4/5" />
+                  </div>
+                  <Skeleton className="h-10 w-full rounded-lg mt-auto" />
+                </div>
+              ))}
+            </div>
+            <span className="sr-only">Đang tải thông tin các gói dịch vụ...</span>
+          </div>
+        )}
+        {plansPresentation.showBlockingError && (
+          <div role="alert" className={styles.pricingMessage}>
+            <div>
+              <h3>Chưa tải được bảng giá</h3>
+              <p>Kiểm tra kết nối rồi thử tải lại. Hiện chưa thể chọn gói khi chưa có thông tin giá.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void refetchPlans()}>
+              Thử tải lại
+            </Button>
+          </div>
+        )}
+        {plansPresentation.showBackgroundError && (
+          <div role="alert" className={styles.pricingMessage}>
+            <div>
+              <h3>Bảng giá chưa được cập nhật</h3>
+              <p>Thông tin đã tải trước đó vẫn được giữ lại.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void refetchPlans()}>
+              Thử tải lại
+            </Button>
+          </div>
+        )}
+        {plansPresentation.showRefreshing && !plansPresentation.showBackgroundError && (
+          <p role="status" className={styles.pricingStatus}>Đang cập nhật bảng giá...</p>
+        )}
+        {hasPlansData && pricedPlans.length === 0 && (
+          <div role="status" className={styles.pricingEmpty}>
+            <h3>Chưa có gói giá khả dụng</h3>
+            <p>Bảng giá chưa có lựa chọn khả dụng vào lúc này. Bạn có thể quay lại sau.</p>
+          </div>
+        )}
+        {pricedPlans.length > 0 && (
+          <div className={styles.pricingGrid}>
+            {pricedPlans.map(({ plan, price }) => (
               <div data-reveal className={styles.planWrap} key={plan.id}>
                 <LandingPlanCard
                   plan={plan}
                   price={price}
-                  isHighlighted={index === 1}
+                  isHighlighted={plan.isHighlighted}
+                  disabled={!authReady}
                   onSelect={handleSelectPlan}
                 />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
         <div className={styles.pricingNote}>
           <ShieldCheck size={17} />
           <p>

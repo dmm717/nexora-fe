@@ -48,6 +48,31 @@ export function shouldRenderFocusedPracticeHeader(pathname: string): boolean {
  * Routes under /interviews exit to /interviews.
  * Routes under /practice exit to /practice.
  */
-export function resolveDefaultFocusedExit(pathname: string): string {
+export type FocusedExitDestination = '/interviews' | '/practice';
+
+export function resolveDefaultFocusedExit(pathname: string): FocusedExitDestination {
   return pathname.startsWith('/interviews') ? '/interviews' : '/practice';
+}
+
+/** Only allow the two focused-shell exit destinations owned by the app. */
+export function resolveFocusedExitDestination(
+  pathname: string,
+  configuredDestination?: string | null
+): FocusedExitDestination {
+  if (configuredDestination === '/interviews' || configuredDestination === '/practice') {
+    return configuredDestination;
+  }
+  return resolveDefaultFocusedExit(pathname);
+}
+
+/** Guard a confirmed exit against duplicate click/event delivery. */
+export function navigateFocusedExitOnce(
+  destination: FocusedExitDestination,
+  navigate: (destination: FocusedExitDestination) => void,
+  request: { requested: boolean }
+): boolean {
+  if (request.requested) return false;
+  request.requested = true;
+  navigate(destination);
+  return true;
 }

@@ -29,6 +29,11 @@ import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useCareerProfile, useSetPrimaryResume, useResumes } from '@/hooks/queries/useCareerProfile';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus } from '@/utils/queryPolling';
+import {
+  getResumeAnalysisReadiness,
+  getResumeAnalysisSourceContract,
+  type ResumeAnalysisSourceMode,
+} from '@/services/resumeAnalysisSource';
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
@@ -467,7 +472,12 @@ export default function ResumesPage() {
   
   const { data: careerProfile } = useCareerProfile();
   const { data: userResumes } = useResumes();
-  const { mutate: setPrimaryResume, isPending: isSettingPrimary } = useSetPrimaryResume();
+  const {
+    mutate: setPrimaryResume,
+    isPending: isSettingPrimary,
+    error: setPrimaryError,
+    reset: resetPrimaryMutation,
+  } = useSetPrimaryResume();
 
   const { history, historyQuery, pending, addHistoryItem, setPendingAnalysis } = useResumeAnalysisHistory(currentUser?.id);
   const hasResumed = useRef(false);
@@ -492,6 +502,8 @@ export default function ResumesPage() {
   const [file, setFile] = useState<File | null>(null);
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [selectedResumeView, setSelectedResumeView] = useState<ResumeView | null>(null);
+  const [primaryResumeCandidateId, setPrimaryResumeCandidateId] = useState<string | null>(null);
+  const [primaryResumeCandidateView, setPrimaryResumeCandidateView] = useState<ResumeView | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -676,6 +688,10 @@ export default function ResumesPage() {
     setFile(fileSnapshot);
     setResumeId(null);
     setSelectedResumeView(null);
+    if (useCurrentGoal) {
+      setPrimaryResumeCandidateId(null);
+      setPrimaryResumeCandidateView(null);
+    }
     setStage(reusableUpload ? 'processing' : 'uploading');
     setIsUploading(true);
 
@@ -713,6 +729,10 @@ export default function ResumesPage() {
       if (!isCurrent()) return;
       completedUpload.current = null;
       setResumeId(resume.id);
+      if (useCurrentGoal) {
+        setPrimaryResumeCandidateId(resume.id);
+        setPrimaryResumeCandidateView(resume);
+      }
     } catch (err: unknown) {
       if (!isCurrent() || isAbortError(err)) return;
       setError(safeErrorMessage(err, 'Tải file thất bại.'));
@@ -724,6 +744,10 @@ export default function ResumesPage() {
       }
       // Keep the exact File snapshot so a retry can reuse the same bytes.
       setResumeId(null);
+      if (useCurrentGoal) {
+        setPrimaryResumeCandidateId(null);
+        setPrimaryResumeCandidateView(null);
+      }
       setStage('idle');
     } finally {
       if (isCurrent()) setIsUploading(false);
@@ -743,6 +767,10 @@ export default function ResumesPage() {
     setFile(null);
     setResumeId(null);
     setSelectedResumeView(null);
+    if (useCurrentGoal) {
+      setPrimaryResumeCandidateId(null);
+      setPrimaryResumeCandidateView(null);
+    }
     setIsUploading(false);
     setStage('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -753,9 +781,40 @@ export default function ResumesPage() {
       setError('Chỉ có thể chọn CV đã hoàn tất xử lý (sẵn sàng).');
       return;
     }
-    setResumeId(selected.id);
-    setSelectedResumeView(selected);
+    if (useCurrentGoal) {
+      resetPrimaryMutation();
+      setPrimaryResumeCandidateId(selected.id);
+      setPrimaryResumeCandidateView(selected);
+    } else {
+      setResumeId(selected.id);
+      setSelectedResumeView(selected);
+    }
     setFile(null);
+    setError(null);
+  };
+
+  const currentPrimaryCandidate = primaryResumeCandidateView
+    || (primaryResumeCandidateId
+      ? userResumes?.find((resume) => resume.id === primaryResumeCandidateId) ?? null
+      : null);
+  const isPrimaryCandidateReady = Boolean(
+    currentPrimaryCandidate?.status === 'ready'
+    || (primaryResumeCandidateId === resumeId && isResumeReady),
+  );
+
+  const handleSetPrimaryCandidate = () => {
+    if (!primaryResumeCandidateId || !isPrimaryCandidateReady || isSettingPrimary) return;
+    resetPrimaryMutation();
+    setPrimaryResume(primaryResumeCandidateId);
+  };
+
+  const handleSourceModeChange = (sourceMode: ResumeAnalysisSourceMode) => {
+    const nextUseCurrentGoal = sourceMode === 'current_profile';
+    if (nextUseCurrentGoal === useCurrentGoal) return;
+    // Resume uploads and custom selections belong to one analysis source only.
+    // Clear them when switching source so they cannot leak into the other mode.
+    handleRemoveFile();
+    setUseCurrentGoal(nextUseCurrentGoal);
     setError(null);
   };
 
@@ -794,10 +853,16 @@ export default function ResumesPage() {
 
       const existingOperation = isMatching ? pending : null;
 
+      const currentProfileSource = getResumeAnalysisSourceContract({
+        sourceMode: 'current_profile',
+        primaryResume: careerProfile?.primaryResume,
+        activeCareerGoal: careerProfile?.activeCareerGoal,
+      });
+
       const baseOp = {
         userId: currentUser.id,
         mode,
-        careerGoalId: careerProfile?.activeCareerGoal?.id,
+        ...currentProfileSource,
         analysisId: null,
         ...(mode === 'job_targeted' ? { jdContent: trimmedContent, jdTitle: trimmedTitle } : {}),
         ...(mode === 'field_benchmark' ? {
@@ -833,6 +898,11 @@ export default function ResumesPage() {
       return;
     }
 
+    const customResumeForContract = selectedResume ?? {
+      id: effectiveResumeId,
+      status: effectiveResumeReady ? 'ready' : null,
+    };
+
     if (mode === 'job_targeted') {
       const trimmedTitle = jdTitle.trim();
       const trimmedContent = jdContent.trim();
@@ -849,9 +919,13 @@ export default function ResumesPage() {
         jdContent: trimmedContent,
       });
 
+      const customSource = getResumeAnalysisSourceContract({
+        sourceMode: 'custom',
+        customResume: customResumeForContract,
+      });
       const operation = (isMatching ? pending : null) ?? createResumeAnalysisOperation({
         userId: currentUser.id,
-        resumeId: effectiveResumeId!,
+        ...customSource,
         mode: 'job_targeted',
         jobDescriptionId: null,
         analysisId: null,
@@ -880,9 +954,13 @@ export default function ResumesPage() {
         seniority: trimmedSeniority,
       });
 
+      const customSource = getResumeAnalysisSourceContract({
+        sourceMode: 'custom',
+        customResume: customResumeForContract,
+      });
       const operation = (isMatching ? pending : null) ?? createResumeAnalysisOperation({
         userId: currentUser.id,
-        resumeId: effectiveResumeId!,
+        ...customSource,
         mode: 'field_benchmark',
         analysisId: null,
         industry: trimmedIndustry,
@@ -897,16 +975,32 @@ export default function ResumesPage() {
   };
 
   const activeMode = activeOperation?.mode ?? mode;
-  const hasPrimaryResume = !!careerProfile?.primaryResume;
+  const sourceMode: ResumeAnalysisSourceMode = useCurrentGoal ? 'current_profile' : 'custom';
+  const hasPrimaryResume = careerProfile?.primaryResume?.status === 'ready';
   const hasGoal = !!careerProfile?.activeCareerGoal && !!careerProfile.activeCareerGoal.targetRole && !!careerProfile.activeCareerGoal.seniority;
-  const isBenchmarkIndustryMissing = useCurrentGoal && activeMode === 'field_benchmark' && !careerProfile?.activeCareerGoal?.industry && !industry.trim();
-  const isJobTargetedIncomplete = activeMode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim());
-  const isFieldBenchmarkIncomplete = !useCurrentGoal && activeMode === 'field_benchmark' && (!industry.trim() || !targetRole.trim() || !seniority.trim());
-  const isCurrentGoalIncomplete = useCurrentGoal && (!hasPrimaryResume || !hasGoal || isBenchmarkIndustryMissing);
   const selectedResume = selectedResumeView || (userResumes?.find(r => r.id === resumeId) ?? null);
   const effectiveResumeReady = file ? isResumeReady : (selectedResume ? selectedResume.status === 'ready' : isResumeReady);
-  const isCustomResumeIncomplete = !useCurrentGoal && (!resumeId || !effectiveResumeReady || isUploading);
-  const isSubmitDisabled = loading || isUploading || isJobTargetedIncomplete || isFieldBenchmarkIncomplete || isCurrentGoalIncomplete || isCustomResumeIncomplete;
+  const customResumeForReadiness = file && resumeId
+    ? {
+      id: resumeId,
+      status: effectiveResumeReady ? 'ready' : resumeStatus,
+    }
+    : selectedResume;
+  const readiness = getResumeAnalysisReadiness({
+    sourceMode,
+    analysisMode: activeMode,
+    primaryResume: careerProfile?.primaryResume,
+    activeCareerGoal: careerProfile?.activeCareerGoal,
+    customResume: customResumeForReadiness,
+    industry,
+    targetRole,
+    seniority,
+    jdTitle,
+    jdContent,
+    isUploading,
+  });
+  const isBenchmarkIndustryMissing = useCurrentGoal && activeMode === 'field_benchmark' && readiness.missingIndustry;
+  const isSubmitDisabled = loading || isUploading || !readiness.canAnalyze;
 
   const visibleStage = stage === 'processing' && resumeStatus === 'ready' ? 'ready' : stage;
   const stageMessage = visibleStage === 'uploading'
@@ -983,27 +1077,29 @@ export default function ResumesPage() {
             type="button"
             role="tab"
             aria-selected={useCurrentGoal}
-            onClick={() => { setUseCurrentGoal(true); setError(null); }}
+            onClick={() => handleSourceModeChange('current_profile')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               useCurrentGoal
                 ? 'bg-white text-primary shadow-sm'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
-            Mục tiêu hiện tại (Tự động)
+            <span>Dùng hồ sơ hiện tại</span>
+            <span className="block text-[10px] font-normal opacity-75">CV chính + mục tiêu nghề nghiệp</span>
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={!useCurrentGoal}
-            onClick={() => { setUseCurrentGoal(false); setError(null); }}
+            onClick={() => handleSourceModeChange('custom')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               !useCurrentGoal
                 ? 'bg-white text-primary shadow-sm'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
-            Mục tiêu khác (Tuỳ chỉnh)
+            <span>Tùy chỉnh lần phân tích</span>
+            <span className="block text-[10px] font-normal opacity-75">CV + mục tiêu riêng cho lần này</span>
           </button>
         </div>
       </div>
@@ -1089,10 +1185,10 @@ export default function ResumesPage() {
             <Card variant="elevated" padding="lg" className="border-2 border-primary/40 bg-white space-y-4 shadow-card">
               <div className="flex items-center gap-2 text-primary font-bold text-sm">
                 <span className="material-symbols-outlined text-[20px]">upload_file</span>
-                <span>Bước 1: Bổ sung CV chính để bắt đầu phân tích</span>
+                <span>Chọn CV chính để bắt đầu phân tích</span>
               </div>
               <p className="text-xs text-on-surface-variant leading-relaxed">
-                Bạn chưa thiết lập CV chính trong hệ thống. Hãy tải lên CV mới hoặc chọn từ danh sách đã có:
+                Hồ sơ hiện tại chưa có CV chính trong hệ thống. Hãy tải lên CV mới hoặc chọn CV đã có, sau đó xác nhận &quot;Đặt làm CV chính&quot; để dùng hồ sơ hiện tại.
               </p>
               <ResumeUploadPanel
                 file={file}
@@ -1106,9 +1202,39 @@ export default function ResumesPage() {
                 onRetry={file && !resumeId ? () => void handleFile(file) : undefined}
                 retryDisabled={isUploading || !!resumeId}
                 existingResumes={userResumes}
-                selectedResumeId={resumeId}
+                selectedResumeId={primaryResumeCandidateId}
                 onSelectExistingResume={handleSelectExistingResume}
               />
+              {primaryResumeCandidateId && (
+                <div className="rounded-xl border border-primary/25 bg-primary-fixed/10 p-3 space-y-2" role="status">
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-on-surface-variant">CV đã chọn cho hồ sơ hiện tại</div>
+                      <div className="truncate font-bold text-on-surface">
+                        {currentPrimaryCandidate?.fileName || file?.name || primaryResumeCandidateId}
+                      </div>
+                    </div>
+                    {isPrimaryCandidateReady ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        loading={isSettingPrimary}
+                        disabled={isSettingPrimary}
+                        onClick={handleSetPrimaryCandidate}
+                      >
+                        Đặt làm CV chính
+                      </Button>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-amber-700">Đang xử lý</span>
+                    )}
+                  </div>
+                  {setPrimaryError && (
+                    <p className="text-[11px] text-error" role="alert">
+                      {safeErrorMessage(setPrimaryError, 'Không thể đặt CV này làm CV chính. Vui lòng thử lại.')}
+                    </p>
+                  )}
+                </div>
+              )}
             </Card>
           ) : (
             <Card variant="elevated" padding="lg" className="border-2 border-primary/40 bg-white space-y-4 shadow-card">
@@ -1117,15 +1243,21 @@ export default function ResumesPage() {
                 <span>Bước 2: Thiết lập mục tiêu nghề nghiệp</span>
               </div>
               <p className="text-xs text-on-surface-variant leading-relaxed">
-                Bạn chưa có mục tiêu nghề nghiệp chính thức để hệ thống đối chiếu chuẩn năng lực. Vui lòng thiết lập tại Hồ sơ nghề nghiệp hoặc chuyển sang chế độ &quot;Mục tiêu khác (Tuỳ chỉnh)&quot;.
+                Bạn chưa có mục tiêu nghề nghiệp chính thức để hệ thống đối chiếu chuẩn năng lực. Vui lòng thiết lập tại Hồ sơ nghề nghiệp hoặc chuyển sang chế độ &quot;Tùy chỉnh lần phân tích&quot;.
               </p>
+              {careerProfile?.primaryResume && (
+                <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/60 p-3 text-xs">
+                  <div className="text-[11px] text-on-surface-variant">CV chính hiện tại</div>
+                  <div className="font-bold text-on-surface truncate">{careerProfile.primaryResume.fileName}</div>
+                </div>
+              )}
               <div className="flex items-center gap-3 pt-1">
                 <Link href="/career-profile">
                   <Button variant="primary" size="sm">
                     Thiết lập mục tiêu trong Hồ sơ
                   </Button>
                 </Link>
-                <Button variant="outline" size="sm" onClick={() => setUseCurrentGoal(false)}>
+                <Button variant="outline" size="sm" onClick={() => handleSourceModeChange('custom')}>
                   Nhập mục tiêu ngay tại đây
                 </Button>
               </div>
