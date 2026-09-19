@@ -136,7 +136,7 @@ export default function ResumesManagementPage() {
                         variant="outline"
                         size="sm"
                         disabled={isSettingPrimary}
-                        onClick={() => setPrimaryResume(null as unknown as string)}
+                        onClick={() => setPrimaryResume(null)}
                         className="text-error hover:text-error hover:border-error/50"
                       >
                         Bỏ chọn CV chính

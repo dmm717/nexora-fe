@@ -67,7 +67,7 @@ const starSteps = [
   { letter: 'R', title: 'Kết quả', text: 'Điều gì thay đổi sau đó?' },
 ];
 
-function Meter({ label, value }: { label: string; value: number }) {
+function Meter({ label, value, demo = false }: { label: string; value: number; demo?: boolean }) {
   return (
     <div className={styles.meterRow}>
       <div>
@@ -75,7 +75,11 @@ function Meter({ label, value }: { label: string; value: number }) {
         <b>{value}/100</b>
       </div>
       <div className={styles.meterTrack}>
-        <span data-meter style={{ width: `${value}%` }} />
+        <span
+          data-meter={demo ? undefined : ''}
+          data-cv-meter={demo ? '' : undefined}
+          style={{ width: `${value}%` }}
+        />
       </div>
     </div>
   );
@@ -102,55 +106,89 @@ function CvPreview({
   onStartDemo?: () => void;
 }) {
   const scoreRef = useRef<HTMLElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (compact || demoStage !== 'result' || !scoreRef.current) return undefined;
+    if (compact || demoStage !== 'result' || !resultRef.current) return undefined;
 
     let cancelled = false;
     let context: { revert: () => void } | undefined;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const showFinalScore = () => {
+    const showFinalState = () => {
+      const result = resultRef.current;
+      if (!result) return;
+
+      result.style.opacity = '1';
+      result.style.transform = 'none';
+      result.querySelectorAll<SVGCircleElement>('[data-cv-radial]').forEach((element) => {
+        element.style.strokeDashoffset = element.dataset.radialFinal || '58';
+      });
+      result.querySelectorAll<HTMLElement>('[data-cv-meter]').forEach((element) => {
+        element.style.transform = 'none';
+      });
       if (scoreRef.current) scoreRef.current.textContent = '78';
     };
     const handleMotionPreferenceChange = (event: MediaQueryListEvent) => {
       if (event.matches) {
         context?.revert();
-        showFinalScore();
+        showFinalState();
       }
     };
 
     if (reducedMotion.matches) {
-      showFinalScore();
+      showFinalState();
       return undefined;
     }
 
     reducedMotion.addEventListener('change', handleMotionPreferenceChange);
     import('gsap').then(({ gsap }) => {
-      if (cancelled || !scoreRef.current) return;
+      if (cancelled || !resultRef.current || !scoreRef.current) return;
       if (reducedMotion.matches) {
-        showFinalScore();
+        showFinalState();
         return;
       }
 
       scoreRef.current.textContent = '0';
       const score = { value: 0 };
       context = gsap.context(() => {
-        gsap.to(score, {
-          value: 78,
-          duration: 0.9,
-          ease: 'power2.out',
-          onUpdate: () => {
-            if (scoreRef.current) scoreRef.current.textContent = String(Math.round(score.value));
-          },
-        });
-      }, scoreRef.current);
-    }).catch(showFinalScore);
+        const timeline = gsap.timeline();
+        timeline
+          .from(resultRef.current, { y: 18, opacity: 0.6, duration: 0.45, ease: 'power2.out' })
+          .fromTo(
+            '[data-cv-radial]',
+            { strokeDashoffset: 264 },
+            { strokeDashoffset: 58, duration: 0.9, ease: 'power2.out' },
+            0.1,
+          )
+          .fromTo(
+            '[data-cv-meter]',
+            { scaleX: 0, transformOrigin: 'left center' },
+            { scaleX: 1, duration: 0.75, stagger: 0.12, ease: 'power2.out' },
+            0.2,
+          )
+          .to(
+            score,
+            {
+              value: 78,
+              duration: 0.9,
+              ease: 'power2.out',
+              onUpdate: () => {
+                if (scoreRef.current) scoreRef.current.textContent = String(Math.round(score.value));
+              },
+            },
+            0.1,
+          );
+      }, resultRef.current);
+    }).catch((error: unknown) => {
+      showFinalState();
+      console.error('[cv-demo-motion] Initialization failed; using the visible fallback state.', error);
+    });
 
     return () => {
       cancelled = true;
       reducedMotion.removeEventListener('change', handleMotionPreferenceChange);
       context?.revert();
-      showFinalScore();
+      showFinalState();
     };
   }, [compact, demoStage]);
 
@@ -167,13 +205,14 @@ function CvPreview({
         <SampleLabel label={compact ? 'Demo minh họa' : 'Dữ liệu minh họa'} />
       </div>
       {showResult ? (
-        <>
+        <div ref={compact ? undefined : resultRef} data-cv-demo-result={compact ? undefined : ''}>
           <div className={styles.scoreSummary}>
             <div className={styles.scoreRing}>
               <svg viewBox="0 0 100 100" aria-hidden="true">
                 <circle cx="50" cy="50" r="42" />
                 <circle
-                  data-radial
+                  data-radial={compact ? '' : undefined}
+                  data-cv-radial={compact ? undefined : ''}
                   data-radial-final="58"
                   cx="50"
                   cy="50"
@@ -182,7 +221,13 @@ function CvPreview({
                   strokeDashoffset="58"
                 />
               </svg>
-              <b ref={scoreRef} data-count="78">78</b>
+              <b
+                ref={scoreRef}
+                data-count={compact ? '78' : undefined}
+                data-cv-count={compact ? undefined : '78'}
+              >
+                78
+              </b>
             </div>
             <div>
               <strong>CV có nền tảng tốt.</strong>
@@ -195,8 +240,8 @@ function CvPreview({
           </div>
           {!compact && (
             <>
-              <Meter label="Kinh nghiệm phù hợp" value={82} />
-              <Meter label="Bằng chứng kết quả" value={64} />
+              <Meter label="Kinh nghiệm phù hợp" value={82} demo />
+              <Meter label="Bằng chứng kết quả" value={64} demo />
               <div className={styles.feedback}>
                 <Sparkles size={18} />
                 <p>
@@ -211,7 +256,7 @@ function CvPreview({
               </button>
             </>
           )}
-        </>
+        </div>
       ) : (
         <>
           {showSampleContext && (

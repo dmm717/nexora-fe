@@ -16,10 +16,10 @@ test('1. default landing markup provides visible, accessible content without scr
   assert.match(landing, /data-loop-track/);
   assert.match(landing, /data-radial/);
   assert.match(landing, /data-meter/);
-  assert.match(landing, /data-count="78"/);
+  assert.match(landing, /data-count=\{compact \? '78' : undefined\}/);
 
   // Content defaults are not blank
-  assert.match(landing, />78<\/b>/);
+  assert.match(landing, />\s*78\s*<\/b>/);
   assert.match(landing, /Mục tiêu nghề nghiệp/);
   assert.match(landing, /Tự tin hơn\./);
 });
@@ -149,4 +149,21 @@ test('8. hero entrance clears props and unlocks float tweens deterministically',
   // Float triggers start paused and check heroEntranceComplete on toggle
   assert.match(landingMotion, /paused:\s*true/);
   assert.match(landingMotion, /if\s*\(!heroEntranceComplete\)\s*return;/);
+});
+
+test('9. runtime mode diagnostics and dynamic CV demo have explicit motion ownership', async () => {
+  const landingMotion = await source('src/components/features/landing/useLandingMotion.ts');
+  const landing = await source('src/components/features/landing/MarketingLanding.tsx');
+
+  assert.match(landingMotion, /dataset\.motionMode = 'normal'/);
+  assert.match(landingMotion, /dataset\.motionMode = 'reduced'/);
+  assert.match(landingMotion, /dataset\.motionMode = 'fallback'/);
+  assert.match(landingMotion, /dataset\.motionTriggerCount/);
+  assert.doesNotMatch(landingMotion, /gsap\.(?:from|to|fromTo)\(['"]\[data-(?:radial|meter|count)/);
+
+  assert.match(landing, /data-cv-demo-result/);
+  assert.match(landing, /data-cv-radial/);
+  assert.match(landing, /data-cv-meter/);
+  assert.match(landing, /data-cv-count/);
+  assert.match(landing, /\[cv-demo-motion\] Initialization failed/);
 });
