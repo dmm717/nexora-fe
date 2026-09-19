@@ -62,3 +62,25 @@ test('J: Selecting paid price while authenticated routes to canonical billing wi
   assert.match(pricingCardsSource, /&returnTo=\$\{encodeURIComponent\(safeReturnTo\)\}/);
   assert.match(pricingCardsSource, /price\.amountMinor === 0/);
 });
+
+test('K: pricing and checkout use the database price id without package-name or client-price hardcoding', async () => {
+  const [pricingCardsSource, billingPageSource, billingApiSource, billingQuerySource] = await Promise.all([
+    readSource('../src/components/features/pricing/PricingCards.tsx'),
+    readSource('../src/app/(dashboard)/billing/page.tsx'),
+    readSource('../src/services/billingApi.ts'),
+    readSource('../src/hooks/queries/useBilling.ts'),
+  ]);
+
+  for (const sourceText of [pricingCardsSource, billingPageSource, billingApiSource]) {
+    assert.doesNotMatch(sourceText, /NEXORA\s+(BASIC|PLUS|PRO)/i);
+  }
+  assert.match(pricingCardsSource, /selectedPriceId=\$\{encodeURIComponent\(price\.id\)\}/);
+  assert.match(billingPageSource, /matchedPrice\.id/);
+  assert.match(billingPageSource, /createCheckoutMutation\.mutate\(matchedPrice\.id\)/);
+  assert.match(billingPageSource, /mutationFn:\s*\(planPriceId: string\) => billingApi\.createCheckoutSession\(planPriceId\)/);
+  assert.match(billingApiSource, /createCheckoutSession:\s*async \(planPriceId: string\)/);
+  assert.match(billingApiSource, /createCheckoutSession:\s*async \(planPriceId: string\)[\s\S]*?\{ planPriceId \}/);
+  const checkoutMethod = billingApiSource.slice(billingApiSource.indexOf('createCheckoutSession'));
+  assert.doesNotMatch(checkoutMethod, /amountMinor/);
+  assert.doesNotMatch(billingQuerySource, /queryKey:\s*\['billingPlans'\][\s\S]*staleTime:\s*Infinity/);
+});

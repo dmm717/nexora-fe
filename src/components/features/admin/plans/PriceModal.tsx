@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Alert } from '@/components/ui/Alert';
@@ -28,6 +28,7 @@ interface PriceModalProps {
 
 export function PriceModal({ isOpen, onClose, planId, editingPrice }: PriceModalProps) {
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors },
@@ -82,8 +83,8 @@ export function PriceModal({ isOpen, onClose, planId, editingPrice }: PriceModal
     const payload = {
       amountMinor: data.amountMinor,
       currency: data.currency,
-      durationDays: data.durationDays || undefined,
-      interviewQuota: data.interviewQuota || undefined,
+      durationDays: data.durationDays ?? undefined,
+      interviewQuota: data.interviewQuota ?? undefined,
       isActive: data.isActive,
     };
 
@@ -110,35 +111,75 @@ export function PriceModal({ isOpen, onClose, planId, editingPrice }: PriceModal
             </Alert>
           )}
 
-          <Input
-            label="Số tiền (Amount)"
-            type="number"
-            {...register('amountMinor')}
-            error={errors.amountMinor?.message}
-            disabled={!!editingPrice || isPending}
-            placeholder="Ví dụ: 599000"
+          <Controller
+            name="amountMinor"
+            control={control}
+            render={({ field }) => (
+              <Input
+                label="Số tiền (Amount)"
+                type="number"
+                name={field.name}
+                value={field.value == null ? '' : String(field.value)}
+                onChange={(event) => field.onChange(event.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                error={errors.amountMinor?.message}
+                disabled={isPending}
+                placeholder="Ví dụ: 599000"
+              />
+            )}
           />
-          <Input
-            label="Tiền tệ (Currency)"
-            {...register('currency')}
-            error={errors.currency?.message}
-            disabled={!!editingPrice || isPending}
+          <Controller
+            name="currency"
+            control={control}
+            render={({ field }) => (
+              <Input
+                label="Tiền tệ (Currency)"
+                name={field.name}
+                value={field.value == null ? '' : String(field.value)}
+                onChange={(event) => field.onChange(event.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                error={errors.currency?.message}
+                disabled={isPending}
+              />
+            )}
           />
-          <Input
-            label="Thời hạn (số ngày, tùy chọn)"
-            type="number"
-            {...register('durationDays')}
-            error={errors.durationDays?.message}
-            disabled={!!editingPrice || isPending}
-            placeholder="Ví dụ: 30"
+          <Controller
+            name="durationDays"
+            control={control}
+            render={({ field }) => (
+              <Input
+                label="Thời hạn (số ngày, tùy chọn)"
+                type="number"
+                name={field.name}
+                value={field.value == null ? '' : String(field.value)}
+                onChange={(event) => field.onChange(event.target.value === '' ? null : event.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                error={errors.durationDays?.message}
+                disabled={isPending}
+                placeholder="Ví dụ: 30"
+              />
+            )}
           />
-          <Input
-            label="Hạn mức phỏng vấn (tùy chọn)"
-            type="number"
-            {...register('interviewQuota')}
-            error={errors.interviewQuota?.message}
-            disabled={!!editingPrice || isPending}
-            placeholder="Ví dụ: 10"
+          <Controller
+            name="interviewQuota"
+            control={control}
+            render={({ field }) => (
+              <Input
+                label="Hạn mức phỏng vấn (tùy chọn)"
+                type="number"
+                name={field.name}
+                value={field.value == null ? '' : String(field.value)}
+                onChange={(event) => field.onChange(event.target.value === '' ? null : event.target.value)}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                error={errors.interviewQuota?.message}
+                disabled={isPending}
+                placeholder="Ví dụ: 10"
+              />
+            )}
           />
 
           {editingPrice && (
