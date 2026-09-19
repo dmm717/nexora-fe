@@ -87,6 +87,8 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
             if (!container) return;
 
             if (match.conditions?.reducedMotion || !match.conditions?.normalMotion) {
+              container.dataset.motionMode = 'reduced';
+              container.dataset.motionTriggerCount = '0';
               applyLandingFinalState(container);
               return () => {
                 applyLandingFinalState(container);
@@ -94,6 +96,7 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
             }
 
             // Normal-motion GSAP animations
+            container.dataset.motionMode = 'normal';
             const ctx = gsap.context(() => {
               gsap.from('[data-hero-copy]', {
                 y: 26,
@@ -207,43 +210,15 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
                 },
               });
 
-              gsap.utils.toArray<SVGCircleElement>('[data-radial]').forEach((el) => {
-                gsap.from(el, {
-                  strokeDashoffset: 264,
-                  immediateRender: false,
-                  duration: 1.7,
-                  ease: 'expo.out',
-                  scrollTrigger: { trigger: el, start: 'top 95%', once: true },
-                });
-              });
-
-              gsap.utils.toArray<HTMLElement>('[data-meter]').forEach((el) => {
-                gsap.from(el, {
-                  scaleX: 0,
-                  immediateRender: false,
-                  transformOrigin: 'left',
-                  duration: 1.4,
-                  ease: 'expo.out',
-                  scrollTrigger: { trigger: el, start: 'top 90%', once: true },
-                  clearProps: 'transform',
-                });
-              });
-
-              gsap.utils.toArray<HTMLElement>('[data-count]').forEach((el) => {
-                const target = Number(el.dataset.count);
-                if (Number.isNaN(target)) return;
-                const counter = { value: 0 };
-                gsap.to(counter, {
-                  value: target,
-                  duration: 1.5,
-                  ease: 'power2.out',
-                  onUpdate: () => {
-                    el.textContent = String(Math.round(counter.value));
-                  },
-                  scrollTrigger: { trigger: el, start: 'top 95%', once: true },
-                });
-              });
             }, container);
+
+            ScrollTrigger.refresh();
+            container.dataset.motionTriggerCount = String(
+              ScrollTrigger.getAll().filter((trigger) => {
+                const triggerElement = trigger.trigger;
+                return triggerElement instanceof Element && container.contains(triggerElement);
+              }).length,
+            );
 
             return () => {
               ctx.revert();
@@ -259,11 +234,14 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
           }
         };
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         /* Animation is enhancement; content and actions remain usable. */
         if (root.current) {
+          root.current.dataset.motionMode = 'fallback';
+          root.current.dataset.motionTriggerCount = '0';
           applyLandingFinalState(root.current);
         }
+        console.error('[landing-motion] Initialization failed; using the visible fallback state.', error);
       });
 
     return () => {
