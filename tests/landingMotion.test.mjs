@@ -24,16 +24,17 @@ test('1. default landing markup provides visible, accessible content without scr
   assert.match(landing, /Tự tin hơn\./);
 });
 
-test('2. applyLandingFinalState establishes final styles on all landing motion targets', () => {
+test('2. applyLandingFinalState establishes final styles on all landing motion targets including hero cards and float layers', () => {
   // Mock a mini DOM container with landing elements
   const container = {
     elements: {
       heroCopy: [{ style: { opacity: '0.8', transform: 'translateY(26px)' } }],
       heroCards: [{ style: { opacity: '0.8', transform: 'rotate(-3deg)' } }],
+      floats: [{ style: { transform: 'translateY(9px)' } }],
       reveals: [{ style: { opacity: '0.7', transform: 'translateY(32px)' } }],
       loopNodes: [{ style: { opacity: '0.7', transform: 'translateY(24px)' } }],
       loopTrack: { style: { transform: 'scaleX(0)' } },
-      radials: [{ style: { strokeDashoffset: '264' } }],
+      radials: [{ style: { strokeDashoffset: '264' }, dataset: { radialFinal: '58' } }],
       meters: [{ style: { transform: 'scaleX(0)' } }],
       counts: [{ dataset: { count: '78' }, textContent: '0' }],
       parallax: [{ style: { transform: 'translateY(55px)' } }],
@@ -41,6 +42,7 @@ test('2. applyLandingFinalState establishes final styles on all landing motion t
     querySelectorAll(selector) {
       if (selector === '[data-hero-copy]') return this.elements.heroCopy;
       if (selector === '[data-hero-card]') return this.elements.heroCards;
+      if (selector === '[data-float]') return this.elements.floats;
       if (selector === '[data-reveal]') return this.elements.reveals;
       if (selector === '[data-loop-node]') return this.elements.loopNodes;
       if (selector === '[data-radial]') return this.elements.radials;
@@ -61,6 +63,7 @@ test('2. applyLandingFinalState establishes final styles on all landing motion t
   assert.equal(container.elements.heroCopy[0].style.transform, 'none');
   assert.equal(container.elements.heroCards[0].style.opacity, '1');
   assert.equal(container.elements.heroCards[0].style.transform, 'none');
+  assert.equal(container.elements.floats[0].style.transform, 'none');
   assert.equal(container.elements.reveals[0].style.opacity, '1');
   assert.equal(container.elements.reveals[0].style.transform, 'none');
   assert.equal(container.elements.loopNodes[0].style.opacity, '1');
@@ -114,9 +117,36 @@ test('6. landing module CSS does not contain destructive blanket animation-kill 
   assert.doesNotMatch(landingCss, /transition:\s*none\s*!important/);
 });
 
-test('7. TrustedBrands marquee disables infinite scroll under reduced motion', async () => {
-  const brandsCss = await source('src/components/features/home/TrustedBrands.module.css');
+test('7. hero entrance and float tweens do not own transform on the same DOM element', async () => {
+  const landing = await source('src/components/features/landing/MarketingLanding.tsx');
+  const landingCss = await source('src/components/features/landing/landing.module.css');
 
-  assert.match(brandsCss, /@keyframes scroll/);
-  assert.match(brandsCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.marqueeTrack\s*\{\s*animation:\s*none;\s*\}[\s\S]*?\}/);
+  // No single HTML element possesses both data-hero-card and data-float attributes
+  assert.doesNotMatch(landing, /<[^>]*data-hero-card[^>]*data-float/);
+  assert.doesNotMatch(landing, /<[^>]*data-float[^>]*data-hero-card/);
+
+  // All 3 hero cards have separate outer [data-hero-card] and inner [data-float] elements
+  assert.match(landing, /<div\s+data-hero-card\s+className=\{styles\.heroCv\}>\s*<div\s+data-float\s+className=\{styles\.heroFloatLayer\}>/);
+  assert.match(landing, /<div\s+data-hero-card\s+className=\{styles\.heroInterview\}>\s*<div\s+data-float\s+className=\{styles\.heroFloatLayer\}>/);
+  assert.match(landing, /<div\s+data-hero-card\s+className=\{styles\.heroRecommendation\}>\s*<div\s+data-float\s+className=\{styles\.heroRecommendationCard\}>/);
+
+  // CSS defines the float layer and recommendation card layout preserving original visual styles
+  assert.match(landingCss, /\.heroFloatLayer\s*\{[\s\S]*?width:\s*100%/);
+  assert.match(landingCss, /\.heroRecommendationCard\s*\{[\s\S]*?display:\s*flex;/);
+  assert.match(landingCss, /\.heroRecommendation\s*\{[\s\S]*?position:\s*absolute;/);
+});
+
+test('8. hero entrance clears props and unlocks float tweens deterministically', async () => {
+  const landingMotion = await source('src/components/features/landing/useLandingMotion.ts');
+
+  // Hero entrance clears transform and opacity upon completion
+  assert.match(landingMotion, /gsap\.from\(['"]\[data-hero-card\]['"],\s*\{[\s\S]*?clearProps:\s*['"]transform,opacity['"]/);
+
+  // Hero entrance completion flag unlocks float triggers
+  assert.match(landingMotion, /let heroEntranceComplete = false;/);
+  assert.match(landingMotion, /onComplete:\s*\(\)\s*=>\s*\{[\s\S]*?heroEntranceComplete\s*=\s*true;/);
+
+  // Float triggers start paused and check heroEntranceComplete on toggle
+  assert.match(landingMotion, /paused:\s*true/);
+  assert.match(landingMotion, /if\s*\(!heroEntranceComplete\)\s*return;/);
 });

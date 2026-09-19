@@ -174,6 +174,7 @@ function CvPreview({
                 <circle cx="50" cy="50" r="42" />
                 <circle
                   data-radial
+                  data-radial-final="58"
                   cx="50"
                   cy="50"
                   r="42"
@@ -480,21 +481,27 @@ export function MarketingLanding() {
               sizes="(max-width: 760px) 100vw, 55vw"
               priority
             />
-            <div data-hero-card data-float className={styles.heroCv}>
-              <CvPreview compact />
-            </div>
-            <div data-hero-card data-float className={styles.heroInterview}>
-              <InterviewPreview />
-            </div>
-            <div data-hero-card data-float className={styles.heroRecommendation}>
-              <span className={styles.suggestionIcon}>
-                <RotateCcw size={18} />
-              </span>
-              <div>
-                <b>Bước tiếp theo của bạn</b>
-                <p>Luyện lại cách trình bày kết quả theo STAR.</p>
+            <div data-hero-card className={styles.heroCv}>
+              <div data-float className={styles.heroFloatLayer}>
+                <CvPreview compact />
               </div>
-              <ArrowRight size={17} />
+            </div>
+            <div data-hero-card className={styles.heroInterview}>
+              <div data-float className={styles.heroFloatLayer}>
+                <InterviewPreview />
+              </div>
+            </div>
+            <div data-hero-card className={styles.heroRecommendation}>
+              <div data-float className={styles.heroRecommendationCard}>
+                <span className={styles.suggestionIcon}>
+                  <RotateCcw size={18} />
+                </span>
+                <div>
+                  <b>Bước tiếp theo của bạn</b>
+                  <p>Luyện lại cách trình bày kết quả theo STAR.</p>
+                </div>
+                <ArrowRight size={17} />
+              </div>
             </div>
           </div>
         </div>

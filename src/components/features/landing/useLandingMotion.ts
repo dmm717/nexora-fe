@@ -17,6 +17,11 @@ export function applyLandingFinalState(rootElement: HTMLElement | null) {
     el.style.transform = 'none';
   });
 
+  const floats = rootElement.querySelectorAll<HTMLElement>('[data-float]');
+  floats.forEach((el) => {
+    el.style.transform = 'none';
+  });
+
   const reveals = rootElement.querySelectorAll<HTMLElement>('[data-reveal]');
   reveals.forEach((el) => {
     el.style.opacity = '1';
@@ -36,7 +41,7 @@ export function applyLandingFinalState(rootElement: HTMLElement | null) {
 
   const radials = rootElement.querySelectorAll<SVGCircleElement>('[data-radial]');
   radials.forEach((el) => {
-    el.style.strokeDashoffset = '58';
+    el.style.strokeDashoffset = el.dataset.radialFinal || '58';
   });
 
   const meters = rootElement.querySelectorAll<HTMLElement>('[data-meter]');
@@ -99,6 +104,12 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
                 clearProps: 'transform,opacity',
               });
 
+              let heroEntranceComplete = false;
+              const floatTriggers: Array<{
+                trigger: { isActive: boolean };
+                tween: { resume: () => void; pause: () => void };
+              }> = [];
+
               gsap.from('[data-hero-card]', {
                 y: 38,
                 rotation: -3,
@@ -106,7 +117,15 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
                 duration: 1.15,
                 stagger: 0.16,
                 ease: 'expo.out',
-                clearProps: 'opacity',
+                clearProps: 'transform,opacity',
+                onComplete: () => {
+                  heroEntranceComplete = true;
+                  floatTriggers.forEach(({ trigger, tween }) => {
+                    if (trigger.isActive) {
+                      tween.resume();
+                    }
+                  });
+                },
               });
 
               gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((el, index) => {
@@ -131,12 +150,20 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
                   ease: 'sine.inOut',
                   paused: true,
                 });
-                ScrollTrigger.create({
+                const trigger = ScrollTrigger.create({
                   trigger: el,
                   start: 'top bottom',
                   end: 'bottom top',
-                  onToggle: (self) => (self.isActive ? tween.resume() : tween.pause()),
+                  onToggle: (self) => {
+                    if (!heroEntranceComplete) return;
+                    if (self.isActive) {
+                      tween.resume();
+                    } else {
+                      tween.pause();
+                    }
+                  },
                 });
+                floatTriggers.push({ trigger, tween });
               });
 
               gsap.to('[data-parallax]', {
