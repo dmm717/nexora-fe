@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
@@ -235,6 +235,11 @@ export default function InterviewRoomPage() {
     exitTo: '/interviews',
   });
 
+  const handleCandidateStateChange = useCallback((state: AudioSpeechState) => {
+    setCandidateState(state);
+    if (state.listening) setIsAiSpeaking(false);
+  }, []);
+
   // Submit Answer handler
   const handleSubmitAnswer = async (content: string, durationSec?: number) => {
     if (!canAnswer || !activeQuestion || submitting || isEvaluating) return;
@@ -420,7 +425,7 @@ export default function InterviewRoomPage() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-slate-500">
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="functional-spinner w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full" />
           <span>Đang tải dữ liệu buổi phỏng vấn...</span>
         </div>
       </div>
@@ -448,7 +453,7 @@ export default function InterviewRoomPage() {
   if (routeState === 'preparing') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="functional-spinner w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
         <h2 className="text-xl font-bold text-slate-900">Đang chuẩn bị câu hỏi phỏng vấn...</h2>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
           Nexora AI đang tổng hợp các tình huống phù hợp nhất với vị trí {interview.role}. Vui lòng chờ trong giây lát.
@@ -460,7 +465,7 @@ export default function InterviewRoomPage() {
   if (routeState === 'processing' || routeState === 'completed') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-        <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="functional-spinner w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto" />
         <h2 className="text-xl font-bold text-slate-900">
           {routeState === 'completed' ? 'Báo cáo phỏng vấn đã sẵn sàng' : 'Đang chấm điểm & Tổng hợp báo cáo...'}
         </h2>
@@ -641,10 +646,7 @@ export default function InterviewRoomPage() {
               editorOpen={editorOpen}
               onEditorOpenChange={(open) => setEditorOpen(open)}
               onTranscriptChange={(content) => setCurrentDraftContent(content)}
-              onStateChange={(state) => {
-                setCandidateState(state);
-                if (state.listening) setIsAiSpeaking(false);
-              }}
+              onStateChange={handleCandidateStateChange}
               onListeningPreparationChange={setIsPreparingCandidateInput}
               onBeforeListening={async () => {
                 await questionSpeakerRef.current?.stop();

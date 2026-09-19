@@ -5,7 +5,7 @@ export type ResumeAnalysisMode = 'job_targeted' | 'field_benchmark';
 export interface BaseResumeAnalysisOperation {
   userId: string;
   idempotencyKey: string;
-  resumeId?: string;
+  resumeId?: string | null;
   careerGoalId?: string;
   analysisId?: string | null;
   timestamp: string | number;
@@ -28,14 +28,14 @@ export interface FieldBenchmarkAnalysisOperation extends BaseResumeAnalysisOpera
 export type ResumeAnalysisOperation = JobTargetedAnalysisOperation | FieldBenchmarkAnalysisOperation;
 
 export interface CreateJobTargetedAnalysisRequest {
-  resumeId?: string;
+  resumeId?: string | null;
   careerGoalId?: string;
   mode: 'job_targeted';
   jobDescriptionId?: string;
 }
 
 export interface CreateFieldBenchmarkAnalysisRequest {
-  resumeId?: string;
+  resumeId?: string | null;
   careerGoalId?: string;
   mode: 'field_benchmark';
   industry?: string;

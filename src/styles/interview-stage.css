@@ -148,11 +148,45 @@
   .interview-composer-footer { flex-direction: column; align-items: stretch; gap: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .interview-call-room *, .product-focused-surface:has(.interview-call-room) header * { animation: none !important; transition: none !important; }
-  .interview-call-room .ai-presence[data-state="speaking"] .ai-orb { box-shadow: 0 16px 44px rgb(71 51 156 / .42); }
-  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(odd) { transform: scaleY(.75); }
-  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(even) { transform: scaleY(.45); }
-  .interview-call-room .ai-presence[data-state="thinking"] .ai-orb-ring { border-color: #c1b5ff; }
+  .interview-call-room .ai-orb { animation: none; will-change: auto; }
+  .interview-call-room .ai-presence-bars { transition: none; }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-orb {
+    animation: ai-reduced-speaking-orb 2.4s ease-in-out infinite;
+    box-shadow: 0 16px 44px rgb(71 51 156 / .42);
+  }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-orb-ring {
+    animation: ai-reduced-speaking-ring 2.4s ease-in-out infinite;
+  }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-orb::before { animation: none; }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i {
+    animation: ai-reduced-speaking-bar 1.2s ease-in-out infinite alternate;
+  }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(1) { animation-delay: -.56s; }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(2) { animation-delay: -.18s; }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(3) { animation-delay: -.7s; }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(4) { animation-delay: -.34s; }
+  .interview-call-room .ai-presence[data-state="speaking"] .ai-presence-bars i:nth-child(5) { animation-delay: -.62s; }
+  .interview-call-room .ai-presence[data-state="thinking"] .ai-orb-ring {
+    border-color: #c1b5ff;
+    animation: ai-reduced-thinking-feedback 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes ai-reduced-speaking-orb {
+  0%, 100% { box-shadow: 0 14px 38px rgb(71 51 156 / .34); }
+  50% { box-shadow: 0 16px 44px rgb(71 51 156 / .55); }
+}
+@keyframes ai-reduced-speaking-ring {
+  0%, 100% { opacity: .42; }
+  50% { opacity: .9; }
+}
+@keyframes ai-reduced-speaking-bar {
+  0% { transform: scaleY(.48); opacity: .62; }
+  100% { transform: scaleY(.76); opacity: 1; }
+}
+@keyframes ai-reduced-thinking-feedback {
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
 }
 
 /* Reserve viewport space for the call actions, not just the question artwork.

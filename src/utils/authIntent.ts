@@ -123,7 +123,7 @@ function isBillingOrPricingPath(pathname: string): boolean {
 }
 
 /**
- * Builds the canonical billing destination for an authenticated checkout.
+ * Builds the canonical Pricing checkout handoff for an authenticated checkout.
  * `planPriceId` is authoritative; a billing/pricing candidate may contribute
  * one safe nested destination, while a normal safe internal path is already
  * the post-checkout destination.
@@ -132,11 +132,11 @@ export function resolveCheckoutDestination(
   planPriceId: string | null | undefined,
   candidate?: string | null
 ): string | null {
-  const selectedPriceId = typeof planPriceId === 'string' ? planPriceId.trim() : '';
-  if (!selectedPriceId) return null;
+  const authoritativePriceId = typeof planPriceId === 'string' ? planPriceId.trim() : '';
+  if (!authoritativePriceId) return null;
 
   const params = new URLSearchParams();
-  params.set('selectedPriceId', selectedPriceId);
+  params.set('checkoutPriceId', authoritativePriceId);
 
   if (isValidInternalPath(candidate)) {
     const safeCandidate = candidate!.trim();
@@ -176,7 +176,7 @@ export function resolveCheckoutDestination(
     if (postCheckoutTarget) params.set('returnTo', postCheckoutTarget);
   }
 
-  return `/billing?${params.toString()}`;
+  return `/pricing?${params.toString()}`;
 }
 
 /**
