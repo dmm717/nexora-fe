@@ -4,6 +4,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnswerEditor } from './AnswerEditor';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { mergeFinalTranscript } from '@/hooks/speechRecognitionContract';
+import {
+  getAnswerSubmissionStatus,
+  type AnswerSubmissionPhase,
+} from '@/services/interviewContract';
 
 export interface AudioSpeechState {
   listening: boolean;
@@ -15,7 +19,8 @@ export interface AudioSpeechState {
 export interface AudioSpeechDockProps {
   initialContent?: string;
   onSubmit?: (content: string, durationSeconds?: number) => void;
-  isSubmitting?: boolean;
+  isLocked?: boolean;
+  submissionPhase?: AnswerSubmissionPhase;
   onTranscriptChange?: (transcript: string) => void;
   onDurationUpdate?: (seconds: number) => void;
   forcedTextOnly?: boolean;
@@ -32,7 +37,8 @@ export interface AudioSpeechDockProps {
 export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   initialContent = '',
   onSubmit,
-  isSubmitting = false,
+  isLocked = false,
+  submissionPhase = 'idle',
   onTranscriptChange,
   onDurationUpdate,
   forcedTextOnly = false,
@@ -67,15 +73,15 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   const onListeningPreparationChangeRef = useRef(onListeningPreparationChange);
   const listeningAttemptRef = useRef(0);
   const listeningStartInFlightRef = useRef(false);
-  const isSubmittingRef = useRef(isSubmitting);
+  const isLockedRef = useRef(isLocked);
 
   useEffect(() => {
     onListeningPreparationChangeRef.current = onListeningPreparationChange;
   }, [onListeningPreparationChange]);
 
   useEffect(() => {
-    isSubmittingRef.current = isSubmitting;
-  }, [isSubmitting]);
+    isLockedRef.current = isLocked;
+  }, [isLocked]);
 
   useEffect(() => {
     contentRef.current = content;
@@ -150,7 +156,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
     if (
       listeningStartInFlightRef.current ||
       speech.listening ||
-      isSubmittingRef.current
+      isLockedRef.current
     ) {
       return;
     }
@@ -168,7 +174,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
       if (
         !mountedRef.current ||
         listeningAttemptRef.current !== attempt ||
-        isSubmittingRef.current
+        isLockedRef.current
       ) {
         return;
       }
@@ -248,7 +254,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
               }
               aria-pressed={speech.listening}
               aria-busy={isStartingListening}
-              disabled={isSubmitting || isStartingListening}
+              disabled={isLocked || isStartingListening}
               onClick={speech.listening ? handleStopListening : () => void handleStartListening()}
             >
               <span aria-hidden="true" className="material-symbols-outlined">
@@ -267,7 +273,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
           <button
             type="button"
             className="interview-call-button"
-            disabled={isSubmitting}
+            disabled={isLocked}
             aria-label={
               forcedTextOnly
                 ? 'Mở trình chỉnh sửa văn bản'
@@ -299,13 +305,12 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
         </div>
 
         <p className="interview-dock-status" role="status">
-          {isSubmitting
-            ? 'Đã nộp câu trả lời · chờ phản hồi từ Nexora AI'
-            : speech.listening
-            ? `Đang nghe bạn · ${formatTimer(durationSeconds)}`
-            : effectiveMode === 'chatbox'
-            ? 'Nhập câu trả lời, xem lại rồi nộp'
-            : 'Nhấn microphone để bắt đầu trả lời · không tự động nộp'}
+          {getAnswerSubmissionStatus({
+            phase: submissionPhase,
+            listening: speech.listening,
+            mode: effectiveMode,
+            timerLabel: formatTimer(durationSeconds),
+          })}
         </p>
 
         {speech.error && (
@@ -322,9 +327,9 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
 
         {editorOpen !== undefined ? (
           <AnswerEditor
-            isOpen={editorOpen && !isSubmitting}
+            isOpen={editorOpen && !isLocked}
             content={content}
-            disabled={isSubmitting}
+            disabled={isLocked}
             listening={speech.listening}
             onClose={() => onEditorOpenChange?.(false)}
             onChange={(val) => {
@@ -348,7 +353,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
                 rows={3}
                 value={content}
                 readOnly={speech.listening}
-                disabled={isSubmitting}
+                disabled={isLocked}
                 onChange={(e) => {
                   setContent(e.target.value);
                   contentRef.current = e.target.value;
@@ -361,7 +366,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
                 <button
                   type="button"
                   className="interview-call-button"
-                  disabled={!content.trim() || isSubmitting || speech.listening}
+                  disabled={!content.trim() || isLocked || speech.listening}
                   onClick={handleSubmit}
                 >
                   Nộp câu trả lời
@@ -382,7 +387,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
           type="button"
           onClick={speech.listening ? handleStopListening : () => void handleStartListening()}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold"
-          disabled={isSubmitting}
+          disabled={isLocked}
         >
           {speech.listening ? 'Dừng nói' : 'Bắt đầu nói'}
         </button>
@@ -390,7 +395,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
           type="button"
           onClick={handleSubmit}
           className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold"
-          disabled={!content.trim() || isSubmitting || speech.listening}
+          disabled={!content.trim() || isLocked || speech.listening}
         >
           Nộp câu trả lời
         </button>
