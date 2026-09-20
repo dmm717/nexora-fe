@@ -17,6 +17,7 @@ import {
   getInterviewRouteState,
   generateIdempotencyKey,
   getOrCreateAnswerIntent,
+  getAnswerEvaluationErrorMessage,
   applyAnswerResultToInterview,
   createCompleteIntentState,
   type AnswerIntent,
@@ -90,6 +91,9 @@ export default function InterviewRoomPage() {
     requestId?: string;
     code?: string;
   } | null>(null);
+  const [answerSubmitState, setAnswerSubmitState] = useState<
+    'draft' | 'submitting' | 'recoverable_error'
+  >('draft');
 
   // Stable idempotency intents
   const pendingAnswerIntentRef = useRef<AnswerIntent | null>(null);
@@ -189,6 +193,8 @@ export default function InterviewRoomPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentDraftContent('');
+    pendingAnswerIntentRef.current = null;
+    setAnswerSubmitState('draft');
   }, [activeQuestionId]);
 
   // Presence State derivation
@@ -246,6 +252,7 @@ export default function InterviewRoomPage() {
 
     setSubmitting(true);
     setIsEvaluating(true);
+    setAnswerSubmitState('submitting');
     setActionError(null);
 
     const intent = getOrCreateAnswerIntent(pendingAnswerIntentRef.current, {
@@ -265,6 +272,7 @@ export default function InterviewRoomPage() {
 
       pendingAnswerIntentRef.current = null;
       setCurrentDraftContent('');
+      setAnswerSubmitState('draft');
 
       // Extract evaluation
       const evalData = result.answer.evaluation
@@ -277,8 +285,9 @@ export default function InterviewRoomPage() {
       setLatestEvaluatedSeq(currentSequence);
       setShowCoaching(true);
     } catch (err: unknown) {
+      setAnswerSubmitState('recoverable_error');
       setActionError({
-        message: err instanceof ApiError ? err.message : 'Lỗi khi gửi câu trả lời. Bạn có thể thử lại.',
+        message: getAnswerEvaluationErrorMessage(err),
         requestId: err instanceof ApiError ? err.requestId : undefined,
         code: err instanceof ApiError ? err.code : undefined,
       });
@@ -530,6 +539,36 @@ export default function InterviewRoomPage() {
               {actionError.requestId && (
                 <div className="text-[10px] text-red-300 mt-0.5">
                   Request ID: {actionError.requestId}
+                </div>
+              )}
+              {answerSubmitState === 'recoverable_error' && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={submitting || isEvaluating}
+                    onClick={() => {
+                      const intent = pendingAnswerIntentRef.current;
+                      if (intent) {
+                        void handleSubmitAnswer(
+                          intent.payload.content,
+                          intent.payload.durationSeconds
+                        );
+                      }
+                    }}
+                  >
+                    Thử lại đánh giá
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting || isEvaluating}
+                    onClick={() => setEditorOpen(true)}
+                  >
+                    Chỉnh sửa câu trả lời
+                  </Button>
                 </div>
               )}
             </div>

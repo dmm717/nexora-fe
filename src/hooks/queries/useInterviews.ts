@@ -11,65 +11,68 @@ import {
   isReportUnavailableError,
   createReportPollingAttemptTracker,
   getReportPollingDecision,
+  REPORT_POLL_MAX_ATTEMPTS,
   type ReportPollingDecision,
+  type InterviewReportState,
 } from '@/services/interviewContract';
 
 export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInterval) => {
   const { authReady, isAuthenticated } = useAuth();
+  const statusPollingTracker = useMemo(() => createReportPollingAttemptTracker(), []);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['interview', id],
-    queryFn: () => interviewApi.getById(id),
+    queryFn: async () => {
+      statusPollingTracker.ensureCycle(id);
+      if (statusPollingTracker.consumeScheduledPoll()) {
+        statusPollingTracker.recordFallbackPoll();
+      }
+      return interviewApi.getById(id);
+    },
     enabled: authReady && isAuthenticated && !!id,
     refetchInterval:
       refetchInterval !== undefined
         ? refetchInterval
         : (query) => {
-            const status = readStatus(query.state.data);
-            // starting and completing are pending transitions; poll until settled
-            if (status === 'starting' || status === 'completing') {
+            const interview = query.state.data;
+            const status = readStatus(interview);
+            const pending = status === 'starting' ||
+              interview?.reportState === 'processing' ||
+              (interview?.reportState === undefined && status === 'completing');
+            if (pending && statusPollingTracker.getAttemptCount() < REPORT_POLL_MAX_ATTEMPTS) {
+              statusPollingTracker.scheduleFallbackPoll();
               return REALTIME_FALLBACK_POLL_MS;
             }
+            if (!pending) statusPollingTracker.reset();
             return false;
           },
   });
+
+  const pending = query.data?.status === 'starting' ||
+    query.data?.reportState === 'processing' ||
+    (query.data?.reportState === undefined && query.data?.status === 'completing');
+  return {
+    ...query,
+    statusPollingBoundExhausted:
+      Boolean(pending) && statusPollingTracker.getAttemptCount() >= REPORT_POLL_MAX_ATTEMPTS,
+    resetStatusPollingAttempts: statusPollingTracker.reset,
+  };
 };
 
 export const useInterviewReport = (
   id: string,
-  interviewStatusOrInterval?: string | RealtimeFallbackInterval,
-  customRefetchInterval?: RealtimeFallbackInterval
+  reportState?: InterviewReportState,
+  interviewStatus?: string
 ) => {
   const { authReady, isAuthenticated } = useAuth();
-  const reportPollingTracker = useMemo(
-    () => createReportPollingAttemptTracker(),
-    []
-  );
-
-  const interviewStatus =
-    typeof interviewStatusOrInterval === 'string' ? interviewStatusOrInterval : undefined;
-  const refetchInterval =
-    typeof interviewStatusOrInterval === 'function' ||
-    typeof interviewStatusOrInterval === 'number' ||
-    typeof interviewStatusOrInterval === 'boolean'
-      ? interviewStatusOrInterval
-      : customRefetchInterval;
-  const usesDefaultPolling = refetchInterval === undefined;
+  const shouldFetchReport = reportState === 'ready' ||
+    (reportState === undefined && interviewStatus === 'completed');
 
   const query = useQuery({
     queryKey: ['interviewReport', id],
-    queryFn: async () => {
-      reportPollingTracker.ensureCycle(id);
-      if (usesDefaultPolling && reportPollingTracker.consumeScheduledPoll()) {
-        reportPollingTracker.recordFallbackPoll();
-      }
-
-      const report = await interviewApi.getReport(id);
-      reportPollingTracker.reset();
-      return report;
-    },
+    queryFn: () => interviewApi.getReport(id),
     staleTime: 30000,
-    enabled: authReady && isAuthenticated && !!id,
+    enabled: authReady && isAuthenticated && !!id && shouldFetchReport,
     retry: (failureCount, error) => {
       // Never transport-retry deterministic business errors or explicit report statuses
       if (
@@ -82,50 +85,16 @@ export const useInterviewReport = (
       }
       return failureCount < 2;
     },
-    refetchInterval:
-      refetchInterval !== undefined
-        ? refetchInterval
-        : (query) => {
-            if (query.state.data) {
-              reportPollingTracker.reset();
-              return false;
-            }
-
-            reportPollingTracker.ensureCycle(id);
-            const decision = getReportPollingDecision({
-              interviewStatus,
-              error: query.state.error,
-              fallbackAttemptCount: reportPollingTracker.getAttemptCount(),
-            });
-
-            if (!decision.shouldPoll) {
-              // Keep the exhausted count visible so the UI can explain the timeout.
-              if (decision.reason !== 'bound_exhausted') {
-                reportPollingTracker.reset();
-              }
-              return false;
-            }
-
-            reportPollingTracker.scheduleFallbackPoll();
-            return decision.intervalMs ?? REALTIME_FALLBACK_POLL_MS;
-          },
   });
 
   const reportPollingDecision: ReportPollingDecision = getReportPollingDecision({
     interviewStatus,
     error: query.error,
-    fallbackAttemptCount: reportPollingTracker.getAttemptCount(),
   });
 
   return {
     ...query,
     reportPollingDecision,
-    reportPollingBoundExhausted:
-      usesDefaultPolling &&
-      !query.data &&
-      Boolean(query.error) &&
-      reportPollingDecision.reason === 'bound_exhausted',
-    resetReportPollingAttempts: reportPollingTracker.reset,
   };
 };
 

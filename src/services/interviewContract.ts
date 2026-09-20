@@ -7,6 +7,8 @@ export type InterviewLifecycleStatus =
   | 'failed'
   | 'abandoned';
 
+export type InterviewReportState = 'none' | 'processing' | 'ready' | 'failed';
+
 export type InterviewContinuationState =
   | 'in_progress'
   | 'upgrade_required'
@@ -134,8 +136,26 @@ export interface InterviewView {
   questions: QuestionView[];
   answers: AnswerView[];
   continuation?: InterviewContinuationView | null;
+  reportState?: InterviewReportState;
   createdAt: string;
   updatedAt: string;
+}
+
+export function getAnswerEvaluationErrorMessage(error: unknown): string {
+  const candidate = error as { code?: string; status?: number } | null;
+  if (candidate?.code === 'AI_OUTPUT_INVALID') {
+    return 'AI chưa thể tạo kết quả đánh giá hợp lệ. Câu trả lời của bạn vẫn được giữ lại; hãy thử lại.';
+  }
+  if (candidate?.code === 'AI_PROVIDER_UNAVAILABLE') {
+    return 'Dịch vụ AI đang tạm thời bận. Câu trả lời của bạn chưa bị mất.';
+  }
+  if (candidate?.code === 'AI_RATE_LIMITED') {
+    return 'AI đang xử lý nhiều yêu cầu. Vui lòng thử lại sau.';
+  }
+  if (candidate?.status !== undefined && candidate.status >= 500) {
+    return 'Chưa thể đánh giá câu trả lời. Câu trả lời của bạn vẫn được giữ lại.';
+  }
+  return 'Lỗi khi gửi câu trả lời. Câu trả lời của bạn vẫn được giữ lại.';
 }
 
 /**

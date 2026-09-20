@@ -39,23 +39,27 @@ export default function InterviewReportPage() {
   const retryKeyRef = useRef<string>(generateIdempotencyKey());
   const practiceAgainKeyRef = useRef<string>(generateIdempotencyKey());
 
-  const { data: interview } = useInterview(id);
+  const {
+    data: interview,
+    isLoading: interviewLoading,
+    statusPollingBoundExhausted,
+    resetStatusPollingAttempts,
+  } = useInterview(id);
   const {
     data: report,
-    isLoading: loading,
+    isLoading: reportLoading,
     error: queryError,
-    reportPollingBoundExhausted,
-    resetReportPollingAttempts,
-  } = useInterviewReport(id, interview?.status);
+  } = useInterviewReport(id, interview?.reportState, interview?.status);
 
   const isProcessing =
+    interview?.reportState === 'processing' ||
     isReportProcessingError(queryError) ||
-    (queryError instanceof ApiError && queryError.code === 'NOT_FOUND' && interview?.status === 'completing');
-  const isFailed = isReportFailedError(queryError);
+    (interview?.reportState === undefined && interview?.status === 'completing');
+  const isFailed = interview?.reportState === 'failed' || isReportFailedError(queryError);
   const reportRenderState = getInterviewReportRenderState({
-    loading,
+    loading: interviewLoading || (interview?.reportState === 'ready' && reportLoading),
     failed: isFailed,
-    pollingBoundExhausted: reportPollingBoundExhausted,
+    pollingBoundExhausted: statusPollingBoundExhausted,
     processing: isProcessing,
   });
 
@@ -84,10 +88,9 @@ export default function InterviewReportPage() {
     setRetrying(true);
     setRetryError(null);
     try {
-      await interviewApi.retryReport(id, retryKeyRef.current);
-      resetReportPollingAttempts();
-      await queryClient.invalidateQueries({ queryKey: ['interview', id] });
-      await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
+      const updated = await interviewApi.retryReport(id, retryKeyRef.current);
+      resetStatusPollingAttempts();
+      queryClient.setQueryData(['interview', id], updated);
       retryKeyRef.current = generateIdempotencyKey();
     } catch (err: unknown) {
       setRetryError({
@@ -152,9 +155,8 @@ export default function InterviewReportPage() {
             variant="primary"
             size="md"
             onClick={async () => {
-              resetReportPollingAttempts();
+              resetStatusPollingAttempts();
               await queryClient.invalidateQueries({ queryKey: ['interview', id] });
-              await queryClient.invalidateQueries({ queryKey: ['interviewReport', id] });
             }}
             className="shadow-sm font-semibold"
           >
