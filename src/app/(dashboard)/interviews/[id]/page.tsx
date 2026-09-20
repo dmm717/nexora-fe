@@ -679,7 +679,14 @@ export default function InterviewRoomPage() {
               key={activeQuestion.id}
               initialContent=""
               onSubmit={(content, duration) => handleSubmitAnswer(content, duration)}
-              isSubmitting={submitting || isEvaluating || showCoaching}
+              isLocked={submitting || isEvaluating || showCoaching}
+              submissionPhase={
+                submitting || isEvaluating
+                  ? 'evaluating'
+                  : showCoaching
+                    ? 'accepted'
+                    : 'idle'
+              }
               forcedTextOnly={forcedTextOnly}
               variant="call"
               editorOpen={editorOpen}

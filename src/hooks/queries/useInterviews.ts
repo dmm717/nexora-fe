@@ -14,6 +14,8 @@ import {
   REPORT_POLL_MAX_ATTEMPTS,
   type ReportPollingDecision,
   type InterviewReportState,
+  shouldFetchInterviewReport,
+  shouldUseLegacyReportCompatibility,
 } from '@/services/interviewContract';
 
 export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInterval) => {
@@ -65,12 +67,27 @@ export const useInterviewReport = (
   interviewStatus?: string
 ) => {
   const { authReady, isAuthenticated } = useAuth();
-  const shouldFetchReport = reportState === 'ready' ||
-    (reportState === undefined && interviewStatus === 'completed');
+  const legacyReportPollingTracker = useMemo(() => createReportPollingAttemptTracker(), []);
+  const usesLegacyReportCompatibility = shouldUseLegacyReportCompatibility(
+    reportState,
+    interviewStatus
+  );
+  const shouldFetchReport = shouldFetchInterviewReport(reportState, interviewStatus);
 
   const query = useQuery({
     queryKey: ['interviewReport', id],
-    queryFn: () => interviewApi.getReport(id),
+    queryFn: async () => {
+      if (usesLegacyReportCompatibility) {
+        legacyReportPollingTracker.ensureCycle(id);
+        if (legacyReportPollingTracker.consumeScheduledPoll()) {
+          legacyReportPollingTracker.recordFallbackPoll();
+        }
+      }
+
+      const report = await interviewApi.getReport(id);
+      legacyReportPollingTracker.reset();
+      return report;
+    },
     staleTime: 30000,
     enabled: authReady && isAuthenticated && !!id && shouldFetchReport,
     retry: (failureCount, error) => {
@@ -85,16 +102,41 @@ export const useInterviewReport = (
       }
       return failureCount < 2;
     },
+    refetchInterval: (query) => {
+      if (!usesLegacyReportCompatibility) return false;
+      if (query.state.data) {
+        legacyReportPollingTracker.reset();
+        return false;
+      }
+
+      legacyReportPollingTracker.ensureCycle(id);
+      const decision = getReportPollingDecision({
+        interviewStatus,
+        error: query.state.error,
+        fallbackAttemptCount: legacyReportPollingTracker.getAttemptCount(),
+      });
+      if (!decision.shouldPoll) return false;
+
+      legacyReportPollingTracker.scheduleFallbackPoll();
+      return REALTIME_FALLBACK_POLL_MS;
+    },
   });
 
   const reportPollingDecision: ReportPollingDecision = getReportPollingDecision({
     interviewStatus,
     error: query.error,
+    fallbackAttemptCount: usesLegacyReportCompatibility
+      ? legacyReportPollingTracker.getAttemptCount()
+      : undefined,
   });
 
   return {
     ...query,
     reportPollingDecision,
+    legacyReportPollingBoundExhausted:
+      usesLegacyReportCompatibility &&
+      !query.data &&
+      legacyReportPollingTracker.getAttemptCount() >= REPORT_POLL_MAX_ATTEMPTS,
   };
 };
 

@@ -49,17 +49,19 @@ export default function InterviewReportPage() {
     data: report,
     isLoading: reportLoading,
     error: queryError,
+    legacyReportPollingBoundExhausted,
   } = useInterviewReport(id, interview?.reportState, interview?.status);
 
-  const isProcessing =
+  const isFailed = interview?.reportState === 'failed' || isReportFailedError(queryError);
+  const isProcessing = !isFailed && (
     interview?.reportState === 'processing' ||
     isReportProcessingError(queryError) ||
-    (interview?.reportState === undefined && interview?.status === 'completing');
-  const isFailed = interview?.reportState === 'failed' || isReportFailedError(queryError);
+    (interview?.reportState === undefined && interview?.status === 'completing')
+  );
   const reportRenderState = getInterviewReportRenderState({
     loading: interviewLoading || (interview?.reportState === 'ready' && reportLoading),
     failed: isFailed,
-    pollingBoundExhausted: statusPollingBoundExhausted,
+    pollingBoundExhausted: statusPollingBoundExhausted || legacyReportPollingBoundExhausted,
     processing: isProcessing,
   });
 

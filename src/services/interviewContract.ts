@@ -9,6 +9,22 @@ export type InterviewLifecycleStatus =
 
 export type InterviewReportState = 'none' | 'processing' | 'ready' | 'failed';
 
+export function shouldUseLegacyReportCompatibility(
+  reportState: InterviewReportState | undefined,
+  interviewStatus: string | undefined
+): boolean {
+  return reportState === undefined && interviewStatus === 'completing';
+}
+
+export function shouldFetchInterviewReport(
+  reportState: InterviewReportState | undefined,
+  interviewStatus: string | undefined
+): boolean {
+  return reportState === 'ready' ||
+    shouldUseLegacyReportCompatibility(reportState, interviewStatus) ||
+    (reportState === undefined && interviewStatus === 'completed');
+}
+
 export type InterviewContinuationState =
   | 'in_progress'
   | 'upgrade_required'
@@ -156,6 +172,28 @@ export function getAnswerEvaluationErrorMessage(error: unknown): string {
     return 'Chưa thể đánh giá câu trả lời. Câu trả lời của bạn vẫn được giữ lại.';
   }
   return 'Lỗi khi gửi câu trả lời. Câu trả lời của bạn vẫn được giữ lại.';
+}
+
+export type AnswerSubmissionPhase = 'idle' | 'evaluating' | 'accepted';
+
+export function getAnswerSubmissionStatus(params: {
+  phase: AnswerSubmissionPhase;
+  listening: boolean;
+  mode: 'voice' | 'chatbox';
+  timerLabel: string;
+}): string {
+  if (params.phase === 'evaluating') {
+    return 'AI đang đánh giá câu trả lời...';
+  }
+  if (params.phase === 'accepted') {
+    return 'Đã nộp câu trả lời · đang xem phản hồi từ Nexora AI';
+  }
+  if (params.listening) {
+    return `Đang nghe bạn · ${params.timerLabel}`;
+  }
+  return params.mode === 'chatbox'
+    ? 'Nhập câu trả lời, xem lại rồi nộp'
+    : 'Nhấn microphone để bắt đầu trả lời · không tự động nộp';
 }
 
 /**

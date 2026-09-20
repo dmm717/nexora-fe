@@ -48,6 +48,9 @@ createReportPollingAttemptTracker,
   isReadyResumeSelection,
   getInterviewReportRenderState,
   getAnswerEvaluationErrorMessage,
+  getAnswerSubmissionStatus,
+  shouldFetchInterviewReport,
+  shouldUseLegacyReportCompatibility,
 } from '../src/services/interviewContract.ts';
 
 // 1. continuation in_progress
@@ -1505,11 +1508,58 @@ test('57. report body fetch is gated by canonical reportState', () => {
     hookSource.indexOf('export const useInterviewsHistory')
   );
 
-  assert.match(reportHook, /reportState === 'ready'/);
+  assert.match(reportHook, /shouldFetchInterviewReport\(reportState, interviewStatus\)/);
   assert.match(reportHook, /enabled:.*shouldFetchReport/);
-  assert.doesNotMatch(reportHook, /refetchInterval/);
+  assert.match(reportHook, /usesLegacyReportCompatibility/);
+  assert.match(reportHook, /legacyReportPollingTracker/);
+  assert.match(reportHook, /refetchInterval/);
   assert.match(hookSource, /REALTIME_FALLBACK_POLL_MS/);
   assert.match(hookSource, /REPORT_POLL_MAX_ATTEMPTS/);
+});
+
+test('58. answer submission status never claims acceptance before success', () => {
+  const evaluating = getAnswerSubmissionStatus({
+    phase: 'evaluating',
+    listening: false,
+    mode: 'chatbox',
+    timerLabel: '00:01',
+  });
+  assert.equal(evaluating, 'AI đang đánh giá câu trả lời...');
+  assert.doesNotMatch(evaluating, /Đã nộp/);
+
+  const accepted = getAnswerSubmissionStatus({
+    phase: 'accepted',
+    listening: false,
+    mode: 'chatbox',
+    timerLabel: '00:01',
+  });
+  assert.match(accepted, /Đã nộp/);
+});
+
+test('60. coaching lock is separate from the in-flight submission status', () => {
+  const pageSource = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const dockSource = readFileSync(
+    new URL('../src/components/features/interview/AudioSpeechDock.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(pageSource, /isLocked=\{submitting \|\| isEvaluating \|\| showCoaching\}/);
+  assert.match(pageSource, /showCoaching\s*\?\s*'accepted'/);
+  assert.match(dockSource, /submissionPhase\?: AnswerSubmissionPhase/);
+  assert.doesNotMatch(dockSource, /isSubmitting\s*\?/);
+});
+
+test('59. report fetch keeps new-state gating and bounded legacy compatibility', () => {
+  assert.equal(shouldFetchInterviewReport('processing', 'completing'), false);
+  assert.equal(shouldFetchInterviewReport('failed', 'completing'), false);
+  assert.equal(shouldFetchInterviewReport('ready', 'completed'), true);
+  assert.equal(shouldUseLegacyReportCompatibility(undefined, 'completing'), true);
+  assert.equal(shouldFetchInterviewReport(undefined, 'completing'), true);
+  assert.equal(shouldFetchInterviewReport(undefined, 'completed'), true);
+  assert.equal(shouldUseLegacyReportCompatibility('processing', 'completing'), false);
 });
 
 test('54. illustrative sample stays display-only and never enters the submitted answer payload', () => {
