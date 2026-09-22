@@ -135,6 +135,18 @@ export default function InterviewRoomPage() {
   });
   const activeQuestionId = activeQuestion?.id;
 
+  // Stop local camera whenever the interview transitions away from active or when room switches ID
+  const interviewStatus = interview?.status;
+  useEffect(() => {
+    if (interviewStatus && interviewStatus !== 'active') {
+      disableCamera();
+    }
+  }, [interviewStatus, disableCamera]);
+
+  useEffect(() => {
+    disableCamera();
+  }, [id, disableCamera]);
+
   // Consume the billing return marker once, then re-check canonical server entitlement.
   useEffect(() => {
     const isContinuationReturn = searchParams.get('sessionContinuation') === 'true';

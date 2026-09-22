@@ -121,7 +121,15 @@ export const InterviewCandidateTile: React.FC<InterviewCandidateTileProps> = ({
           </div>
           <strong className="interview-self-name">{candidateName}</strong>
           <div className="interview-self-subtle-status">
-            {onToggleCamera ? (
+            {cameraState === 'requesting' ? (
+              <span className="interview-camera-chip" title="Đang bật camera...">
+                <span
+                  aria-hidden="true"
+                  className="functional-spinner inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full"
+                />
+                <span>Đang bật camera...</span>
+              </span>
+            ) : onToggleCamera ? (
               <button
                 type="button"
                 onClick={onToggleCamera}

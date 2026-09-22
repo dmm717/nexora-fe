@@ -152,7 +152,7 @@ test('4. Permission denied simulation sets denied state without throwing uncaugh
 // 5. Component Markup and Accessibility Verification
 // ---------------------------------------------------------------------------
 
-test('5. InterviewCandidateTile component verifies video attributes and mirror styling', () => {
+test('5. InterviewCandidateTile component verifies video attributes, requesting state, and mirror styling', () => {
   const tileSource = readFileSync(
     new URL('../src/components/features/interview/InterviewCandidateTile.tsx', import.meta.url),
     'utf8'
@@ -170,6 +170,11 @@ test('5. InterviewCandidateTile component verifies video attributes and mirror s
   assert.match(tileSource, /avatarUrl && !avatarError/);
   assert.match(tileSource, /<span>\{initials\}<\/span>/);
   assert.match(tileSource, /Camera tắt/);
+
+  // Requesting state display
+  assert.match(tileSource, /cameraState === 'requesting'/);
+  assert.match(tileSource, /Đang bật camera\.\.\./);
+  assert.match(tileSource, /functional-spinner/);
 });
 
 test('6. CameraToggleButton component renders accessible button with distinct states', () => {
@@ -209,7 +214,7 @@ test('7. CSS styles contain horizontal mirroring and responsive presentation', (
 // 8. Interview Integration & Security/Privacy Assurances
 // ---------------------------------------------------------------------------
 
-test('8. Interview room page integrates useLocalCamera and stops camera on completion', () => {
+test('8. Interview room page integrates useLocalCamera and stops camera on non-active status and completion', () => {
   const pageSource = readFileSync(
     new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
     'utf8'
@@ -219,6 +224,11 @@ test('8. Interview room page integrates useLocalCamera and stops camera on compl
   assert.match(pageSource, /InterviewCandidateTile/);
   assert.match(pageSource, /CameraToggleButton/);
   assert.match(pageSource, /disableCamera\(\)/, 'Camera must be stopped when user finishes interview early');
+
+  // Same-route status transition and ID change guards
+  assert.match(pageSource, /interviewStatus && interviewStatus !== 'active'/);
+  assert.match(pageSource, /\[interviewStatus, disableCamera\]/);
+  assert.match(pageSource, /\[id, disableCamera\]/);
 });
 
 test('9. No MediaRecorder, video streaming, frame uploads, or backend video endpoints exist', () => {
@@ -261,4 +271,142 @@ test('10. Answer submission and completion contracts remain strictly text/audio 
 
   const completeReq = buildCompleteInterviewRequest('int-123');
   assert.deepEqual(completeReq.data, {}, 'complete payload must be empty');
+});
+
+// ---------------------------------------------------------------------------
+// 11. Async Acquisition Race Condition & Generation Epoch Verification
+// ---------------------------------------------------------------------------
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function createLocalCameraLifecycleHarness() {
+  let stream = null;
+  let state = 'off';
+  let errorMessage = null;
+  let mounted = true;
+  let requestGeneration = 0;
+  let activeStream = null;
+
+  const stopAllTracks = () => {
+    if (activeStream) {
+      activeStream.getTracks().forEach((track) => track.stop());
+      activeStream = null;
+    }
+    if (mounted) {
+      stream = null;
+    }
+  };
+
+  const disableCamera = () => {
+    requestGeneration++;
+    stopAllTracks();
+    if (mounted) {
+      state = 'off';
+      errorMessage = null;
+    }
+  };
+
+  const enableCamera = async (getUserMediaFn) => {
+    stopAllTracks();
+    const generation = ++requestGeneration;
+    state = 'requesting';
+    errorMessage = null;
+
+    try {
+      const mediaStream = await getUserMediaFn();
+      if (!mounted || generation !== requestGeneration) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      activeStream = mediaStream;
+      stream = mediaStream;
+      state = 'on';
+      errorMessage = null;
+    } catch {
+      if (!mounted || generation !== requestGeneration) return;
+      state = 'error';
+      stopAllTracks();
+    }
+  };
+
+  const unmount = () => {
+    mounted = false;
+    requestGeneration++;
+    stopAllTracks();
+  };
+
+  return {
+    getState: () => state,
+    getStream: () => stream,
+    getErrorMessage: () => errorMessage,
+    enableCamera,
+    disableCamera,
+    unmount,
+  };
+}
+
+test('11. In-flight getUserMedia cancelled by disableCamera stops late-resolving stream tracks and remains off', async () => {
+  const harness = createLocalCameraLifecycleHarness();
+  const deferred = createDeferred();
+  const track = new FakeMediaTrack('video');
+  const lateStream = new FakeMediaStream([track]);
+
+  // Step 1: User triggers camera enable
+  const enablePromise = harness.enableCamera(() => deferred.promise);
+  assert.equal(harness.getState(), 'requesting');
+  assert.equal(harness.getStream(), null);
+
+  // Step 2: User explicitly cancels / disables camera before browser prompt resolves
+  harness.disableCamera();
+  assert.equal(harness.getState(), 'off');
+  assert.equal(track.stopped, false, 'track not yet resolved, so cannot be stopped yet');
+
+  // Step 3: Browser getUserMedia promise finally resolves
+  deferred.resolve(lateStream);
+  await enablePromise;
+
+  // Step 4: Verification - stale stream must have had all tracks stopped and state remains off
+  assert.equal(track.stopped, true, 'Late stream track MUST be stopped immediately on resolution');
+  assert.equal(harness.getState(), 'off', 'Hook state must remain off');
+  assert.equal(harness.getStream(), null, 'No stream must be attached');
+});
+
+test('12. In-flight getUserMedia cancelled by unmount stops late-resolving stream tracks', async () => {
+  const harness = createLocalCameraLifecycleHarness();
+  const deferred = createDeferred();
+  const track = new FakeMediaTrack('video');
+  const lateStream = new FakeMediaStream([track]);
+
+  const enablePromise = harness.enableCamera(() => deferred.promise);
+  assert.equal(harness.getState(), 'requesting');
+
+  // Component unmounts
+  harness.unmount();
+
+  // Browser resolves after unmount
+  deferred.resolve(lateStream);
+  await enablePromise;
+
+  assert.equal(track.stopped, true, 'Track must be stopped when resolving after unmount');
+  assert.equal(harness.getStream(), null);
+});
+
+test('13. useLocalCamera hook source code contains requestGeneration epoch check and track disposal', () => {
+  const hookSource = readFileSync(
+    new URL('../src/hooks/useLocalCamera.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(hookSource, /requestGenerationRef = useRef<number>\(0\)/);
+  assert.match(hookSource, /generation !== requestGenerationRef\.current/);
+  assert.match(hookSource, /track\.stop\(\)/);
+  assert.match(hookSource, /requestGenerationRef\.current\+\+/);
 });

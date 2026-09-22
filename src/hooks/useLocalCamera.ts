@@ -52,6 +52,7 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
 
   const streamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef<boolean>(true);
+  const requestGenerationRef = useRef<number>(0);
 
   const isSupported =
     typeof navigator !== 'undefined' &&
@@ -69,14 +70,18 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       });
       streamRef.current = null;
     }
-    setStream(null);
+    if (mountedRef.current) {
+      setStream(null);
+    }
   }, []);
 
   const disableCamera = useCallback(() => {
+    // Invalidate any in-flight enableCamera requests
+    requestGenerationRef.current++;
     stopAllTracks();
     if (mountedRef.current) {
-      setState('off');
-      setErrorMessage(null);
+      setState((prev) => (prev === 'off' ? prev : 'off'));
+      setErrorMessage((prev) => (prev === null ? null : null));
     }
   }, [stopAllTracks]);
 
@@ -90,6 +95,7 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
     // Stop existing stream if any before acquiring new
     stopAllTracks();
 
+    const generation = ++requestGenerationRef.current;
     setState('requesting');
     setErrorMessage(null);
 
@@ -97,8 +103,15 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       // Audio is explicitly false to ensure zero conflict with speech recognition and TTS
       const mediaStream = await navigator.mediaDevices.getUserMedia(CAMERA_VIDEO_CONSTRAINTS);
 
-      if (!mountedRef.current) {
-        mediaStream.getTracks().forEach((track) => track.stop());
+      // Guard against component unmount or newer operation (e.g. disableCamera, interview status change)
+      if (!mountedRef.current || generation !== requestGenerationRef.current) {
+        mediaStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // ignore
+          }
+        });
         return;
       }
 
@@ -107,7 +120,7 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       setState('on');
       setErrorMessage(null);
     } catch (err: unknown) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || generation !== requestGenerationRef.current) return;
 
       const errorName = err instanceof Error ? err.name : 'UnknownError';
       const friendlyMessage = getCameraErrorMessage(errorName);
@@ -135,8 +148,10 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
 
   useEffect(() => {
     mountedRef.current = true;
+    const generationRef = requestGenerationRef;
     return () => {
       mountedRef.current = false;
+      generationRef.current++;
       if (autoStopOnUnmount) {
         stopAllTracks();
       }
