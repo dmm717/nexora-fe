@@ -1,16 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
+import { NexoraLogo } from '@/components/brand/NexoraLogo';
 
 export const Footer: React.FC = () => {
   return (
     <footer className="border-t border-outline-variant/40 bg-surface-container-lowest py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm">
-              N
-            </div>
-            <span className="font-bold text-sm text-on-surface">Nexora AI · Luyện phỏng vấn & Phát triển năng lực</span>
+          <div className="flex items-center gap-3">
+            <NexoraLogo alt="Nexora" className="h-6 w-auto object-contain" />
+            <span className="hidden text-xs font-medium text-on-surface-variant sm:inline">
+              Luyện phỏng vấn &amp; Phát triển năng lực
+            </span>
           </div>
 
           <nav aria-label="Điều hướng cuối trang" className="flex flex-wrap items-center justify-center gap-6 text-xs text-on-surface-variant">

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 test('Feedback Contract: safe user-facing status labels without exposing admin internals', async () => {
   const contract = await import('../src/services/feedbackContract.ts');
@@ -101,7 +101,7 @@ test('Admin Feedback Moderation: route exists under (admin), has sidebar item, K
   assert.match(adminFeedbackSource, /ResponsiveContainer/);
 });
 
-test('Landing Testimonials: consumes public feedback envelope without computing fake counts or fake photos', () => {
+test('Landing Testimonials: consumes public feedback envelope without computing fake data', () => {
   const landingSource = readFileSync(
     new URL('../src/components/features/landing/MarketingLanding.tsx', import.meta.url),
     'utf8'
@@ -115,11 +115,49 @@ test('Landing Testimonials: consumes public feedback envelope without computing 
   assert.match(testimonialsSource, /usePublicFeedback/);
   assert.match(testimonialsSource, /ratingCount/);
   assert.match(testimonialsSource, /averageRating/);
+  assert.match(testimonialsSource, /items\.length/);
+  assert.match(testimonialsSource, /publishedAt/);
   // Cleanly hides when 0 items or error
   assert.match(testimonialsSource, /if\s*\(isLoading\s*\|\|\s*isError\s*\|\|\s*!data\s*\|\|\s*data\.items\.length === 0\)\s*\{\s*return null;\s*\}/);
   // Respects reduced motion
   assert.match(testimonialsSource, /prefers-reduced-motion/);
-  // No fake photo avatars: initials only
-  assert.doesNotMatch(testimonialsSource, /<img.*avatar/);
+  // Future avatar URLs are optional and retain a safe initials fallback.
+  assert.match(testimonialsSource, /item\.avatarUrl/);
+  assert.match(testimonialsSource, /getInitials/);
   assert.doesNotMatch(testimonialsSource, /randomuser\.me/);
+});
+
+test('Public Feedback Contract: supports optional user avatars without requiring backend changes', () => {
+  const contractSource = readFileSync(
+    new URL('../src/services/feedbackContract.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(contractSource, /interface PublicFeedbackItem/);
+  assert.match(contractSource, /avatarUrl\?: string \| null/);
+  assert.match(contractSource, /items: PublicFeedbackItem\[\]/);
+});
+
+test('Landing brand system: uses the supplied Nexora logo and canonical mascot assets', () => {
+  const headerSource = readFileSync(
+    new URL('../src/components/layouts/Header.tsx', import.meta.url),
+    'utf8'
+  );
+  const footerSource = readFileSync(
+    new URL('../src/components/layouts/Footer.tsx', import.meta.url),
+    'utf8'
+  );
+  const brandAssetsSource = readFileSync(
+    new URL('../src/config/brandAssets.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(headerSource, /<NexoraLogo/);
+  assert.match(footerSource, /<NexoraLogo/);
+  assert.doesNotMatch(headerSource, />\s*N\s*<\/div>/);
+  assert.doesNotMatch(footerSource, />\s*N\s*<\/div>/);
+  assert.match(brandAssetsSource, /nexora-horizontal\.png/);
+  assert.match(brandAssetsSource, /mascot-pointing-stats\.png/);
+  assert.ok(existsSync(new URL('../public/assets/brand/nexora-horizontal.png', import.meta.url)));
+  assert.ok(existsSync(new URL('../public/assets/mascot/mascot-pointing-stats.png', import.meta.url)));
 });

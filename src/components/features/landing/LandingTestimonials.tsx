@@ -1,13 +1,77 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import Image from 'next/image';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { usePublicFeedback } from '@/hooks/queries/useFeedback';
+import type { PublicFeedbackItem } from '@/services/feedbackContract';
+import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
+import styles from './LandingTestimonials.module.css';
+
+const PUBLIC_FEEDBACK_LIMIT = 3;
+const ratingSteps = [1, 2, 3, 4, 5] as const;
+
+function getInitials(displayName: string): string {
+  const words = displayName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 'N';
+  return words.slice(0, 2).map((word) => word.charAt(0)).join('').toUpperCase();
+}
+
+function formatPublishedAt(value: string, options?: Intl.DateTimeFormatOptions): string | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat('vi-VN', options ?? {
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function FeedbackAvatar({ item }: { item: PublicFeedbackItem }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const displayName = item.displayName.trim() || 'Người dùng Nexora';
+
+  if (item.avatarUrl && !imageFailed) {
+    return (
+      // The backend controls future avatar hosts, so a native image keeps this optional field host-agnostic.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={item.avatarUrl}
+        alt=""
+        className={styles.avatarImage}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return <span className={styles.avatarFallback}>{getInitials(displayName)}</span>;
+}
+
+function RatingStars({ rating, label }: { rating: number; label: string }) {
+  const safeRating = Math.max(0, Math.min(5, Math.round(rating)));
+
+  return (
+    <div className={styles.stars} role="img" aria-label={label}>
+      {ratingSteps.map((star) => (
+        <span
+          key={star}
+          aria-hidden="true"
+          className={`material-symbols-outlined ${star <= safeRating ? styles.starFilled : styles.starEmpty}`}
+          style={{ fontVariationSettings: star <= safeRating ? "'FILL' 1" : "'FILL' 0" }}
+        >
+          star
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export const LandingTestimonials: React.FC = () => {
-  const { data, isLoading, isError } = usePublicFeedback();
+  const { data, isLoading, isError } = usePublicFeedback(PUBLIC_FEEDBACK_LIMIT);
   const sectionRef = useRef<HTMLElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!data || data.items.length === 0 || !sectionRef.current) return;
@@ -15,16 +79,15 @@ export const LandingTestimonials: React.FC = () => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    // Layered GSAP transform: entrance reveal on wrapper
     const ctx = gsap.context(() => {
       gsap.fromTo(
-        '.testimonial-entrance-card',
-        { opacity: 0, y: 24 },
+        '[data-social-proof-reveal]',
+        { opacity: 0, y: 20 },
         {
           opacity: 1,
           y: 0,
-          duration: 0.6,
-          stagger: 0.1,
+          duration: 0.55,
+          stagger: 0.08,
           ease: 'power2.out',
         }
       );
@@ -33,114 +96,133 @@ export const LandingTestimonials: React.FC = () => {
     return () => ctx.revert();
   }, [data]);
 
-  // If loading, error, or no items, cleanly hide the section entirely
+  const latestPublishedAt = useMemo(() => {
+    if (!data) return null;
+    const latestTimestamp = data.items.reduce<number | null>((latest, item) => {
+      const timestamp = new Date(item.publishedAt).getTime();
+      if (Number.isNaN(timestamp)) return latest;
+      return latest === null ? timestamp : Math.max(latest, timestamp);
+    }, null);
+
+    return latestTimestamp === null
+      ? null
+      : formatPublishedAt(new Date(latestTimestamp).toISOString(), { month: '2-digit', year: 'numeric' });
+  }, [data]);
+
   if (isLoading || isError || !data || data.items.length === 0) {
     return null;
   }
 
   const { items, averageRating, ratingCount } = data;
+  const formattedRatingCount = new Intl.NumberFormat('vi-VN').format(ratingCount);
+  const stats = [
+    {
+      label: 'Điểm trung bình',
+      value: averageRating === null ? 'Chưa có' : `${averageRating.toFixed(1)}/5`,
+      note: 'Từ đánh giá công khai',
+    },
+    {
+      label: 'Lượt đánh giá',
+      value: formattedRatingCount,
+      note: 'Theo API phản hồi',
+    },
+    {
+      label: 'Đang hiển thị',
+      value: new Intl.NumberFormat('vi-VN').format(items.length),
+      note: 'Phản hồi trong mục này',
+    },
+    {
+      label: 'Cập nhật gần nhất',
+      value: latestPublishedAt ?? 'Trực tiếp',
+      note: 'Từ dữ liệu đã công khai',
+    },
+  ];
 
   return (
-    <section
-      ref={sectionRef}
-      id="testimonials"
-      className="py-16 sm:py-24 bg-slate-50/70 border-t border-b border-slate-200/60 overflow-hidden"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        {/* Section Heading */}
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-amber-800 text-xs font-semibold">
-            <span className="material-symbols-outlined text-[16px] text-amber-500 fill-current">star</span>
-            <span>Đánh giá từ người dùng thực tế</span>
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900">
-            Người dùng nói gì về Nexora
-          </h2>
-
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-            {averageRating !== null && averageRating !== undefined && (
-              <div className="flex items-center gap-1.5 text-amber-500">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <span
-                    key={s}
-                    className="material-symbols-outlined text-[18px] fill-current"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    star
-                  </span>
-                ))}
-                <span className="text-sm font-bold text-slate-800 ml-1">
-                  {averageRating.toFixed(1)}/5
-                </span>
-              </div>
-            )}
-            <span className="text-xs text-slate-500">
-              ({ratingCount} lượt đánh giá đã xác thực)
+    <section ref={sectionRef} id="testimonials" className={styles.section}>
+      <div className={styles.shell}>
+        <div className={styles.testimonialsPanel} data-social-proof-reveal>
+          <div className={styles.panelHeading}>
+            <span className={styles.badge}>
+              <span className="material-symbols-outlined" aria-hidden="true">verified</span>
+              Đánh giá từ người dùng thực tế
             </span>
+            <h2>Người dùng nói gì về Nexora</h2>
+          </div>
+
+          <div className={styles.ratingSummary}>
+            <div>
+              <strong>{averageRating === null ? '—' : averageRating.toFixed(1)}</strong>
+              <span>/5</span>
+            </div>
+            <div>
+              <RatingStars
+                rating={averageRating ?? 0}
+                label={averageRating === null ? 'Chưa có điểm trung bình' : `${averageRating.toFixed(1)} trên 5 sao`}
+              />
+              <p>{formattedRatingCount} lượt đánh giá đã công khai</p>
+            </div>
+          </div>
+
+          <div className={styles.testimonialList}>
+            {items.map((item) => {
+              const displayName = item.displayName.trim() || 'Người dùng Nexora';
+              const publishedAt = formatPublishedAt(item.publishedAt);
+
+              return (
+                <article key={item.id} className={styles.testimonialCard} data-social-proof-reveal>
+                  <RatingStars rating={item.rating} label={`${item.rating} trên 5 sao`} />
+                  <blockquote>&ldquo;{item.comment}&rdquo;</blockquote>
+                  <footer>
+                    <div className={styles.author}>
+                      <span className={styles.avatar} aria-hidden="true">
+                        <FeedbackAvatar item={item} />
+                      </span>
+                      <div>
+                        <strong>{displayName}</strong>
+                        {publishedAt && <time dateTime={item.publishedAt}>{publishedAt}</time>}
+                      </div>
+                    </div>
+                  </footer>
+                </article>
+              );
+            })}
           </div>
         </div>
 
-        {/* Testimonials Grid */}
-        <div
-          ref={trackRef}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="testimonial-entrance-card"
-            >
-              <div className="h-full flex flex-col justify-between p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
-                <div className="space-y-4">
-                  {/* Rating Stars */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-0.5 text-amber-400">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <span
-                          key={star}
-                          className={`material-symbols-outlined text-[18px] ${
-                            star <= item.rating ? 'fill-current' : 'text-slate-200'
-                          }`}
-                          style={{ fontVariationSettings: star <= item.rating ? "'FILL' 1" : "'FILL' 0" }}
-                        >
-                          star
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+        <aside className={styles.statsPanel} aria-labelledby="platform-stats-title" data-social-proof-reveal>
+          <div className={styles.statsHeading}>
+            <span className={styles.eyebrow}>Tín hiệu từ cộng đồng</span>
+            <h2 id="platform-stats-title">Số liệu nền tảng</h2>
+            <p>
+              Các chỉ số dưới đây được lấy trực tiếp từ API phản hồi công khai của Nexora.
+            </p>
+          </div>
 
-                  {/* Comment */}
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed italic">
-                    &ldquo;{item.comment}&rdquo;
-                  </p>
-                </div>
-
-                {/* Author Info (No fake photo: initials badge only) */}
-                <div className="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                      {(item.displayName || 'N').charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">
-                        {item.displayName || 'Người dùng Nexora'}
-                      </p>
-                      <p className="text-[11px] text-slate-400">Học viên Nexora</p>
-                    </div>
-                  </div>
-
-                  <span className="text-[11px] text-slate-400">
-                    {new Intl.DateTimeFormat('vi-VN', {
-                      month: 'short',
-                      year: 'numeric',
-                    }).format(new Date(item.publishedAt))}
-                  </span>
-                </div>
+          <dl className={styles.statsGrid}>
+            {stats.map((stat) => (
+              <div key={stat.label} className={styles.statCard} data-social-proof-reveal>
+                <dt>{stat.label}</dt>
+                <dd>{stat.value}</dd>
+                <dd className={styles.statNote}>{stat.note}</dd>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </dl>
+
+          <Image
+            src={NEXORA_MASCOT_ASSETS.pointingStats}
+            width={768}
+            height={768}
+            sizes="(max-width: 760px) 138px, 210px"
+            alt=""
+            aria-hidden="true"
+            className={styles.mascot}
+          />
+          <p className={styles.dataNote}>
+            <span className="material-symbols-outlined" aria-hidden="true">sync</span>
+            Không dùng số mẫu hay dữ liệu dựng sẵn
+          </p>
+        </aside>
       </div>
     </section>
   );
