@@ -8,6 +8,17 @@ export type InterviewLifecycleStatus =
   | 'abandoned';
 
 export type InterviewReportState = 'none' | 'processing' | 'ready' | 'failed';
+export type InterviewResultState = 'collecting' | 'processing' | 'ready' | 'failed';
+export type InterviewQuestionPreparationState = 'ready' | 'processing' | 'failed';
+export type InterviewAnswerEvaluationState = 'queued' | 'processing' | 'ready' | 'failed';
+
+export interface InterviewEvaluationProgress {
+  total: number;
+  queued: number;
+  processing: number;
+  ready: number;
+  failed: number;
+}
 
 export function shouldUseLegacyReportCompatibility(
   reportState: InterviewReportState | undefined,
@@ -132,6 +143,7 @@ export interface AnswerView {
   content: string;
   durationSeconds?: number | null;
   evaluation?: AnswerEvaluation | null;
+  evaluationState?: InterviewAnswerEvaluationState | string;
   createdAt: string;
 }
 
@@ -153,6 +165,9 @@ export interface InterviewView {
   answers: AnswerView[];
   continuation?: InterviewContinuationView | null;
   reportState?: InterviewReportState;
+  resultState?: InterviewResultState;
+  evaluationProgress?: InterviewEvaluationProgress | null;
+  questionPreparationState?: InterviewQuestionPreparationState;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,7 +189,7 @@ export function getAnswerEvaluationErrorMessage(error: unknown): string {
   return 'Lỗi khi gửi câu trả lời. Câu trả lời của bạn vẫn được giữ lại.';
 }
 
-export type AnswerSubmissionPhase = 'idle' | 'evaluating' | 'accepted';
+export type AnswerSubmissionPhase = 'idle' | 'submitting' | 'evaluating' | 'accepted';
 
 export function getAnswerSubmissionStatus(params: {
   phase: AnswerSubmissionPhase;
@@ -182,11 +197,11 @@ export function getAnswerSubmissionStatus(params: {
   mode: 'voice' | 'chatbox';
   timerLabel: string;
 }): string {
-  if (params.phase === 'evaluating') {
-    return 'AI đang đánh giá câu trả lời...';
+  if (params.phase === 'submitting' || params.phase === 'evaluating') {
+    return 'Đang lưu câu trả lời...';
   }
   if (params.phase === 'accepted') {
-    return 'Đã nộp câu trả lời · đang xem phản hồi từ Nexora AI';
+    return 'Đã lưu câu trả lời thành công';
   }
   if (params.listening) {
     return `Đang nghe bạn · ${params.timerLabel}`;
@@ -665,8 +680,14 @@ export function getInterviewContinuationAction(params: {
   continuation?: InterviewContinuationView | null;
   answeredQuestionCount: number;
   hasActiveQuestion: boolean;
+  questionPreparationState?: InterviewQuestionPreparationState;
 }): InterviewContinuationAction {
-  const { continuation, answeredQuestionCount, hasActiveQuestion } = params;
+  const { continuation, answeredQuestionCount, hasActiveQuestion, questionPreparationState } = params;
+
+  // Never offer continuation while automatic question preparation is processing or failed
+  if (questionPreparationState === 'processing' || questionPreparationState === 'failed') {
+    return 'none';
+  }
 
   if (!continuation || hasActiveQuestion || answeredQuestionCount < 3) return 'none';
   if (continuation.state === 'upgrade_required') return 'upgrade';
@@ -784,11 +805,28 @@ export function applyAnswerResultToInterview(
     questions = [...current.questions, nextQuestion];
   }
 
+  const continuation = result.continuation ?? current.continuation;
+
+  // Reconcile question preparation state at batch boundary:
+  // When nextQuestion is null/absent but the session remains in progress and active,
+  // the server has queued background question planning for the next batch.
+  // Reconcile questionPreparationState to 'processing' immediately so the room
+  // enters preparation UI and initiates fallback polling instead of staying stale 'ready'.
+  let questionPreparationState = current.questionPreparationState;
+  const isSessionInProgress =
+    continuation?.state === 'in_progress' && current.status === 'active';
+  if (!nextQuestion && isSessionInProgress) {
+    questionPreparationState = 'processing';
+  } else if (nextQuestion) {
+    questionPreparationState = 'ready';
+  }
+
   return {
     ...current,
     answers,
     questions,
-    continuation: result.continuation ?? current.continuation,
+    continuation,
+    questionPreparationState,
     version: current.version + 1,
   };
 }
@@ -1179,6 +1217,34 @@ export function buildPracticeAgainRequest(
 export function buildRetryReportRequest(interviewId: string, idempotencyKey?: string) {
   return {
     url: `/interviews/${interviewId}/report/retry`,
+    method: 'POST' as const,
+    data: {},
+    headers: {
+      'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
+    },
+  };
+}
+
+/**
+ * Builds canonical question preparation retry request specification.
+ */
+export function buildRetryQuestionPreparationRequest(interviewId: string, idempotencyKey?: string) {
+  return {
+    url: `/interviews/${interviewId}/questions/retry`,
+    method: 'POST' as const,
+    data: {},
+    headers: {
+      'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
+    },
+  };
+}
+
+/**
+ * Builds canonical results retry request specification.
+ */
+export function buildRetryResultsRequest(interviewId: string, idempotencyKey?: string) {
+  return {
+    url: `/interviews/${interviewId}/results/retry`,
     method: 'POST' as const,
     data: {},
     headers: {

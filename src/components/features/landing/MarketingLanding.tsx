@@ -24,6 +24,7 @@ import { AuthGateModal } from '@/components/auth/AuthGateModal';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { LandingPlanCard } from './LandingPlanCard';
+import { LandingTestimonials } from './LandingTestimonials';
 import { useLandingMotion } from './useLandingMotion';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { usePlans } from '@/hooks/queries/useBilling';
@@ -946,6 +947,9 @@ export function MarketingLanding() {
           </Link>
         </div>
       </section>
+
+      {/* Testimonials Section */}
+      <LandingTestimonials />
 
       {/* 8. Final Call to Action */}
       <section className={styles.finalCta} data-reveal>

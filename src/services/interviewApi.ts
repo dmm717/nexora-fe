@@ -5,6 +5,8 @@ import {
   buildContinueInterviewRequest,
   buildCompleteInterviewRequest,
   buildRetryReportRequest,
+  buildRetryQuestionPreparationRequest,
+  buildRetryResultsRequest,
   buildPracticeAgainRequest,
   normalizeReportView,
   type InterviewView,
@@ -87,6 +89,22 @@ export const interviewApi = {
 
   retryReport: async (id: string, idempotencyKey?: string): Promise<InterviewView> => {
     const req = buildRetryReportRequest(id, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
+    })) as { data: InterviewView };
+    return response.data;
+  },
+
+  retryQuestionPreparation: async (id: string, idempotencyKey?: string): Promise<InterviewView> => {
+    const req = buildRetryQuestionPreparationRequest(id, idempotencyKey);
+    const response = (await apiClient.post(req.url, req.data, {
+      headers: req.headers,
+    })) as { data: InterviewView };
+    return response.data;
+  },
+
+  retryResults: async (id: string, idempotencyKey?: string): Promise<InterviewView> => {
+    const req = buildRetryResultsRequest(id, idempotencyKey);
     const response = (await apiClient.post(req.url, req.data, {
       headers: req.headers,
     })) as { data: InterviewView };

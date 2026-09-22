@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-export type AdminSection = 'users' | 'scenarios' | 'plans';
+export type AdminSection = 'users' | 'scenarios' | 'plans' | 'feedback';
 
 const titles: Record<AdminSection, { title: string; description: string }> = {
   users: { title: 'Người dùng', description: 'Quản lý tài khoản, quyền và quyền lợi hiện hành.' },
   plans: { title: 'Gói cước', description: 'Quản lý gói, mức giá và giới hạn tính năng.' },
   scenarios: { title: 'Kịch bản', description: 'Quản lý nội dung luyện tập tình huống.' },
+  feedback: { title: 'Quản lý phản hồi', description: 'Kiểm duyệt và quản lý đánh giá của người dùng đối với sản phẩm.' },
 };
 
 interface AdminPageShellProps {

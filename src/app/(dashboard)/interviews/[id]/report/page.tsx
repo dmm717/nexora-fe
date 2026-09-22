@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/Badge';
 import { RadialScore } from '@/components/ui/RadialScore';
 import { StarEvaluationCard } from '@/components/features/coaching/StarEvaluationCard';
 import { SampleAnswerCard } from '@/components/features/coaching/SampleAnswerCard';
+import { ProductFeedbackDialog } from '@/components/features/feedback/ProductFeedbackDialog';
 
 export default function InterviewReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,8 +36,12 @@ export default function InterviewReportPage() {
   const [practicingAgain, setPracticingAgain] = useState<boolean>(false);
   const [retrying, setRetrying] = useState<boolean>(false);
   const [retryError, setRetryError] = useState<{ message: string; requestId?: string } | null>(null);
+  const [retryingResults, setRetryingResults] = useState<boolean>(false);
+  const [retryResultsError, setRetryResultsError] = useState<{ message: string; requestId?: string } | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState<boolean>(false);
 
   const retryKeyRef = useRef<string>(generateIdempotencyKey());
+  const resultsRetryKeyRef = useRef<string>(generateIdempotencyKey());
   const practiceAgainKeyRef = useRef<string>(generateIdempotencyKey());
 
   const {
@@ -52,8 +57,12 @@ export default function InterviewReportPage() {
     legacyReportPollingBoundExhausted,
   } = useInterviewReport(id, interview?.reportState, interview?.status);
 
-  const isFailed = interview?.reportState === 'failed' || isReportFailedError(queryError);
+  const isResultsFailed = interview?.resultState === 'failed';
+  const isReportFailed = interview?.reportState === 'failed' || isReportFailedError(queryError);
+  const isFailed = isResultsFailed || isReportFailed;
+
   const isProcessing = !isFailed && (
+    interview?.resultState === 'processing' ||
     interview?.reportState === 'processing' ||
     isReportProcessingError(queryError) ||
     (interview?.reportState === undefined && interview?.status === 'completing')
@@ -81,6 +90,26 @@ export default function InterviewReportPage() {
     } catch (err: unknown) {
       alert(err instanceof ApiError ? err.message : 'Không thể khởi tạo phiên luyện tập lại.');
       setPracticingAgain(false);
+    }
+  };
+
+  // Retry results processing
+  const handleRetryResults = async () => {
+    if (retryingResults) return;
+    setRetryingResults(true);
+    setRetryResultsError(null);
+    try {
+      const updated = await interviewApi.retryResults(id, resultsRetryKeyRef.current);
+      resetStatusPollingAttempts();
+      queryClient.setQueryData(['interview', id], updated);
+      resultsRetryKeyRef.current = generateIdempotencyKey();
+    } catch (err: unknown) {
+      setRetryResultsError({
+        message: err instanceof ApiError ? err.message : 'Lỗi khi yêu cầu xử lý lại kết quả.',
+        requestId: err instanceof ApiError ? err.requestId : undefined,
+      });
+    } finally {
+      setRetryingResults(false);
     }
   };
 
@@ -116,26 +145,42 @@ export default function InterviewReportPage() {
 
   // Confirmed server failed state
   if (reportRenderState === 'failed') {
+    const isResultsFailure = interview?.resultState === 'failed';
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-red-200 text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
           <span className="material-symbols-outlined text-2xl">error_outline</span>
         </div>
-        <h2 className="text-xl font-bold text-red-900">Chưa thể xuất báo cáo</h2>
+        <h2 className="text-xl font-bold text-red-900">
+          {isResultsFailure ? 'Chưa thể tổng hợp kết quả phỏng vấn' : 'Chưa thể xuất báo cáo'}
+        </h2>
         <p className="text-xs text-slate-600 max-w-md mx-auto">
-          {retryError?.message ||
-            'Hệ thống gặp sự cố khi tạo báo cáo (INTERVIEW_REPORT_FAILED). Bạn có thể yêu cầu tạo lại.'}
+          {isResultsFailure
+            ? (retryResultsError?.message || 'Hệ thống gặp sự cố khi xử lý kết quả phỏng vấn. Bạn có thể yêu cầu thử xử lý lại.')
+            : (retryError?.message || 'Hệ thống gặp sự cố khi tạo báo cáo (INTERVIEW_REPORT_FAILED). Bạn có thể yêu cầu tạo lại.')}
         </p>
         <div className="pt-2">
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleRetryReport}
-            disabled={retrying}
-            className="shadow-sm font-semibold"
-          >
-            {retrying ? 'Đang gửi yêu cầu tạo lại...' : 'Thử tạo lại báo cáo'}
-          </Button>
+          {isResultsFailure ? (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleRetryResults}
+              disabled={retryingResults}
+              className="shadow-sm font-semibold"
+            >
+              {retryingResults ? 'Đang gửi yêu cầu xử lý lại...' : 'Thử xử lý lại'}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleRetryReport}
+              disabled={retrying}
+              className="shadow-sm font-semibold"
+            >
+              {retrying ? 'Đang gửi yêu cầu tạo lại...' : 'Thử tạo lại báo cáo'}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -171,12 +216,17 @@ export default function InterviewReportPage() {
 
   // Processing state while the local polling budget remains available
   if (reportRenderState === 'processing') {
+    const progress = interview?.evaluationProgress;
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <div className="functional-spinner w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto" />
-        <h2 className="text-xl font-bold text-slate-900">Báo cáo đang được tổng hợp...</h2>
+        <h2 className="text-xl font-bold text-slate-900">
+          {progress ? `Đã phân tích ${progress.ready}/${progress.total} câu trả lời` : 'Báo cáo đang được tổng hợp...'}
+        </h2>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          Nexora AI đang phân tích dữ liệu câu trả lời, đối soát thang điểm Rubric và mô hình STAR. Quá trình này diễn ra hoàn toàn tự động.
+          {progress && progress.ready < progress.total
+            ? 'Nexora AI đang hoàn tất phân tích các câu trả lời còn lại. Quá trình diễn ra tự động trong giây lát.'
+            : 'Nexora AI đang phân tích dữ liệu câu trả lời, đối soát thang điểm Rubric và mô hình STAR. Quá trình này diễn ra hoàn toàn tự động.'}
         </p>
       </div>
     );
@@ -557,6 +607,38 @@ export default function InterviewReportPage() {
           </div>
         </Card>
       )}
+
+      {/* Product Feedback Section */}
+      <Card
+        variant="elevated"
+        padding="lg"
+        className="bg-gradient-to-r from-indigo-50/70 via-white to-purple-50/70 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+      >
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-indigo-600 text-[20px]">rate_review</span>
+            <h3 className="font-bold text-slate-900 text-sm sm:text-base">Trải nghiệm buổi phỏng vấn này thế nào?</h3>
+          </div>
+          <p className="text-xs text-slate-600">
+            Ý kiến đóng góp của bạn giúp Nexora liên tục cải thiện AI phỏng vấn và chất lượng câu hỏi.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setFeedbackOpen(true)}
+          icon={<span className="material-symbols-outlined text-[18px]">star</span>}
+          className="shrink-0 font-semibold shadow-sm"
+        >
+          Gửi đánh giá về Nexora
+        </Button>
+      </Card>
+
+      <ProductFeedbackDialog
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        interviewId={id}
+      />
     </div>
   );
 }

@@ -40,8 +40,8 @@ test('Interview direct submit: interview page wires direct onSubmit to canonical
     'Direct submit must call handleSubmitAnswer with trimmed draft content'
   );
   assert.ok(
-    pageSource.includes('submitDisabled={!canAnswer || isEvaluating || submitting || showCoaching}'),
-    'submitDisabled must be wired with interview readiness conditions'
+    pageSource.includes('submitDisabled={!canAnswer || submitting}'),
+    'submitDisabled must be wired with interview readiness conditions (seamless non-blocking evaluation)'
   );
 });
 

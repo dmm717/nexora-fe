@@ -1289,7 +1289,9 @@ test('46. pending post-payment entitlement exposes refetch-only action', () => {
   );
   const recheckHandler = source.slice(
     source.indexOf('const handleEntitlementRecheck'),
-    source.indexOf('// Continue action after reviewing coaching drawer')
+    source.indexOf('const handleRetryQuestionPreparation') !== -1
+      ? source.indexOf('const handleRetryQuestionPreparation')
+      : source.indexOf('const handleFinishEarly')
   );
 
   assert.match(source, /Kiểm tra lại quyền tiếp tục/);
@@ -1416,10 +1418,6 @@ test('51. grounded rewrite visibility uses conservative normalized equality only
 });
 
 test('52. Quick Coaching keeps nonsense feedback, hides identical rewrite, and shows the sample separately', () => {
-  const roomSource = readFileSync(
-    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
-    'utf8'
-  );
   const drawerSource = readFileSync(
     new URL('../src/components/features/coaching/QuickCoachingDrawer.tsx', import.meta.url),
     'utf8'
@@ -1428,9 +1426,6 @@ test('52. Quick Coaching keeps nonsense feedback, hides identical rewrite, and s
     new URL('../src/components/features/coaching/SampleAnswerCard.tsx', import.meta.url),
     'utf8'
   );
-
-  assert.match(roomSource, /result\.answer\.content : null/);
-  assert.match(roomSource, /candidateAnswer=\{latestCandidateAnswer\}/);
   assert.match(drawerSource, /shouldShowGroundedRewrite/);
   assert.match(drawerSource, /showGroundedRewrite && coaching\.improvedAnswer/);
   assert.match(drawerSource, /coaching\.sampleAnswer && <SampleAnswerCard/);
@@ -1491,7 +1486,7 @@ test('56. explicit answer retry keeps frozen intent and no automatic retry loop'
     source.indexOf('const handleEntitlementRecheck')
   );
 
-  assert.match(source, /Thử lại đánh giá/);
+  assert.match(source, /Thử gửi lại/);
   assert.match(source, /Chỉnh sửa câu trả lời/);
   assert.match(submitHandler, /pendingAnswerIntentRef\.current = intent/);
   assert.match(submitHandler, /pendingAnswerIntentRef\.current = null/);
@@ -1518,14 +1513,14 @@ test('57. report body fetch is gated by canonical reportState', () => {
 });
 
 test('58. answer submission status never claims acceptance before success', () => {
-  const evaluating = getAnswerSubmissionStatus({
-    phase: 'evaluating',
+  const submitting = getAnswerSubmissionStatus({
+    phase: 'submitting',
     listening: false,
     mode: 'chatbox',
     timerLabel: '00:01',
   });
-  assert.equal(evaluating, 'AI đang đánh giá câu trả lời...');
-  assert.doesNotMatch(evaluating, /Đã nộp/);
+  assert.equal(submitting, 'Đang lưu câu trả lời...');
+  assert.doesNotMatch(submitting, /Đã nộp/);
 
   const accepted = getAnswerSubmissionStatus({
     phase: 'accepted',
@@ -1533,10 +1528,10 @@ test('58. answer submission status never claims acceptance before success', () =
     mode: 'chatbox',
     timerLabel: '00:01',
   });
-  assert.match(accepted, /Đã nộp/);
+  assert.match(accepted, /Đã lưu câu trả lời thành công/);
 });
 
-test('60. coaching lock is separate from the in-flight submission status', () => {
+test('60. seamless interview: AudioSpeechDock is locked only during in-flight submission', () => {
   const pageSource = readFileSync(
     new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
     'utf8'
@@ -1546,8 +1541,7 @@ test('60. coaching lock is separate from the in-flight submission status', () =>
     'utf8'
   );
 
-  assert.match(pageSource, /isLocked=\{submitting \|\| isEvaluating \|\| showCoaching\}/);
-  assert.match(pageSource, /showCoaching\s*\?\s*'accepted'/);
+  assert.match(pageSource, /isLocked=\{submitting\}/);
   assert.match(dockSource, /submissionPhase\?: AnswerSubmissionPhase/);
   assert.doesNotMatch(dockSource, /isSubmitting\s*\?/);
 });
