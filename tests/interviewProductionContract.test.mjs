@@ -1289,7 +1289,9 @@ test('46. pending post-payment entitlement exposes refetch-only action', () => {
   );
   const recheckHandler = source.slice(
     source.indexOf('const handleEntitlementRecheck'),
-    source.indexOf('// Continue action after reviewing coaching drawer')
+    source.indexOf('const handleRetryQuestionPreparation') !== -1
+      ? source.indexOf('const handleRetryQuestionPreparation')
+      : source.indexOf('const handleFinishEarly')
   );
 
   assert.match(source, /Kiểm tra lại quyền tiếp tục/);
@@ -1416,10 +1418,6 @@ test('51. grounded rewrite visibility uses conservative normalized equality only
 });
 
 test('52. Quick Coaching keeps nonsense feedback, hides identical rewrite, and shows the sample separately', () => {
-  const roomSource = readFileSync(
-    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
-    'utf8'
-  );
   const drawerSource = readFileSync(
     new URL('../src/components/features/coaching/QuickCoachingDrawer.tsx', import.meta.url),
     'utf8'
@@ -1428,9 +1426,6 @@ test('52. Quick Coaching keeps nonsense feedback, hides identical rewrite, and s
     new URL('../src/components/features/coaching/SampleAnswerCard.tsx', import.meta.url),
     'utf8'
   );
-
-  assert.match(roomSource, /result\.answer\.content : null/);
-  assert.match(roomSource, /candidateAnswer=\{latestCandidateAnswer\}/);
   assert.match(drawerSource, /shouldShowGroundedRewrite/);
   assert.match(drawerSource, /showGroundedRewrite && coaching\.improvedAnswer/);
   assert.match(drawerSource, /coaching\.sampleAnswer && <SampleAnswerCard/);
@@ -1536,7 +1531,7 @@ test('58. answer submission status never claims acceptance before success', () =
   assert.match(accepted, /Đã nộp/);
 });
 
-test('60. coaching lock is separate from the in-flight submission status', () => {
+test('60. seamless interview: AudioSpeechDock is locked only during in-flight submission', () => {
   const pageSource = readFileSync(
     new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
     'utf8'
@@ -1546,8 +1541,7 @@ test('60. coaching lock is separate from the in-flight submission status', () =>
     'utf8'
   );
 
-  assert.match(pageSource, /isLocked=\{submitting \|\| isEvaluating \|\| showCoaching\}/);
-  assert.match(pageSource, /showCoaching\s*\?\s*'accepted'/);
+  assert.match(pageSource, /isLocked=\{submitting\}/);
   assert.match(dockSource, /submissionPhase\?: AnswerSubmissionPhase/);
   assert.doesNotMatch(dockSource, /isSubmitting\s*\?/);
 });

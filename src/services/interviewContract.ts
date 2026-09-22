@@ -8,6 +8,17 @@ export type InterviewLifecycleStatus =
   | 'abandoned';
 
 export type InterviewReportState = 'none' | 'processing' | 'ready' | 'failed';
+export type InterviewResultState = 'collecting' | 'processing' | 'ready' | 'failed';
+export type InterviewQuestionPreparationState = 'ready' | 'processing' | 'failed';
+export type InterviewAnswerEvaluationState = 'queued' | 'processing' | 'ready' | 'failed';
+
+export interface InterviewEvaluationProgress {
+  total: number;
+  queued: number;
+  processing: number;
+  ready: number;
+  failed: number;
+}
 
 export function shouldUseLegacyReportCompatibility(
   reportState: InterviewReportState | undefined,
@@ -132,6 +143,7 @@ export interface AnswerView {
   content: string;
   durationSeconds?: number | null;
   evaluation?: AnswerEvaluation | null;
+  evaluationState?: InterviewAnswerEvaluationState | string;
   createdAt: string;
 }
 
@@ -153,6 +165,9 @@ export interface InterviewView {
   answers: AnswerView[];
   continuation?: InterviewContinuationView | null;
   reportState?: InterviewReportState;
+  resultState?: InterviewResultState;
+  evaluationProgress?: InterviewEvaluationProgress | null;
+  questionPreparationState?: InterviewQuestionPreparationState;
   createdAt: string;
   updatedAt: string;
 }
@@ -1179,6 +1194,34 @@ export function buildPracticeAgainRequest(
 export function buildRetryReportRequest(interviewId: string, idempotencyKey?: string) {
   return {
     url: `/interviews/${interviewId}/report/retry`,
+    method: 'POST' as const,
+    data: {},
+    headers: {
+      'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
+    },
+  };
+}
+
+/**
+ * Builds canonical question preparation retry request specification.
+ */
+export function buildRetryQuestionPreparationRequest(interviewId: string, idempotencyKey?: string) {
+  return {
+    url: `/interviews/${interviewId}/questions/retry`,
+    method: 'POST' as const,
+    data: {},
+    headers: {
+      'Idempotency-Key': idempotencyKey || generateIdempotencyKey(),
+    },
+  };
+}
+
+/**
+ * Builds canonical results retry request specification.
+ */
+export function buildRetryResultsRequest(interviewId: string, idempotencyKey?: string) {
+  return {
+    url: `/interviews/${interviewId}/results/retry`,
     method: 'POST' as const,
     data: {},
     headers: {

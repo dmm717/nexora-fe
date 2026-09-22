@@ -22,8 +22,6 @@ import {
   createCompleteIntentState,
   type AnswerIntent,
   type CompleteIntentState,
-  type AnswerEvaluation,
-  safeAnswerEvaluation,
 } from '@/services/interviewContract';
 import { useInterview } from '@/hooks/queries/useInterviews';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
@@ -43,7 +41,6 @@ import {
   type QuestionSpeakerHandle,
 } from '@/components/features/interview/QuestionSpeaker';
 import { AudioSpeechDock, type AudioSpeechState } from '@/components/features/interview/AudioSpeechDock';
-import { QuickCoachingDrawer } from '@/components/features/coaching/QuickCoachingDrawer';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -52,10 +49,10 @@ export default function InterviewRoomPage() {
   const queryClient = useQueryClient();
   const { data: careerProfile } = useCareerProfile();
 
-  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [completing, setCompleting] = useState<boolean>(false);
   const [continuing, setContinuing] = useState<boolean>(false);
+  const [retryingQuestion, setRetryingQuestion] = useState<boolean>(false);
   const [pendingEntitlementRecheck, setPendingEntitlementRecheck] = useState<boolean>(false);
 
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
@@ -69,11 +66,7 @@ export default function InterviewRoomPage() {
     duration: 0,
   });
 
-  // Coaching & Q3 boundary UI state
-  const [showCoaching, setShowCoaching] = useState<boolean>(false);
-  const [latestEvaluation, setLatestEvaluation] = useState<AnswerEvaluation | null>(null);
-  const [latestCandidateAnswer, setLatestCandidateAnswer] = useState<string | null>(null);
-  const [latestEvaluatedSeq, setLatestEvaluatedSeq] = useState<number>(1);
+  // Q3 boundary UI state
   const [showQ3BoundaryModal, setShowQ3BoundaryModal] = useState<boolean>(false);
 
   // Read text-only preference set at preflight
@@ -98,6 +91,7 @@ export default function InterviewRoomPage() {
   // Stable idempotency intents
   const pendingAnswerIntentRef = useRef<AnswerIntent | null>(null);
   const continueKeyRef = useRef<string>(generateIdempotencyKey());
+  const questionRetryKeyRef = useRef<string>(generateIdempotencyKey());
   const completeIntentRef = useRef<CompleteIntentState>(createCompleteIntentState());
   const continuationReturnHandledRef = useRef<boolean>(false);
   const continueInFlightRef = useRef<boolean>(false);
@@ -199,11 +193,11 @@ export default function InterviewRoomPage() {
 
   // Presence State derivation
   const presenceState: InterviewPresenceState = useMemo(() => {
-    if (isEvaluating || submitting) return 'thinking';
+    if (submitting) return 'thinking';
     if (candidateState.listening) return 'listening';
     if (isAiSpeaking) return 'speaking';
     return 'idle';
-  }, [isEvaluating, submitting, candidateState.listening, isAiSpeaking]);
+  }, [submitting, candidateState.listening, isAiSpeaking]);
 
   // Initials for avatar
   const candidateName = careerProfile?.profile?.displayName || 'Bạn';
@@ -219,7 +213,6 @@ export default function InterviewRoomPage() {
 
   // Question sequence & header text
   const currentSequence = activeQuestion?.sequence ?? (answeredPairs.length + 1);
-  const isBeyondFreeBoundary = currentSequence > 3 || answeredPairs.length >= 3;
   const headerQuestionLabel = `Câu ${currentSequence}`;
 
   useFocusedPracticeShell({
@@ -229,8 +222,8 @@ export default function InterviewRoomPage() {
       : undefined,
     stepInfo: activeQuestion ? headerQuestionLabel : undefined,
     statusLabel:
-      isEvaluating || submitting
-        ? 'AI đang đánh giá câu trả lời'
+      submitting
+        ? 'Đang lưu câu trả lời...'
         : candidateState.listening
           ? 'Đang lắng nghe câu trả lời'
           : isAiSpeaking
@@ -246,12 +239,11 @@ export default function InterviewRoomPage() {
     if (state.listening) setIsAiSpeaking(false);
   }, []);
 
-  // Submit Answer handler
+  // Submit Answer handler (Seamless transition: 200 -> next question immediately)
   const handleSubmitAnswer = async (content: string, durationSec?: number) => {
-    if (!canAnswer || !activeQuestion || submitting || isEvaluating) return;
+    if (!canAnswer || !activeQuestion || submitting) return;
 
     setSubmitting(true);
-    setIsEvaluating(true);
     setAnswerSubmitState('submitting');
     setActionError(null);
 
@@ -274,16 +266,11 @@ export default function InterviewRoomPage() {
       setCurrentDraftContent('');
       setAnswerSubmitState('draft');
 
-      // Extract evaluation
-      const evalData = result.answer.evaluation
-        ? safeAnswerEvaluation(result.answer.evaluation)
-        : null;
-      setLatestCandidateAnswer(
-        typeof result.answer.content === 'string' ? result.answer.content : null
-      );
-      setLatestEvaluation(evalData);
-      setLatestEvaluatedSeq(currentSequence);
-      setShowCoaching(true);
+      // Check if candidate reached Q3 completion boundary
+      const answeredCount = (interview?.answers?.length ?? 0) + 1;
+      if (activeQuestion.sequence === 3 || answeredCount === 3) {
+        setShowQ3BoundaryModal(true);
+      }
     } catch (err: unknown) {
       setAnswerSubmitState('recoverable_error');
       setActionError({
@@ -293,7 +280,6 @@ export default function InterviewRoomPage() {
       });
     } finally {
       setSubmitting(false);
-      setIsEvaluating(false);
     }
   };
 
@@ -323,48 +309,23 @@ export default function InterviewRoomPage() {
     }
   };
 
-  // Continue action after reviewing coaching drawer
-  const handleContinueAfterCoaching = async () => {
-    setShowCoaching(false);
-
-    if (latestEvaluatedSeq === 1) {
-      return;
-    }
-
-    if (latestEvaluatedSeq === 2) {
-      return;
-    }
-
-    if (latestEvaluatedSeq === 3) {
-      setShowQ3BoundaryModal(true);
-      return;
-    }
-
-    if (continuationAction === 'complete') {
-      await handleFinishEarly();
-      return;
-    }
-
-    if (continuationAction !== 'continue_same_session') return;
-
+  // Retry question preparation when questionPreparationState === 'failed'
+  const handleRetryQuestionPreparation = async () => {
+    if (retryingQuestion) return;
+    setRetryingQuestion(true);
+    setActionError(null);
     try {
-      if (continueInFlightRef.current) return;
-      continueInFlightRef.current = true;
-      setContinuing(true);
-      const updated = await interviewApi.continue(id, continueKeyRef.current);
+      const updated = await interviewApi.retryQuestionPreparation(id, questionRetryKeyRef.current);
       queryClient.setQueryData(['interview', id], updated);
-      continueKeyRef.current = generateIdempotencyKey();
+      questionRetryKeyRef.current = generateIdempotencyKey();
     } catch (err: unknown) {
       setActionError({
-        message:
-          err instanceof ApiError
-            ? err.message
-            : 'Đã hoàn thành phân bổ câu hỏi. Bạn có thể xuất báo cáo.',
+        message: err instanceof ApiError ? err.message : 'Không thể thử lại chuẩn bị câu hỏi.',
         requestId: err instanceof ApiError ? err.requestId : undefined,
+        code: err instanceof ApiError ? err.code : undefined,
       });
     } finally {
-      continueInFlightRef.current = false;
-      setContinuing(false);
+      setRetryingQuestion(false);
     }
   };
 
@@ -378,7 +339,6 @@ export default function InterviewRoomPage() {
       return;
     }
 
-    setShowCoaching(false);
     setShowQ3BoundaryModal(false);
     setCompleting(true);
     setActionError(null);
@@ -547,7 +507,7 @@ export default function InterviewRoomPage() {
                     type="button"
                     variant="primary"
                     size="sm"
-                    disabled={submitting || isEvaluating}
+                    disabled={submitting}
                     onClick={() => {
                       const intent = pendingAnswerIntentRef.current;
                       if (intent) {
@@ -564,7 +524,7 @@ export default function InterviewRoomPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={submitting || isEvaluating}
+                    disabled={submitting}
                     onClick={() => setEditorOpen(true)}
                   >
                     Chỉnh sửa câu trả lời
@@ -592,6 +552,23 @@ export default function InterviewRoomPage() {
             {activeQuestion ? (
               <div className="interview-live-caption" aria-label="Phụ đề câu hỏi">
                 <p>&ldquo;{activeQuestion.content}&rdquo;</p>
+              </div>
+            ) : interview.questionPreparationState === 'processing' ? (
+              <div className="interview-live-caption flex flex-col items-center gap-2">
+                <div className="functional-spinner w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full" />
+                <p>Đang chuẩn bị câu hỏi tiếp theo...</p>
+              </div>
+            ) : interview.questionPreparationState === 'failed' ? (
+              <div className="interview-live-caption flex flex-col items-center gap-2">
+                <p className="text-red-400 font-semibold">Chưa thể chuẩn bị câu hỏi tiếp theo.</p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleRetryQuestionPreparation}
+                  disabled={retryingQuestion}
+                >
+                  {retryingQuestion ? 'Đang thử lại...' : 'Thử lại'}
+                </Button>
               </div>
             ) : (
               <div className="interview-live-caption">
@@ -656,8 +633,8 @@ export default function InterviewRoomPage() {
             <CurrentAnswerCaption
               content={currentDraftContent}
               listening={candidateState.listening}
-              disabled={isEvaluating || submitting || showCoaching}
-              submitDisabled={!canAnswer || isEvaluating || submitting || showCoaching}
+              disabled={submitting}
+              submitDisabled={!canAnswer || submitting}
               onEdit={() => setEditorOpen(true)}
               onSubmit={() => {
                 const trimmed = currentDraftContent.trim();
@@ -679,14 +656,8 @@ export default function InterviewRoomPage() {
               key={activeQuestion.id}
               initialContent=""
               onSubmit={(content, duration) => handleSubmitAnswer(content, duration)}
-              isLocked={submitting || isEvaluating || showCoaching}
-              submissionPhase={
-                submitting || isEvaluating
-                  ? 'evaluating'
-                  : showCoaching
-                    ? 'accepted'
-                    : 'idle'
-              }
+              isLocked={submitting}
+              submissionPhase={submitting ? 'evaluating' : 'idle'}
               forcedTextOnly={forcedTextOnly}
               variant="call"
               editorOpen={editorOpen}
@@ -711,9 +682,7 @@ export default function InterviewRoomPage() {
                     disabled={
                       candidateState.listening ||
                       isPreparingCandidateInput ||
-                      submitting ||
-                      isEvaluating ||
-                      showCoaching
+                      submitting
                     }
                     onSpeakingChange={setIsAiSpeaking}
                     className="interview-call-button"
@@ -723,7 +692,7 @@ export default function InterviewRoomPage() {
                     type="button"
                     className="interview-call-button interview-end-button"
                     aria-label="Kết thúc phiên phỏng vấn"
-                    disabled={submitting || isEvaluating || !canFinish}
+                    disabled={submitting || !canFinish}
                     onClick={handleFinishEarly}
                   >
                     <span aria-hidden="true" className="material-symbols-outlined">
@@ -735,6 +704,39 @@ export default function InterviewRoomPage() {
               }
             />
           </div>
+        )}
+
+        {/* Question Preparation Status Cards when activeQuestion is not yet ready */}
+        {!activeQuestion && interview.questionPreparationState === 'processing' && (
+          <Card variant="elevated" padding="md" className="text-center space-y-2 border-indigo-100 bg-indigo-50/50">
+            <div className="functional-spinner w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto" />
+            <p className="text-sm font-semibold text-slate-800">
+              Đang chuẩn bị câu hỏi tiếp theo...
+            </p>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Nexora AI đang tạo câu hỏi tiếp theo dựa trên diễn biến phỏng vấn thực tế của bạn.
+            </p>
+          </Card>
+        )}
+
+        {!activeQuestion && interview.questionPreparationState === 'failed' && (
+          <Card variant="elevated" padding="md" className="border-red-200 bg-red-50/60 text-center space-y-3">
+            <p className="text-sm font-semibold text-red-900">
+              Chưa thể chuẩn bị câu hỏi tiếp theo.
+            </p>
+            <p className="text-xs text-red-700 max-w-md mx-auto">
+              Hệ thống chưa tạo được câu hỏi cho lượt này. Bạn có thể yêu cầu thử lại ngay.
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleRetryQuestionPreparation}
+              disabled={retryingQuestion}
+              className="shadow-sm font-semibold"
+            >
+              {retryingQuestion ? 'Đang gửi yêu cầu thử lại...' : 'Thử lại'}
+            </Button>
+          </Card>
         )}
 
         {!activeQuestion && answeredPairs.length >= 3 && (
@@ -807,26 +809,6 @@ export default function InterviewRoomPage() {
             ))
           )}
         </details>
-
-        {/* Quick Coaching Drawer */}
-        {latestEvaluation && (
-          <QuickCoachingDrawer
-            isOpen={showCoaching}
-            coaching={latestEvaluation}
-            candidateAnswer={latestCandidateAnswer}
-            questionSequence={latestEvaluatedSeq}
-            totalQuestions={isBeyondFreeBoundary ? null : 3}
-            canContinueQuestion={
-              Boolean(activeQuestion) ||
-              latestEvaluatedSeq < 3 ||
-              continuationAction === 'continue_same_session'
-            }
-            onContinue={handleContinueAfterCoaching}
-            onFinishEarly={latestEvaluatedSeq >= 2 ? handleFinishEarly : undefined}
-            finishEarlyLabel={latestEvaluatedSeq === 2 ? 'Kết thúc sớm & nhận báo cáo 2 câu' : undefined}
-            onClose={() => setShowCoaching(false)}
-          />
-        )}
 
         {/* Q3 Free Boundary Modal */}
         <Modal

@@ -40,6 +40,8 @@ export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInter
             const status = readStatus(interview);
             const pending = status === 'starting' ||
               interview?.reportState === 'processing' ||
+              interview?.resultState === 'processing' ||
+              interview?.questionPreparationState === 'processing' ||
               (interview?.reportState === undefined && status === 'completing');
             if (pending && statusPollingTracker.getAttemptCount() < REPORT_POLL_MAX_ATTEMPTS) {
               statusPollingTracker.scheduleFallbackPoll();
@@ -52,6 +54,8 @@ export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInter
 
   const pending = query.data?.status === 'starting' ||
     query.data?.reportState === 'processing' ||
+    query.data?.resultState === 'processing' ||
+    query.data?.questionPreparationState === 'processing' ||
     (query.data?.reportState === undefined && query.data?.status === 'completing');
   return {
     ...query,

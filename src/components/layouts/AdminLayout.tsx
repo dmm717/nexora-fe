@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, ChevronLeft, CreditCard, LayoutDashboard, Menu, Package, Users, X, Workflow } from 'lucide-react';
+import { BarChart3, ChevronLeft, CreditCard, LayoutDashboard, Menu, MessageSquare, Package, Users, X, Workflow } from 'lucide-react';
 
 const navigation = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const navigation = [
   { href: '/admin/transactions', label: 'Giao dịch', icon: CreditCard },
   { href: '/admin/plans', label: 'Gói cước', icon: Package },
   { href: '/admin/scenarios', label: 'Kịch bản', icon: Workflow },
+  { href: '/admin/feedback', label: 'Phản hồi', icon: MessageSquare },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -7,6 +7,7 @@ import { PersonalInformationCard } from './PersonalInformationCard';
 import { SecurityCard } from './SecurityCard';
 import { PlanUsageCard } from './PlanUsageCard';
 import { PrivacyDataCard } from './PrivacyDataCard';
+import { ProductFeedbackCard } from './ProductFeedbackCard';
 import { SessionsCard } from './SessionsCard';
 import { DangerZoneCard } from './DangerZoneCard';
 import { AccountSkeleton } from './AccountSkeleton';
@@ -54,10 +55,11 @@ export const AccountSettings: React.FC = () => {
 
       {/* Main Responsive Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-        {/* Left Column (7 cols): Personal Info & Privacy/Data */}
+        {/* Left Column (7 cols): Personal Info & Privacy/Data & Feedback */}
         <div className="lg:col-span-7 space-y-6 sm:space-y-8">
           <PersonalInformationCard user={user} />
           <PrivacyDataCard />
+          <ProductFeedbackCard />
         </div>
 
         {/* Right Column (5 cols): Security, Plan & Usage, Sessions */}
