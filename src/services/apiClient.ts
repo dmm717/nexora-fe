@@ -1,6 +1,12 @@
-import { getAccessToken, setAccessToken, clearAccessToken } from '../store/authStore';
-import { translateErrorMessage } from '../utils/errorTranslator';
-import { refreshSession } from './authSession';
+import {
+  getAccessToken,
+  getPrincipalEpoch,
+  invalidatePrincipal,
+  isPrincipalEpochCurrent,
+  setAccessToken,
+} from '../store/authStore.ts';
+import { translateErrorMessage } from '../utils/errorTranslator.ts';
+import { AuthRefreshError, refreshSession, StaleAuthSessionError } from './authSession.ts';
 
 export class ApiError extends Error {
   code?: string;
@@ -27,43 +33,57 @@ export interface PaginatedResponse<T> {
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 /**
- * Thêm các header cần thiết:
- * - Authorization (Bearer) nếu có token
+ * Adds the current in-memory bearer token to a request. Tokens are never
+ * persisted outside the auth store.
  */
 const getHeaders = () => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   };
 
   const token = getAccessToken();
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   return headers;
 };
 
-// --- Refresh Token Queue Logic ---
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void, reject: (error: Error) => void }> = [];
-
-const processQueue = (error: Error | null, token: string | null = null) => {
-  failedQueue.forEach(prom => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token as string);
-    }
-  });
-  failedQueue = [];
+const redirectToAuth = () => {
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = '/auth';
+  }
 };
-// ---------------------------------
+
+const throwApiError = async (response: Response, fallbackMessage: string): Promise<never> => {
+  const errorData = await response.json().catch(() => ({})) as {
+    error?: { message?: unknown; code?: unknown; requestId?: unknown };
+    message?: unknown;
+  };
+  const rawMessage = typeof errorData.error?.message === 'string'
+    ? errorData.error.message
+    : typeof errorData.message === 'string'
+      ? errorData.message
+      : fallbackMessage;
+  throw new ApiError(
+    translateErrorMessage(rawMessage),
+    typeof errorData.error?.code === 'string' ? errorData.error.code : undefined,
+    typeof errorData.error?.requestId === 'string' ? errorData.error.requestId : undefined,
+    response.status,
+  );
+};
 
 /**
- * Xử lý lỗi chung và refresh token khi 401
+ * Handles an API response and performs a same-principal refresh/retry for a
+ * 401. Every lifecycle decision is guarded by the epoch captured at request
+ * start, so stale requests cannot affect the active principal.
  */
-const handleResponse = async (response: Response, fetchParams: { url: string; options: RequestInit }) => {
+const handleResponse = async (
+  response: Response,
+  fetchParams: { url: string; options: RequestInit; principalEpoch: number },
+) => {
   if (response.ok) {
     if (response.status === 204) return null;
     try {
@@ -73,118 +93,86 @@ const handleResponse = async (response: Response, fetchParams: { url: string; op
     }
   }
 
-  // Kiểm tra cấu hình xem request này có yêu cầu bỏ qua tự động redirect khi gặp 401 không
   const headersObj = fetchParams.options.headers as Record<string, string> | undefined;
-  const skipAuthRedirect = headersObj ? headersObj['X-Skip-Auth-Redirect'] === 'true' : false;
-
+  const skipAuthRedirect = headersObj?.['X-Skip-Auth-Redirect'] === 'true';
   const isExcludedFrom401Redirect = fetchParams.url.includes('/auth/') || skipAuthRedirect;
 
   if (response.status === 401 && !isExcludedFrom401Redirect) {
-    if (isRefreshing) {
-      // Nếu đang refresh, cho request này vào hàng đợi
-      try {
-        await new Promise<string>((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        });
-      } catch (err) {
-        // Queue bị reject => Sẽ rơi xuống logic logout ở cuối
-        clearAccessToken();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/auth';
-          return new Promise(() => { });
-        }
-        throw err;
+    const requestEpoch = fetchParams.principalEpoch;
+
+    if (!isPrincipalEpochCurrent(requestEpoch)) {
+      throw new StaleAuthSessionError(requestEpoch);
+    }
+
+    try {
+      const refreshResponse = await refreshSession();
+      if (
+        refreshResponse.principalEpoch !== requestEpoch
+        || !isPrincipalEpochCurrent(requestEpoch)
+      ) {
+        throw new StaleAuthSessionError(requestEpoch);
       }
 
-      // Khi promise resolve, token đã được set trong authStore, retry request
-      const retryRes = await fetch(fetchParams.url, {
+      const newToken = refreshResponse.data.accessToken;
+      if (!newToken) throw new Error('No new token provided');
+
+      setAccessToken(newToken);
+
+      if (!isPrincipalEpochCurrent(requestEpoch)) {
+        throw new StaleAuthSessionError(requestEpoch);
+      }
+
+      const retryResponse = await fetch(fetchParams.url, {
         ...fetchParams.options,
         headers: {
           ...fetchParams.options.headers,
-          ...getHeaders()
-        }
+          ...getHeaders(),
+        },
       });
 
-      if (retryRes.ok) {
-        if (retryRes.status === 204) return null;
-        return await retryRes.json();
+      if (retryResponse.ok) {
+        if (retryResponse.status === 204) return null;
+        return await retryResponse.json();
       }
 
-      if (retryRes.status !== 401) {
-        const errorData = await retryRes.json().catch(() => ({}));
-        const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-        throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, retryRes.status);
+      if (retryResponse.status !== 401) {
+        return throwApiError(retryResponse, 'Có lỗi xảy ra từ máy chủ');
+      }
+    } catch (error: unknown) {
+      if (
+        error instanceof StaleAuthSessionError
+        || !isPrincipalEpochCurrent(requestEpoch)
+        || (error instanceof AuthRefreshError && error.principalEpoch !== requestEpoch)
+      ) {
+        throw new StaleAuthSessionError(requestEpoch);
       }
 
-      // Nếu retry bị 401, rơi xuống dưới để logout
-    } else {
-      isRefreshing = true;
-      let refreshSuccess = false;
-      try {
-        const refreshResponse = await refreshSession();
-        const newToken = refreshResponse.data.accessToken;
-
-        if (newToken) {
-          setAccessToken(newToken);
-          processQueue(null, newToken);
-          refreshSuccess = true;
-
-          // Retry lại request ban đầu với token mới
-          const retryRes = await fetch(fetchParams.url, {
-            ...fetchParams.options,
-            headers: {
-              ...fetchParams.options.headers,
-              ...getHeaders()
-            }
-          });
-
-          if (retryRes.ok) {
-            if (retryRes.status === 204) return null;
-            return await retryRes.json();
-          }
-
-          // Nếu retry vẫn lỗi (mà không phải 401), xử lý lỗi bên dưới
-          if (retryRes.status !== 401) {
-            const errorData = await retryRes.json().catch(() => ({}));
-            const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-            throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, retryRes.status);
-          }
-
-          // Nếu retry bị 401, rơi xuống logic clear token
-        } else {
-          processQueue(new Error('No new token provided'));
-        }
-      } catch (e) {
-        console.error('Refresh token failed', e);
-        if (!refreshSuccess) processQueue(e as Error);
-      } finally {
-        isRefreshing = false;
+      if (error instanceof AuthRefreshError && error.status === 401) {
+        invalidatePrincipal(requestEpoch);
+        redirectToAuth();
       }
+
+      throw error;
     }
 
-    // Nếu logic refresh thất bại hoặc retry thất bại do 401
-    clearAccessToken();
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = '/auth'; // Chuyển hướng về login
-      // Return a pending promise so we don't throw and crash the UI during redirect
-      return new Promise(() => { });
+    if (!isPrincipalEpochCurrent(requestEpoch)) {
+      throw new StaleAuthSessionError(requestEpoch);
     }
 
-    const errorData = await response.json().catch(() => ({}));
-    const rawMessage = errorData.error?.message || errorData.message || 'Bạn cần đăng nhập để tiếp tục.';
-    throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code || 'UNAUTHENTICATED', errorData.error?.requestId, response.status);
+    // The refreshed token was also rejected. This is a definitive terminal
+    // session expiry for this epoch, not permission for stale work to clear B.
+    invalidatePrincipal(requestEpoch);
+    redirectToAuth();
+    throw new ApiError('Bạn cần đăng nhập để tiếp tục.', 'UNAUTHENTICATED', undefined, 401);
   }
 
-  // Ném lỗi để UI xử lý (nếu không phải 401 hoặc isAuthEndpoint)
-  const errorData = await response.json().catch(() => ({}));
-  const rawMessage = errorData.error?.message || errorData.message || 'Có lỗi xảy ra từ máy chủ';
-  throw new ApiError(translateErrorMessage(rawMessage), errorData.error?.code, errorData.error?.requestId, response.status);
+  return throwApiError(response, 'Có lỗi xảy ra từ máy chủ');
 };
 
 export const apiClient = {
   get: async (endpoint: string, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
     const { headers: customHeaders, ...restOptions } = customOptions || {};
     const options: RequestInit = {
       method: 'GET',
@@ -193,11 +181,12 @@ export const apiClient = {
       headers: { ...getHeaders(), ...customHeaders },
     };
     const response = await fetch(url, options);
-    return handleResponse(response, { url, options });
+    return handleResponse(response, { url, options, principalEpoch });
   },
 
   post: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
     const { headers: customHeaders, ...restOptions } = customOptions || {};
 
     const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
@@ -213,11 +202,12 @@ export const apiClient = {
       headers,
     };
     const response = await fetch(url, options);
-    return handleResponse(response, { url, options });
+    return handleResponse(response, { url, options, principalEpoch });
   },
 
   patch: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
     const { headers: customHeaders, ...restOptions } = customOptions || {};
 
     const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
@@ -233,11 +223,12 @@ export const apiClient = {
       headers,
     };
     const response = await fetch(url, options);
-    return handleResponse(response, { url, options });
+    return handleResponse(response, { url, options, principalEpoch });
   },
 
   delete: async (endpoint: string, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
     const { headers: customHeaders, ...restOptions } = customOptions || {};
     const options: RequestInit = {
       method: 'DELETE',
@@ -246,11 +237,12 @@ export const apiClient = {
       headers: { ...getHeaders(), ...customHeaders },
     };
     const response = await fetch(url, options);
-    return handleResponse(response, { url, options });
+    return handleResponse(response, { url, options, principalEpoch });
   },
 
   put: async (endpoint: string, body?: unknown, customOptions?: RequestInit) => {
     const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
     const { headers: customHeaders, ...restOptions } = customOptions || {};
 
     const headers = { ...getHeaders(), ...customHeaders } as Record<string, string>;
@@ -266,6 +258,6 @@ export const apiClient = {
       headers,
     };
     const response = await fetch(url, options);
-    return handleResponse(response, { url, options });
+    return handleResponse(response, { url, options, principalEpoch });
   },
 };

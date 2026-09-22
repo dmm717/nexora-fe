@@ -1,14 +1,15 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { bootstrapAuthSession } from '@/services/authSession';
-import { getAccessToken, subscribeAuthState } from '@/store/authStore';
+import { bootstrapAuthSession, StaleAuthSessionError } from '@/services/authSession';
+import { getAccessToken, getPrincipalEpoch, subscribeAuthState } from '@/store/authStore';
 import { useAuthRouteBootstrap } from '@/hooks/useAuthRouteBootstrap';
 
 export interface AuthSessionState {
   authReady: boolean;
   sessionInitialized: boolean;
   isAuthenticated: boolean;
+  principalEpoch: number;
   bootstrapError: Error | null;
 }
 
@@ -16,6 +17,7 @@ const defaultAuthSessionState: AuthSessionState = {
   authReady: false,
   sessionInitialized: false,
   isAuthenticated: false,
+  principalEpoch: 0,
   bootstrapError: null,
 };
 
@@ -31,6 +33,7 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
     return !shouldBootstrap;
   });
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
+  const [principalEpoch, setPrincipalEpoch] = useState(() => getPrincipalEpoch());
   const [bootstrapError, setBootstrapError] = useState<Error | null>(null);
 
   // Remember definitive 401 unauthenticated responses within the current anonymous session
@@ -43,8 +46,9 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
 
     // 1. Subscribe to authStore so any token mutation (login, logout, refresh, 401 fallback)
     // immediately updates React context without requiring page reloads or remounts.
-    const unsubscribe = subscribeAuthState((token) => {
+    const unsubscribe = subscribeAuthState((token, snapshot) => {
       if (!cancelled) {
+        setPrincipalEpoch(snapshot?.principalEpoch ?? getPrincipalEpoch());
         setIsAuthenticated(Boolean(token));
         if (token) {
           isDefinitivelyUnauthenticatedRef.current = false;
@@ -122,6 +126,13 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
       } catch (error: unknown) {
         if (cancelled) return;
 
+        if (error instanceof StaleAuthSessionError) {
+          setBootstrapError(null);
+          setIsAuthenticated(Boolean(getAccessToken()));
+          setSessionInitialized(true);
+          return;
+        }
+
         // Transient error (5xx, network failure, etc.):
         // Do NOT set isDefinitivelyUnauthenticatedRef!
         // This ensures the error remains retryable.
@@ -148,6 +159,7 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
     authReady,
     sessionInitialized,
     isAuthenticated,
+    principalEpoch,
     bootstrapError,
   };
 

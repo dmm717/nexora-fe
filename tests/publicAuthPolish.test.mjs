@@ -344,7 +344,7 @@ test('email verification remains one-shot and resend cooldown stays at sixty sec
   assert.match(verify, /verificationAttempted\.current/);
   assert.match(verify, /if \(!userId \|\| !token \|\| verificationAttempted\.current\) return/);
   assert.match(verify, /verificationAttempted\.current = true/);
-  assert.match(verify, /setResendCooldown\(60\)/);
+  assert.match(verify, /VERIFICATION_RESEND_COOLDOWN_SECONDS/);
   assert.match(verify, /status === 'verifying'[\s\S]*?role="status"/);
   assert.match(verify, /status === 'invalid'[\s\S]*?role="alert"/);
 });
