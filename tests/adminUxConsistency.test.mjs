@@ -58,13 +58,12 @@ test('admin query presentation distinguishes unavailable data, cached refresh, e
 
 test('admin page shell leaves the main landmark to the shared dashboard layout', async () => {
   const shell = await source('src/components/features/admin/AdminPageShell.tsx');
-  const dashboardShell = await source('src/components/layouts/FocusedPracticeShellContext.tsx');
+  const adminLayout = await source('src/components/layouts/AdminLayout.tsx');
 
   assert.doesNotMatch(shell, /<main\b/i);
-  assert.match(dashboardShell, /<main\b/i);
   assert.match(shell, /return\s*\(\s*<div\b/);
   assert.match(shell, /<h1\b/);
-  assert.match(shell, /<nav\s+aria-label=/);
+  assert.match(adminLayout, /<nav[^>]*aria-label=/);
 });
 
 test('scenario retry after a background error shows the error notice without a contradictory refreshing notice', async () => {
@@ -75,7 +74,7 @@ test('scenario retry after a background error shows the error notice without a c
     isFetching: true,
   });
   const consumers = [
-    ['src/app/(dashboard)/admin/scenarios/page.tsx', 'presentation'],
+    ['src/app/(admin)/admin/scenarios/page.tsx', 'presentation'],
     ['src/components/features/admin/scenarios/CategoryListModal.tsx', 'presentation'],
     ['src/components/features/admin/scenarios/ScenarioModal.tsx', 'categoryPresentation'],
   ];
@@ -117,9 +116,9 @@ test('user status modal only submits a real lock or unlock transition', async ()
 });
 
 test('admin collection surfaces do not collapse missing/error data into empty arrays', async () => {
-  const users = await source('src/app/(dashboard)/admin/users/page.tsx');
-  const scenarios = await source('src/app/(dashboard)/admin/scenarios/page.tsx');
-  const plans = await source('src/app/(dashboard)/admin/plans/page.tsx');
+  const users = await source('src/app/(admin)/admin/users/page.tsx');
+  const scenarios = await source('src/app/(admin)/admin/scenarios/page.tsx');
+  const plans = await source('src/app/(admin)/admin/plans/page.tsx');
   const categories = await source('src/components/features/admin/scenarios/CategoryListModal.tsx');
 
   for (const page of [users, scenarios, plans, categories]) {
@@ -153,7 +152,7 @@ test('plan price editor keeps commercial fields editable and submits the current
 });
 
 test('users retain rows during refresh and keep pagination available after an empty or failed cursor page', async () => {
-  const page = await source('src/app/(dashboard)/admin/users/page.tsx');
+  const page = await source('src/app/(admin)/admin/users/page.tsx');
   const hook = await source('src/hooks/queries/useAdminUsers.ts');
 
   assert.match(hook, /placeholderData:\s*keepPreviousData/);
@@ -168,7 +167,7 @@ test('users retain rows during refresh and keep pagination available after an em
 });
 
 test('cursor transitions do not treat placeholder rows as the requested page or permit repeated navigation', async () => {
-  const page = await source('src/app/(dashboard)/admin/users/page.tsx');
+  const page = await source('src/app/(admin)/admin/users/page.tsx');
 
   assert.match(page, /hasCurrentPageData\s*=\s*data\s*!==\s*undefined\s*&&\s*!isPlaceholderData/);
   assert.match(page, /if\s*\(cursorActionLock\.current\s*\|\|\s*isFetching\s*\|\|\s*isPlaceholderData\s*\|\|\s*!data\?\.lastId\)/);
@@ -179,7 +178,7 @@ test('cursor transitions do not treat placeholder rows as the requested page or 
 });
 
 test('scenario mutations are scoped to their target row and archive uses an accessible confirmation', async () => {
-  const page = await source('src/app/(dashboard)/admin/scenarios/page.tsx');
+  const page = await source('src/app/(admin)/admin/scenarios/page.tsx');
 
   assert.match(page, /useMutationState/);
   assert.match(page, /mutation\.state\.variables/);
@@ -231,9 +230,9 @@ test('admin tables remain semantic and route motion stays owned by the shared da
   const tableShell = await source('src/components/features/admin/AdminTableShell.tsx');
   const skeleton = await source('src/components/features/admin/AdminTableSkeleton.tsx');
   const pages = await Promise.all([
-    source('src/app/(dashboard)/admin/users/page.tsx'),
-    source('src/app/(dashboard)/admin/scenarios/page.tsx'),
-    source('src/app/(dashboard)/admin/plans/page.tsx'),
+    source('src/app/(admin)/admin/users/page.tsx'),
+    source('src/app/(admin)/admin/scenarios/page.tsx'),
+    source('src/app/(admin)/admin/plans/page.tsx'),
   ]);
 
   assert.match(tableShell, /<table\b/);

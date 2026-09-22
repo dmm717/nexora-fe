@@ -35,6 +35,7 @@ export const ALLOWED_PATH_PREFIXES = [
   '/resume-analyses',
   '/learning-path',
   '/skill-profile',
+  '/admin',
 ];
 
 /**
