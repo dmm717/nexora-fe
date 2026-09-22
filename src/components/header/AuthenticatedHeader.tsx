@@ -221,23 +221,6 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
                         </button>
                       );
                     })}
-
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          router.push('/admin');
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-on-surface hover:bg-surface-container-low transition-colors text-left font-medium cursor-pointer"
-                      >
-                        <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-variant">
-                          admin_panel_settings
-                        </span>
-                        <span>Quản trị hệ thống</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               </>

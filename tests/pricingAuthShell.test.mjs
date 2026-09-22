@@ -79,10 +79,10 @@ test('K: pricing and checkout use the database price id without package-name or 
   for (const sourceText of [pricingCardsSource, billingPageSource, billingApiSource]) {
     assert.doesNotMatch(sourceText, /NEXORA\s+(BASIC|PLUS|PRO)/i);
   }
-  assert.match(pricingCardsSource, /selectedPriceId=\$\{encodeURIComponent\(price\.id\)\}/);
+  assert.match(pricingCardsSource, /beginCheckout\(price\.id\)/);
   assert.match(billingPageSource, /matchedPrice\.id/);
   assert.match(billingPageSource, /createCheckoutMutation\.mutate\(matchedPrice\.id\)/);
-  assert.match(billingPageSource, /mutationFn:\s*\(planPriceId: string\) => billingApi\.createCheckoutSession\(planPriceId\)/);
+  assert.match(billingPageSource, /createCheckoutSession:\s*billingApi\.createCheckoutSession/);
   assert.match(billingApiSource, /createCheckoutSession:\s*async \(planPriceId: string\)/);
   assert.match(billingApiSource, /createCheckoutSession:\s*async \(planPriceId: string\)[\s\S]*?\{ planPriceId \}/);
   const checkoutMethod = billingApiSource.slice(billingApiSource.indexOf('createCheckoutSession'));
