@@ -117,6 +117,11 @@ test('Landing Testimonials: consumes public feedback envelope without computing 
   assert.match(testimonialsSource, /averageRating/);
   assert.match(testimonialsSource, /items\.length/);
   assert.match(testimonialsSource, /publishedAt/);
+  assert.match(testimonialsSource, /Mới nhất trong danh sách/);
+  assert.match(testimonialsSource, /Trong \$\{items\.length\} phản hồi đang hiển thị/);
+  assert.doesNotMatch(testimonialsSource, /Cập nhật gần nhất/);
+  assert.match(testimonialsSource, /Số liệu phản hồi/);
+  assert.doesNotMatch(testimonialsSource, /Số liệu nền tảng/);
   // Cleanly hides when 0 items or error
   assert.match(testimonialsSource, /if\s*\(isLoading\s*\|\|\s*isError\s*\|\|\s*!data\s*\|\|\s*data\.items\.length === 0\)\s*\{\s*return null;\s*\}/);
   // Respects reduced motion
@@ -160,4 +165,31 @@ test('Landing brand system: uses the supplied Nexora logo and canonical mascot a
   assert.match(brandAssetsSource, /mascot-pointing-stats\.png/);
   assert.ok(existsSync(new URL('../public/assets/brand/nexora-horizontal.png', import.meta.url)));
   assert.ok(existsSync(new URL('../public/assets/mascot/mascot-pointing-stats.png', import.meta.url)));
+});
+
+test('Landing mascot system: wires several decorative poses into feature storytelling', () => {
+  const landingSource = readFileSync(
+    new URL('../src/components/features/landing/MarketingLanding.tsx', import.meta.url),
+    'utf8'
+  );
+  const testimonialsSource = readFileSync(
+    new URL('../src/components/features/landing/LandingTestimonials.tsx', import.meta.url),
+    'utf8'
+  );
+
+  for (const pose of ['cvAnalysis', 'aiCoach', 'emptyHelper']) {
+    assert.match(
+      landingSource,
+      new RegExp(`src=\\{NEXORA_MASCOT_ASSETS\\.${pose}\\}[\\s\\S]{0,180}alt=""[\\s\\S]{0,80}aria-hidden="true"`)
+    );
+  }
+  assert.match(
+    testimonialsSource,
+    /src=\{NEXORA_MASCOT_ASSETS\.pointingStats\}[\s\S]{0,180}alt=""[\s\S]{0,80}aria-hidden="true"/
+  );
+  assert.match(testimonialsSource, /prefers-reduced-motion/);
+  assert.doesNotMatch(
+    `${landingSource}\n${testimonialsSource}`,
+    /total users|interview count|mentor count|satisfaction count/i
+  );
 });

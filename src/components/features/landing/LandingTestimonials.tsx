@@ -96,7 +96,7 @@ export const LandingTestimonials: React.FC = () => {
     return () => ctx.revert();
   }, [data]);
 
-  const latestPublishedAt = useMemo(() => {
+  const latestVisiblePublishedAt = useMemo(() => {
     if (!data) return null;
     const latestTimestamp = data.items.reduce<number | null>((latest, item) => {
       const timestamp = new Date(item.publishedAt).getTime();
@@ -132,9 +132,9 @@ export const LandingTestimonials: React.FC = () => {
       note: 'Phản hồi trong mục này',
     },
     {
-      label: 'Cập nhật gần nhất',
-      value: latestPublishedAt ?? 'Trực tiếp',
-      note: 'Từ dữ liệu đã công khai',
+      label: 'Mới nhất trong danh sách',
+      value: latestVisiblePublishedAt ?? 'Trực tiếp',
+      note: `Trong ${items.length} phản hồi đang hiển thị`,
     },
   ];
 
@@ -193,7 +193,7 @@ export const LandingTestimonials: React.FC = () => {
         <aside className={styles.statsPanel} aria-labelledby="platform-stats-title" data-social-proof-reveal>
           <div className={styles.statsHeading}>
             <span className={styles.eyebrow}>Tín hiệu từ cộng đồng</span>
-            <h2 id="platform-stats-title">Số liệu nền tảng</h2>
+            <h2 id="platform-stats-title">Số liệu phản hồi</h2>
             <p>
               Các chỉ số dưới đây được lấy trực tiếp từ API phản hồi công khai của Nexora.
             </p>
