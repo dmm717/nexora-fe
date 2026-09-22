@@ -38,16 +38,16 @@ test('Pricing: isCurrentPlan owns selection border while isHighlight receives pr
 });
 
 test('Billing: Order transaction status mapping localizes processing and other statuses', async () => {
-  const billingPageSource = await readSource('../src/app/(dashboard)/billing/page.tsx');
-  assert.match(billingPageSource, /case ['"]processing['"]:\s*return\s*\{\s*label:\s*['"]Đang xử lý['"]/);
-  assert.match(billingPageSource, /case ['"]fulfilled['"]:/);
-  assert.match(billingPageSource, /label:\s*['"]Thành công['"]/);
-  assert.match(billingPageSource, /case ['"]pending['"]:/);
-  assert.match(billingPageSource, /label:\s*['"]Đang chờ['"]/);
-  assert.match(billingPageSource, /case ['"]failed['"]:/);
-  assert.match(billingPageSource, /label:\s*['"]Thất bại['"]/);
-  assert.match(billingPageSource, /case ['"]cancelled['"]:/);
-  assert.match(billingPageSource, /label:\s*['"]Đã hủy['"]/);
+  const billingPresentationSource = await readSource('../src/services/billingPresentation.ts');
+  assert.match(billingPresentationSource, /case ['"]processing['"]:\s*return\s*\{\s*label:\s*['"]Đang xử lý['"]/);
+  assert.match(billingPresentationSource, /case ['"]fulfilled['"]:/);
+  assert.match(billingPresentationSource, /label:\s*['"]Thành công['"]/);
+  assert.match(billingPresentationSource, /case ['"]pending['"]:/);
+  assert.match(billingPresentationSource, /label:\s*['"]Đang chờ['"]/);
+  assert.match(billingPresentationSource, /case ['"]failed['"]:/);
+  assert.match(billingPresentationSource, /label:\s*['"]Thất bại['"]/);
+  assert.match(billingPresentationSource, /case ['"]cancelled['"]:/);
+  assert.match(billingPresentationSource, /label:\s*['"]Đã hủy['"]/);
 });
 
 test('CV Analysis: Inline validation message concatenation bug is fixed with structured list', async () => {
@@ -132,9 +132,9 @@ test('Billing & Account: Order status safely falls back to localized label and a
     readSource('../src/components/features/admin/dashboard/AdminDashboardScreen.tsx'),
   ]);
 
-  // Billing page unknown status fallback
-  assert.match(billingPageSource, /default:\s*return\s*\{\s*label:\s*['"]Đang cập nhật['"]/);
-  assert.doesNotMatch(billingPageSource, /default:\s*return\s*\{\s*label:\s*status/);
+  // Billing page uses shared getOrderStatusPresentation and removes local duplicate
+  assert.match(billingPageSource, /import\s*\{[^}]*getOrderStatusPresentation[^}]*\}\s*from\s*['"]@\/services\/billingPresentation['"]/);
+  assert.doesNotMatch(billingPageSource, /function getOrderStatusPresentation\s*\(/);
 
   // PlanUsageCard uses getOrderStatusPresentation
   assert.match(planUsageCardSource, /import\s*\{\s*getOrderStatusPresentation\s*\}\s*from\s*['"]@\/services\/billingPresentation['"]/);
@@ -170,4 +170,54 @@ test('LandingPlanCard: Does not have raw unconfigured database descriptions', as
   assert.doesNotMatch(landingPlanSource, /Thông tin mô tả gói chưa được cung cấp/);
   assert.doesNotMatch(landingPlanSource, /Chưa có thông tin tính năng cho mức giá này/);
   assert.match(landingPlanSource, /Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn/);
+});
+
+test('Landing Pricing Redesign: Base cards have visible boundary, prominent recommendation marker, and readable typography', async () => {
+  const [landingCss, landingCardSource] = await Promise.all([
+    readSource('../src/components/features/landing/landing.module.css'),
+    readSource('../src/components/features/landing/LandingPlanCard.tsx'),
+  ]);
+
+  // Base card has visible border and white surface
+  assert.match(landingCss, /\.planCard\s*\{[^}]*border:\s*1px solid/);
+  assert.match(landingCss, /\.planCard\s*\{[^}]*background:\s*#ffffff/);
+
+  // Popular plan has detached recommendation badge with Sparkles
+  assert.match(landingCardSource, /isHighlighted\s*&&\s*\(/);
+  assert.match(landingCardSource, /Sparkles/);
+  assert.match(landingCardSource, /styles\.popularBadge/);
+  assert.match(landingCss, /\.popularBadge\s*\{[^}]*position:\s*absolute/);
+  assert.match(landingCss, /\.popularBadge\s*\{[^}]*top:\s*-\d+px/);
+  assert.match(landingCss, /\.popularBadge\s*\{[^}]*font-size:\s*12px/);
+
+  // Micro-typography has been eliminated (no 9px, 10px, or 11px decision text)
+  assert.doesNotMatch(landingCss, /\.planBadge\s*\{[^}]*font-size:\s*9px/);
+  assert.doesNotMatch(landingCss, /\.planDescription\s*\{[^}]*font-size:\s*11px/);
+  assert.doesNotMatch(landingCss, /\.planCard\s+li\s*\{[^}]*font-size:\s*10px/);
+  assert.doesNotMatch(landingCss, /\.planCard\s+\.primaryAction\s*\{[^}]*font-size:\s*11px/);
+
+  // Plan typography is readable (12-14px)
+  assert.match(landingCss, /\.planDescription\s*\{[^}]*font-size:\s*13px/);
+  assert.match(landingCss, /\.planCard\s+li\s*\{[^}]*font-size:\s*13px/);
+  assert.match(landingCss, /\.planCard\s+\.primaryAction\s*\{[^}]*font-size:\s*13px/);
+});
+
+test('Audit Document: Contains only actual file paths and accurate statuses', async () => {
+  const auditDocSource = await readSource('../docs/PRODUCT_UI_AUDIT.md');
+
+  // No invented / nonexistent paths
+  assert.doesNotMatch(auditDocSource, /src\/app\/auth\/login\/page\.tsx/);
+  assert.doesNotMatch(auditDocSource, /src\/app\/auth\/register\/page\.tsx/);
+  assert.doesNotMatch(auditDocSource, /src\/components\/features\/interviews\/AudioSpeechDock\.tsx/);
+  assert.doesNotMatch(auditDocSource, /TargetRolesSection\.tsx/);
+
+  // Correct actual paths exist
+  assert.match(auditDocSource, /src\/app\/auth\/page\.tsx/);
+  assert.match(auditDocSource, /src\/components\/features\/interview\/AudioSpeechDock\.tsx/);
+
+  // Unmodified files are not falsely marked as MODIFIED
+  assert.doesNotMatch(auditDocSource, /src\/app\/globals\.css[^|]*\|\s*\*\*MODIFIED\*\*/);
+  assert.doesNotMatch(auditDocSource, /src\/components\/ui\/Badge\.tsx[^|]*\|\s*\*\*MODIFIED\*\*/);
+  assert.match(auditDocSource, /src\/app\/globals\.css[^|]*\|\s*\*\*INSPECTED \/ NO CHANGE NEEDED\*\*/);
+  assert.match(auditDocSource, /src\/components\/ui\/Badge\.tsx[^|]*\|\s*\*\*INSPECTED \/ NO CHANGE NEEDED\*\*/);
 });

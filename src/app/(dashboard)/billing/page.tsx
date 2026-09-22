@@ -20,6 +20,7 @@ import {
   formatFeatureAvailability,
   formatInterviewQuestionLimit,
   getExactEntitlementFeature,
+  getOrderStatusPresentation,
 } from '@/services/billingPresentation';
 
 function BillingPageHeader() {
@@ -39,27 +40,6 @@ function BillingPageHeader() {
       </div>
     </div>
   );
-}
-
-function getOrderStatusPresentation(status: string): { label: string; variant: 'success' | 'warning' | 'info' | 'error' | 'neutral' } {
-  switch (status.toLowerCase()) {
-    case 'fulfilled':
-    case 'success':
-    case 'completed':
-    case 'paid':
-      return { label: 'Thành công', variant: 'success' };
-    case 'pending':
-      return { label: 'Đang chờ', variant: 'warning' };
-    case 'processing':
-      return { label: 'Đang xử lý', variant: 'info' };
-    case 'failed':
-      return { label: 'Thất bại', variant: 'error' };
-    case 'cancelled':
-    case 'canceled':
-      return { label: 'Đã hủy', variant: 'neutral' };
-    default:
-      return { label: 'Đang cập nhật', variant: 'neutral' };
-  }
 }
 
 export default function BillingPage() {
