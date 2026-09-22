@@ -131,6 +131,11 @@ test('Landing social proof consumes authoritative public aggregates without fake
   for (const field of ['userCount', 'completedInterviewCount', 'completedCvAnalysisCount', 'averageRating', 'ratingCount']) {
     assert.match(testimonialsSource, new RegExp(`platformStats\\.${field}`));
   }
+  assert.doesNotMatch(testimonialsSource, /Người dùng đang hoạt động/);
+  assert.match(testimonialsSource, /label: 'Người dùng Nexora', value: formatCount\(platformStats\.userCount\)/);
+  assert.match(testimonialsSource, /label: 'Lượt phân tích CV', value: formatCount\(platformStats\.completedCvAnalysisCount\)/);
+  assert.match(testimonialsSource, /Mức độ hài lòng/);
+  assert.match(testimonialsSource, /platformStats\.averageRating\.toFixed\(1\)\} \/ 5/);
   assert.doesNotMatch(testimonialsSource, /1\.2K|3\.4K|2\.1K|170\+/);
   assert.doesNotMatch(testimonialsSource, /Theo API|Không dùng số mẫu|dữ liệu dựng sẵn/);
   assert.match(testimonialsSource, /platformStats\s*\?\s*\[/);

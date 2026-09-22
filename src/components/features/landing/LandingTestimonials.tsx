@@ -109,12 +109,12 @@ export const LandingTestimonials: React.FC = () => {
   const formatCount = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
   const metrics = platformStats
     ? [
-        { label: 'Người dùng đang hoạt động', value: formatCount(platformStats.userCount) },
+        { label: 'Người dùng Nexora', value: formatCount(platformStats.userCount) },
         {
           label: 'Phiên phỏng vấn đã hoàn thành',
           value: formatCount(platformStats.completedInterviewCount),
         },
-        { label: 'CV đã phân tích', value: formatCount(platformStats.completedCvAnalysisCount) },
+        { label: 'Lượt phân tích CV', value: formatCount(platformStats.completedCvAnalysisCount) },
       ]
     : [];
   const productProof = [
@@ -186,13 +186,13 @@ export const LandingTestimonials: React.FC = () => {
           {platformStats ? (
             <>
               <div className={styles.trustScore} data-social-proof-reveal>
-                <strong>{platformStats.averageRating === null ? '—' : platformStats.averageRating.toFixed(1)}</strong>
+                <strong>{platformStats.averageRating === null ? '—' : `${platformStats.averageRating.toFixed(1)} / 5`}</strong>
                 <div>
                   <RatingStars
                     rating={platformStats.averageRating ?? 0}
                     label={platformStats.averageRating === null ? 'Chưa có điểm trung bình' : `${platformStats.averageRating.toFixed(1)} trên 5 sao`}
                   />
-                  <span>{formatCount(platformStats.ratingCount)} lượt đánh giá</span>
+                  <span>Mức độ hài lòng · {formatCount(platformStats.ratingCount)} lượt đánh giá</span>
                 </div>
               </div>
               <dl className={styles.metricList}>
