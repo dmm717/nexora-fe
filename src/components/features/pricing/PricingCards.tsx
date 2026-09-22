@@ -30,7 +30,7 @@ import { getQueryPresentation } from '@/utils/queryPresentation';
 function PricingPlanGridSkeleton() {
   return (
     <div role="status" aria-label="Đang tải các gói dịch vụ">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch" aria-hidden="true">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch" aria-hidden="true">
         {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
@@ -348,7 +348,7 @@ export default function PricingCards() {
               <p className="text-sm text-on-surface-variant mt-2">Bảng giá chưa có lựa chọn khả dụng vào lúc này. Bạn có thể quay lại sau.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
               {pricedPlans.map(({ plan, price }) => {
                 const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
                 const isHighlight = plan.isHighlighted;
@@ -357,19 +357,20 @@ export default function PricingCards() {
                 return (
                   <Card
                     key={plan.id}
-                    variant={isCurrentPlan ? 'selected' : isHighlight ? 'interactive' : 'elevated'}
+                    variant={isCurrentPlan ? 'selected' : 'elevated'}
                     padding="lg"
-                    className={`flex flex-col justify-between transition-all relative ${
+                    data-current={isCurrentPlan}
+                    className={`pricing-choice flex flex-col justify-between relative ${
                       isCurrentPlan
-                        ? 'border-2 border-primary shadow-floating scale-[1.02] bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
+                        ? 'border-2 border-primary shadow-floating bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
                         : isHighlight
-                        ? 'border border-primary/40 shadow-card bg-white hover:border-primary/60'
+                        ? 'border border-primary/50 shadow-card bg-white'
                         : 'border border-outline-variant/60 bg-white'
                     }`}
                   >
                     {isHighlight && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
                           <Sparkles size={13} aria-hidden="true" className="text-amber-300" />
                           Phổ biến nhất
                         </span>
@@ -430,7 +431,7 @@ export default function PricingCards() {
                         icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
                       >
                         {isCurrentPlan
-                          ? 'Đang sử dụng'
+                          ? 'Gói hiện tại'
                           : price.amountMinor <= 0
                             ? 'Bắt đầu miễn phí'
                             : 'Chọn gói này'}

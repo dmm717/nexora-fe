@@ -188,11 +188,12 @@ export const LandingTestimonials: React.FC = () => {
               <div className={styles.trustScore} data-social-proof-reveal>
                 <strong>{platformStats.averageRating === null ? '—' : `${platformStats.averageRating.toFixed(1)} / 5`}</strong>
                 <div>
+                  <span className={styles.trustLabel}>Mức độ hài lòng</span>
                   <RatingStars
                     rating={platformStats.averageRating ?? 0}
                     label={platformStats.averageRating === null ? 'Chưa có điểm trung bình' : `${platformStats.averageRating.toFixed(1)} trên 5 sao`}
                   />
-                  <span>Mức độ hài lòng · {formatCount(platformStats.ratingCount)} lượt đánh giá</span>
+                  <span>{formatCount(platformStats.ratingCount)} lượt đánh giá</span>
                 </div>
               </div>
               <dl className={styles.metricList}>

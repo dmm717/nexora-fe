@@ -12,7 +12,10 @@ import { StaggerContainer, StaggerItem } from '@/components/motion';
 import { useProgressDashboard } from '@/hooks/queries/useProgressDashboard';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { useSkillProfile } from '@/hooks/queries/useSkillProfile';
-import { getRecommendationDeepLink } from '@/services/recommendationContract';
+import {
+  getLocalizedRecommendationReason,
+  getRecommendationDeepLink,
+} from '@/services/recommendationContract';
 import { ApiError } from '@/services/apiClient';
 import { ClientDate } from '@/components/ui/ClientDate';
 import {
@@ -341,7 +344,7 @@ export default function AnalyticsPage() {
                 )}
               </div>
               <h3 className="text-sm sm:text-base font-bold text-on-surface">
-                {progress.nextRecommendedPractice.reason}
+                {getLocalizedRecommendationReason(progress.nextRecommendedPractice)}
               </h3>
             </div>
 

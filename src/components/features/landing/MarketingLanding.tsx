@@ -101,10 +101,12 @@ type CvDemoStage = 'empty' | 'document' | 'scanning' | 'result';
 function CvPreview({
   compact = false,
   demoStage = 'result',
+  demoRun = 0,
   onStartDemo,
 }: {
   compact?: boolean;
   demoStage?: CvDemoStage;
+  demoRun?: number;
   onStartDemo?: () => void;
 }) {
   const scoreRef = useRef<HTMLElement>(null);
@@ -253,7 +255,7 @@ function CvPreview({
                 </p>
               </div>
               <button className={styles.textAction} type="button" onClick={onStartDemo}>
-                Xem lại cách phân tích
+                {demoRun > 0 ? 'Chạy lại demo phân tích mẫu' : 'Xem demo phân tích mẫu'}
                 <RotateCcw size={16} />
               </button>
             </>
@@ -289,7 +291,7 @@ function CvPreview({
                     <i />
                     <i />
                   </span>
-                  <span>Đang đối chiếu CV với vị trí mục tiêu…</span>
+                  <span>AI đang đọc các điểm phù hợp trong CV mẫu…</span>
                 </div>
               )}
               {demoStage === 'document' && (
@@ -297,7 +299,7 @@ function CvPreview({
                   <span className={styles.documentLine} />
                   <span className={styles.documentLine} />
                   <span className={`${styles.documentLine} ${styles.short}`} />
-                  <span className={styles.documentTag}>Đã nhận CV ví dụ</span>
+                  <span className={styles.documentTag}>Đã nhận CV mẫu</span>
                 </div>
               )}
             </>
@@ -615,7 +617,7 @@ export function MarketingLanding() {
             src={NEXORA_MASCOT_ASSETS.cvAnalysis}
             width={768}
             height={768}
-            sizes="(max-width: 1100px) 88px, 112px"
+            sizes="(max-width: 760px) 116px, (max-width: 1100px) 140px, 172px"
             alt=""
             aria-hidden="true"
             className={`${styles.featureMascot} ${styles.cvMascot}`}
@@ -639,7 +641,7 @@ export function MarketingLanding() {
           </div>
           <div id="product-preview" className={styles.tabPanel}>
             {preview === 'cv' ? (
-              <CvPreview demoStage={cvDemoStage} onStartDemo={startCvDemo} />
+              <CvPreview demoStage={cvDemoStage} demoRun={cvDemoRun} onStartDemo={startCvDemo} />
             ) : preview === 'interview' ? (
               <InterviewPreview large />
             ) : (
@@ -706,7 +708,7 @@ export function MarketingLanding() {
               src={NEXORA_MASCOT_ASSETS.aiCoach}
               width={768}
               height={768}
-              sizes="(max-width: 1100px) 92px, 118px"
+              sizes="(max-width: 760px) 118px, (max-width: 1100px) 146px, 180px"
               alt=""
               aria-hidden="true"
               className={`${styles.featureMascot} ${styles.interviewMascot}`}
@@ -895,7 +897,7 @@ export function MarketingLanding() {
         {plansPresentation.showInitialLoading && (
           <div role="status">
             <div className={styles.pricingGrid} aria-hidden="true">
-              {Array.from({ length: 3 }, (_, index) => (
+              {Array.from({ length: 4 }, (_, index) => (
                 <div key={index} className={styles.planSkeleton}>
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-6 w-2/3" />
@@ -948,7 +950,7 @@ export function MarketingLanding() {
         {pricedPlans.length > 0 && (
           <div className={styles.pricingGrid}>
             {pricedPlans.map(({ plan, price }) => (
-              <div data-reveal className={styles.planWrap} key={plan.id}>
+              <div data-reveal className={`${styles.planWrap} pricing-choice`} key={plan.id}>
                 <LandingPlanCard
                   plan={plan}
                   price={price}

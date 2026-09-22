@@ -21,7 +21,7 @@ test('Pricing: isCurrentPlan owns selection border while isHighlight receives pr
   const pricingCardsSource = await readSource('../src/components/features/pricing/PricingCards.tsx');
   assert.match(
     pricingCardsSource,
-    /isCurrentPlan\s*\?\s*['"]border-2 border-primary shadow-floating scale-\[1\.02\]/
+    /isCurrentPlan\s*\?\s*['"]border-2 border-primary shadow-floating bg-primary-fixed\/5 ring-4 ring-primary-fixed\/20/
   );
   assert.doesNotMatch(
     pricingCardsSource,

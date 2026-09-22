@@ -28,6 +28,43 @@ export interface NextPracticeRecommendationResponse {
   } | null;
 }
 
+/**
+ * Presents a recommendation with product copy derived from structured fields.
+ * The backend reason is retained for contract compatibility, but it is not
+ * customer-facing because it may be generated in English.
+ */
+export function getLocalizedRecommendationReason(
+  recommendation: Pick<
+    NextPracticeRecommendationResponse,
+    'activityType' | 'priority' | 'estimatedMinutes'
+  > | null | undefined
+): string {
+  if (!recommendation) {
+    return 'Chọn bài luyện phù hợp với điều bạn muốn cải thiện tiếp theo.';
+  }
+
+  const activityLabel = {
+    [RecommendationActivityValues.Scenario]: 'Luyện tình huống thực tế',
+    [RecommendationActivityValues.StarDrill]: 'Luyện trả lời STAR',
+    [RecommendationActivityValues.Interview]: 'Luyện phỏng vấn AI',
+    [RecommendationActivityValues.ResumeImprovement]: 'Cải thiện CV',
+    [RecommendationActivityValues.ExternalLearning]: 'Xem tài liệu học phù hợp',
+  }[recommendation.activityType] || 'Bài luyện tiếp theo';
+
+  const priorityLabel =
+    recommendation.priority <= 1
+      ? 'đang được ưu tiên'
+      : recommendation.priority === 2
+        ? 'nên thực hiện tiếp theo'
+        : 'có thể thực hiện sau';
+  const durationLabel =
+    recommendation.estimatedMinutes > 0
+      ? ` Dành khoảng ${recommendation.estimatedMinutes} phút cho lượt luyện này.`
+      : '';
+
+  return `${activityLabel} ${priorityLabel} theo lộ trình hiện tại của bạn.${durationLabel}`;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 

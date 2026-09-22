@@ -8,6 +8,7 @@ import {
   getRecommendationDeepLink,
   type NextPracticeRecommendationResponse,
 } from '@/services/recommendationsApi';
+import { getLocalizedRecommendationReason } from '@/services/recommendationContract';
 import { LearningPathValues } from '@/services/learningPathContract';
 import { ApiError } from '@/services/apiClient';
 import { interviewApi, generateIdempotencyKey, type PracticeAgainCommand } from '@/services/interviewApi';
@@ -41,7 +42,7 @@ function getActivityTypeLabel(activityType: string): string {
     case LearningPathValues.ExternalLearning:
       return 'Tài liệu ngoài';
     default:
-      return activityType;
+      return 'Bài luyện tập';
   }
 }
 
@@ -229,7 +230,7 @@ export function NextPracticeRecommendationContent({
       </div>
 
       <div className={styles.reasonBox}>
-        <p className={styles.reasonText}>{recommendation.reason}</p>
+        <p className={styles.reasonText}>{getLocalizedRecommendationReason(recommendation)}</p>
       </div>
 
       <div className={styles.footer}>
