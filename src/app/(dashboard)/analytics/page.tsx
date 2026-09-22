@@ -285,7 +285,7 @@ export default function AnalyticsPage() {
                 ? `Dựa trên ${evidenceCount} bằng chứng được máy chủ tổng hợp.`
                 : hasProgressData
                   ? 'Hoàn thành một hoạt động có bằng chứng để hệ thống tổng hợp chỉ số sẵn sàng.'
-                  : 'Không suy luận điểm số hoặc tình trạng bằng chứng khi Progress Dashboard chưa khả dụng.'}
+                  : 'Dữ liệu tiến độ sẽ xuất hiện tại đây khi tính năng theo dõi tiến độ được kích hoạt.'}
             </p>
           </div>
         </Card>

@@ -1018,7 +1018,7 @@ export default function ResumesPage() {
       <ProductPageHero
         feature="cv"
         title="Phân tích hồ sơ CV & Độ tương thích mục tiêu"
-        description="Bổ sung CV, mục tiêu và ngữ cảnh ngay trên trang. Chỉ khi đủ bối cảnh, Nexora mới bắt đầu phân tích và lưu một snapshot bất biến."
+        description="Bổ sung CV, mục tiêu và ngữ cảnh của bạn. Khi có đủ thông tin, Nexora sẽ phân tích chuyên sâu và lưu lại kết quả đối chiếu hoàn chỉnh."
       />
 
       {/* Latest Completed Analysis Banner (Quick access) */}
@@ -1465,15 +1465,35 @@ export default function ResumesPage() {
 
       {/* Action Trigger Block */}
       <div className="pt-2 border-t border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-xs text-on-surface-variant">
-          {useCurrentGoal && !hasPrimaryResume && '• Vui lòng bổ sung CV chính trước khi phân tích'}
-          {useCurrentGoal && hasPrimaryResume && !hasGoal && '• Vui lòng thiết lập mục tiêu nghề nghiệp'}
-          {useCurrentGoal && hasPrimaryResume && hasGoal && mode === 'field_benchmark' && isBenchmarkIndustryMissing && '• Vui lòng bổ sung ngành nghề đối chiếu'}
-          {!useCurrentGoal && !effectiveResumeReady && '• Vui lòng chọn hoặc tải lên CV đã sẵn sàng'}
-          {mode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim()) && '• Vui lòng nhập tiêu đề và nội dung JD'}
-          {mode === 'field_benchmark' && !useCurrentGoal && (!industry.trim() || !targetRole.trim() || !seniority.trim()) && '• Vui lòng điền đủ ngành nghề, vị trí và cấp bậc'}
-          {!isSubmitDisabled && '• Sẵn sàng phân tích với dữ liệu hiện tại'}
-        </div>
+        {(() => {
+          const validationItems: string[] = [];
+          if (useCurrentGoal && !hasPrimaryResume) validationItems.push('Vui lòng bổ sung CV chính trước khi phân tích');
+          if (useCurrentGoal && hasPrimaryResume && !hasGoal) validationItems.push('Vui lòng thiết lập mục tiêu nghề nghiệp');
+          if (useCurrentGoal && hasPrimaryResume && hasGoal && mode === 'field_benchmark' && isBenchmarkIndustryMissing) validationItems.push('Vui lòng bổ sung ngành nghề đối chiếu');
+          if (!useCurrentGoal && !effectiveResumeReady) validationItems.push('Vui lòng chọn hoặc tải lên CV đã sẵn sàng');
+          if (mode === 'job_targeted' && (!jdTitle.trim() || !jdContent.trim())) validationItems.push('Vui lòng nhập tiêu đề và nội dung JD');
+          if (mode === 'field_benchmark' && !useCurrentGoal && (!industry.trim() || !targetRole.trim() || !seniority.trim())) validationItems.push('Vui lòng điền đủ ngành nghề, vị trí và cấp bậc');
+
+          if (validationItems.length > 0) {
+            return (
+              <ul className="text-xs text-on-surface-variant space-y-1" aria-label="Yêu cầu cần bổ sung">
+                {validationItems.map((msg) => (
+                  <li key={msg} className="flex items-center gap-1.5 text-amber-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                    <span>{msg}</span>
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+
+          return (
+            <div className="text-xs text-emerald-700 flex items-center gap-1.5 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span>Sẵn sàng phân tích với dữ liệu hiện tại</span>
+            </div>
+          );
+        })()}
 
         <Button
           variant="primary"

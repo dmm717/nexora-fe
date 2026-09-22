@@ -213,7 +213,7 @@ export default function ResumeAnalysisDetailsPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold mb-2">
             <span className="material-symbols-outlined text-[16px]">verified</span>
-            <span>Báo cáo phân tích chuyên sâu · Bất biến</span>
+            <span>Báo cáo phân tích chuyên sâu · Bản lưu trữ</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
             {isBenchmark

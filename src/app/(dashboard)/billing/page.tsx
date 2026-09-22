@@ -41,6 +41,26 @@ function BillingPageHeader() {
   );
 }
 
+function getOrderStatusPresentation(status: string): { label: string; variant: 'success' | 'warning' | 'info' | 'error' | 'neutral' } {
+  switch (status.toLowerCase()) {
+    case 'fulfilled':
+    case 'success':
+    case 'completed':
+      return { label: 'Thành công', variant: 'success' };
+    case 'pending':
+      return { label: 'Đang chờ', variant: 'warning' };
+    case 'processing':
+      return { label: 'Đang xử lý', variant: 'info' };
+    case 'failed':
+      return { label: 'Thất bại', variant: 'error' };
+    case 'cancelled':
+    case 'canceled':
+      return { label: 'Đã hủy', variant: 'neutral' };
+    default:
+      return { label: status, variant: 'neutral' };
+  }
+}
+
 export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
 
@@ -492,12 +512,14 @@ export default function BillingPage() {
               return (
               <Card
                 key={plan.id}
-                variant="elevated"
+                variant={isCurrentPlan ? 'selected' : 'elevated'}
                 padding="lg"
-                className={`flex flex-col justify-between relative bg-white transition-all ${
-                  isHighlighted
-                    ? 'border-2 border-primary shadow-card ring-1 ring-primary/20'
-                    : 'border border-outline-variant/60 shadow-subtle'
+                className={`flex flex-col justify-between relative transition-all ${
+                  isCurrentPlan
+                    ? 'border-2 border-primary shadow-floating scale-[1.02] bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
+                    : isHighlighted
+                    ? 'border border-primary/40 shadow-card bg-white'
+                    : 'border border-outline-variant/60 shadow-subtle bg-white'
                 }`}
               >
                 {isHighlighted && (
@@ -516,7 +538,7 @@ export default function BillingPage() {
                     )}
                   </div>
                   <p className="text-xs text-on-surface-variant min-h-[32px] leading-relaxed">
-                    {plan.description || 'Thông tin quyền lợi chi tiết được máy chủ cung cấp theo từng mức giá.'}
+                    {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
                   </p>
                   <div className="pt-2 pb-2 border-b border-outline-variant/30">
                     <div className="flex items-baseline gap-1">
@@ -595,12 +617,14 @@ export default function BillingPage() {
                       </td>
                       <td className="p-4 font-bold">{formatCurrency(o.amountMinor, o.currency)}</td>
                       <td className="p-4">
-                        <Badge
-                          variant={o.status === 'fulfilled' ? 'success' : o.status === 'pending' ? 'warning' : 'neutral'}
-                          size="sm"
-                        >
-                          {o.status === 'fulfilled' ? 'Thành công' : o.status === 'pending' ? 'Đang chờ' : o.status}
-                        </Badge>
+                        {(() => {
+                          const statusInfo = getOrderStatusPresentation(o.status);
+                          return (
+                            <Badge variant={statusInfo.variant} size="sm">
+                              {statusInfo.label}
+                            </Badge>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

@@ -357,12 +357,14 @@ export default function PricingCards() {
                 return (
                   <Card
                     key={plan.id}
-                    variant={isHighlight ? 'interactive' : 'elevated'}
+                    variant={isCurrentPlan ? 'selected' : isHighlight ? 'interactive' : 'elevated'}
                     padding="lg"
                     className={`flex flex-col justify-between transition-all relative ${
-                      isHighlight
-                        ? 'border-2 border-primary shadow-floating scale-[1.02] bg-white ring-4 ring-primary-fixed/20'
-                        : 'border border-outline-variant/50 bg-white'
+                      isCurrentPlan
+                        ? 'border-2 border-primary shadow-floating scale-[1.02] bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
+                        : isHighlight
+                        ? 'border border-primary/40 shadow-card bg-white hover:border-primary/60'
+                        : 'border border-outline-variant/60 bg-white'
                     }`}
                   >
                     <div className="space-y-4">
@@ -381,8 +383,8 @@ export default function PricingCards() {
 
                   <div>
                     <h3 className="font-bold text-lg text-on-surface">{plan.name}</h3>
-                    <p className="text-xs text-on-surface-variant mt-1 min-h-[36px] leading-relaxed">
-                      {plan.description || 'Thông tin quyền lợi được cung cấp trực tiếp từ cấu hình gói.'}
+                    <p className="text-xs sm:text-sm text-on-surface-variant mt-1.5 min-h-[36px] leading-relaxed">
+                      {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
                     </p>
                   </div>
 
@@ -390,20 +392,20 @@ export default function PricingCards() {
                     <div className="text-2xl sm:text-3xl font-black text-on-surface">
                       {formatPrice(price.amountMinor, price.currency)}
                     </div>
-                    <div className="text-[11px] text-on-surface-variant mt-0.5">
+                    <div className="text-xs text-on-surface-variant font-medium mt-1">
                       {price.durationDays ? `Thời hạn ${price.durationDays} ngày` : 'Sử dụng linh hoạt'}
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-outline-variant/30 space-y-2">
-                    <div className="text-[11px] font-bold text-on-surface-variant uppercase">
+                    <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
                       Tính năng bao gồm:
                     </div>
-                    <div className="text-xs font-semibold text-primary">
+                    <div className="text-xs sm:text-sm font-semibold text-primary">
                       Hạn mức phỏng vấn: {price.interviewQuota !== null ? `${price.interviewQuota} lượt` : 'Chưa có thông tin'}
                     </div>
                     {featureDescriptions.map((description) => (
-                      <div key={description} className="flex items-start gap-2 text-xs">
+                      <div key={description} className="flex items-start gap-2 text-xs sm:text-sm">
                         <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
                         <span className="text-on-surface">{description}</span>
                       </div>

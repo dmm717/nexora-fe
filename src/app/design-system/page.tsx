@@ -159,7 +159,7 @@ export default function DesignSystemShowcase() {
         {/* 5. Cards & Surface Hierarchy */}
         <section className="space-y-4">
           <h2 className="text-xl font-bold border-b border-outline-variant/30 pb-2">5. Cards & Surface Hierarchy</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <Card variant="flat">
               <h4 className="font-bold text-sm mb-1">Flat Card</h4>
               <p className="text-xs text-on-surface-variant">Thẻ phẳng viền tiêu chuẩn</p>
@@ -175,6 +175,10 @@ export default function DesignSystemShowcase() {
             <Card variant="interactive">
               <h4 className="font-bold text-sm mb-1">Interactive Card</h4>
               <p className="text-xs text-on-surface-variant">Hover có hiệu ứng nhấc thẻ</p>
+            </Card>
+            <Card variant="selected">
+              <h4 className="font-bold text-sm mb-1 text-primary">Selected Card</h4>
+              <p className="text-xs text-on-surface-variant">Thẻ được kích hoạt hoặc đang chọn</p>
             </Card>
           </div>
         </section>

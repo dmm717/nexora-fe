@@ -255,14 +255,14 @@ export default function OverviewPage() {
         title={`Xin chào, ${careerProfile?.profile?.displayName || (hasProfileData ? 'ứng viên' : 'bạn')}!`}
         description={
           hasInsufficientEvidence
-            ? 'Chưa đủ dữ liệu để tính chỉ số sẵn sàng. Nexora vẫn giữ các đề xuất khác do máy chủ cung cấp.'
+            ? 'Chưa đủ dữ liệu để tính chỉ số sẵn sàng. Bạn có thể hoàn thành thêm bài luyện tập để hệ thống tổng hợp.'
             : progressLocked
-              ? 'Progress Dashboard chưa có trong gói hiện tại. Các đề xuất độc lập vẫn được giữ nguyên khi có dữ liệu máy chủ.'
+              ? 'Theo dõi tiến độ là tính năng nâng cao. Bạn có thể nâng cấp gói bất kỳ lúc nào để kích hoạt.'
               : progressUnavailable
-                ? 'Không thể tải Progress Dashboard lúc này. Nexora không suy luận rằng hồ sơ của bạn đang thiếu bằng chứng.'
+                ? 'Chưa thể tải dữ liệu tiến độ lúc này. Bạn có thể làm mới trang để thử lại.'
                 : hasProgressData
                   ? `Hệ thống ghi nhận ${progressData.readiness.evidenceCount} bằng chứng năng lực thực tế. Đây là bước đi tốt nhất tiếp theo trong hành trình của bạn.`
-                  : 'Đang tải trạng thái bằng chứng từ Progress Dashboard.'
+                  : 'Đang tải dữ liệu tiến độ học tập...'
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
@@ -536,8 +536,8 @@ export default function OverviewPage() {
                 title={progressLocked ? 'Chỉ số chưa có trong gói hiện tại' : 'Chưa thể tải chỉ số sẵn sàng'}
                 description={
                   progressLocked
-                    ? 'Nâng cấp gói để sử dụng Progress Dashboard. Không có điểm số nào được suy luận thay thế.'
-                    : 'Trạng thái bằng chứng hiện chưa xác định. Hãy thử tải lại Progress Dashboard.'
+                    ? 'Nâng cấp gói để mở khóa bảng theo dõi tiến độ và bản đồ năng lực chuyên sâu.'
+                    : 'Trạng thái bằng chứng hiện chưa xác định. Hãy thử tải lại dữ liệu tiến độ.'
                 }
                 action={
                   progressUnavailable ? (
@@ -562,7 +562,7 @@ export default function OverviewPage() {
           ? 'Mỗi CV, câu trả lời và lần luyện lại sẽ trở thành một mảnh bằng chứng. Khi đủ dữ liệu, hệ thống mới đề xuất điểm mạnh và khoảng trống đáng tin cậy.'
           : hasProgressData
             ? 'Bằng chứng mới nhất được nối vào mục tiêu hiện tại để gợi ý một hành động cụ thể, thay vì chỉ đưa ra thêm một bảng điểm.'
-            : 'Khi Progress Dashboard khả dụng, Nexora sẽ nối bằng chứng mới nhất vào mục tiêu hiện tại mà không tự suy luận trạng thái còn thiếu.'}
+            : 'Mỗi lượt phỏng vấn và phân tích CV được hệ thống tổng hợp để cập nhật mức độ sẵn sàng của bạn.'}
       </InsightPanel>
 
       {/* 3. CONTEXTUAL RECENT ACTIVITIES (Hoạt động gần đây) */}
@@ -683,7 +683,7 @@ export default function OverviewPage() {
             </div>
             <div className="text-xs font-bold text-on-surface">Chưa có hoạt động thực hành nào</div>
             <p className="text-[11px] text-on-surface-variant max-w-sm mx-auto mt-1">
-              Các lượt phân tích CV, mock interview và bài tập phản xạ của bạn sẽ được lưu vết trực tiếp tại đây.
+              Lịch sử phân tích CV, mock interview và bài tập phản xạ của bạn sẽ xuất hiện tại đây.
             </p>
           </Card>
         )}

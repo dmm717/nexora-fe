@@ -600,7 +600,7 @@ export default function PracticeHub() {
             </div>
             <div className="text-sm font-bold text-on-surface">Chưa có lịch sử luyện tập</div>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1">
-              Các bài tập phỏng vấn giả lập, giải quyết tình huống kỹ thuật và phản xạ STAR của bạn sẽ được lưu vết đầy đủ tại đây.
+              Lịch sử các bài tập phỏng vấn giả lập, xử lý tình huống và phản xạ STAR của bạn sẽ xuất hiện tại đây.
             </p>
           </Card>
         )}

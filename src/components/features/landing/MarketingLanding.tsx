@@ -409,9 +409,9 @@ export function MarketingLanding() {
 
   const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
   const [preview, setPreview] = useState<'cv' | 'interview' | 'recommendation'>('cv');
-  const [showEmpty, setShowEmpty] = useState(true);
+  const [showEmpty, setShowEmpty] = useState(false);
   const [cvDemoRun, setCvDemoRun] = useState(0);
-  const [cvDemoStage, setCvDemoStage] = useState<CvDemoStage>('empty');
+  const [cvDemoStage, setCvDemoStage] = useState<CvDemoStage>('result');
 
   useEffect(() => {
     if (cvDemoRun === 0) return undefined;
