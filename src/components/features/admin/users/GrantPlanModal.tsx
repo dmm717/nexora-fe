@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/Button/Button';
+import { formatPriceMinor } from '@/utils/formatters';
 import { Input } from '@/components/ui/Input/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
@@ -44,7 +45,7 @@ export function GrantPlanModal({ isOpen, onClose, user }: GrantPlanModalProps) {
       plan.prices?.filter((price) => price.isActive).forEach((price) => {
         list.push({
           id: price.id,
-          label: `[${plan.name}] - ${price.durationDays ? `${price.durationDays} ngày` : 'Vĩnh viễn'} - ${price.amountMinor.toLocaleString('vi-VN')} ${price.currency}`,
+          label: `[${plan.name}] - ${price.durationDays ? `${price.durationDays} ngày` : 'Vĩnh viễn'} - ${formatPriceMinor(price.amountMinor, price.currency)}`,
         });
       });
     });
