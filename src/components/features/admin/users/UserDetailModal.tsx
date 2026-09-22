@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button/Button';
+import { formatMoneyMinor } from '@/utils/formatters';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -196,7 +197,7 @@ function UserDetailContent({ user, onGrant, onAdjust }: { user: AdminUserView & 
                   <tr key={order.id} className="border-b border-outline-variant/50 last:border-b-0">
                     <td className="px-3 py-3 font-mono text-xs text-on-surface-variant">{order.id.substring(0, 8)}…</td>
                     <td className="px-3 py-3 font-medium text-on-surface">{order.planCode.toUpperCase()}</td>
-                    <td className="px-3 py-3 text-right text-on-surface">{order.amountMinor.toLocaleString('vi-VN')} {order.currency}</td>
+                    <td className="px-3 py-3 text-right text-on-surface">{formatMoneyMinor(order.amountMinor, order.currency)}</td>
                     <td className="px-3 py-3 text-center">
                       <Badge variant={order.status === 'paid' ? 'success' : 'neutral'} size="sm">{order.status}</Badge>
                     </td>

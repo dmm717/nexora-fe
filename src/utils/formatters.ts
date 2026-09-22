@@ -53,6 +53,18 @@ export function formatPriceMinor(
     return 'Miễn phí';
   }
 
+  return formatMoneyMinor(amountMinor, currency, locale);
+}
+
+/**
+ * Formats a minor-unit monetary amount without applying plan-price semantics.
+ * Unlike formatPriceMinor, zero remains a monetary value for reporting surfaces.
+ */
+export function formatMoneyMinor(
+  amountMinor: number,
+  currency: string = 'VND',
+  locale: string = 'vi-VN'
+): string {
   const divisor = getMinorUnitDivisor(currency, locale);
   const majorAmount = amountMinor / divisor;
   const digits = getCurrencyFractionDigits(currency, locale);
