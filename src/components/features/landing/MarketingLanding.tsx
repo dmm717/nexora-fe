@@ -31,6 +31,7 @@ import { usePlans } from '@/hooks/queries/useBilling';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
 import type { AuthIntent } from '@/utils/authIntent';
 import { getQueryPresentation } from '@/utils/queryPresentation';
+import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
 import styles from './landing.module.css';
 
 const loopSteps = [
@@ -611,6 +612,15 @@ export function MarketingLanding() {
           {actionButton('Khám phá hồ sơ CV của bạn', 'cv_analysis', '/cv-analysis')}
         </div>
         <div className={styles.previewStage} data-reveal>
+          <Image
+            src={NEXORA_MASCOT_ASSETS.cvAnalysis}
+            width={768}
+            height={768}
+            sizes="(max-width: 1100px) 88px, 112px"
+            alt=""
+            aria-hidden="true"
+            className={`${styles.featureMascot} ${styles.cvMascot}`}
+          />
           <div className={styles.previewTabs} aria-label="Chọn nội dung xem trước">
             {[
               { id: 'cv', name: 'CV' },
@@ -694,7 +704,16 @@ export function MarketingLanding() {
               Xem chi tiết trước khi chọn gói luyện tập.
             </p>
           </div>
-          <div data-reveal>
+          <div className={styles.interviewVisual} data-reveal>
+            <Image
+              src={NEXORA_MASCOT_ASSETS.aiCoach}
+              width={768}
+              height={768}
+              sizes="(max-width: 1100px) 92px, 118px"
+              alt=""
+              aria-hidden="true"
+              className={`${styles.featureMascot} ${styles.interviewMascot}`}
+            />
             <InterviewPreview large />
             <div className={styles.reportStrip}>
               <ChartNoAxesCombined size={22} />
@@ -799,7 +818,15 @@ export function MarketingLanding() {
           </button>
           {showEmpty ? (
             <div className={styles.emptyState}>
-              <Target size={38} />
+              <Image
+                src={NEXORA_MASCOT_ASSETS.emptyHelper}
+                width={768}
+                height={768}
+                sizes="96px"
+                alt=""
+                aria-hidden="true"
+                className={styles.emptyMascot}
+              />
               <h3>Chưa đủ dữ liệu đánh giá</h3>
               <p>
                 Thêm mục tiêu nghề nghiệp và hoàn thành bài phân tích CV hoặc phiên luyện đầu tiên.

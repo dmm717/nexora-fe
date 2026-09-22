@@ -24,18 +24,21 @@ export interface FeedbackResponse {
 export type Feedback = FeedbackResponse;
 
 
-export interface PublicFeedbackResponse {
+export interface PublicFeedbackItem {
   id: string;
   displayName: string;
   rating: number;
   comment: string;
   publishedAt: string;
+  avatarUrl?: string | null;
 }
+
+export type PublicFeedbackResponse = PublicFeedbackItem;
 
 export interface PublicFeedbackPageResponse {
   averageRating: number | null;
   ratingCount: number;
-  items: PublicFeedbackResponse[];
+  items: PublicFeedbackItem[];
 }
 
 export interface AdminFeedbackResponse {

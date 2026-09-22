@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, X, LogIn, Rocket } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { NexoraLogo } from '@/components/brand/NexoraLogo';
 
 export interface NavItem {
   label: string;
@@ -114,13 +115,11 @@ export const Header: React.FC = () => {
           aria-label="Nexora AI — Trang chủ"
           className="flex items-center gap-2.5 select-none rounded-xl group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
-          <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black text-lg shadow-sm transition-transform group-hover:scale-105">
-            N
-          </div>
-          <div>
-            <div className="font-extrabold text-base tracking-tight text-on-surface leading-none">
-              Nexora <span className="text-primary font-black">AI</span>
-            </div>
+          <NexoraLogo
+            alt=""
+            className="h-7 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02] sm:h-8"
+          />
+          <div className="hidden sm:block">
             <div className="text-[10px] text-on-surface-variant font-medium tracking-wide uppercase mt-0.5">
               Luyện phỏng vấn · Phát triển năng lực
             </div>

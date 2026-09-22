@@ -1,0 +1,378 @@
+.section {
+  padding: 64px 32px 90px;
+  background:
+    radial-gradient(circle at 15% 10%, rgb(233 229 255 / 72%), transparent 32%),
+    linear-gradient(180deg, #fcfcff 0%, #f7f7ff 100%);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(330px, 0.85fr);
+  gap: 18px;
+  max-width: 1136px;
+  margin: 0 auto;
+  padding: 10px;
+  border: 1px solid #e5e4f3;
+  border-radius: 24px;
+  background: rgb(255 255 255 / 68%);
+  box-shadow: 0 24px 70px rgb(42 50 112 / 9%);
+}
+
+.testimonialsPanel,
+.statsPanel {
+  min-width: 0;
+  border-radius: 18px;
+}
+
+.testimonialsPanel {
+  padding: 34px;
+  background: #fff;
+  border: 1px solid #ebeaf5;
+}
+
+.panelHeading h2,
+.statsHeading h2 {
+  margin-top: 14px;
+  color: #151d34;
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 760;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 7px 11px;
+  border: 1px solid #dcd8ff;
+  border-radius: 999px;
+  background: #f2efff;
+  color: #4d43a5;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.badge span {
+  font-size: 15px;
+}
+
+.ratingSummary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 24px 0 20px;
+  padding: 17px 19px;
+  border: 1px solid #e5e2f7;
+  border-radius: 14px;
+  background: #f8f7ff;
+}
+
+.ratingSummary > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding-right: 18px;
+  border-right: 1px solid #dedbef;
+  color: #22286f;
+}
+
+.ratingSummary strong {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.ratingSummary span,
+.ratingSummary p {
+  color: #666a80;
+  font-size: 10px;
+}
+
+.ratingSummary p {
+  margin-top: 5px;
+}
+
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.stars > span {
+  font-size: 17px;
+}
+
+.starFilled {
+  color: #f1a81d;
+}
+
+.starEmpty {
+  color: #d8d9e3;
+}
+
+.testimonialList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.testimonialCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px solid #e7e7f1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgb(36 45 102 / 5%);
+}
+
+.testimonialCard blockquote {
+  display: -webkit-box;
+  margin: 16px 0 22px;
+  overflow: hidden;
+  color: #3f455a;
+  font-size: 12px;
+  line-height: 1.75;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.testimonialCard footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #efeff5;
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.author strong,
+.author time {
+  display: block;
+}
+
+.author strong {
+  color: #1d243a;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.author time {
+  margin-top: 3px;
+  color: #7a7d8d;
+  font-size: 9px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  overflow: hidden;
+  border: 1px solid #dedafa;
+  border-radius: 50%;
+  background: #ece9ff;
+}
+
+.avatarImage,
+.avatarFallback {
+  width: 100%;
+  height: 100%;
+}
+
+.avatarImage {
+  display: block;
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: grid;
+  place-items: center;
+  color: #4a43a1;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.statsPanel {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 34px 30px 26px;
+  background:
+    radial-gradient(circle at 100% 100%, rgb(138 128 237 / 40%), transparent 42%),
+    #202962;
+  color: #f7f6ff;
+}
+
+.statsHeading,
+.statsGrid,
+.dataNote {
+  position: relative;
+  z-index: 2;
+}
+
+.eyebrow {
+  color: #bcb7ff;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.statsHeading h2 {
+  margin-top: 8px;
+  color: #fff;
+  font-size: clamp(25px, 2.5vw, 34px);
+}
+
+.statsHeading p {
+  max-width: 330px;
+  margin-top: 12px;
+  color: #cbd0ed;
+  font-size: 11px;
+  line-height: 1.75;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.statCard {
+  min-height: 122px;
+  padding: 17px 14px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 13px;
+  background: rgb(255 255 255 / 7%);
+  backdrop-filter: blur(6px);
+}
+
+.statCard dt,
+.statNote {
+  color: #bfc5e5;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.statCard dd {
+  margin: 9px 0 7px;
+  color: #fff;
+  font-size: clamp(21px, 2.4vw, 28px);
+  font-weight: 780;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mascot {
+  position: absolute;
+  z-index: 1;
+  right: -54px;
+  bottom: -40px;
+  width: 210px;
+  height: auto;
+  filter: drop-shadow(0 16px 20px rgb(9 14 47 / 26%));
+  pointer-events: none;
+}
+
+.dataNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: calc(100% - 110px);
+  margin-top: auto;
+  padding-top: 28px;
+  color: #c9cdec;
+  font-size: 9px;
+}
+
+.dataNote span {
+  color: #a9a3ff;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .statsPanel {
+    min-height: 440px;
+  }
+
+  .mascot {
+    right: -20px;
+    width: 190px;
+  }
+}
+
+@media (max-width: 620px) {
+  .section {
+    padding: 48px 20px 64px;
+  }
+
+  .shell {
+    gap: 10px;
+    padding: 7px;
+    border-radius: 20px;
+  }
+
+  .testimonialsPanel,
+  .statsPanel {
+    padding: 26px 20px;
+    border-radius: 15px;
+  }
+
+  .ratingSummary {
+    align-items: flex-start;
+    gap: 13px;
+    padding: 15px;
+  }
+
+  .ratingSummary > div:first-child {
+    padding-right: 13px;
+  }
+
+  .ratingSummary strong {
+    font-size: 27px;
+  }
+
+  .testimonialList {
+    grid-template-columns: 1fr;
+  }
+
+  .testimonialCard {
+    min-height: 0;
+  }
+
+  .statsPanel {
+    min-height: 425px;
+  }
+
+  .statCard {
+    min-height: 112px;
+    padding: 15px 12px;
+  }
+
+  .mascot {
+    right: -28px;
+    bottom: -24px;
+    width: 150px;
+  }
+
+  .dataNote {
+    max-width: calc(100% - 100px);
+  }
+}
