@@ -87,7 +87,7 @@ function Meter({ label, value, demo = false }: { label: string; value: number; d
   );
 }
 
-function SampleLabel({ label = 'Dữ liệu minh họa' }: { label?: string }) {
+function SampleLabel({ label = 'Ví dụ kết quả' }: { label?: string }) {
   return (
     <span className={styles.sample}>
       <Sparkles size={13} aria-hidden="true" />
@@ -204,7 +204,7 @@ function CvPreview({
           <FileText size={16} />
           Phân tích CV
         </span>
-        <SampleLabel label={compact ? 'Demo minh họa' : 'Dữ liệu minh họa'} />
+        {!compact && <SampleLabel />}
       </div>
       {showResult ? (
         <div ref={compact ? undefined : resultRef} data-cv-demo-result={compact ? undefined : ''}>
@@ -253,7 +253,7 @@ function CvPreview({
                 </p>
               </div>
               <button className={styles.textAction} type="button" onClick={onStartDemo}>
-                Chạy lại demo phân tích mẫu
+                Xem lại cách phân tích
                 <RotateCcw size={16} />
               </button>
             </>
@@ -265,9 +265,9 @@ function CvPreview({
             <div className={styles.cvSampleContext}>
               <div>
                 <FileText size={18} aria-hidden="true" />
-                <span>CV mẫu · Backend Engineer</span>
+                <span>CV ví dụ · Backend Engineer</span>
               </div>
-              <span>Mục tiêu mẫu: Lập trình viên Backend</span>
+              <span>Mục tiêu: Lập trình viên Backend</span>
             </div>
           )}
           {demoStage === 'empty' ? (
@@ -276,7 +276,7 @@ function CvPreview({
               <h3>Chưa có CV chính</h3>
               <p>Chưa chọn vị trí mục tiêu · Chưa có kết quả phân tích</p>
               <button className={styles.primaryAction} type="button" onClick={onStartDemo}>
-                Xem demo phân tích mẫu
+                Xem thử cách phân tích
                 <ArrowUpRight size={17} aria-hidden="true" />
               </button>
             </div>
@@ -289,7 +289,7 @@ function CvPreview({
                     <i />
                     <i />
                   </span>
-                  <span>AI đang đọc các điểm phù hợp trong CV mẫu…</span>
+                  <span>Đang đối chiếu CV với vị trí mục tiêu…</span>
                 </div>
               )}
               {demoStage === 'document' && (
@@ -297,7 +297,7 @@ function CvPreview({
                   <span className={styles.documentLine} />
                   <span className={styles.documentLine} />
                   <span className={`${styles.documentLine} ${styles.short}`} />
-                  <span className={styles.documentTag}>Đã nhận CV mẫu</span>
+                  <span className={styles.documentTag}>Đã nhận CV ví dụ</span>
                 </div>
               )}
             </>
@@ -316,12 +316,12 @@ function InterviewPreview({ large = false }: { large?: boolean }) {
           <Mic size={16} />
           Phỏng vấn AI
         </span>
-        <SampleLabel />
+        {large && <SampleLabel />}
       </div>
       <div className={styles.interviewMeta}>
         <span>
           <span className={styles.statusDot} />
-          Phiên mẫu · Câu hỏi 1
+          Phiên luyện · Câu hỏi 1
         </span>
         <span>Lập trình viên Backend</span>
       </div>
@@ -338,7 +338,7 @@ function InterviewPreview({ large = false }: { large?: boolean }) {
       {large && (
         <>
           <div className={styles.answer}>
-            <span>Câu trả lời minh họa</span>
+            <span>Ví dụ câu trả lời</span>
             <p>
               Trong dự án quản lý lớp học, tôi kiểm tra truy vấn chậm, bổ sung index và đo lại thời
               gian phản hồi trước khi triển khai…
@@ -365,7 +365,6 @@ function InterviewPreview({ large = false }: { large?: boolean }) {
           />
         ))}
       </div>
-      <p className={styles.previewNote}>Xem trước giao diện · Không thu âm hay gửi câu trả lời</p>
     </div>
   );
 }
@@ -481,13 +480,13 @@ export function MarketingLanding() {
         <div className={styles.heroInner}>
           <div className={styles.heroCopy}>
             <h1 data-hero-copy>
-              Tự tin hơn.
+              Chuẩn bị đúng chỗ.
               <br />
-              Không chỉ <span>chuẩn bị nhiều hơn.</span>
+              <span>Tự tin bước vào phỏng vấn.</span>
             </h1>
             <p data-hero-copy className={styles.heroDescription}>
-              Biến CV và mỗi lần luyện phỏng vấn thành một bước tiến rõ ràng. Nexora AI giúp bạn
-              biết mình đang ở đâu — và nên cải thiện điều gì tiếp theo.
+              Từ CV đến câu trả lời phỏng vấn, Nexora giúp bạn nhận ra phần còn thiếu và luyện lại
+              với mục tiêu rõ ràng.
             </p>
             <div data-hero-copy className={styles.actions}>
               {actionButton(
@@ -516,7 +515,7 @@ export function MarketingLanding() {
             </div>
           </div>
           <div className={styles.heroVisual}>
-            <span className={styles.heroDemoLabel}>Demo minh họa · giao diện mẫu</span>
+            <span className={styles.heroDemoLabel}>Xem trước trải nghiệm</span>
             <Image
               unoptimized
               data-parallax
@@ -667,7 +666,7 @@ export function MarketingLanding() {
             )}
           </div>
           <p className={styles.stageNote}>
-            Ví dụ cách đọc phản hồi — không phải điểm số của tài khoản bạn.
+            Ví dụ kết quả cho vị trí Lập trình viên Backend.
           </p>
         </div>
       </section>
@@ -682,8 +681,8 @@ export function MarketingLanding() {
               không phải nơi để <span>thử lần đầu.</span>
             </h2>
             <p>
-              Luyện cùng AI theo vị trí mục tiêu. Tập diễn đạt, xử lý câu hỏi tiếp nối và nhìn lại
-              câu trả lời bằng phản hồi có cấu trúc.
+              Luyện theo vị trí mục tiêu, xử lý câu hỏi tiếp nối và biết câu trả lời còn thiếu bằng
+              chứng ở đâu.
             </p>
             <Checklist
               items={[
@@ -699,9 +698,7 @@ export function MarketingLanding() {
               true
             )}
             <p className={styles.freeNote}>
-              Thông tin gói và hạn mức hiện có được cập nhật trực tiếp trong bảng giá.
-              <br />
-              Xem chi tiết trước khi chọn gói luyện tập.
+              Xem bảng giá để chọn hạn mức luyện tập phù hợp.
             </p>
           </div>
           <div className={styles.interviewVisual} data-reveal>
@@ -966,7 +963,7 @@ export function MarketingLanding() {
         <div className={styles.pricingNote}>
           <ShieldCheck size={17} />
           <p>
-            Giá và quyền lợi lấy trực tiếp từ hệ thống gói cước Nexora. Bạn có thể thay đổi bất kỳ lúc nào.
+            Xem rõ giá và quyền lợi trước khi chọn gói. Bạn có thể thay đổi bất kỳ lúc nào.
           </p>
           <Link href="/pricing">
             Xem chi tiết bảng giá
@@ -998,13 +995,13 @@ export function MarketingLanding() {
           </span>
         </div>
         <Image
-          unoptimized
-          src="/assets/landing/career-orbit.webp"
-          width={1200}
-          height={800}
+          src={NEXORA_MASCOT_ASSETS.celebrate}
+          width={768}
+          height={768}
           alt=""
-          sizes="(max-width: 760px) 0px, 40vw"
-          className={styles.finalArt}
+          aria-hidden="true"
+          sizes="(max-width: 760px) 150px, 300px"
+          className={styles.finalMascot}
         />
       </section>
 

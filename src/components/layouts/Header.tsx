@@ -117,11 +117,11 @@ export const Header: React.FC = () => {
         >
           <NexoraLogo
             alt=""
-            className="h-7 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02] sm:h-8"
+            className="h-8 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02] sm:h-9"
           />
           <div className="hidden sm:block">
-            <div className="text-[10px] text-on-surface-variant font-medium tracking-wide uppercase mt-0.5">
-              Luyện phỏng vấn · Phát triển năng lực
+            <div className="text-[9px] text-on-surface-variant/80 font-medium tracking-wide mt-0.5">
+              Chuẩn bị nghề nghiệp có định hướng
             </div>
           </div>
         </Link>

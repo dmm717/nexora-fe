@@ -101,7 +101,7 @@ test('Admin Feedback Moderation: route exists under (admin), has sidebar item, K
   assert.match(adminFeedbackSource, /ResponsiveContainer/);
 });
 
-test('Landing Testimonials: consumes public feedback envelope without computing fake data', () => {
+test('Landing social proof consumes authoritative public aggregates without fake fallback metrics', () => {
   const landingSource = readFileSync(
     new URL('../src/components/features/landing/MarketingLanding.tsx', import.meta.url),
     'utf8'
@@ -110,22 +110,48 @@ test('Landing Testimonials: consumes public feedback envelope without computing 
     new URL('../src/components/features/landing/LandingTestimonials.tsx', import.meta.url),
     'utf8'
   );
+  const statsApiSource = readFileSync(
+    new URL('../src/services/platformStatsApi.ts', import.meta.url),
+    'utf8'
+  );
+  const statsHookSource = readFileSync(
+    new URL('../src/hooks/queries/usePlatformStats.ts', import.meta.url),
+    'utf8'
+  );
+  const testimonialsStyles = readFileSync(
+    new URL('../src/components/features/landing/LandingTestimonials.module.css', import.meta.url),
+    'utf8'
+  );
 
   assert.match(landingSource, /<LandingTestimonials \/>/);
   assert.match(testimonialsSource, /usePublicFeedback/);
-  assert.match(testimonialsSource, /ratingCount/);
-  assert.match(testimonialsSource, /averageRating/);
-  assert.match(testimonialsSource, /items\.length/);
-  assert.match(testimonialsSource, /publishedAt/);
-  assert.match(testimonialsSource, /Mới nhất trong danh sách/);
-  assert.match(testimonialsSource, /Trong \$\{items\.length\} phản hồi đang hiển thị/);
-  assert.doesNotMatch(testimonialsSource, /Cập nhật gần nhất/);
-  assert.match(testimonialsSource, /Số liệu phản hồi/);
-  assert.doesNotMatch(testimonialsSource, /Số liệu nền tảng/);
-  // Cleanly hides when 0 items or error
-  assert.match(testimonialsSource, /if\s*\(isLoading\s*\|\|\s*isError\s*\|\|\s*!data\s*\|\|\s*data\.items\.length === 0\)\s*\{\s*return null;\s*\}/);
+  assert.match(testimonialsSource, /usePlatformStats/);
+  assert.match(statsApiSource, /apiClient\.get\('\/public\/platform-stats'\)/);
+  assert.match(statsHookSource, /queryFn: platformStatsApi\.get/);
+  for (const field of ['userCount', 'completedInterviewCount', 'completedCvAnalysisCount', 'averageRating', 'ratingCount']) {
+    assert.match(testimonialsSource, new RegExp(`platformStats\\.${field}`));
+  }
+  assert.doesNotMatch(testimonialsSource, /Người dùng đang hoạt động/);
+  assert.match(testimonialsSource, /label: 'Người dùng Nexora', value: formatCount\(platformStats\.userCount\)/);
+  assert.match(testimonialsSource, /label: 'Lượt phân tích CV', value: formatCount\(platformStats\.completedCvAnalysisCount\)/);
+  assert.match(testimonialsSource, /Mức độ hài lòng/);
+  assert.match(testimonialsSource, /platformStats\.averageRating\.toFixed\(1\)\} \/ 5/);
+  assert.doesNotMatch(testimonialsSource, /1\.2K|3\.4K|2\.1K|170\+/);
+  assert.doesNotMatch(testimonialsSource, /Theo API|Không dùng số mẫu|dữ liệu dựng sẵn/);
+  assert.match(testimonialsSource, /platformStats\s*\?\s*\[/);
+  assert.match(testimonialsSource, /productProof/);
+  // Either source can keep the section truthful; it hides only when neither has data.
+  assert.match(testimonialsSource, /items\.length === 0 && !platformStats/);
+  assert.match(testimonialsSource, /styles\.statsOnly/);
   // Respects reduced motion
   assert.match(testimonialsSource, /prefers-reduced-motion/);
+  // Filled stars must win the summary cascade and remain visibly amber.
+  assert.match(testimonialsStyles, /\.ratingSummary\s*>\s*div:first-child\s*>\s*span/);
+  assert.match(testimonialsStyles, /\.stars\s*>\s*\.starFilled\s*\{[^}]*color:\s*#f1a81d/s);
+  assert.match(testimonialsStyles, /\.stars\s*>\s*\.starEmpty\s*\{[^}]*color:\s*#d8d9e3/s);
+  // One testimonial is content-sized instead of stretching into a tall card.
+  assert.match(testimonialsSource, /data-count=\{items\.length\}/);
+  assert.match(testimonialsStyles, /\.testimonialList\[data-count='1'\][\s\S]*?min-height:\s*0/);
   // Future avatar URLs are optional and retain a safe initials fallback.
   assert.match(testimonialsSource, /item\.avatarUrl/);
   assert.match(testimonialsSource, /getInitials/);
@@ -162,9 +188,9 @@ test('Landing brand system: uses the supplied Nexora logo and canonical mascot a
   assert.doesNotMatch(headerSource, />\s*N\s*<\/div>/);
   assert.doesNotMatch(footerSource, />\s*N\s*<\/div>/);
   assert.match(brandAssetsSource, /nexora-horizontal\.png/);
-  assert.match(brandAssetsSource, /mascot-pointing-stats\.png/);
+  assert.match(brandAssetsSource, /mascot-testimonials\.png/);
   assert.ok(existsSync(new URL('../public/assets/brand/nexora-horizontal.png', import.meta.url)));
-  assert.ok(existsSync(new URL('../public/assets/mascot/mascot-pointing-stats.png', import.meta.url)));
+  assert.ok(existsSync(new URL('../public/assets/mascot/mascot-testimonials.png', import.meta.url)));
 });
 
 test('Landing mascot system: wires several decorative poses into feature storytelling', () => {
@@ -177,7 +203,7 @@ test('Landing mascot system: wires several decorative poses into feature storyte
     'utf8'
   );
 
-  for (const pose of ['cvAnalysis', 'aiCoach', 'emptyHelper']) {
+  for (const pose of ['cvAnalysis', 'aiCoach', 'emptyHelper', 'celebrate']) {
     assert.match(
       landingSource,
       new RegExp(`src=\\{NEXORA_MASCOT_ASSETS\\.${pose}\\}[\\s\\S]{0,180}alt=""[\\s\\S]{0,80}aria-hidden="true"`)
@@ -185,11 +211,27 @@ test('Landing mascot system: wires several decorative poses into feature storyte
   }
   assert.match(
     testimonialsSource,
-    /src=\{NEXORA_MASCOT_ASSETS\.pointingStats\}[\s\S]{0,180}alt=""[\s\S]{0,80}aria-hidden="true"/
+    /src=\{NEXORA_MASCOT_ASSETS\.testimonials\}[\s\S]{0,180}alt=""[\s\S]{0,80}aria-hidden="true"/
   );
   assert.match(testimonialsSource, /prefers-reduced-motion/);
   assert.doesNotMatch(
     `${landingSource}\n${testimonialsSource}`,
     /total users|interview count|mentor count|satisfaction count/i
   );
+});
+
+test('Landing copy keeps preview disclosure restrained and removes engineering meta-copy', () => {
+  const landingSource = readFileSync(
+    new URL('../src/components/features/landing/MarketingLanding.tsx', import.meta.url),
+    'utf8'
+  );
+  const testimonialsSource = readFileSync(
+    new URL('../src/components/features/landing/LandingTestimonials.tsx', import.meta.url),
+    'utf8'
+  );
+  const productionCopy = `${landingSource}\n${testimonialsSource}`;
+
+  assert.doesNotMatch(productionCopy, /Theo API|Không dùng số mẫu|dữ liệu dựng sẵn|Demo minh họa|Dữ liệu minh họa|giao diện mẫu/);
+  assert.equal((productionCopy.match(/Xem trước trải nghiệm/g) ?? []).length, 1);
+  assert.ok((productionCopy.match(/Ví dụ kết quả/g) ?? []).length <= 3);
 });

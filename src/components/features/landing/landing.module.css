@@ -361,12 +361,6 @@
   border-radius: 3px;
   background: #b3adff;
 }
-.previewNote {
-  font-size: 9px;
-  color: #c7cbeb;
-  text-align: center;
-  margin-top: 9px;
-}
 .section {
   max-width: 1200px;
   margin: auto;
@@ -509,17 +503,17 @@
   user-select: none;
 }
 .cvMascot {
-  top: 72px;
-  left: -64px;
-  width: 112px;
+  top: 64px;
+  left: -96px;
+  width: 172px;
 }
 .interviewVisual {
   position: relative;
 }
 .interviewMascot {
-  top: 44px;
-  left: -68px;
-  width: 118px;
+  top: 34px;
+  left: -100px;
+  width: 180px;
 }
 .previewTabs {
   display: flex;
@@ -843,9 +837,9 @@
 }
 .emptyMascot {
   display: block;
-  width: 96px;
+  width: 136px;
   height: auto;
-  margin: -8px auto 6px;
+  margin: -24px auto 2px;
   filter: drop-shadow(0 10px 16px #34386b1f);
 }
 .emptyState h3 {
@@ -1121,15 +1115,13 @@
   color: #dfdcff;
   margin-top: 17px;
 }
-.finalArt {
+.finalMascot {
   position: absolute;
-  right: -100px;
-  top: -15px;
-  width: 600px;
-  height: 430px;
-  object-fit: cover;
-  mix-blend-mode: soft-light;
-  opacity: 0.55;
+  right: 32px;
+  bottom: -54px;
+  width: 300px;
+  height: auto;
+  filter: drop-shadow(0 22px 28px rgb(21 23 85 / 28%));
   pointer-events: none;
 }
 .analyzing {
@@ -1232,12 +1224,12 @@
     gap: 36px;
   }
   .cvMascot {
-    left: -40px;
-    width: 88px;
+    left: -68px;
+    width: 140px;
   }
   .interviewMascot {
-    left: -42px;
-    width: 92px;
+    left: -70px;
+    width: 146px;
   }
   .pricingGrid {
     grid-template-columns: repeat(2, 1fr);
@@ -1365,9 +1357,16 @@
   .previewStage {
     padding: 20px;
   }
-  .cvMascot,
+  .cvMascot {
+    top: 58px;
+    left: -34px;
+    width: 116px;
+  }
   .interviewMascot {
-    display: none;
+    top: -44px;
+    right: 4px;
+    left: auto;
+    width: 118px;
   }
   .progressStage {
     order: 2;
@@ -1382,8 +1381,11 @@
   .finalCta h2 {
     font-size: 30px;
   }
-  .finalArt {
-    display: none;
+  .finalMascot {
+    right: -10px;
+    bottom: -26px;
+    width: 150px;
+    opacity: 0.72;
   }
   .pricingNote {
     flex-wrap: wrap;
@@ -1481,6 +1483,7 @@
   .finalCta {
     margin-left: 20px;
     margin-right: 20px;
+    padding-bottom: 120px;
   }
   .primaryAction {
     font-size: 12px;

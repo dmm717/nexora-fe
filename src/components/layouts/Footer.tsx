@@ -10,7 +10,7 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-3">
             <NexoraLogo alt="Nexora" className="h-6 w-auto object-contain" />
             <span className="hidden text-xs font-medium text-on-surface-variant sm:inline">
-              Luyện phỏng vấn &amp; Phát triển năng lực
+              Chuẩn bị tốt hơn cho bước đi tiếp theo
             </span>
           </div>
 
