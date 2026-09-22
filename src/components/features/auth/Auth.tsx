@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import styles from './Auth.module.css';
 import { authApi } from '@/services/authApi';
 import { loginSchema, registerSchema, LoginFormData, RegisterFormData } from '@/schema/authSchema';
+import { VERIFICATION_RESEND_COOLDOWN_SECONDS } from '@/constants/auth';
 import { Input } from '../../ui/Input/Input';
 import { Button } from '../../ui/Button/Button';
 import {
@@ -31,6 +32,7 @@ export default function Auth() {
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const resendInFlightRef = useRef(false);
   const [serverError, setServerError] = useState<{
     mode: 'login' | 'register';
     message: string;
@@ -104,16 +106,18 @@ export default function Auth() {
   );
 
   const handleResend = async (email: string) => {
-    if (!email || isResending || resendCooldown > 0) return;
+    if (!email || isResending || resendCooldown > 0 || resendInFlightRef.current) return;
+    resendInFlightRef.current = true;
     setIsResending(true);
     try {
       await authApi.resendVerification({ email });
       toast.success('Nếu tài khoản cần xác minh, email hướng dẫn đã được gửi.');
-      setResendCooldown(60);
+      setResendCooldown(VERIFICATION_RESEND_COOLDOWN_SECONDS);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Không thể gửi lại email xác minh.';
       toast.error(message);
     } finally {
+      resendInFlightRef.current = false;
       setIsResending(false);
     }
   };
@@ -178,6 +182,7 @@ export default function Auth() {
         });
         toast.success('Đăng ký thành công! Vui lòng kiểm tra email.');
         setRegisteredEmail(registerData.email);
+        setResendCooldown(VERIFICATION_RESEND_COOLDOWN_SECONDS);
         reset();
       }
     } catch (err: unknown) {

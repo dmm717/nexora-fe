@@ -23,16 +23,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       setIsSubmitting(true);
       await userApi.requestDeletion();
       toast.success('Yêu cầu xóa tài khoản thành công. Đang đăng xuất...');
-      setTimeout(async () => {
-        try {
-          await authApi.logout();
-        } catch {
-          // ignore logout network errors during redirect
-        } finally {
-          onClose();
-          router.push('/auth');
-        }
-      }, 1000);
+      try {
+        await authApi.logout();
+      } finally {
+        onClose();
+        router.push('/auth');
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Lỗi khi gửi yêu cầu xóa tài khoản';

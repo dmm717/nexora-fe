@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 
 import styles from '@/components/features/auth/Auth.module.css';
 import { authApi } from '@/services/authApi';
+import { VERIFICATION_RESEND_COOLDOWN_SECONDS } from '@/constants/auth';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/Input/Input';
 import { AuthPageSkeleton } from '@/components/features/auth/AuthPageSkeleton';
@@ -28,6 +29,7 @@ function VerifyEmailContent() {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendError, setResendError] = useState<string | null>(null);
+  const resendInFlightRef = useRef(false);
 
   const verificationAttempted = useRef(false);
 
@@ -58,15 +60,17 @@ function VerifyEmailContent() {
 
   const handleResend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resendEmail || isResending || resendCooldown > 0) return;
+    if (!resendEmail || isResending || resendCooldown > 0 || resendInFlightRef.current) return;
+    resendInFlightRef.current = true;
     setResendError(null);
     setIsResending(true);
     try {
       await authApi.resendVerification({ email: resendEmail });
-      setResendCooldown(60);
+      setResendCooldown(VERIFICATION_RESEND_COOLDOWN_SECONDS);
     } catch {
       setResendError('Chưa thể gửi email lúc này. Vui lòng thử lại sau.');
     } finally {
+      resendInFlightRef.current = false;
       setIsResending(false);
     }
   };

@@ -5,7 +5,11 @@ import * as signalR from '@microsoft/signalr';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useAuth } from './AuthBootstrapProvider';
 import { getUsableAccessToken } from '@/services/authSession';
-import { getAccessToken } from '@/store/authStore';
+import {
+  getAccessToken,
+  isPrincipalEpochCurrent,
+  subscribeAuthState,
+} from '@/store/authStore';
 import { getRealtimeInvalidationKeys } from '@/utils/scenarioHelpers';
 
 export interface RealtimeState {
@@ -109,12 +113,6 @@ function invalidateQueries(queryClient: ReturnType<typeof useQueryClient>, query
   }
 }
 
-function clearUserScopedQueries(queryClient: ReturnType<typeof useQueryClient>) {
-  for (const queryKey of RECOVERY_QUERY_PREFIXES) {
-    queryClient.removeQueries({ queryKey });
-  }
-}
-
 const INITIAL_RETRY_DELAYS_MS = [2000, 5000, 10000, 30000] as const;
 
 function getInitialRetryDelay(attempt: number): number {
@@ -123,7 +121,7 @@ function getInitialRetryDelay(attempt: number): number {
 }
 
 export default function RealtimeProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, authReady } = useAuth();
+  const { isAuthenticated, authReady, principalEpoch } = useAuth();
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -136,6 +134,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
     let startPromise: Promise<void> | null = null;
     let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let resolveRetryDelay: (() => void) | null = null;
+    const sessionEpoch = principalEpoch;
 
     const cancelPendingRetry = () => {
       if (retryTimeoutId !== null) {
@@ -177,13 +176,19 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
       }
     };
 
+    const unsubscribeAuthState = subscribeAuthState((_token, snapshot) => {
+      if (snapshot?.principalEpoch === sessionEpoch) return;
+      disposed = true;
+      cancelPendingRetry();
+      void stopConnection();
+    });
+
     if (!authReady || !isAuthenticated) {
       cancelPendingRetry();
       seenEventsRef.current.clear();
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset realtime state at the auth boundary
       setIsConnected(false);
       setError(null);
-      clearUserScopedQueries(queryClient);
 
       const previousConnection = connectionRef.current;
       connectionRef.current = null;
@@ -193,6 +198,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
       return () => {
         disposed = true;
+        unsubscribeAuthState();
         cancelPendingRetry();
       };
     }
@@ -215,16 +221,18 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
       while (!disposed) {
         if (!getAccessToken()) return;
+        if (!isPrincipalEpochCurrent(sessionEpoch)) return;
 
         try {
-          if (disposed) return;
+          if (disposed || !isPrincipalEpochCurrent(sessionEpoch)) return;
 
           connection = new signalR.HubConnectionBuilder()
             .withUrl(resolveHubUrl(), {
               accessTokenFactory: async () => {
                 try {
+                  if (disposed || !isPrincipalEpochCurrent(sessionEpoch)) return '';
                   const token = await getUsableAccessToken({ refreshIfExpiringWithinSeconds: 60 });
-                  return token;
+                  return isPrincipalEpochCurrent(sessionEpoch) ? token : '';
                 } catch {
                   return '';
                 }
@@ -244,7 +252,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
           connectionRef.current = connection;
 
           connection.on('resourceChanged', (value: unknown) => {
-            if (disposed) return;
+            if (disposed || !isPrincipalEpochCurrent(sessionEpoch)) return;
             const event = parseResourceChangedEvent(value);
             if (!event) return;
 
@@ -263,19 +271,19 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
           });
 
           connection.onreconnecting(() => {
-            if (disposed) return;
+            if (disposed || !isPrincipalEpochCurrent(sessionEpoch)) return;
             setIsConnected(false);
           });
 
           connection.onreconnected(() => {
-            if (disposed) return;
+            if (disposed || !isPrincipalEpochCurrent(sessionEpoch)) return;
             setIsConnected(true);
             setError(null);
             invalidateQueries(queryClient, [...RECOVERY_QUERY_PREFIXES]);
           });
 
           connection.onclose((closeError) => {
-            if (disposed) return;
+            if (disposed || !isPrincipalEpochCurrent(sessionEpoch)) return;
             setIsConnected(false);
             if (closeError) setError(closeError);
           });
@@ -307,7 +315,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
           // If the session was invalidated (e.g. 401 refresh failure during negotiate/reconnect),
           // halt retries immediately instead of entering an infinite reconnect loop.
-          if (!getAccessToken()) {
+          if (!isPrincipalEpochCurrent(sessionEpoch) || !getAccessToken()) {
             return;
           }
 
@@ -321,6 +329,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
 
     return () => {
       disposed = true;
+      unsubscribeAuthState();
       cancelPendingRetry();
       setIsConnected(false);
 
@@ -334,7 +343,7 @@ export default function RealtimeProvider({ children }: { children: React.ReactNo
         connectionRef.current = null;
       }
     };
-  }, [authReady, isAuthenticated, queryClient]);
+  }, [authReady, isAuthenticated, principalEpoch, queryClient]);
 
   return (
     <RealtimeContext.Provider value={{ isConnected, error }}>

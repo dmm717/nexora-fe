@@ -1,6 +1,16 @@
 import { apiClient } from './apiClient';
-import { setAccessToken, clearAccessToken } from '../store/authStore';
-import { refreshSession } from './authSession';
+import {
+  getPrincipalEpoch,
+  invalidatePrincipal,
+  isPrincipalEpochCurrent,
+  setAccessToken,
+} from '../store/authStore';
+import {
+  applyRefreshSessionResponse,
+  AuthRefreshError,
+  refreshSession,
+} from './authSession';
+import { logoutAllSessions, logoutCurrentSession } from './sessionActions';
 import {
   LoginRequest,
   RegisterRequest,
@@ -62,30 +72,32 @@ export const authApi = {
     };
     // Save Access Token in memory immediately upon successful login
     if (response && response.data && response.data.accessToken) {
-      setAccessToken(response.data.accessToken);
+      setAccessToken(response.data.accessToken, {
+        principalId: response.data.user?.id,
+      });
     }
     return response;
   },
 
   refresh: async () => {
-    const response = await refreshSession();
-    setAccessToken(response.data.accessToken);
-    return response;
-  },
-
-  logout: async () => {
+    const requestEpoch = getPrincipalEpoch();
     try {
-      await apiClient.post('/auth/logout');
-    } finally {
-      clearAccessToken();
+      const response = await refreshSession();
+      applyRefreshSessionResponse(response, requestEpoch);
+      return response;
+    } catch (error: unknown) {
+      if (
+        error instanceof AuthRefreshError
+        && error.status === 401
+        && isPrincipalEpochCurrent(error.principalEpoch)
+      ) {
+        invalidatePrincipal(error.principalEpoch);
+      }
+      throw error;
     }
   },
 
-  logoutAll: async () => {
-    try {
-      await apiClient.post('/auth/logout-all');
-    } finally {
-      clearAccessToken();
-    }
-  },
+  logout: logoutCurrentSession,
+
+  logoutAll: logoutAllSessions,
 };
