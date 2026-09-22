@@ -901,101 +901,168 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 18px;
+  padding-top: 16px;
 }
 .planWrap {
   display: flex;
   transition: transform 0.25s;
+  height: 100%;
 }
 .planWrap:hover {
-  transform: translateY(-5px);
+  transform: translateY(-4px);
 }
 .planWrap > div {
   width: 100%;
+  display: flex;
 }
 .planCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: 25px 23px;
-  background: #f2f3fc;
-  border-radius: 16px;
+  padding: 30px 24px 24px;
+  background: #ffffff;
+  border: 1px solid #dce0f2;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .highlightedPlan {
-  background: #eae7ff;
-  box-shadow: 0 15px 45px #4940b51a;
+  background: #ffffff;
+  border: 1.5px solid #4338ca;
+  box-shadow: 0 12px 32px -8px rgba(67, 56, 202, 0.16);
+}
+.popularBadge {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  background: #1b33c7;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(27, 51, 199, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  z-index: 2;
+  pointer-events: none;
+}
+.popularIcon {
+  color: #fde047;
+  flex-shrink: 0;
 }
 .planBadge {
-  font-size: 9px;
-  color: #5a5485;
-  margin-bottom: 17px;
-  min-height: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5751a9;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+  min-height: 18px;
 }
 .planCard h3 {
-  font-size: 21px;
-  font-weight: 750;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin: 0;
 }
 .planDescription {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.8;
-  margin: 12px 0 20px;
-  min-height: 58px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 10px 0 18px;
+  min-height: 52px;
 }
 .planPrice {
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 800;
+  color: #0f172a;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 .planDuration {
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 6px;
 }
 .planQuota {
-  margin-top: 23px;
-  padding-top: 20px;
-  border-top: 1px solid #d7d9ee;
-  color: #3e3d93;
-  font-size: 11px;
-  font-weight: 650;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 600;
 }
 .planCard li.planFeatureUnavailable {
-  color: var(--muted);
+  color: #94a3b8;
+  font-style: italic;
 }
 .planCard ul {
   list-style: none;
   padding: 0;
   display: grid;
   gap: 12px;
-  margin: 20px 0 25px;
+  margin: 20px 0 26px;
+  flex-grow: 1;
 }
 .planCard li {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  font-size: 10px;
-  line-height: 1.7;
-  color: #454e70;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
 }
 .planCard li svg {
   flex-shrink: 0;
-  color: #5751a9;
+  color: #4f46e5;
   margin-top: 2px;
 }
 .planCard .primaryAction {
   width: 100%;
   margin-top: auto;
-  font-size: 11px;
-  padding: 12px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px 14px;
+  min-height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  background: var(--accent, #1b33c7);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(27, 51, 199, 0.2);
+  transition: all 0.15s ease-in-out;
+}
+.planCard .primaryAction:hover {
+  background: #152799;
+  box-shadow: 0 6px 16px rgba(27, 51, 199, 0.3);
+  transform: translateY(-1px);
 }
 .outlineAction {
-  color: #3338a8;
-  background: #fff;
+  color: #3730a3;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   box-shadow: none;
 }
 .outlineAction:hover {
-  color: white;
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
 }
 .primaryAction:disabled {
   cursor: not-allowed;

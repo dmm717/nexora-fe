@@ -136,7 +136,7 @@ const handleResponse = async (
       }
 
       if (retryResponse.status !== 401) {
-        return throwApiError(retryResponse, 'Có lỗi xảy ra từ máy chủ');
+        return throwApiError(retryResponse, 'Đã có lỗi kết nối hệ thống. Vui lòng thử lại.');
       }
     } catch (error: unknown) {
       if (
@@ -166,7 +166,7 @@ const handleResponse = async (
     throw new ApiError('Bạn cần đăng nhập để tiếp tục.', 'UNAUTHENTICATED', undefined, 401);
   }
 
-  return throwApiError(response, 'Có lỗi xảy ra từ máy chủ');
+  return throwApiError(response, 'Đã có lỗi kết nối hệ thống. Vui lòng thử lại.');
 };
 
 export const apiClient = {

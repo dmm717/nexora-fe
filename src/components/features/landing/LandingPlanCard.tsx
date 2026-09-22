@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, ArrowUpRight } from 'lucide-react';
+import { Check, ArrowUpRight, Sparkles } from 'lucide-react';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
 import { formatPriceMinor } from '@/utils/formatters';
 import { describePlanFeature } from '@/services/billingPresentation';
@@ -31,10 +31,10 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
         ? 'Tăng tốc'
         : plan.name || 'Gói chuyên sâu';
 
-  const badgeText = isHighlighted
-    ? 'PHỔ BIẾN NHẤT'
-    : isFree
-      ? 'Thử phương pháp'
+  const badgeText = isFree
+    ? 'Thử phương pháp'
+    : isHighlighted
+      ? 'Được đề xuất'
       : 'Chuẩn bị có mục tiêu';
 
   const formattedAmount = isFree
@@ -44,10 +44,16 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
 
   return (
     <article className={`${styles.planCard} ${isHighlighted ? styles.highlightedPlan : ''}`}>
+      {isHighlighted && (
+        <div className={styles.popularBadge} aria-label="Gói được khuyên dùng">
+          <Sparkles size={13} aria-hidden="true" className={styles.popularIcon} />
+          <span>Phổ biến nhất</span>
+        </div>
+      )}
       <div className={styles.planBadge}>{badgeText}</div>
       <h3>{displayName}</h3>
       <p className={styles.planDescription}>
-        {plan.description || 'Thông tin mô tả gói chưa được cung cấp.'}
+        {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
       </p>
       <strong className={styles.planPrice}>{formattedAmount}</strong>
       <p className={styles.planDuration}>
@@ -61,12 +67,12 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
       <ul>
         {featureDescriptions.length > 0 ? featureDescriptions.map((description) => (
           <li key={description}>
-            <Check size={15} aria-hidden="true" />
+            <Check size={16} aria-hidden="true" />
             <span>{description}</span>
           </li>
         )) : (
           <li className={styles.planFeatureUnavailable}>
-            <span>Chưa có thông tin tính năng cho mức giá này.</span>
+            <span>Quyền lợi chi tiết sẽ được hiển thị khi kích hoạt gói.</span>
           </li>
         )}
       </ul>
@@ -76,7 +82,7 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
         className={`${styles.primaryAction} ${!isHighlighted ? styles.outlineAction : ''}`}
         onClick={() => onSelect(plan, price)}
       >
-        {isFree ? 'Bắt đầu miễn phí' : 'Chọn gói luyện tập'}
+        <span>{isFree ? 'Bắt đầu miễn phí' : 'Chọn gói luyện tập'}</span>
         <ArrowUpRight size={16} aria-hidden="true" />
       </button>
     </article>

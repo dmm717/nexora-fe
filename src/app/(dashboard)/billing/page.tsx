@@ -20,6 +20,7 @@ import {
   formatFeatureAvailability,
   formatInterviewQuestionLimit,
   getExactEntitlementFeature,
+  getOrderStatusPresentation,
 } from '@/services/billingPresentation';
 
 function BillingPageHeader() {
@@ -139,7 +140,7 @@ export default function BillingPage() {
         const errorParam = currentParams.get('error');
         if (errorParam === 'webhook_error') {
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setError('Lỗi kết nối máy chủ khi xác nhận thanh toán.');
+          setError('Lỗi kết nối khi xác nhận thanh toán. Vui lòng thử lại.');
         } else if (errorParam === 'webhook_failed') {
           setError('Xác nhận thanh toán từ hệ thống thất bại.');
         } else if (errorParam === 'invalid_transaction') {
@@ -492,17 +493,20 @@ export default function BillingPage() {
               return (
               <Card
                 key={plan.id}
-                variant="elevated"
+                variant={isCurrentPlan ? 'selected' : 'elevated'}
                 padding="lg"
-                className={`flex flex-col justify-between relative bg-white transition-all ${
-                  isHighlighted
-                    ? 'border-2 border-primary shadow-card ring-1 ring-primary/20'
-                    : 'border border-outline-variant/60 shadow-subtle'
+                className={`flex flex-col justify-between relative transition-all ${
+                  isCurrentPlan
+                    ? 'border-2 border-primary shadow-floating scale-[1.02] bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
+                    : isHighlighted
+                    ? 'border border-primary/40 shadow-card bg-white'
+                    : 'border border-outline-variant/60 shadow-subtle bg-white'
                 }`}
               >
                 {isHighlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-primary text-white shadow-sm">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                      <span className="material-symbols-outlined text-[14px] text-amber-300">sparkles</span>
                       Phổ biến nhất
                     </span>
                   </div>
@@ -516,7 +520,7 @@ export default function BillingPage() {
                     )}
                   </div>
                   <p className="text-xs text-on-surface-variant min-h-[32px] leading-relaxed">
-                    {plan.description || 'Thông tin quyền lợi chi tiết được máy chủ cung cấp theo từng mức giá.'}
+                    {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
                   </p>
                   <div className="pt-2 pb-2 border-b border-outline-variant/30">
                     <div className="flex items-baseline gap-1">
@@ -595,12 +599,14 @@ export default function BillingPage() {
                       </td>
                       <td className="p-4 font-bold">{formatCurrency(o.amountMinor, o.currency)}</td>
                       <td className="p-4">
-                        <Badge
-                          variant={o.status === 'fulfilled' ? 'success' : o.status === 'pending' ? 'warning' : 'neutral'}
-                          size="sm"
-                        >
-                          {o.status === 'fulfilled' ? 'Thành công' : o.status === 'pending' ? 'Đang chờ' : o.status}
-                        </Badge>
+                        {(() => {
+                          const statusInfo = getOrderStatusPresentation(o.status);
+                          return (
+                            <Badge variant={statusInfo.variant} size="sm">
+                              {statusInfo.label}
+                            </Badge>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

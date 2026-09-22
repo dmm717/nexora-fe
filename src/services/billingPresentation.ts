@@ -46,3 +46,29 @@ export function describePlanFeature(feature: PlanFeatureLike): string | null {
   if (feature.limit !== null) return `${feature.name}: ${feature.limit}`;
   return feature.name;
 }
+
+export interface OrderStatusPresentation {
+  label: string;
+  variant: 'success' | 'warning' | 'info' | 'error' | 'neutral';
+}
+
+export function getOrderStatusPresentation(status: string | undefined | null): OrderStatusPresentation {
+  switch (status?.toLowerCase()) {
+    case 'fulfilled':
+    case 'success':
+    case 'completed':
+    case 'paid':
+      return { label: 'Thành công', variant: 'success' };
+    case 'pending':
+      return { label: 'Đang chờ', variant: 'warning' };
+    case 'processing':
+      return { label: 'Đang xử lý', variant: 'info' };
+    case 'failed':
+      return { label: 'Thất bại', variant: 'error' };
+    case 'cancelled':
+    case 'canceled':
+      return { label: 'Đã hủy', variant: 'neutral' };
+    default:
+      return { label: 'Đang cập nhật', variant: 'neutral' };
+  }
+}

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
+import { NexoraLogo } from '@/components/brand/NexoraLogo';
 import { CANONICAL_NAV_ITEMS, AVATAR_MENU_ITEMS, type AvatarMenuItem } from '@/config/navigation';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
@@ -78,15 +79,10 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
             href="/overview"
             className="flex items-center gap-2.5 group text-left"
           >
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-base shadow-sm group-hover:bg-primary/90 transition-colors">
-              N
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-lg text-on-surface tracking-tight">Nexora</span>
-              <Badge variant="primary" size="sm" className="hidden sm:inline-flex">
-                AI Coach
-              </Badge>
-            </div>
+            <NexoraLogo variant="horizontal" className="h-7 w-auto object-contain" />
+            <Badge variant="primary" size="sm" className="hidden sm:inline-flex">
+              AI Coach
+            </Badge>
           </Link>
 
           {/* Canonical Desktop Nav Items */}

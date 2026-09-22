@@ -272,15 +272,15 @@ export default function PracticeHub() {
             <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Q1–Q3 thuộc phạm vi miễn phí; quyền tiếp tục do máy chủ xác nhận</span>
+                <span>3 câu hỏi trải nghiệm miễn phí; mở rộng toàn diện theo gói dịch vụ</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Báo cáo đánh giá sau phiên phỏng vấn</span>
+                <span>Báo cáo đánh giá chi tiết sau mỗi phiên phỏng vấn</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Lịch sử và báo cáo lấy từ các phiên đã lưu</span>
+                <span>Lưu trữ lịch sử và theo dõi tiến bộ qua từng buổi</span>
               </div>
             </div>
           </div>
@@ -319,7 +319,7 @@ export default function PracticeHub() {
             <div className="space-y-2 text-xs text-on-surface-variant pt-3 border-t border-outline-variant/30">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Danh mục và nội dung tình huống lấy trực tiếp từ máy chủ</span>
+                <span>Kho bài tập đa dạng phân theo cấp độ và chuyên môn</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
@@ -327,7 +327,7 @@ export default function PracticeHub() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[16px]">check</span>
-                <span>Điểm và bằng chứng chỉ hiển thị khi backend trả về</span>
+                <span>Đánh giá chi tiết kèm gợi ý cải thiện phương án giải quyết</span>
               </div>
             </div>
           </div>
@@ -600,7 +600,7 @@ export default function PracticeHub() {
             </div>
             <div className="text-sm font-bold text-on-surface">Chưa có lịch sử luyện tập</div>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1">
-              Các bài tập phỏng vấn giả lập, giải quyết tình huống kỹ thuật và phản xạ STAR của bạn sẽ được lưu vết đầy đủ tại đây.
+              Lịch sử các bài tập phỏng vấn giả lập, xử lý tình huống và phản xạ STAR của bạn sẽ xuất hiện tại đây.
             </p>
           </Card>
         )}

@@ -213,7 +213,7 @@ export default function ResumeAnalysisDetailsPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold mb-2">
             <span className="material-symbols-outlined text-[16px]">verified</span>
-            <span>Báo cáo phân tích chuyên sâu · Bất biến</span>
+            <span>Báo cáo phân tích chuyên sâu · Bản lưu trữ</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
             {isBenchmark
@@ -340,13 +340,13 @@ export default function ResumeAnalysisDetailsPage() {
                           style={{ width: item.score !== null ? `${Math.max(0, Math.min(100, item.score))}%` : '0%' }}
                         />
                       </div>
-                      <p className="text-[11px] text-on-surface-variant">{item.desc}</p>
+                      <p className="text-xs text-on-surface-variant">{item.desc}</p>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="p-6 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl">
-                  Chưa có chi tiết phân tích từng trục tiêu chuẩn từ phản hồi máy chủ.
+                  Chưa có chi tiết phân tích từng tiêu chuẩn đánh giá cho hồ sơ này.
                 </div>
               )}
             </div>

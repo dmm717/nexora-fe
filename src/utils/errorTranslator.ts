@@ -1,5 +1,5 @@
 export const translateErrorMessage = (englishMessage: string): string => {
-  if (!englishMessage) return 'Đã có lỗi xảy ra từ máy chủ';
+  if (!englishMessage) return 'Đã có lỗi xảy ra. Vui lòng thử lại sau.';
 
   const lowerMsg = englishMessage.toLowerCase();
 

@@ -237,13 +237,13 @@ export default function SkillProfile() {
           <div className="space-y-4 pt-4 border-t border-outline-variant/30">
             <h2 className="text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
               <span className="material-symbols-outlined text-amber-700 text-[22px]">warning</span>
-              <span>Điểm cần cải thiện (Weakness Signals)</span>
+              <span>Điểm cần cải thiện</span>
             </h2>
 
             {profile.weaknessSignals.length === 0 ? (
               <Card variant="subtle" padding="md" className="text-center py-6 text-xs text-on-surface-variant">
                 {profile.competencies.some((c) => c.evidenceCount > 0)
-                  ? 'Đã có bằng chứng năng lực, nhưng máy chủ chưa trả về tín hiệu điểm cần cải thiện.'
+                  ? 'Đã ghi nhận bằng chứng năng lực, hiện chưa có điểm yếu nào cần cảnh báo ưu tiên.'
                   : 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'}
               </Card>
             ) : (

@@ -617,7 +617,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
                   <div>
                     <h3 className={styles.statusHeading}>Đánh giá chưa có dữ liệu</h3>
                     <p className={styles.statusDescription}>
-                      Lượt làm đã hoàn thành nhưng máy chủ chưa trả về nội dung đánh giá. Điểm số không được suy đoán hoặc thay bằng 0.
+                      Lượt luyện tập đã hoàn thành nhưng chưa có đủ nội dung đánh giá chi tiết. Vui lòng thử tải lại kết quả.
                     </p>
                     <div className={styles.statusActions}>
                       <button

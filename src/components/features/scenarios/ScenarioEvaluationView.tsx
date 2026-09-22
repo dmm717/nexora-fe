@@ -41,7 +41,7 @@ export function ScenarioEvaluationView({
               Đánh giá tổng quan
             </h3>
             <p className={styles.scoreFeedbackText}>
-              {evaluation.feedback || 'Máy chủ chưa trả về nhận xét tổng quan cho lượt làm này.'}
+              {evaluation.feedback || 'Chưa có nhận xét tổng quan cho lượt luyện tập này.'}
             </p>
           </div>
         </div>

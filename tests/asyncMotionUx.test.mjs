@@ -212,7 +212,7 @@ test('Progress Dashboard distinguishes unavailable, cached background errors, an
   assert.match(analytics, /getProgressDashboardPresentation/);
   assert.match(analytics, /isProgressDashboardFeatureLocked/);
   assert.match(analytics, /progressPresentation\.showBackgroundError/);
-  assert.match(analytics, /Không thể cập nhật Progress Dashboard\. Dữ liệu đã tải trước đó vẫn được giữ\./);
+  assert.match(analytics, /Chưa thể cập nhật tiến độ lúc này\. Dữ liệu đã tải trước đó vẫn được giữ\./);
 });
 
 test('career goals only call the list empty when its authority is known', async () => {

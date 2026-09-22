@@ -758,7 +758,7 @@ export default function NewInterviewPage() {
               <Badge variant="primary" size="sm" className="mb-2">Q1–Q3 thuộc phạm vi miễn phí</Badge>
               <h4 className="font-bold text-base text-on-surface">Sẵn sàng bước vào phòng?</h4>
               <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                Máy chủ quyết định khả năng kết thúc hoặc tiếp tục cùng phiên sau ranh giới miễn phí, dựa trên quyền hiện tại của bạn.
+                Khả năng tiếp tục sau 3 câu hỏi trải nghiệm phụ thuộc vào quyền lợi gói dịch vụ của bạn.
               </p>
             </div>
 
