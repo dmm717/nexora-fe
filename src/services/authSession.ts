@@ -1,4 +1,11 @@
-import { clearAccessToken, getAccessToken, setAccessToken } from '../store/authStore.ts';
+import {
+  getAccessToken,
+  getPrincipalEpoch,
+  getPrincipalId,
+  invalidatePrincipal,
+  isPrincipalEpochCurrent,
+  setAccessToken,
+} from '../store/authStore.ts';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
@@ -6,15 +13,28 @@ export interface RefreshSessionResponse {
   data: {
     accessToken: string;
   };
+  principalEpoch: number;
 }
 
 export class AuthRefreshError extends Error {
   readonly status: number;
+  readonly principalEpoch: number;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, principalEpoch: number = getPrincipalEpoch()) {
     super(message);
     this.name = 'AuthRefreshError';
     this.status = status;
+    this.principalEpoch = principalEpoch;
+  }
+}
+
+export class StaleAuthSessionError extends Error {
+  readonly principalEpoch: number;
+
+  constructor(principalEpoch: number) {
+    super('Discarded work from an obsolete authentication session');
+    this.name = 'StaleAuthSessionError';
+    this.principalEpoch = principalEpoch;
   }
 }
 
@@ -31,7 +51,7 @@ const getRefreshErrorMessage = (body: RefreshErrorBody | undefined, status: numb
   return `Auth refresh failed with status ${status}`;
 };
 
-const requestRefresh = async (): Promise<RefreshSessionResponse> => {
+const requestRefresh = async (requestEpoch: number): Promise<RefreshSessionResponse> => {
   const response = await fetch(`${BASE_URL}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -46,56 +66,98 @@ const requestRefresh = async (): Promise<RefreshSessionResponse> => {
     throw new AuthRefreshError(
       getRefreshErrorMessage(body as RefreshErrorBody | undefined, response.status),
       response.status,
+      requestEpoch,
     );
   }
 
   const accessToken = (body as { data?: { accessToken?: unknown } } | undefined)?.data?.accessToken;
   if (typeof accessToken !== 'string' || accessToken.length === 0) {
-    throw new AuthRefreshError('Auth refresh response did not include an access token', response.status);
+    throw new AuthRefreshError(
+      'Auth refresh response did not include an access token',
+      response.status,
+      requestEpoch,
+    );
   }
 
-  return { data: { accessToken } };
+  return { data: { accessToken }, principalEpoch: requestEpoch };
 };
 
 // Share the actual network request between bootstrap and the runtime 401 fallback.
 let refreshRequestPromise: Promise<RefreshSessionResponse> | null = null;
+let refreshRequestEpoch: number | null = null;
 
 export const refreshSession = (): Promise<RefreshSessionResponse> => {
-  if (!refreshRequestPromise) {
-    refreshRequestPromise = requestRefresh().finally(() => {
-      refreshRequestPromise = null;
+  const requestEpoch = getPrincipalEpoch();
+  if (!refreshRequestPromise || refreshRequestEpoch !== requestEpoch) {
+    const request = requestRefresh(requestEpoch);
+    const trackedRequest = request.finally(() => {
+      // A newer principal may already have started its own refresh while this
+      // obsolete request was in flight. Never clear the newer promise.
+      if (refreshRequestPromise === trackedRequest) {
+        refreshRequestPromise = null;
+        refreshRequestEpoch = null;
+      }
     });
+    refreshRequestEpoch = requestEpoch;
+    refreshRequestPromise = trackedRequest;
   }
 
   return refreshRequestPromise;
 };
 
-// Share the bootstrap operation itself so multiple mounted consumers cannot start
-// separate refresh calls while the first session restoration is still pending.
-let bootstrapRequestPromise: Promise<boolean> | null = null;
+export const applyRefreshSessionResponse = (
+  response: RefreshSessionResponse,
+  expectedEpoch: number = response.principalEpoch,
+): string => {
+  if (response.principalEpoch !== expectedEpoch) {
+    throw new StaleAuthSessionError(response.principalEpoch);
+  }
+
+  const newToken = response.data.accessToken;
+  // Multiple callers may await the same refresh promise. The first caller
+  // establishes the epoch; later callers may safely observe that exact token
+  // already applied, while any other token means the response is stale.
+  if (!isPrincipalEpochCurrent(expectedEpoch)) {
+    if (getAccessToken() === newToken) return newToken;
+    throw new StaleAuthSessionError(response.principalEpoch);
+  }
+
+  // Refresh responses normally carry a JWT subject. Preserve the known login
+  // principal as a fallback for opaque access tokens so token rotation does not
+  // create a false principal transition.
+  setAccessToken(newToken, { principalId: getPrincipalId() });
+  return newToken;
+};
 
 export const bootstrapAuthSession = (): Promise<boolean> => {
   if (getAccessToken()) return Promise.resolve(true);
 
-  if (!bootstrapRequestPromise) {
-    bootstrapRequestPromise = refreshSession()
-      .then((response) => {
-        setAccessToken(response.data.accessToken);
-        return true;
-      })
-      .catch((error: unknown) => {
-        if (error instanceof AuthRefreshError && error.status === 401) {
-          clearAccessToken();
-          return false;
-        }
-        throw error;
-      })
-      .finally(() => {
-        bootstrapRequestPromise = null;
-      });
-  }
+  const requestEpoch = getPrincipalEpoch();
+  return refreshSession()
+    .then((response) => {
+      if (response.principalEpoch !== requestEpoch || !isPrincipalEpochCurrent(requestEpoch)) {
+        return Boolean(getAccessToken());
+      }
 
-  return bootstrapRequestPromise;
+      applyRefreshSessionResponse(response, requestEpoch);
+      return true;
+    })
+    .catch((error: unknown) => {
+      const errorEpoch = error instanceof AuthRefreshError
+        ? error.principalEpoch
+        : requestEpoch;
+
+      if (error instanceof StaleAuthSessionError || !isPrincipalEpochCurrent(errorEpoch)) {
+        return Boolean(getAccessToken());
+      }
+
+      if (error instanceof AuthRefreshError && error.status === 401) {
+        invalidatePrincipal(errorEpoch);
+        return false;
+      }
+
+      throw error;
+    });
 };
 
 /**
@@ -168,7 +230,7 @@ export interface UsableAccessTokenOptions {
  * A. If no token in memory -> calls refreshSession(), sets in memory, returns new token.
  * B. If token exists and is safely valid (> bufferSeconds remaining) -> returns existing token immediately.
  * C. If token is expired or expiring within bufferSeconds -> calls refreshSession(), sets in memory, returns new token.
- * D. If refresh fails with 401 -> clears access token from memory and rethrows AuthRefreshError.
+ * D. If refresh fails with 401 -> invalidates the current principal in memory and rethrows AuthRefreshError.
  *
  * Concurrent calls are automatically deduplicated via refreshSession's in-flight request sharing.
  */
@@ -176,6 +238,7 @@ export const getUsableAccessToken = async (
   options: UsableAccessTokenOptions = {}
 ): Promise<string> => {
   const { refreshIfExpiringWithinSeconds = 60 } = options;
+  const requestEpoch = getPrincipalEpoch();
   const currentToken = getAccessToken();
 
   if (currentToken && isTokenValidAndFresh(currentToken, refreshIfExpiringWithinSeconds)) {
@@ -184,12 +247,18 @@ export const getUsableAccessToken = async (
 
   try {
     const response = await refreshSession();
-    const newToken = response.data.accessToken;
-    setAccessToken(newToken);
-    return newToken;
+    return applyRefreshSessionResponse(response, requestEpoch);
   } catch (error: unknown) {
-    if (error instanceof AuthRefreshError && error.status === 401) {
-      clearAccessToken();
+    const errorEpoch = error instanceof AuthRefreshError
+      ? error.principalEpoch
+      : requestEpoch;
+
+    if (
+      error instanceof AuthRefreshError
+      && error.status === 401
+      && isPrincipalEpochCurrent(errorEpoch)
+    ) {
+      invalidatePrincipal(errorEpoch);
     }
     throw error;
   }
