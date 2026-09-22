@@ -18,6 +18,12 @@
   box-shadow: 0 24px 70px rgb(42 50 112 / 9%);
 }
 
+.shell.statsOnly {
+  grid-template-columns: minmax(0, 540px);
+  justify-content: center;
+  max-width: 580px;
+}
+
 .testimonialsPanel,
 .statsPanel {
   min-width: 0;
@@ -25,6 +31,8 @@
 }
 
 .testimonialsPanel {
+  display: flex;
+  flex-direction: column;
   padding: 34px;
   background: #fff;
   border: 1px solid #ebeaf5;
@@ -86,7 +94,7 @@
   letter-spacing: -0.05em;
 }
 
-.ratingSummary span,
+.ratingSummary > div:first-child > span,
 .ratingSummary p {
   color: #666a80;
   font-size: 10px;
@@ -106,18 +114,28 @@
   font-size: 17px;
 }
 
-.starFilled {
+.stars > .starFilled {
   color: #f1a81d;
 }
 
-.starEmpty {
+.stars > .starEmpty {
   color: #d8d9e3;
 }
 
 .testimonialList {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-content: center;
+  flex: 1;
   gap: 12px;
+}
+
+.testimonialList[data-count='1'] {
+  grid-template-columns: minmax(0, 520px);
+}
+
+.testimonialList[data-count='1'] .testimonialCard {
+  min-height: 0;
 }
 
 .testimonialCard {
@@ -214,8 +232,9 @@
 }
 
 .statsHeading,
-.statsGrid,
-.dataNote {
+.trustScore,
+.metricList,
+.proofList {
   position: relative;
   z-index: 2;
 }
@@ -234,73 +253,98 @@
   font-size: clamp(25px, 2.5vw, 34px);
 }
 
-.statsHeading p {
-  max-width: 330px;
-  margin-top: 12px;
+.trustScore {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 30px;
+  padding: 20px 0;
+  border-top: 1px solid rgb(255 255 255 / 15%);
+  border-bottom: 1px solid rgb(255 255 255 / 15%);
+}
+
+.trustScore > strong {
+  color: #fff;
+  font-size: clamp(42px, 5vw, 58px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.trustScore > div > span {
+  display: block;
+  margin-top: 7px;
   color: #cbd0ed;
-  font-size: 11px;
-  line-height: 1.75;
+  font-size: 10px;
 }
 
-.statsGrid {
+.trustScore .stars > span {
+  font-size: 20px;
+}
+
+.proofList {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 28px;
+  gap: 13px;
+  max-width: 320px;
+  margin: 24px 0 150px;
+  padding: 0;
+  list-style: none;
 }
 
-.statCard {
-  min-height: 122px;
-  padding: 17px 14px;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 13px;
-  background: rgb(255 255 255 / 7%);
-  backdrop-filter: blur(6px);
+.proofList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #e7e9fa;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
-.statCard dt,
-.statNote {
-  color: #bfc5e5;
-  font-size: 9px;
+.proofList li > span {
+  color: #a9e2d7;
+  font-size: 17px;
+}
+
+.metricList {
+  display: grid;
+  margin: 14px 0 138px;
+}
+
+.metricList > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgb(255 255 255 / 13%);
+}
+
+.metricList dt {
+  max-width: 190px;
+  color: #cbd0ed;
+  font-size: 10px;
   line-height: 1.45;
 }
 
-.statCard dd {
-  margin: 9px 0 7px;
+.metricList dd {
   color: #fff;
-  font-size: clamp(21px, 2.4vw, 28px);
+  font-size: 24px;
   font-weight: 780;
-  line-height: 1;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .mascot {
   position: absolute;
   z-index: 1;
-  right: -54px;
-  bottom: -40px;
-  width: 210px;
+  right: -18px;
+  bottom: -34px;
+  width: 250px;
   height: auto;
   filter: drop-shadow(0 16px 20px rgb(9 14 47 / 26%));
   pointer-events: none;
-}
-
-.dataNote {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  width: fit-content;
-  max-width: calc(100% - 110px);
-  margin-top: auto;
-  padding-top: 28px;
-  color: #c9cdec;
-  font-size: 9px;
-}
-
-.dataNote span {
-  color: #a9a3ff;
-  font-size: 14px;
 }
 
 @media (max-width: 900px) {
@@ -309,12 +353,12 @@
   }
 
   .statsPanel {
-    min-height: 440px;
+    min-height: 470px;
   }
 
   .mascot {
-    right: -20px;
-    width: 190px;
+    right: 4px;
+    width: 230px;
   }
 }
 
@@ -358,21 +402,20 @@
   }
 
   .statsPanel {
-    min-height: 425px;
-  }
-
-  .statCard {
-    min-height: 112px;
-    padding: 15px 12px;
+    min-height: 520px;
   }
 
   .mascot {
-    right: -28px;
-    bottom: -24px;
-    width: 150px;
+    right: -8px;
+    bottom: -28px;
+    width: 180px;
   }
 
-  .dataNote {
-    max-width: calc(100% - 100px);
+  .proofList {
+    margin-bottom: 150px;
+  }
+
+  .metricList {
+    margin-bottom: 140px;
   }
 }

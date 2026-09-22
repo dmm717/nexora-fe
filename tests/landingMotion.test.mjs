@@ -21,7 +21,7 @@ test('1. default landing markup provides visible, accessible content without scr
   // Content defaults are not blank
   assert.match(landing, />\s*78\s*<\/b>/);
   assert.match(landing, /Mục tiêu nghề nghiệp/);
-  assert.match(landing, /Tự tin hơn\./);
+  assert.match(landing, /Chuẩn bị đúng chỗ\./);
 });
 
 test('2. applyLandingFinalState establishes final styles on all landing motion targets including hero cards and float layers', () => {
