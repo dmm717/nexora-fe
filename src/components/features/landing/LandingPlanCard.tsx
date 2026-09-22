@@ -47,7 +47,7 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
       <div className={styles.planBadge}>{badgeText}</div>
       <h3>{displayName}</h3>
       <p className={styles.planDescription}>
-        {plan.description || 'Thông tin mô tả gói chưa được cung cấp.'}
+        {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
       </p>
       <strong className={styles.planPrice}>{formattedAmount}</strong>
       <p className={styles.planDuration}>
@@ -66,7 +66,7 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
           </li>
         )) : (
           <li className={styles.planFeatureUnavailable}>
-            <span>Chưa có thông tin tính năng cho mức giá này.</span>
+            <span>Quyền lợi chi tiết sẽ được hiển thị khi kích hoạt gói.</span>
           </li>
         )}
       </ul>

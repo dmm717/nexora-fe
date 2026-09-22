@@ -187,7 +187,7 @@ export default function LearningPathView() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Chưa thể tải lộ trình học</h1>
           <p className="text-xs sm:text-sm text-on-surface-variant max-w-xl mx-auto leading-relaxed">
-            Đây là lỗi kết nối hoặc máy chủ, không phải trạng thái “chưa tạo”. Hãy thử tải lại dữ liệu.
+            Chưa thể kết nối để tải lộ trình học tập lúc này. Vui lòng thử tải lại dữ liệu hoặc kiểm tra kết nối mạng.
           </p>
           <div className="flex justify-center">
             <Button variant="primary" size="md" onClick={() => void refetch()} disabled={isFetching}>

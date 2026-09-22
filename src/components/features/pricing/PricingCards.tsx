@@ -22,7 +22,7 @@ import {
   isValidInternalPath,
   isInterviewRoute,
 } from '@/utils/authIntent';
-import { Check, ArrowUpRight } from 'lucide-react';
+import { Check, ArrowUpRight, Sparkles } from 'lucide-react';
 import { describePlanFeature } from '@/services/billingPresentation';
 import { formatPriceMinor } from '@/utils/formatters';
 import { getQueryPresentation } from '@/utils/queryPresentation';
@@ -367,15 +367,18 @@ export default function PricingCards() {
                         : 'border border-outline-variant/60 bg-white'
                     }`}
                   >
+                    {isHighlight && (
+                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                          <Sparkles size={13} aria-hidden="true" className="text-amber-300" />
+                          Phổ biến nhất
+                        </span>
+                      </div>
+                    )}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        {isHighlight && (
-                          <Badge variant="primary" size="sm">
-                            PHỔ BIẾN NHẤT
-                          </Badge>
-                        )}
                         {isCurrentPlan && (
-                          <Badge variant="secondary" size="sm">
+                          <Badge variant="secondary" size="md">
                             Gói hiện tại
                           </Badge>
                         )}

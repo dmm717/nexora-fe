@@ -173,7 +173,7 @@ export default function StarPractice() {
           title="STAR chưa khả dụng với quyền hiện tại"
           action={<Button size="sm" onClick={() => router.push('/billing?returnTo=%2Fpractice%2Fstar')}>Xem gói</Button>}
         >
-          Quyền truy cập và hạn mức được xác nhận bởi máy chủ. Nâng cấp bằng luồng thanh toán hiện có để tiếp tục.
+          Tính năng này yêu cầu gói tài khoản phù hợp. Nâng cấp gói để bắt đầu luyện tập STAR.
         </Alert>
       )}
 
@@ -242,7 +242,7 @@ export default function StarPractice() {
               placeholder="Kể lại trải nghiệm của bạn như khi đang trả lời nhà tuyển dụng..."
               className="min-h-56 w-full resize-y rounded-xl border border-outline-variant bg-white px-4 py-3 text-sm leading-6 text-on-surface outline-none transition placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary-fixed disabled:bg-surface-container-low sm:min-h-64"
             />
-            <p id="star-answer-help" className="mt-2 text-xs leading-5 text-on-surface-variant">Kết quả, điểm và bằng chứng chỉ xuất hiện sau khi máy chủ xử lý câu trả lời này.</p>
+            <p id="star-answer-help" className="mt-2 text-xs leading-5 text-on-surface-variant">Kết quả phân tích và gợi ý cải thiện sẽ hiển thị ngay sau khi hoàn tất đánh giá.</p>
           </div>
           <Button
             fullWidth
@@ -273,7 +273,7 @@ export default function StarPractice() {
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true" />
                 <h3 className="font-bold text-on-surface">{active?.status === 'queued' ? 'Đang chờ đánh giá' : 'AI đang phân tích câu trả lời'}</h3>
               </div>
-              <p className="text-sm leading-6 text-on-surface-variant">Kết quả sẽ được tải lại từ REST khi SignalR thông báo hoặc lần polling dự phòng tiếp theo chạy.</p>
+              <p className="text-sm leading-6 text-on-surface-variant">Hệ thống đang phân tích câu trả lời theo cấu trúc STAR. Vui lòng đợi trong giây lát.</p>
               <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high" aria-hidden="true"><span className="animate-indeterminate relative block h-full rounded-full bg-primary" /></div>
             </Card>
           ) : active?.status === 'failed' ? (
@@ -282,7 +282,7 @@ export default function StarPractice() {
                 <XCircle size={22} className="mt-0.5 shrink-0 text-error" aria-hidden="true" />
                 <div>
                   <h3 className="font-bold text-on-surface">Đánh giá chưa thành công</h3>
-                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">Lượt này đã kết thúc với mã {active.errorCode || 'UNKNOWN_ERROR'}. Lượt mới không thay đổi kết quả cũ.</p>
+                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">Chưa thể hoàn tất đánh giá cho lượt này. Bạn có thể bắt đầu một lượt luyện tập mới.</p>
                 </div>
               </div>
               <Button variant="outline" icon={<RefreshCw size={16} />} onClick={handlePracticeAgain}>Bắt đầu lượt mới</Button>
@@ -290,7 +290,7 @@ export default function StarPractice() {
           ) : active?.status === 'completed' ? (
             <StarResult evaluation={active.evaluation} question={active.question} answer={active.answer} onRetry={handlePracticeAgain} />
           ) : (
-            <EmptyState icon={<Clock3 size={32} />} title="Trạng thái chưa xác định" description="Máy chủ chưa trả về trạng thái có thể hiển thị cho lượt STAR này." action={<Button variant="outline" onClick={() => void attempt.refetch()}>Tải lại</Button>} />
+            <EmptyState icon={<Clock3 size={32} />} title="Trạng thái chưa xác định" description="Chưa thể hiển thị trạng thái của lượt STAR này. Vui lòng thử tải lại." action={<Button variant="outline" onClick={() => void attempt.refetch()}>Tải lại</Button>} />
           )}
         </section>
       </div>
@@ -298,14 +298,14 @@ export default function StarPractice() {
       <section aria-labelledby="star-history-title" className="space-y-4 border-t border-outline-variant/50 pt-6">
         <div>
           <h2 id="star-history-title" className="flex items-center gap-2 text-lg font-bold text-on-surface"><History size={19} aria-hidden="true" /> Lịch sử STAR</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">Các lượt đã được lưu trên máy chủ, mới nhất trước.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">Danh sách các lượt luyện tập gần đây của bạn.</p>
         </div>
         {history.isLoading ? (
           <div className="h-24 animate-pulse rounded-xl bg-surface-container" role="status" aria-label="Đang tải lịch sử STAR" />
         ) : history.isError ? (
           <Alert variant="warning" title="Chưa thể tải lịch sử">Bạn vẫn có thể bắt đầu một lượt STAR mới.</Alert>
         ) : !history.data?.length ? (
-          <EmptyState icon={<History size={30} />} title="Chưa có lượt STAR" description="Lượt đầu tiên sẽ xuất hiện ở đây sau khi được máy chủ tiếp nhận." />
+          <EmptyState icon={<History size={30} />} title="Chưa có lượt STAR" description="Lượt luyện tập đầu tiên của bạn sẽ xuất hiện tại đây sau khi hoàn thành." />
         ) : (
           <div className="grid gap-2">
             {history.data.map((item) => (
@@ -348,9 +348,9 @@ function StarResult({ evaluation, question, answer, onRetry }: { evaluation: Nor
         <RadialScore score={evaluation?.overallScore ?? null} size="sm" />
       </div>
       {!evaluation ? (
-        <Alert variant="warning" title="Chưa đủ dữ liệu đánh giá">Lượt làm đã hoàn thành nhưng máy chủ không trả về evaluation. Điểm số không được thay bằng 0.</Alert>
+        <Alert variant="warning" title="Chưa đủ dữ liệu đánh giá">Lượt làm đã hoàn thành nhưng chưa có đủ nội dung đánh giá chi tiết.</Alert>
       ) : !evaluation.applicable ? (
-        <Alert variant="info" title="Chưa thể áp dụng khung STAR">Máy chủ xác định câu trả lời này chưa phù hợp để bóc tách STAR. Hãy xem câu trả lời gốc và thử lượt mới.</Alert>
+        <Alert variant="info" title="Chưa thể áp dụng khung STAR">Câu trả lời này chưa thể hiện rõ cấu trúc STAR. Hãy xem lại câu trả lời và thử một lượt mới.</Alert>
       ) : (
         <>
           {components.length > 0 ? (
@@ -367,7 +367,7 @@ function StarResult({ evaluation, question, answer, onRetry }: { evaluation: Nor
                 </div>
               ))}
             </div>
-          ) : <Alert variant="info">Máy chủ không trả về component STAR nào cho lượt này.</Alert>}
+          ) : <Alert variant="info">Chưa ghi nhận thành phần STAR nào trong câu trả lời này.</Alert>}
           {evaluation.missingElements.length > 0 && <Alert variant="warning" title="Thành phần còn thiếu">{evaluation.missingElements.join(', ')}</Alert>}
           {(evaluation.strengths.length > 0 || evaluation.coachingTips.length > 0) && (
             <div className="grid gap-3 sm:grid-cols-2">

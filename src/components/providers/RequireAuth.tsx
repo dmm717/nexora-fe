@@ -74,7 +74,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
           Không thể khôi phục phiên đăng nhập
         </h2>
         <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem', maxWidth: '400px' }}>
-          Đã có lỗi kết nối máy chủ khi kiểm tra phiên đăng nhập. Vui lòng thử tải lại trang hoặc đăng nhập lại.
+          Không thể xác minh phiên đăng nhập lúc này. Vui lòng thử tải lại trang hoặc đăng nhập lại.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button

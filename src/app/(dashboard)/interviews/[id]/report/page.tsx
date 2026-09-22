@@ -312,15 +312,15 @@ export default function InterviewReportPage() {
         </div>
       </div>
 
-      {/* Snapshot Notice: Immutable Context */}
+      {/* Bối cảnh báo cáo lưu trữ */}
       <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-4 text-xs text-slate-600">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-indigo-600 text-[18px]">history_edu</span>
           <span>
-            <strong>Bản chụp bối cảnh lịch sử:</strong> Đánh giá này gắn liền với snapshot năng lực tại thời điểm nộp bài. Cập nhật hồ sơ sự nghiệp trong tương lai sẽ không làm thay đổi kết quả này.
+            <strong>Bối cảnh của báo cáo:</strong> Kết quả này được giữ theo thông tin tại thời điểm bạn hoàn thành phiên phỏng vấn. Những thay đổi hồ sơ sau đó không làm thay đổi báo cáo này.
           </span>
         </div>
-        <Badge variant="neutral" size="sm">Immutable Snapshot</Badge>
+        <Badge variant="outline" size="sm">Bản lưu trữ</Badge>
       </div>
 
       {/* Partial Notice if early finished */}

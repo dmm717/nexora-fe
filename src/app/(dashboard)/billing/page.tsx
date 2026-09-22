@@ -46,6 +46,7 @@ function getOrderStatusPresentation(status: string): { label: string; variant: '
     case 'fulfilled':
     case 'success':
     case 'completed':
+    case 'paid':
       return { label: 'Thành công', variant: 'success' };
     case 'pending':
       return { label: 'Đang chờ', variant: 'warning' };
@@ -57,7 +58,7 @@ function getOrderStatusPresentation(status: string): { label: string; variant: '
     case 'canceled':
       return { label: 'Đã hủy', variant: 'neutral' };
     default:
-      return { label: status, variant: 'neutral' };
+      return { label: 'Đang cập nhật', variant: 'neutral' };
   }
 }
 
@@ -159,7 +160,7 @@ export default function BillingPage() {
         const errorParam = currentParams.get('error');
         if (errorParam === 'webhook_error') {
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setError('Lỗi kết nối máy chủ khi xác nhận thanh toán.');
+          setError('Lỗi kết nối khi xác nhận thanh toán. Vui lòng thử lại.');
         } else if (errorParam === 'webhook_failed') {
           setError('Xác nhận thanh toán từ hệ thống thất bại.');
         } else if (errorParam === 'invalid_transaction') {
@@ -523,8 +524,9 @@ export default function BillingPage() {
                 }`}
               >
                 {isHighlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-primary text-white shadow-sm">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                      <span className="material-symbols-outlined text-[14px] text-amber-300">sparkles</span>
                       Phổ biến nhất
                     </span>
                   </div>

@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ClientDate } from '@/components/ui/ClientDate';
 import { formatCurrency } from '@/utils/formatters';
+import { getOrderStatusPresentation } from '@/services/billingPresentation';
 
 interface PlanUsageCardProps {
   billing?: BillingSummaryResponse | null;
@@ -68,7 +69,7 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
       {/* Grid of Usage Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-3.5 rounded-xl bg-surface-container-low/70 border border-outline-variant/40 space-y-1">
-          <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+          <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
             Ngày bắt đầu
           </span>
           <div className="text-sm font-semibold text-on-surface">
@@ -77,7 +78,7 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface-container-low/70 border border-outline-variant/40 space-y-1">
-          <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+          <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
             Ngày hết hạn
           </span>
           <div className="text-sm font-semibold text-on-surface">
@@ -90,7 +91,7 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface-container-low/70 border border-outline-variant/40 space-y-1">
-          <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+          <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
             Đã sử dụng
           </span>
           <div className="text-sm font-semibold text-on-surface">
@@ -99,7 +100,7 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
         </div>
 
         <div className="p-3.5 rounded-xl bg-surface-container-low/70 border border-outline-variant/40 space-y-1">
-          <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+          <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
             Khả dụng còn lại
           </span>
           <div className="text-sm font-semibold text-on-surface">
@@ -125,19 +126,7 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
               </thead>
               <tbody className="divide-y divide-outline-variant/30">
                 {orders.map((order) => {
-                  const statusNorm = order.status.toLowerCase();
-                  const isSuccess =
-                    statusNorm === 'success' ||
-                    statusNorm === 'completed' ||
-                    statusNorm === 'paid';
-                  const isPending =
-                    statusNorm === 'pending' || statusNorm === 'processing';
-
-                  const badgeVariant = isSuccess
-                    ? 'success'
-                    : isPending
-                    ? 'warning'
-                    : 'error';
+                  const statusPresentation = getOrderStatusPresentation(order.status);
 
                   return (
                     <tr key={order.id} className="hover:bg-surface-container-low/40">
@@ -152,8 +141,8 @@ export const PlanUsageCard: React.FC<PlanUsageCardProps> = ({ billing }) => {
                         <ClientDate date={order.createdAt} format="date" />
                       </td>
                       <td className="py-2.5 px-3">
-                        <Badge variant={badgeVariant} size="sm">
-                          {order.status}
+                        <Badge variant={statusPresentation.variant} size="sm">
+                          {statusPresentation.label}
                         </Badge>
                       </td>
                     </tr>

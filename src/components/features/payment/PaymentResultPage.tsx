@@ -167,7 +167,7 @@ function SuccessContent({
           Đang xác nhận thanh toán...
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-on-surface-variant sm:text-base">
-          Nexora đang đối chiếu giao dịch với máy chủ. Kết quả trên URL chuyển hướng không được dùng để xác nhận thanh toán.
+          Nexora đang xác thực giao dịch thanh toán của bạn một cách an toàn. Quá trình này thường chỉ mất vài giây.
         </p>
         <div className="mx-auto mt-8 max-w-sm space-y-3" aria-hidden="true">
           <Skeleton className="h-3 w-full" />
@@ -187,7 +187,7 @@ function SuccessContent({
           Thanh toán thành công
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-on-surface-variant sm:text-base">
-          Nexora đã nhận được xác nhận thanh toán từ máy chủ. Gói dịch vụ của bạn sẽ được cập nhật theo giao dịch này.
+          Giao dịch thanh toán đã hoàn tất thành công. Quyền lợi và gói dịch vụ của bạn đã được kích hoạt.
         </p>
         <Link href={continueHref} className={`${actionLinkClass} mt-8`}>
           Tiếp tục
@@ -272,7 +272,7 @@ function SuccessContent({
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-on-surface-variant sm:text-base">
           {redirectContextFound
             ? 'Thông tin chuyển hướng đã được nhận, nhưng không tìm thấy phiên thanh toán Nexora trong trình duyệt này.'
-            : 'Không tìm thấy phiên thanh toán Nexora trong trình duyệt này. Vì lý do bảo mật, Nexora không xác nhận giao dịch chỉ bằng URL.'}
+            : 'Không tìm thấy thông tin phiên thanh toán Nexora trong trình duyệt này. Vì lý do bảo mật, giao dịch cần được xác thực trực tiếp qua cổng thanh toán.'}
         </p>
         <Link href="/pricing" className={`${actionLinkClass} mt-8`}>
           Quay lại bảng giá

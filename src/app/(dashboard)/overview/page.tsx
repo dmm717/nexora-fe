@@ -343,7 +343,7 @@ export default function OverviewPage() {
 
       {progressUnavailable && (
         <div className="p-4 rounded-xl bg-error/10 border border-error/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-on-surface">
-          <span>Không thể tải Progress Dashboard. Trạng thái bằng chứng hiện chưa xác định.</span>
+          <span>Chưa thể tải dữ liệu tiến độ lúc này. Trạng thái bằng chứng hiện chưa xác định.</span>
           <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
             {refreshingProgress ? 'Đang thử lại...' : 'Thử lại'}
           </Button>
@@ -477,7 +477,7 @@ export default function OverviewPage() {
             {progressPresentation.showBackgroundError && (
               <div className="mb-4">
                 <QueryRetryNotice
-                  message="Không thể cập nhật Progress Dashboard. Chỉ số đã tải vẫn được giữ lại."
+                  message="Chưa thể cập nhật tiến độ lúc này. Chỉ số đã tải vẫn được giữ lại."
                   isRetrying={refreshingProgress}
                   onRetry={() => void refetchProgress()}
                 />
@@ -493,7 +493,7 @@ export default function OverviewPage() {
                       Chỉ số hiện tại: {progressData.readiness.score}/100
                     </div>
                     <p className="text-xs text-on-surface-variant">
-                      Dựa trên {progressData.readiness.evidenceCount} bằng chứng được máy chủ tổng hợp.
+                      Dựa trên {progressData.readiness.evidenceCount} bằng chứng từ các hoạt động bạn đã hoàn thành.
                     </p>
                   </div>
                 </div>
@@ -504,7 +504,7 @@ export default function OverviewPage() {
                       <span className="material-symbols-outlined text-primary text-[16px]">priority_high</span>
                       Điểm cần chú ý nhất:
                     </div>
-                    <p className="text-on-surface-variant text-[11px]">
+                    <p className="text-on-surface-variant text-xs">
                       Hệ thống ghi nhận {progressData.readiness.priorityGapCount} khoảng trống năng lực ưu tiên cần bồi đắp.
                     </p>
                   </div>
@@ -659,12 +659,12 @@ export default function OverviewPage() {
                       {act.title}
                     </h4>
 
-                    <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-on-surface-variant line-clamp-2 leading-relaxed">
                       {act.summary}
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-outline-variant/30 flex items-center justify-between text-[10px] text-on-surface-variant">
+                  <div className="pt-2 border-t border-outline-variant/30 flex items-center justify-between text-xs text-on-surface-variant">
                     <span className="font-mono">{dateStr}</span>
                     <span className="font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                       Xem chi tiết

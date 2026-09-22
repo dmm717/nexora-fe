@@ -340,13 +340,13 @@ export default function ResumeAnalysisDetailsPage() {
                           style={{ width: item.score !== null ? `${Math.max(0, Math.min(100, item.score))}%` : '0%' }}
                         />
                       </div>
-                      <p className="text-[11px] text-on-surface-variant">{item.desc}</p>
+                      <p className="text-xs text-on-surface-variant">{item.desc}</p>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="p-6 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl">
-                  Chưa có chi tiết phân tích từng trục tiêu chuẩn từ phản hồi máy chủ.
+                  Chưa có chi tiết phân tích từng tiêu chuẩn đánh giá cho hồ sơ này.
                 </div>
               )}
             </div>

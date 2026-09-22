@@ -154,7 +154,7 @@ function responseData<T>(response: unknown): T {
     const value = envelope.data ?? envelope.Data;
     if (value !== undefined) return value;
   }
-  throw new ApiError('Máy chủ trả về dữ liệu không hợp lệ.', 'API_RESPONSE_INVALID');
+  throw new ApiError('Dữ liệu phản hồi không hợp lệ.', 'API_RESPONSE_INVALID');
 }
 
 /** Resolve the MIME from the extension only when the browser omitted File.type. */
@@ -199,7 +199,7 @@ function uploadErrorMessage(status: number): string {
   if (status === 404) return 'Upload intent không còn hợp lệ. Vui lòng chọn lại file.';
   if (status === 409) return 'File đã được upload hoặc upload intent đã được sử dụng.';
   if (status === 413) return 'Dung lượng file vượt quá giới hạn cho phép.';
-  return 'Không thể tải file CV lên máy chủ.';
+  return 'Không thể tải file CV lên hệ thống.';
 }
 
 async function throwUploadError(response: Response): Promise<never> {

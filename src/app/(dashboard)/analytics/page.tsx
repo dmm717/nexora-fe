@@ -234,10 +234,10 @@ export default function AnalyticsPage() {
         <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
           <span>
             {progressLocked
-              ? 'Gói hiện tại chưa hỗ trợ Progress Dashboard. Các chỉ số sẵn sàng và hoạt động tuần không khả dụng.'
+              ? 'Theo dõi tiến độ chưa có trong gói hiện tại. Các chỉ số sẵn sàng và hoạt động tuần không khả dụng.'
               : progressPresentation.showBackgroundError
-                ? 'Không thể cập nhật Progress Dashboard. Dữ liệu đã tải trước đó vẫn được giữ.'
-                : 'Không thể tải Progress Dashboard. Dữ liệu lịch sử khác không được dùng thay cho các chỉ số này.'}
+                ? 'Chưa thể cập nhật tiến độ lúc này. Dữ liệu đã tải trước đó vẫn được giữ.'
+                : 'Chưa thể tải dữ liệu tiến độ lúc này. Hãy thử làm mới trang.'}
           </span>
           {(progressUnavailable || progressPresentation.showBackgroundError) && (
             <Button variant="outline" size="sm" onClick={() => refetchProgress()} disabled={refreshingProgress}>
@@ -282,7 +282,7 @@ export default function AnalyticsPage() {
               {progressPresentation.showInitialLoading
                 ? 'Đang tải chỉ số...'
                 : hasScore
-                ? `Dựa trên ${evidenceCount} bằng chứng được máy chủ tổng hợp.`
+                ? `Dựa trên ${evidenceCount} bằng chứng từ quá trình luyện tập của bạn.`
                 : hasProgressData
                   ? 'Hoàn thành một hoạt động có bằng chứng để hệ thống tổng hợp chỉ số sẵn sàng.'
                   : 'Dữ liệu tiến độ sẽ xuất hiện tại đây khi tính năng theo dõi tiến độ được kích hoạt.'}
@@ -434,10 +434,10 @@ export default function AnalyticsPage() {
                   {!hasProgressData
                     ? progressLocked
                       ? 'Danh sách năng lực theo điểm không có trong gói hiện tại.'
-                      : 'Không thể tải danh sách năng lực theo điểm từ Progress Dashboard.'
+                      : 'Chưa thể tải danh sách năng lực lúc này.'
                     : evidenceCount === 0
                       ? 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'
-                      : 'Máy chủ chưa trả về danh sách năng lực có điểm thấp nhất.'}
+                      : 'Chưa có đủ dữ liệu để xác định năng lực cần ưu tiên.'}
                 </p>
               )}
             </div>
@@ -472,11 +472,11 @@ export default function AnalyticsPage() {
                           <span className="material-symbols-outlined text-[13px] text-primary">open_in_new</span>
                         )}
                       </div>
-                      <div className="text-[11px] text-on-surface-variant">
+                      <div className="text-xs text-on-surface-variant">
                         Điểm tăng từ {imp.previousScore}% lên {imp.currentScore}%
                       </div>
                       {imp.at && (
-                        <div className="text-[11px] text-on-surface-variant">
+                        <div className="text-xs text-on-surface-variant">
                           <ClientDate date={imp.at} />
                         </div>
                       )}
@@ -491,7 +491,7 @@ export default function AnalyticsPage() {
                     ? 'Chưa ghi nhận bước tiến bộ trong các kết quả gần đây.'
                     : progressLocked
                       ? 'Tiến bộ gần đây không có trong gói hiện tại.'
-                      : 'Không thể tải tiến bộ gần đây từ Progress Dashboard.'}
+                      : 'Chưa thể tải tiến bộ gần đây lúc này.'}
                 </p>
               )}
             </div>

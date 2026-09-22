@@ -15,7 +15,7 @@ const numberFormatter = new Intl.NumberFormat('vi-VN');
 
 export function StatusBadge({ status }: { status: string }) {
   const tone = status === 'fulfilled' ? 'bg-secondary-fixed text-on-secondary-container' : status === 'failed' ? 'bg-error-container text-on-error-container' : 'bg-tertiary-container text-on-tertiary-container';
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${tone}`}>{statusLabels[status] ?? status}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${tone}`}>{statusLabels[status] ?? 'Đang cập nhật'}</span>;
 }
 
 function TransactionTable({ rows }: { rows: AdminTransactionView[] }) {

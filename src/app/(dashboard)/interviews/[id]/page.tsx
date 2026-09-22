@@ -513,7 +513,7 @@ export default function InterviewRoomPage() {
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <h2 className="text-xl font-bold text-slate-900">Phiên phỏng vấn chưa khả dụng</h2>
         <p className="text-xs text-slate-500">
-          Trạng thái hiện tại chưa được hỗ trợ. Phòng phỏng vấn sẽ không mở cho đến khi máy chủ xác nhận phiên đang hoạt động.
+          Trạng thái phiên phỏng vấn chưa sẵn sàng. Phòng phỏng vấn chỉ mở khi phiên đang trong trạng thái hoạt động.
         </p>
         <Link href="/interviews" className="inline-block text-indigo-600 font-semibold underline">
           Quay lại danh sách phỏng vấn
