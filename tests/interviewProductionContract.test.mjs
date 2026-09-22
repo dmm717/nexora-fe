@@ -1486,7 +1486,7 @@ test('56. explicit answer retry keeps frozen intent and no automatic retry loop'
     source.indexOf('const handleEntitlementRecheck')
   );
 
-  assert.match(source, /Thử lại đánh giá/);
+  assert.match(source, /Thử gửi lại/);
   assert.match(source, /Chỉnh sửa câu trả lời/);
   assert.match(submitHandler, /pendingAnswerIntentRef\.current = intent/);
   assert.match(submitHandler, /pendingAnswerIntentRef\.current = null/);
@@ -1513,14 +1513,14 @@ test('57. report body fetch is gated by canonical reportState', () => {
 });
 
 test('58. answer submission status never claims acceptance before success', () => {
-  const evaluating = getAnswerSubmissionStatus({
-    phase: 'evaluating',
+  const submitting = getAnswerSubmissionStatus({
+    phase: 'submitting',
     listening: false,
     mode: 'chatbox',
     timerLabel: '00:01',
   });
-  assert.equal(evaluating, 'AI đang đánh giá câu trả lời...');
-  assert.doesNotMatch(evaluating, /Đã nộp/);
+  assert.equal(submitting, 'Đang lưu câu trả lời...');
+  assert.doesNotMatch(submitting, /Đã nộp/);
 
   const accepted = getAnswerSubmissionStatus({
     phase: 'accepted',
@@ -1528,7 +1528,7 @@ test('58. answer submission status never claims acceptance before success', () =
     mode: 'chatbox',
     timerLabel: '00:01',
   });
-  assert.match(accepted, /Đã nộp/);
+  assert.match(accepted, /Đã lưu câu trả lời thành công/);
 });
 
 test('60. seamless interview: AudioSpeechDock is locked only during in-flight submission', () => {

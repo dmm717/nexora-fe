@@ -189,7 +189,7 @@ export function getAnswerEvaluationErrorMessage(error: unknown): string {
   return 'Lỗi khi gửi câu trả lời. Câu trả lời của bạn vẫn được giữ lại.';
 }
 
-export type AnswerSubmissionPhase = 'idle' | 'evaluating' | 'accepted';
+export type AnswerSubmissionPhase = 'idle' | 'submitting' | 'evaluating' | 'accepted';
 
 export function getAnswerSubmissionStatus(params: {
   phase: AnswerSubmissionPhase;
@@ -197,11 +197,11 @@ export function getAnswerSubmissionStatus(params: {
   mode: 'voice' | 'chatbox';
   timerLabel: string;
 }): string {
-  if (params.phase === 'evaluating') {
-    return 'AI đang đánh giá câu trả lời...';
+  if (params.phase === 'submitting' || params.phase === 'evaluating') {
+    return 'Đang lưu câu trả lời...';
   }
   if (params.phase === 'accepted') {
-    return 'Đã nộp câu trả lời · đang xem phản hồi từ Nexora AI';
+    return 'Đã lưu câu trả lời thành công';
   }
   if (params.listening) {
     return `Đang nghe bạn · ${params.timerLabel}`;
@@ -680,8 +680,14 @@ export function getInterviewContinuationAction(params: {
   continuation?: InterviewContinuationView | null;
   answeredQuestionCount: number;
   hasActiveQuestion: boolean;
+  questionPreparationState?: InterviewQuestionPreparationState;
 }): InterviewContinuationAction {
-  const { continuation, answeredQuestionCount, hasActiveQuestion } = params;
+  const { continuation, answeredQuestionCount, hasActiveQuestion, questionPreparationState } = params;
+
+  // Never offer continuation while automatic question preparation is processing or failed
+  if (questionPreparationState === 'processing' || questionPreparationState === 'failed') {
+    return 'none';
+  }
 
   if (!continuation || hasActiveQuestion || answeredQuestionCount < 3) return 'none';
   if (continuation.state === 'upgrade_required') return 'upgrade';
@@ -799,11 +805,28 @@ export function applyAnswerResultToInterview(
     questions = [...current.questions, nextQuestion];
   }
 
+  const continuation = result.continuation ?? current.continuation;
+
+  // Reconcile question preparation state at batch boundary:
+  // When nextQuestion is null/absent but the session remains in progress and active,
+  // the server has queued background question planning for the next batch.
+  // Reconcile questionPreparationState to 'processing' immediately so the room
+  // enters preparation UI and initiates fallback polling instead of staying stale 'ready'.
+  let questionPreparationState = current.questionPreparationState;
+  const isSessionInProgress =
+    continuation?.state === 'in_progress' && current.status === 'active';
+  if (!nextQuestion && isSessionInProgress) {
+    questionPreparationState = 'processing';
+  } else if (nextQuestion) {
+    questionPreparationState = 'ready';
+  }
+
   return {
     ...current,
     answers,
     questions,
-    continuation: result.continuation ?? current.continuation,
+    continuation,
+    questionPreparationState,
     version: current.version + 1,
   };
 }

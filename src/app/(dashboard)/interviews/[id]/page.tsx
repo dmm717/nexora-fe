@@ -114,6 +114,7 @@ export default function InterviewRoomPage() {
     continuation,
     answeredQuestionCount: answeredPairs.length,
     hasActiveQuestion: Boolean(activeQuestion),
+    questionPreparationState: interview?.questionPreparationState,
   });
 
   const canAnswer = canSubmitInterviewAnswer({
@@ -149,6 +150,7 @@ export default function InterviewRoomPage() {
             hasActiveQuestion: Boolean(
               getCurrentQuestion(freshInterview.questions, freshInterview.answers)
             ),
+            questionPreparationState: freshInterview.questionPreparationState,
           });
 
           if (freshInterview.status !== 'active' || freshAction !== 'continue_same_session') {
@@ -262,13 +264,24 @@ export default function InterviewRoomPage() {
         oldData ? applyAnswerResultToInterview(oldData, result) : oldData
       );
 
+      // If no next question returned but session is in progress, immediately invalidate/refetch GET /interviews/{id}
+      // so canonical questionPreparationState and planned questions are fetched from the server.
+      if (!result.nextQuestion && (result.continuation?.state === 'in_progress' || !result.continuation)) {
+        void queryClient.invalidateQueries({ queryKey: ['interview', id] });
+      }
+
       pendingAnswerIntentRef.current = null;
       setCurrentDraftContent('');
       setAnswerSubmitState('draft');
 
-      // Check if candidate reached Q3 completion boundary
-      const answeredCount = (interview?.answers?.length ?? 0) + 1;
-      if (activeQuestion.sequence === 3 || answeredCount === 3) {
+      // Authoritative Free upgrade boundary: only open modal if server explicitly requires upgrade
+      // (no next question returned AND continuation state is upgrade_required)
+      const effectiveContinuation = result.continuation ?? interview?.continuation;
+      const isFreeUpgradeBoundary =
+        !result.nextQuestion &&
+        effectiveContinuation?.state === 'upgrade_required';
+
+      if (isFreeUpgradeBoundary) {
         setShowQ3BoundaryModal(true);
       }
     } catch (err: unknown) {
@@ -518,7 +531,7 @@ export default function InterviewRoomPage() {
                       }
                     }}
                   >
-                    Thử lại đánh giá
+                    Thử gửi lại
                   </Button>
                   <Button
                     type="button"
@@ -657,7 +670,7 @@ export default function InterviewRoomPage() {
               initialContent=""
               onSubmit={(content, duration) => handleSubmitAnswer(content, duration)}
               isLocked={submitting}
-              submissionPhase={submitting ? 'evaluating' : 'idle'}
+              submissionPhase={submitting ? 'submitting' : 'idle'}
               forcedTextOnly={forcedTextOnly}
               variant="call"
               editorOpen={editorOpen}
@@ -739,7 +752,10 @@ export default function InterviewRoomPage() {
           </Card>
         )}
 
-        {!activeQuestion && answeredPairs.length >= 3 && (
+        {!activeQuestion &&
+          interview.questionPreparationState !== 'processing' &&
+          interview.questionPreparationState !== 'failed' &&
+          answeredPairs.length >= 3 && (
           <Card variant="elevated" padding="md" className="space-y-3">
             <div>
               <h2 className="font-bold text-sm text-slate-900">

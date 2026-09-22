@@ -51,9 +51,20 @@ test('Interview Room: mid-interview coaching drawer is removed and background ev
 
   // Status label while submitting
   assert.match(roomSource, /Đang lưu câu trả lời\.\.\./);
+  assert.match(roomSource, /submissionPhase=\{submitting \? 'submitting' : 'idle'\}/);
 
-  // Immediate Q3 boundary check without intermediate evaluation gate
-  assert.match(roomSource, /if\s*\(activeQuestion\.sequence === 3 \|\| answeredCount === 3\)\s*\{\s*setShowQ3BoundaryModal\(true\);/);
+  // Authoritative Free upgrade boundary: modal opens only when server explicitly requires upgrade
+  assert.match(roomSource, /!result\.nextQuestion &&\s*effectiveContinuation\?\.state === 'upgrade_required'/);
+  assert.match(roomSource, /if\s*\(isFreeUpgradeBoundary\)\s*\{\s*setShowQ3BoundaryModal\(true\);/);
+
+  // Continuation card suppressed when question preparation is processing or failed
+  assert.match(
+    roomSource,
+    /interview\.questionPreparationState !== 'processing' &&\s*interview\.questionPreparationState !== 'failed'/
+  );
+
+  // Recoverable submit retry copy represents idempotent answer resubmission
+  assert.match(roomSource, /Thử gửi lại/);
 });
 
 test('Speech System: Azure TTS uses DragonHD voice and stops before candidate STT starts', async () => {
@@ -89,4 +100,196 @@ test('Interview Report: displays evaluationProgress counts and handles resultSta
   assert.match(reportSource, /Trải nghiệm buổi phỏng vấn này thế nào\?/);
   assert.match(reportSource, /Gửi đánh giá về Nexora/);
   assert.match(reportSource, /<ProductFeedbackDialog/);
+});
+
+test('1. AnswerResult with nextQuestion=null + continuation=in_progress does not leave room in stale ready state', async () => {
+  const contract = await import('../src/services/interviewContract.ts');
+
+  const currentInterview = {
+    id: 'iv-batch-1',
+    status: 'active',
+    role: 'Backend Engineer',
+    seniority: 'Senior',
+    interviewType: 'behavioral',
+    difficulty: 'hard',
+    version: 20,
+    questions: [
+      { id: 'q-20', sequence: 20, kind: 'primary', content: 'Batch final question', createdAt: '' },
+    ],
+    answers: [],
+    questionPreparationState: 'ready',
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+    createdAt: '',
+    updatedAt: '',
+  };
+
+  const answerResult = {
+    answer: { id: 'ans-20', questionId: 'q-20', content: 'Comprehensive answer', createdAt: '' },
+    nextQuestion: null,
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+  };
+
+  const reconciled = contract.applyAnswerResultToInterview(currentInterview, answerResult);
+
+  // Must immediately reconcile questionPreparationState to 'processing'
+  assert.equal(
+    reconciled.questionPreparationState,
+    'processing',
+    'Batch boundary with nextQuestion=null and continuation=in_progress must transition questionPreparationState to processing'
+  );
+  assert.equal(reconciled.answers.length, 1);
+  assert.equal(reconciled.answers[0].id, 'ans-20');
+});
+
+test('2. Canonical questionPreparationState=processing suppresses /continue UI/action', async () => {
+  const contract = await import('../src/services/interviewContract.ts');
+
+  const action = contract.getInterviewContinuationAction({
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+    answeredQuestionCount: 3,
+    hasActiveQuestion: false,
+    questionPreparationState: 'processing',
+  });
+
+  assert.equal(
+    action,
+    'none',
+    'When questionPreparationState is processing, continuationAction must be none (never continue_same_session)'
+  );
+});
+
+test('3. Canonical questionPreparationState=failed exposes only question retry, not /continue', async () => {
+  const contract = await import('../src/services/interviewContract.ts');
+
+  const action = contract.getInterviewContinuationAction({
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+    answeredQuestionCount: 3,
+    hasActiveQuestion: false,
+    questionPreparationState: 'failed',
+  });
+
+  assert.equal(
+    action,
+    'none',
+    'When questionPreparationState is failed, continuationAction must be none so manual continue is suppressed'
+  );
+});
+
+test('4. Unlimited batch boundary: no manual /continue, polling/refetch obtains released next question', async () => {
+  const contract = await import('../src/services/interviewContract.ts');
+
+  // Step 1: Candidate answers batch-ending question Q20
+  const current = {
+    id: 'iv-unlimited',
+    status: 'active',
+    role: 'Staff Engineer',
+    seniority: 'Staff',
+    interviewType: 'system_design',
+    difficulty: 'hard',
+    version: 20,
+    questions: [
+      { id: 'q-20', sequence: 20, kind: 'primary', content: 'Scaling DB', createdAt: '' },
+    ],
+    answers: [],
+    questionPreparationState: 'ready',
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+    createdAt: '',
+    updatedAt: '',
+  };
+
+  const answerResult = {
+    answer: { id: 'ans-20', questionId: 'q-20', content: 'Distributed caching strategy', createdAt: '' },
+    nextQuestion: null,
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+  };
+
+  const state1 = contract.applyAnswerResultToInterview(current, answerResult);
+  assert.equal(state1.questionPreparationState, 'processing');
+  assert.equal(
+    contract.getInterviewContinuationAction({
+      continuation: state1.continuation,
+      answeredQuestionCount: state1.answers.length,
+      hasActiveQuestion: Boolean(contract.getCurrentQuestion(state1.questions, state1.answers)),
+      questionPreparationState: state1.questionPreparationState,
+    }),
+    'none',
+    'No continue action during batch-boundary question preparation'
+  );
+
+  // Step 2: Background planning completes; canonical GET returns newly planned Q21 with state ready
+  const serverUpdate = {
+    ...state1,
+    questions: [
+      ...state1.questions,
+      { id: 'q-21', sequence: 21, kind: 'primary', content: 'Event-driven architecture', createdAt: '' },
+    ],
+    questionPreparationState: 'ready',
+    version: 21,
+  };
+
+  const activeQ = contract.getCurrentQuestion(serverUpdate.questions, serverUpdate.answers);
+  assert.ok(activeQ);
+  assert.equal(activeQ.id, 'q-21');
+  assert.equal(activeQ.sequence, 21);
+});
+
+test('5. Paid user Q3: Q4 returned -> no Free boundary modal', () => {
+  const answerResult = {
+    answer: { id: 'ans-3', questionId: 'q-3', content: 'My leadership experience', createdAt: '' },
+    nextQuestion: { id: 'q-4', sequence: 4, kind: 'primary', content: 'Technical conflict', createdAt: '' },
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+  };
+
+  const effectiveContinuation = answerResult.continuation;
+  const isFreeUpgradeBoundary =
+    !answerResult.nextQuestion &&
+    effectiveContinuation?.state === 'upgrade_required';
+
+  assert.equal(isFreeUpgradeBoundary, false, 'Paid user with nextQuestion Q4 must NOT trigger Free boundary modal');
+});
+
+test('6. Free user Q3: continuation=upgrade_required + no Q4 -> boundary modal opens', () => {
+  const answerResult = {
+    answer: { id: 'ans-3', questionId: 'q-3', content: 'Free answer 3', createdAt: '' },
+    nextQuestion: null,
+    continuation: { state: 'upgrade_required', canFinishNow: true, canUpgradeAndContinue: true },
+  };
+
+  const effectiveContinuation = answerResult.continuation;
+  const isFreeUpgradeBoundary =
+    !answerResult.nextQuestion &&
+    effectiveContinuation?.state === 'upgrade_required';
+
+  assert.equal(isFreeUpgradeBoundary, true, 'Free user at Q3 boundary must trigger Free boundary modal');
+});
+
+test('7. POST /answers in-flight copy does not claim AI evaluation and never claims Đã nộp before 2xx', async () => {
+  const contract = await import('../src/services/interviewContract.ts');
+
+  const submittingStatus = contract.getAnswerSubmissionStatus({
+    phase: 'submitting',
+    listening: false,
+    mode: 'chatbox',
+    timerLabel: '00:15',
+  });
+  assert.equal(submittingStatus, 'Đang lưu câu trả lời...', 'In-flight HTTP POST must state Đang lưu câu trả lời...');
+  assert.doesNotMatch(submittingStatus, /AI đang đánh giá/);
+  assert.doesNotMatch(submittingStatus, /Đã nộp/);
+
+  const idleStatus = contract.getAnswerSubmissionStatus({
+    phase: 'idle',
+    listening: false,
+    mode: 'chatbox',
+    timerLabel: '00:00',
+  });
+  assert.doesNotMatch(idleStatus, /Đã nộp/);
+});
+
+test('8. Submission retry copy represents idempotent answer resubmission, not evaluation retry', () => {
+  const roomSource = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(roomSource, /Thử gửi lại/);
+  assert.doesNotMatch(roomSource, /Thử lại đánh giá/);
 });
