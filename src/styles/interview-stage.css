@@ -41,14 +41,32 @@
 .interview-coach-tip summary { cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; }
 .interview-coach-tip summary .material-symbols-outlined { font-size: 18px; }
 .interview-coach-tip p { margin-top: 8px; line-height: 1.7; }
-.interview-self-tile { position: absolute; right: 24px; bottom: 24px; width: 156px; padding: 18px 12px 12px; background: #243452; border-radius: 12px; text-align: center; border: 1px solid #465778; }
-.interview-self-avatar { width: 48px; height: 48px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 50%; background: #3e4c72; color: #f3f5ff; font-size: 18px; font-weight: 700; }
+.interview-self-tile { position: absolute; right: 24px; bottom: 24px; width: 156px; padding: 18px 12px 12px; background: #243452; border-radius: 12px; text-align: center; border: 1px solid #465778; transition: border-color .2s ease, width .2s ease, height .2s ease; }
+.interview-self-tile-camera-on { width: 204px; height: 144px; padding: 0; overflow: hidden; border-color: #55678b; }
+.interview-self-tile-content { display: flex; flex-direction: column; align-items: center; }
+.interview-self-avatar { width: 48px; height: 48px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 50%; background: #3e4c72; color: #f3f5ff; font-size: 18px; font-weight: 700; overflow: hidden; }
 .interview-self-tile strong { display: block; font-size: 11px; overflow-wrap: anywhere; }
-.interview-self-tile p { display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; color: #c3cde5; margin: 8px 0 4px; }
+.interview-self-subtle-status { margin: 2px 0 0; }
+.interview-camera-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #9bb0d6; }
+.interview-camera-chip .material-symbols-outlined { font-size: 13px; }
+.interview-self-tile p { display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; color: #c3cde5; margin: 6px 0 4px; }
 .interview-self-tile .material-symbols-outlined { font-size: 15px; }
 .interview-answer-duration { font-variant-numeric: tabular-nums; font-size: 10px; color: #c3cde5; }
 .interview-self-tile[data-listening="true"] { border-color: #94ead1; }
 .interview-self-tile[data-listening="true"] p { color: #a6edda; }
+.interview-camera-container { position: relative; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; background: #0c1326; }
+.interview-camera-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.interview-camera-scrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(16, 24, 47, 0.92) 0%, rgba(16, 24, 47, 0.45) 45%, transparent 75%), linear-gradient(to bottom, rgba(16, 24, 47, 0.75) 0%, transparent 35%); pointer-events: none; }
+.interview-camera-overlay { position: absolute; inset: 0; padding: 8px 10px; display: flex; flex-direction: column; justify-content: space-between; z-index: 2; pointer-events: none; }
+.interview-camera-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.interview-camera-live-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: #a6edda; background: rgba(16, 47, 41, 0.85); padding: 2px 7px; border-radius: 9999px; backdrop-filter: blur(4px); }
+.interview-camera-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #79d8b9; box-shadow: 0 0 6px #79d8b9; }
+.interview-camera-footer { display: flex; flex-direction: column; gap: 2px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); text-align: left; }
+.interview-camera-candidate-name { font-size: 11px; font-weight: 600; color: #f3f5ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.interview-camera-mic-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #d6e2fb; }
+.interview-camera-mic-status .material-symbols-outlined { font-size: 13px; }
+.interview-call-button.interview-camera-button.is-camera-on { background: #3b396b; color: #d1c6ff; border: 1px solid #705ec9; }
+.interview-camera-notice { color: #ffe3b3; background: #3b2c15; border: 1px solid #634b22; padding: 8px 12px; border-radius: 8px; font-size: 11px; margin-top: 8px; text-align: center; }
 .interview-current-answer { margin: 0 205px 20px; padding: 14px 16px; background: #243452; border-radius: 12px; color: #f3f5ff; }
 .interview-current-answer > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; }
 .interview-current-answer > div span { color: #a6edda; }
@@ -125,6 +143,7 @@
   .interview-current-answer { margin: 0 155px 16px 28px; }
   .interview-stage-center { padding: 16px 155px 36px 28px; }
   .interview-self-tile { right: 16px; bottom: 16px; width: 124px; }
+  .interview-self-tile.interview-self-tile-camera-on { width: 172px; height: 122px; }
 }
 @media (max-width: 600px) {
   body:has(.interview-call-room) aside[aria-label="Dev State Switcher"] { position: relative; inset: auto; width: fit-content; margin: 16px auto; }
@@ -140,6 +159,7 @@
   .interview-live-caption { margin-top: 24px; }
   .interview-live-caption p { font-size: 16px; line-height: 1.65; }
   .interview-self-tile { position: static; width: auto; margin: 0 16px 16px; display: grid; grid-template-columns: 36px 1fr auto; gap: 0 10px; align-items: center; text-align: left; padding: 12px; }
+  .interview-self-tile.interview-self-tile-camera-on { display: block; max-width: 260px; height: 140px; margin: 0 auto 16px; padding: 0; }
   .interview-self-avatar { width: 36px; height: 36px; font-size: 14px; margin: 0; grid-row: span 2; }
   .interview-self-tile p { justify-content: flex-start; margin: 4px 0 0; }
   .interview-answer-duration { grid-column: 3; grid-row: 1 / span 2; }

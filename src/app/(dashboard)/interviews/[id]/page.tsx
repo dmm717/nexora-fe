@@ -41,6 +41,9 @@ import {
   type QuestionSpeakerHandle,
 } from '@/components/features/interview/QuestionSpeaker';
 import { AudioSpeechDock, type AudioSpeechState } from '@/components/features/interview/AudioSpeechDock';
+import { useLocalCamera } from '@/hooks/useLocalCamera';
+import { InterviewCandidateTile } from '@/components/features/interview/InterviewCandidateTile';
+import { CameraToggleButton } from '@/components/features/interview/CameraToggleButton';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -98,6 +101,19 @@ export default function InterviewRoomPage() {
 
   const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
+  const isInterviewActive = interview?.status === 'active';
+
+  const {
+    stream: cameraStream,
+    state: cameraState,
+    toggleCamera,
+    disableCamera,
+    errorMessage: cameraErrorMessage,
+  } = useLocalCamera({
+    enabled: isInterviewActive,
+    scopeKey: id,
+  });
+
   // Derived interview domain properties
   const answeredPairs = useMemo(
     () => getAnsweredQuestions(interview?.questions, interview?.answers),
@@ -123,6 +139,17 @@ export default function InterviewRoomPage() {
     upgradeRequired,
   });
   const activeQuestionId = activeQuestion?.id;
+
+  // Fail-closed camera shutdown whenever canonical interview is not active or when route switches ID
+  useEffect(() => {
+    if (interview?.status !== 'active') {
+      disableCamera();
+    }
+  }, [interview?.status, disableCamera]);
+
+  useEffect(() => {
+    disableCamera();
+  }, [id, disableCamera]);
 
   // Consume the billing return marker once, then re-check canonical server entitlement.
   useEffect(() => {
@@ -359,6 +386,7 @@ export default function InterviewRoomPage() {
     try {
       await interviewApi.complete(id, completeIntentRef.current.getKey());
       completeIntentRef.current.confirmComplete();
+      disableCamera();
       router.push(`/interviews/${id}/report`);
     } catch (err: unknown) {
       setActionError({
@@ -607,39 +635,17 @@ export default function InterviewRoomPage() {
             </details>
           </div>
 
-          {/* Candidate Self Tile (Initials avatar, timer, status) - No camera */}
-          <aside
-            className="interview-self-tile"
-            data-listening={candidateState.listening}
-            aria-label="Trạng thái của bạn"
-          >
-            <div className="interview-self-avatar" aria-hidden="true">
-              {initials}
-            </div>
-            <strong>{candidateName}</strong>
-            <p>
-              <span aria-hidden="true" className="material-symbols-outlined">
-                {candidateState.error
-                  ? 'mic_off'
-                  : candidateState.mode === 'chatbox'
-                  ? 'keyboard'
-                  : 'mic'}
-              </span>
-              {candidateState.error
-                ? 'Mic chưa khả dụng'
-                : candidateState.listening
-                ? 'Bạn đang trả lời'
-                : candidateState.mode === 'chatbox' || forcedTextOnly
-                ? 'Đang gõ văn bản'
-                : 'Sẵn sàng nói'}
-            </p>
-            <span className="interview-answer-duration">
-              {Math.floor(candidateState.duration / 60)
-                .toString()
-                .padStart(2, '0')}
-              :{(candidateState.duration % 60).toString().padStart(2, '0')}
-            </span>
-          </aside>
+          {/* Candidate Self Tile (Initials/Avatar, live camera preview, timer, status) */}
+          <InterviewCandidateTile
+            candidateName={candidateName}
+            initials={initials}
+            avatarUrl={careerProfile?.profile?.avatarUrl}
+            candidateState={candidateState}
+            forcedTextOnly={forcedTextOnly}
+            cameraStream={cameraStream}
+            cameraState={cameraState}
+            onToggleCamera={toggleCamera}
+          />
 
           {/* Live unsubmitted draft preview */}
           {activeQuestion && (
@@ -686,6 +692,13 @@ export default function InterviewRoomPage() {
               }}
               controls={
                 <>
+                  <CameraToggleButton
+                    state={cameraState}
+                    onToggle={toggleCamera}
+                    disabled={submitting}
+                    errorMessage={cameraErrorMessage}
+                  />
+
                   <QuestionSpeaker
                     ref={questionSpeakerRef}
                     interviewId={id}
@@ -716,6 +729,18 @@ export default function InterviewRoomPage() {
                 </>
               }
             />
+
+            {cameraErrorMessage && (
+              <div className="interview-camera-notice" role="status">
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined align-middle mr-1.5 text-amber-400 text-sm"
+                >
+                  info
+                </span>
+                {cameraErrorMessage}
+              </div>
+            )}
           </div>
         )}
 
