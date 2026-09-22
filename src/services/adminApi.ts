@@ -114,7 +114,101 @@ export interface AdminRoleView {
   normalizedName: string;
 }
 
+export type AdminGranularity = 'day' | 'month' | 'year';
+
+export interface AdminDashboardFilters {
+  granularity: AdminGranularity;
+  from?: string;
+  to?: string;
+  currency: string;
+}
+
+export interface AdminTransactionFilters {
+  search?: string;
+  status?: string;
+  planCode?: string;
+  currency?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface AdminCurrencyAmount { currency: string; amountMinor: number; }
+export interface AdminRevenuePoint { bucketStart: string; label: string; amountMinor: number; transactionCount: number; currency: string; }
+export interface AdminUserGrowthPoint { bucketStart: string; newUsers: number; cumulativeUsers: number; }
+export interface AdminPlanDistributionPoint { planCode: string; userCount: number; }
+export interface AdminTransactionStatusPoint { status: string; count: number; }
+export interface AdminPlanRevenuePoint { planCode: string; amountMinor: number; transactionCount: number; currency: string; }
+
+export interface AdminTransactionView {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userDisplayName?: string | null;
+  planCode: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  paymentProvider: string;
+  providerTransactionId: string;
+  createdAt: string;
+  updatedAt: string;
+  fulfilledAt?: string | null;
+}
+
+export interface AdminDashboardView {
+  range: AdminDashboardFilters & { from: string; to: string; timeZone: string };
+  summary: {
+    totalUsers: number;
+    activeUsers: number;
+    inactiveUsers: number;
+    deletedUsers: number;
+    newUsersInPeriod: number;
+    fulfilledTransactionsAllTime: number;
+    fulfilledTransactionsInPeriod: number;
+    pendingTransactions: number;
+    failedTransactions: number;
+    activePaidUsers: number;
+    totalRevenueByCurrency: AdminCurrencyAmount[];
+    periodRevenueByCurrency: AdminCurrencyAmount[];
+  };
+  revenueSeries: AdminRevenuePoint[];
+  userGrowthSeries: AdminUserGrowthPoint[];
+  planDistribution: AdminPlanDistributionPoint[];
+  transactionStatusDistribution: AdminTransactionStatusPoint[];
+  revenueByPlan: AdminPlanRevenuePoint[];
+  recentTransactions: AdminTransactionView[];
+}
+
+export interface AdminTransactionPage {
+  items: AdminTransactionView[];
+  nextCursor?: string | null;
+  pageSize: number;
+}
+
+function toQueryString(values: object) {
+  const params = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  });
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
 export const adminApi = {
+
+  // --- Dashboard and reporting ---
+  getDashboard: async (filters: AdminDashboardFilters) => {
+    const query = toQueryString(filters);
+    const response = await apiClient.get(`/admin/dashboard${query}`) as { data: AdminDashboardView };
+    return response.data;
+  },
+  getTransactions: async (filters: AdminTransactionFilters) => {
+    const query = toQueryString(filters);
+    const response = await apiClient.get(`/admin/transactions${query}`) as { data: AdminTransactionPage };
+    return response.data;
+  },
 
   // --- Plans Management ---
   getPlans: async () => {
