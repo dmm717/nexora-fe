@@ -4,8 +4,92 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 
 export type CameraState = 'off' | 'requesting' | 'on' | 'denied' | 'unavailable' | 'error';
 
+export interface CameraAcquisitionToken {
+  generation: number;
+  scopeKey: string;
+}
+
+export interface MediaTrackLike {
+  stop: () => void;
+}
+
+export interface MediaStreamLike {
+  getTracks: () => MediaTrackLike[];
+}
+
+/**
+ * Production coordinator managing acquisition generation tokens,
+ * canonical room eligibility, and interview ID scope boundaries.
+ */
+export class CameraAcquisitionCoordinator {
+  private generation = 0;
+  private currentScopeKey = '';
+  private isAllowed = false;
+  private isMounted = true;
+
+  constructor(initialAllowed = true, initialScopeKey = '') {
+    this.isAllowed = initialAllowed;
+    this.currentScopeKey = initialScopeKey;
+  }
+
+  update(allowed: boolean, scopeKey: string, mounted = true): void {
+    this.isAllowed = allowed;
+    this.currentScopeKey = scopeKey;
+    this.isMounted = mounted;
+  }
+
+  setMounted(mounted: boolean): void {
+    this.isMounted = mounted;
+  }
+
+  isAcquisitionAllowed(): boolean {
+    return this.isMounted && this.isAllowed;
+  }
+
+  beginAcquisition(): CameraAcquisitionToken {
+    const generation = ++this.generation;
+    return {
+      generation,
+      scopeKey: this.currentScopeKey,
+    };
+  }
+
+  invalidate(): void {
+    this.generation++;
+  }
+
+  shouldAccept(token: CameraAcquisitionToken): boolean {
+    return (
+      this.isMounted &&
+      this.isAllowed &&
+      token.generation === this.generation &&
+      token.scopeKey === this.currentScopeKey
+    );
+  }
+
+  stopStreamTracks(stream: MediaStreamLike | MediaStream | null | undefined): void {
+    if (!stream) return;
+    try {
+      const tracks = stream.getTracks();
+      if (Array.isArray(tracks)) {
+        tracks.forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // ignore
+          }
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export interface UseLocalCameraOptions {
   autoStopOnUnmount?: boolean;
+  enabled?: boolean;
+  scopeKey?: string;
 }
 
 export interface UseLocalCameraReturn {
@@ -44,7 +128,11 @@ export function getCameraErrorMessage(errorName: string): string {
 }
 
 export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCameraReturn {
-  const { autoStopOnUnmount = true } = options;
+  const {
+    autoStopOnUnmount = true,
+    enabled = true,
+    scopeKey = '',
+  } = options;
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [state, setState] = useState<CameraState>('off');
@@ -52,7 +140,11 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
 
   const streamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef<boolean>(true);
-  const requestGenerationRef = useRef<number>(0);
+
+  const [coordinator] = useState(() => new CameraAcquisitionCoordinator(enabled, scopeKey));
+  // Synchronously update coordinator on render so asynchronous resolutions
+  // can immediately inspect canonical eligibility and scope before passive effects run.
+  coordinator.update(enabled, scopeKey);
 
   const isSupported =
     typeof navigator !== 'undefined' &&
@@ -61,29 +153,22 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
 
   const stopAllTracks = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch {
-          // ignore already stopped tracks
-        }
-      });
+      coordinator.stopStreamTracks(streamRef.current);
       streamRef.current = null;
     }
     if (mountedRef.current) {
       setStream(null);
     }
-  }, []);
+  }, [coordinator]);
 
   const disableCamera = useCallback(() => {
-    // Invalidate any in-flight enableCamera requests
-    requestGenerationRef.current++;
+    coordinator.invalidate();
     stopAllTracks();
     if (mountedRef.current) {
-      setState((prev) => (prev === 'off' ? prev : 'off'));
-      setErrorMessage((prev) => (prev === null ? null : null));
+      setState('off');
+      setErrorMessage(null);
     }
-  }, [stopAllTracks]);
+  }, [coordinator, stopAllTracks]);
 
   const enableCamera = useCallback(async () => {
     if (!isSupported) {
@@ -92,10 +177,14 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       return;
     }
 
+    if (!coordinator.isAcquisitionAllowed()) {
+      return;
+    }
+
     // Stop existing stream if any before acquiring new
     stopAllTracks();
 
-    const generation = ++requestGenerationRef.current;
+    const token = coordinator.beginAcquisition();
     setState('requesting');
     setErrorMessage(null);
 
@@ -103,15 +192,9 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       // Audio is explicitly false to ensure zero conflict with speech recognition and TTS
       const mediaStream = await navigator.mediaDevices.getUserMedia(CAMERA_VIDEO_CONSTRAINTS);
 
-      // Guard against component unmount or newer operation (e.g. disableCamera, interview status change)
-      if (!mountedRef.current || generation !== requestGenerationRef.current) {
-        mediaStream.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch {
-            // ignore
-          }
-        });
+      // Guard against component unmount, newer operation, scope change, or non-active room
+      if (!coordinator.shouldAccept(token)) {
+        coordinator.stopStreamTracks(mediaStream);
         return;
       }
 
@@ -120,7 +203,7 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       setState('on');
       setErrorMessage(null);
     } catch (err: unknown) {
-      if (!mountedRef.current || generation !== requestGenerationRef.current) return;
+      if (!coordinator.shouldAccept(token)) return;
 
       const errorName = err instanceof Error ? err.name : 'UnknownError';
       const friendlyMessage = getCameraErrorMessage(errorName);
@@ -136,7 +219,7 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
       setErrorMessage(friendlyMessage);
       stopAllTracks();
     }
-  }, [isSupported, stopAllTracks]);
+  }, [coordinator, isSupported, stopAllTracks]);
 
   const toggleCamera = useCallback(async () => {
     if (state === 'on' || state === 'requesting') {
@@ -146,17 +229,35 @@ export function useLocalCamera(options: UseLocalCameraOptions = {}): UseLocalCam
     }
   }, [state, disableCamera, enableCamera]);
 
+  // Stop active stream when camera becomes disabled / non-active
+  useEffect(() => {
+    if (!enabled) {
+      disableCamera();
+    }
+  }, [enabled, disableCamera]);
+
+  // Stop active stream when interview ID scope changes
+  const prevScopeRef = useRef<string>(scopeKey);
+  useEffect(() => {
+    if (prevScopeRef.current !== scopeKey) {
+      prevScopeRef.current = scopeKey;
+      disableCamera();
+    }
+  }, [scopeKey, disableCamera]);
+
+  // Mount & unmount lifecycle
   useEffect(() => {
     mountedRef.current = true;
-    const generationRef = requestGenerationRef;
+    coordinator.setMounted(true);
     return () => {
       mountedRef.current = false;
-      generationRef.current++;
+      coordinator.setMounted(false);
+      coordinator.invalidate();
       if (autoStopOnUnmount) {
         stopAllTracks();
       }
     };
-  }, [autoStopOnUnmount, stopAllTracks]);
+  }, [autoStopOnUnmount, coordinator, stopAllTracks]);
 
   return {
     stream,

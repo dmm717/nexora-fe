@@ -69,14 +69,6 @@ export default function InterviewRoomPage() {
     duration: 0,
   });
 
-  const {
-    stream: cameraStream,
-    state: cameraState,
-    toggleCamera,
-    disableCamera,
-    errorMessage: cameraErrorMessage,
-  } = useLocalCamera();
-
   // Q3 boundary UI state
   const [showQ3BoundaryModal, setShowQ3BoundaryModal] = useState<boolean>(false);
 
@@ -109,6 +101,19 @@ export default function InterviewRoomPage() {
 
   const { data: interview, isLoading: loading, error: queryError } = useInterview(id);
 
+  const isInterviewActive = interview?.status === 'active';
+
+  const {
+    stream: cameraStream,
+    state: cameraState,
+    toggleCamera,
+    disableCamera,
+    errorMessage: cameraErrorMessage,
+  } = useLocalCamera({
+    enabled: isInterviewActive,
+    scopeKey: id,
+  });
+
   // Derived interview domain properties
   const answeredPairs = useMemo(
     () => getAnsweredQuestions(interview?.questions, interview?.answers),
@@ -135,13 +140,12 @@ export default function InterviewRoomPage() {
   });
   const activeQuestionId = activeQuestion?.id;
 
-  // Stop local camera whenever the interview transitions away from active or when room switches ID
-  const interviewStatus = interview?.status;
+  // Fail-closed camera shutdown whenever canonical interview is not active or when route switches ID
   useEffect(() => {
-    if (interviewStatus && interviewStatus !== 'active') {
+    if (interview?.status !== 'active') {
       disableCamera();
     }
-  }, [interviewStatus, disableCamera]);
+  }, [interview?.status, disableCamera]);
 
   useEffect(() => {
     disableCamera();

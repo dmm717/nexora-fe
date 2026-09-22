@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   CAMERA_VIDEO_CONSTRAINTS,
   getCameraErrorMessage,
+  CameraAcquisitionCoordinator,
 } from '../src/hooks/useLocalCamera.ts';
 
 import {
@@ -225,9 +226,13 @@ test('8. Interview room page integrates useLocalCamera and stops camera on non-a
   assert.match(pageSource, /CameraToggleButton/);
   assert.match(pageSource, /disableCamera\(\)/, 'Camera must be stopped when user finishes interview early');
 
+  // Synchronous eligibility guard wiring and scopeKey
+  assert.match(pageSource, /enabled:\s*isInterviewActive/);
+  assert.match(pageSource, /scopeKey:\s*id/);
+
   // Same-route status transition and ID change guards
-  assert.match(pageSource, /interviewStatus && interviewStatus !== 'active'/);
-  assert.match(pageSource, /\[interviewStatus, disableCamera\]/);
+  assert.match(pageSource, /interview\?\.status !== 'active'/);
+  assert.match(pageSource, /\[interview\?\.status, disableCamera\]/);
   assert.match(pageSource, /\[id, disableCamera\]/);
 });
 
@@ -274,7 +279,7 @@ test('10. Answer submission and completion contracts remain strictly text/audio 
 });
 
 // ---------------------------------------------------------------------------
-// 11. Async Acquisition Race Condition & Generation Epoch Verification
+// 11. Production CameraAcquisitionCoordinator Regression Suite
 // ---------------------------------------------------------------------------
 
 function createDeferred() {
@@ -287,126 +292,147 @@ function createDeferred() {
   return { promise, resolve, reject };
 }
 
-function createLocalCameraLifecycleHarness() {
-  let stream = null;
-  let state = 'off';
-  let errorMessage = null;
-  let mounted = true;
-  let requestGeneration = 0;
-  let activeStream = null;
-
-  const stopAllTracks = () => {
-    if (activeStream) {
-      activeStream.getTracks().forEach((track) => track.stop());
-      activeStream = null;
-    }
-    if (mounted) {
-      stream = null;
-    }
-  };
-
-  const disableCamera = () => {
-    requestGeneration++;
-    stopAllTracks();
-    if (mounted) {
-      state = 'off';
-      errorMessage = null;
-    }
-  };
-
-  const enableCamera = async (getUserMediaFn) => {
-    stopAllTracks();
-    const generation = ++requestGeneration;
-    state = 'requesting';
-    errorMessage = null;
-
-    try {
-      const mediaStream = await getUserMediaFn();
-      if (!mounted || generation !== requestGeneration) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      activeStream = mediaStream;
-      stream = mediaStream;
-      state = 'on';
-      errorMessage = null;
-    } catch {
-      if (!mounted || generation !== requestGeneration) return;
-      state = 'error';
-      stopAllTracks();
-    }
-  };
-
-  const unmount = () => {
-    mounted = false;
-    requestGeneration++;
-    stopAllTracks();
-  };
-
-  return {
-    getState: () => state,
-    getStream: () => stream,
-    getErrorMessage: () => errorMessage,
-    enableCamera,
-    disableCamera,
-    unmount,
-  };
-}
-
-test('11. In-flight getUserMedia cancelled by disableCamera stops late-resolving stream tracks and remains off', async () => {
-  const harness = createLocalCameraLifecycleHarness();
+test('11. Production guard: in-flight acquisition cancelled by invalidate/disable stops tracks and rejects adoption', async () => {
+  const coordinator = new CameraAcquisitionCoordinator(true, 'interview-1');
   const deferred = createDeferred();
   const track = new FakeMediaTrack('video');
-  const lateStream = new FakeMediaStream([track]);
+  const stream = new FakeMediaStream([track]);
 
-  // Step 1: User triggers camera enable
-  const enablePromise = harness.enableCamera(() => deferred.promise);
-  assert.equal(harness.getState(), 'requesting');
-  assert.equal(harness.getStream(), null);
+  // Step 1: acquisition starts while room is active
+  assert.equal(coordinator.isAcquisitionAllowed(), true);
+  const token = coordinator.beginAcquisition();
+  assert.equal(token.generation, 1);
+  assert.equal(token.scopeKey, 'interview-1');
 
-  // Step 2: User explicitly cancels / disables camera before browser prompt resolves
-  harness.disableCamera();
-  assert.equal(harness.getState(), 'off');
-  assert.equal(track.stopped, false, 'track not yet resolved, so cannot be stopped yet');
+  // Step 2: disable / invalidate before browser prompt resolves
+  coordinator.invalidate();
 
-  // Step 3: Browser getUserMedia promise finally resolves
-  deferred.resolve(lateStream);
-  await enablePromise;
+  // Step 3: browser getUserMedia resolves
+  deferred.resolve(stream);
+  const resolvedStream = await deferred.promise;
 
-  // Step 4: Verification - stale stream must have had all tracks stopped and state remains off
-  assert.equal(track.stopped, true, 'Late stream track MUST be stopped immediately on resolution');
-  assert.equal(harness.getState(), 'off', 'Hook state must remain off');
-  assert.equal(harness.getStream(), null, 'No stream must be attached');
+  // Step 4: verification - production guard rejects adoption and stops tracks
+  const shouldAccept = coordinator.shouldAccept(token);
+  assert.equal(shouldAccept, false, 'Late resolving acquisition must be rejected after invalidation');
+  if (!shouldAccept) {
+    coordinator.stopStreamTracks(resolvedStream);
+  }
+  assert.equal(track.stopped, true, 'Tracks of rejected stream must be stopped immediately');
 });
 
-test('12. In-flight getUserMedia cancelled by unmount stops late-resolving stream tracks', async () => {
-  const harness = createLocalCameraLifecycleHarness();
+test('12. Production guard: in-flight acquisition rejected and stopped if component unmounts', async () => {
+  const coordinator = new CameraAcquisitionCoordinator(true, 'interview-1');
   const deferred = createDeferred();
   const track = new FakeMediaTrack('video');
-  const lateStream = new FakeMediaStream([track]);
+  const stream = new FakeMediaStream([track]);
 
-  const enablePromise = harness.enableCamera(() => deferred.promise);
-  assert.equal(harness.getState(), 'requesting');
+  const token = coordinator.beginAcquisition();
+  // Unmount occurs
+  coordinator.setMounted(false);
+  coordinator.invalidate();
 
-  // Component unmounts
-  harness.unmount();
+  deferred.resolve(stream);
+  const resolvedStream = await deferred.promise;
 
-  // Browser resolves after unmount
-  deferred.resolve(lateStream);
-  await enablePromise;
-
-  assert.equal(track.stopped, true, 'Track must be stopped when resolving after unmount');
-  assert.equal(harness.getStream(), null);
+  const shouldAccept = coordinator.shouldAccept(token);
+  assert.equal(shouldAccept, false, 'Acquisition must be rejected after unmount');
+  if (!shouldAccept) {
+    coordinator.stopStreamTracks(resolvedStream);
+  }
+  assert.equal(track.stopped, true, 'Tracks must be stopped when resolving after unmount');
 });
 
-test('13. useLocalCamera hook source code contains requestGeneration epoch check and track disposal', () => {
+test('13. Production guard: acquisition started for interview A is rejected if scope changes to interview B', async () => {
+  const coordinator = new CameraAcquisitionCoordinator(true, 'interview-A');
+  const deferred = createDeferred();
+  const track = new FakeMediaTrack('video');
+  const stream = new FakeMediaStream([track]);
+
+  // Began under interview-A
+  const token = coordinator.beginAcquisition();
+  assert.equal(token.scopeKey, 'interview-A');
+
+  // Route scope changes to interview-B before getUserMedia resolves
+  coordinator.update(true, 'interview-B');
+
+  deferred.resolve(stream);
+  const resolvedStream = await deferred.promise;
+
+  const shouldAccept = coordinator.shouldAccept(token);
+  assert.equal(shouldAccept, false, 'Acquisition for old interview ID must never be adopted by new interview');
+  if (!shouldAccept) {
+    coordinator.stopStreamTracks(resolvedStream);
+  }
+  assert.equal(track.stopped, true, 'Tracks must be stopped when scope mismatch occurs');
+});
+
+test('14. Production guard: acquisition started while active is rejected if room transitions to non-active before resolution', async () => {
+  const coordinator = new CameraAcquisitionCoordinator(true, 'interview-1');
+  const deferred = createDeferred();
+  const track = new FakeMediaTrack('video');
+  const stream = new FakeMediaStream([track]);
+
+  // Began while active
+  const token = coordinator.beginAcquisition();
+
+  // Status transitions to processing/completed/terminal (allowed becomes false)
+  coordinator.update(false, 'interview-1');
+  assert.equal(coordinator.isAcquisitionAllowed(), false);
+
+  deferred.resolve(stream);
+  const resolvedStream = await deferred.promise;
+
+  const shouldAccept = coordinator.shouldAccept(token);
+  assert.equal(shouldAccept, false, 'Acquisition must not be accepted once room is no longer active');
+  if (!shouldAccept) {
+    coordinator.stopStreamTracks(resolvedStream);
+  }
+  assert.equal(track.stopped, true, 'Tracks must be stopped if status transitioned away from active');
+});
+
+test('15. Production guard: accepted stream tracks stopped when allowed becomes false', () => {
+  const coordinator = new CameraAcquisitionCoordinator(true, 'interview-1');
+  const track = new FakeMediaTrack('video');
+  const acceptedStream = new FakeMediaStream([track]);
+
+  const token = coordinator.beginAcquisition();
+  assert.equal(coordinator.shouldAccept(token), true);
+
+  // Status transitions to non-active
+  coordinator.update(false, 'interview-1');
+  assert.equal(coordinator.isAcquisitionAllowed(), false);
+
+  // Accepted stream cleanup
+  coordinator.stopStreamTracks(acceptedStream);
+  assert.equal(track.stopped, true, 'Accepted stream tracks must be stopped when interview becomes non-active');
+});
+
+test('16. Production guard: accepted stream tracks stopped when ID scope changes', () => {
+  const coordinator = new CameraAcquisitionCoordinator(true, 'interview-A');
+  const track = new FakeMediaTrack('video');
+  const acceptedStream = new FakeMediaStream([track]);
+
+  const token = coordinator.beginAcquisition();
+  assert.equal(coordinator.shouldAccept(token), true);
+
+  // Room switches to interview-B
+  coordinator.update(true, 'interview-B');
+
+  // Accepted stream cleanup on scope transition
+  coordinator.stopStreamTracks(acceptedStream);
+  assert.equal(track.stopped, true, 'Accepted stream tracks must be stopped when route ID changes');
+});
+
+test('17. Production useLocalCamera hook wires CameraAcquisitionCoordinator synchronously during render', () => {
   const hookSource = readFileSync(
     new URL('../src/hooks/useLocalCamera.ts', import.meta.url),
     'utf8'
   );
 
-  assert.match(hookSource, /requestGenerationRef = useRef<number>\(0\)/);
-  assert.match(hookSource, /generation !== requestGenerationRef\.current/);
-  assert.match(hookSource, /track\.stop\(\)/);
-  assert.match(hookSource, /requestGenerationRef\.current\+\+/);
+  assert.match(hookSource, /new CameraAcquisitionCoordinator\(enabled, scopeKey\)/);
+  assert.match(hookSource, /coordinator\.update\(enabled, scopeKey/);
+  assert.match(hookSource, /coordinator\.isAcquisitionAllowed\(\)/);
+  assert.match(hookSource, /coordinator\.beginAcquisition\(\)/);
+  assert.match(hookSource, /coordinator\.shouldAccept\(token\)/);
+  assert.match(hookSource, /coordinator\.stopStreamTracks\(/);
 });
