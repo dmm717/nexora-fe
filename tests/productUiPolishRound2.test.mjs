@@ -56,8 +56,15 @@ test('Recommendation customer copy is structured Vietnamese, not backend free-fo
     activityType: 'scenario',
     priority: 1,
     estimatedMinutes: 20,
+    rationale: {
+      competencyName: 'Cấu trúc câu trả lời',
+      evidenceCount: 6,
+      hasMoreRecentlyPracticedPeer: true,
+    },
   });
-  assert.match(copy, /Luyện tình huống thực tế/);
+  assert.match(copy, /Cấu trúc câu trả lời/);
+  assert.match(copy, /6 bằng chứng/);
+  assert.match(copy, /lâu chưa được luyện/);
   assert.match(copy, /20 phút/);
   assert.doesNotMatch(copy, /Practice Impact Evidence next because/);
 });
@@ -69,8 +76,8 @@ test('Landing practice/product surfaces have explicit boundaries and preserve sh
     readSource('../src/config/brandAssets.ts'),
   ]);
 
-  assert.match(landingCss, /\.scenarioPanel,\s*\.starPanel\s*\{[^}]*border:\s*1px solid/);
-  assert.match(landingCss, /\.previewStage\s*\{[^}]*border:\s*1px solid/);
+  assert.match(landingCss, /\.scenarioPanel,\s*\.starPanel\s*\{[^}]*border:\s*2px solid/);
+  assert.match(landingCss, /\.previewStage\s*\{[^}]*border:\s*2px solid/);
   assert.match(landingCss, /\.productWindow\s*\{[^}]*border:\s*1px solid/);
   assert.match(landingSource, /sizes="\(max-width: 760px\) 116px, \(max-width: 1100px\) 140px, 172px"/);
   assert.match(landingSource, /sizes="\(max-width: 760px\) 118px, \(max-width: 1100px\) 146px, 180px"/);
@@ -79,9 +86,36 @@ test('Landing practice/product surfaces have explicit boundaries and preserve sh
 });
 
 test('Pricing motion has pointer-only lift and a reduced-motion final state', async () => {
-  const source = await readSource('../src/styles/product-visual.css');
-  assert.match(source, /@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)/);
-  assert.match(source, /\.pricing-choice:not\(\[data-current='true'\]\):hover/);
-  assert.match(source, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
-  assert.match(source, /\.pricing-choice\s*\{\s*transition:\s*none;/);
+  const [styles, pricingCards] = await Promise.all([
+    readSource('../src/styles/product-visual.css'),
+    readSource('../src/components/features/pricing/PricingCards.tsx'),
+  ]);
+  assert.match(styles, /@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)/);
+  assert.match(styles, /\.pricing-choice:not\(\[data-current='true'\]\):hover/);
+  assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  assert.match(styles, /\.pricing-choice\s*\{\s*transition:\s*none;/);
+  assert.match(pricingCards, /useLayoutEffect/);
+  assert.match(pricingCards, /pricedPlans\.length === 0/);
+  assert.match(pricingCards, /hasAnimatedPricingRef/);
+  assert.match(pricingCards, /prefers-reduced-motion: reduce/);
+  assert.match(pricingCards, /data-pricing-card/);
+  assert.doesNotMatch(pricingCards, /opacity:\s*0[^}]*className/);
+});
+
+test('Social proof is one compound framed module and one review uses the available pane', async () => {
+  const [styles, component] = await Promise.all([
+    readSource('../src/components/features/landing/LandingTestimonials.module.css'),
+    readSource('../src/components/features/landing/LandingTestimonials.tsx'),
+  ]);
+  assert.match(styles, /\.shell\s*\{[^}]*gap:\s*0;[^}]*border:\s*2px solid var\(--frame-showcase\)/s);
+  assert.match(styles, /\.statsPanel\s*\{[^}]*border-left:\s*1px solid var\(--frame-showcase\)/s);
+  assert.match(styles, /\.testimonialList\[data-count='1'\]\s*\{[^}]*minmax\(0, 1fr\)/s);
+  assert.match(component, /data-count=\{items\.length\}/);
+  assert.doesNotMatch(component, /items\.concat|Array\.from\([^)]*items/);
+});
+
+test('Billing uses customer-facing interview quota copy', async () => {
+  const source = await readSource('../src/app/(dashboard)/billing/page.tsx');
+  assert.match(source, /Hạn mức phỏng vấn:/);
+  assert.doesNotMatch(source, /Hạn mức giá:/);
 });

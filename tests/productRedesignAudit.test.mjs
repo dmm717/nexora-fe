@@ -119,10 +119,11 @@ test('Copywriting Anti-Slop: Technical testing and machine jargon phrases are re
   assert.doesNotMatch(requireAuthSource, /máy chủ/);
 });
 
-test('Landing: cvDemoStage defaults to result so visitors see outcomes without clicking', async () => {
+test('Landing: product proof is visible without replay or empty-state controls', async () => {
   const landingSource = await readSource('../src/components/features/landing/MarketingLanding.tsx');
-  assert.match(landingSource, /const\s*\[cvDemoStage,\s*setCvDemoStage\]\s*=\s*useState<CvDemoStage>\('result'\)/);
-  assert.doesNotMatch(landingSource, /const\s*\[cvDemoStage,\s*setCvDemoStage\]\s*=\s*useState<CvDemoStage>\('empty'\)/);
+  assert.match(landingSource, /data-cv-demo-result/);
+  assert.doesNotMatch(landingSource, /demo phân tích mẫu/);
+  assert.doesNotMatch(landingSource, /Xem trạng thái tài khoản mới/);
 });
 
 test('Billing & Account: Order status safely falls back to localized label and avoids raw enum strings', async () => {

@@ -15,6 +15,14 @@
 
   --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
   --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+
+  /* Product frame hierarchy: showcase, nested card, internal separator. */
+  --frame-showcase: color-mix(in srgb, var(--color-primary) 52%, white);
+  --frame-standard: color-mix(in srgb, var(--color-outline) 42%, white);
+  --frame-divider: color-mix(in srgb, var(--color-outline-variant) 62%, white);
+  --frame-hover: color-mix(in srgb, var(--color-primary) 66%, white);
+  --frame-selected: var(--color-primary);
+  --shadow-showcase: 0 22px 52px -30px rgb(27 51 199 / 46%);
 }
 
 @theme {

@@ -157,9 +157,7 @@ export const LandingTestimonials: React.FC = () => {
 
                 return (
                   <article key={item.id} className={styles.testimonialCard} data-social-proof-reveal>
-                    <RatingStars rating={item.rating} label={`${item.rating} trên 5 sao`} />
-                    <blockquote>&ldquo;{item.comment}&rdquo;</blockquote>
-                    <footer>
+                    <div className={styles.testimonialHeader}>
                       <div className={styles.author}>
                         <span className={styles.avatar} aria-hidden="true">
                           <FeedbackAvatar item={item} />
@@ -169,7 +167,12 @@ export const LandingTestimonials: React.FC = () => {
                           {publishedAt && <time dateTime={item.publishedAt}>{publishedAt}</time>}
                         </div>
                       </div>
-                    </footer>
+                      <div className={styles.testimonialRating}>
+                        <RatingStars rating={item.rating} label={`${item.rating} trên 5 sao`} />
+                        <strong>{item.rating}/5</strong>
+                      </div>
+                    </div>
+                    <blockquote>&ldquo;{item.comment}&rdquo;</blockquote>
                   </article>
                 );
               })}

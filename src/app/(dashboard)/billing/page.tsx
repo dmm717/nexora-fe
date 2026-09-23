@@ -501,13 +501,13 @@ export default function BillingPage() {
                   isCurrentPlan
                     ? 'border-2 border-primary shadow-floating bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
                     : isHighlighted
-                    ? 'border border-primary/50 shadow-card bg-white'
-                    : 'border border-outline-variant/60 shadow-subtle bg-white'
+                    ? 'border-2 border-primary/70 shadow-card bg-white'
+                    : 'border border-outline/45 shadow-subtle bg-white'
                 }`}
               >
                 {isHighlighted && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-[9px_9px_9px_3px] text-xs font-bold bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
                       <Sparkles size={13} aria-hidden="true" className="text-amber-300" />
                       Phổ biến nhất
                     </span>
@@ -521,7 +521,7 @@ export default function BillingPage() {
                       <Badge variant="primary" size="sm">Gói hiện tại</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-on-surface-variant min-h-[32px] leading-relaxed">
+                  <p className="text-sm text-on-surface-variant min-h-[40px] leading-relaxed">
                     {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
                   </p>
                   <div className="pt-2 pb-2 border-b border-outline-variant/30">
@@ -530,18 +530,18 @@ export default function BillingPage() {
                         {isFree ? 'Miễn phí' : formatCurrency(price.amountMinor, price.currency)}
                       </span>
                       {!isFree && price.durationDays && (
-                        <span className="text-xs text-on-surface-variant font-medium">
+                        <span className="text-sm text-on-surface-variant font-medium">
                           / {price.durationDays} ngày
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <ul className="space-y-2.5 pt-2 text-xs text-on-surface">
+                  <ul className="space-y-2.5 pt-2 text-sm text-on-surface">
                     {price.interviewQuota !== null && (
                       <li className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                        <span>Hạn mức giá: {price.interviewQuota} lượt phỏng vấn</span>
+                        <span>Hạn mức phỏng vấn: {price.interviewQuota} lượt</span>
                       </li>
                     )}
                     {featureDescriptions.map((description) => (

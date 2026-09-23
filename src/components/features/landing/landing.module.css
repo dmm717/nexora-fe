@@ -195,7 +195,7 @@
 }
 .productWindow {
   background: #fff;
-  border: 1px solid #dce4f8;
+  border: 1px solid var(--frame-standard);
   border-radius: 16px;
   padding: 25px;
   box-shadow: 0 20px 60px #32398312;
@@ -492,11 +492,11 @@
 }
 .previewStage {
   position: relative;
-  background: #f4f7ff;
-  border: 1px solid #dbe4f7;
+  background: linear-gradient(145deg, #f8faff, #eef3ff);
+  border: 2px solid var(--frame-showcase);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 18px 42px -32px rgba(24, 44, 118, 0.5);
+  box-shadow: var(--shadow-showcase);
 }
 .featureMascot {
   position: absolute;
@@ -513,6 +513,11 @@
 }
 .interviewVisual {
   position: relative;
+  padding: 20px;
+  border: 2px solid color-mix(in srgb, var(--color-primary-fixed-dim) 68%, white);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 5%);
+  box-shadow: 0 22px 50px -30px rgb(0 8 62 / 72%);
 }
 .interviewMascot {
   top: 34px;
@@ -677,7 +682,9 @@
   display: flex;
   gap: 13px;
   align-items: center;
-  padding: 21px 10px 0;
+  margin-top: 16px;
+  padding: 17px 12px 0;
+  border-top: 1px solid rgb(255 255 255 / 18%);
   color: #c4baff;
 }
 .reportStrip b {
@@ -701,11 +708,11 @@
 .starPanel {
   padding: 34px;
   border-radius: 16px;
-  border: 1px solid #dbe4f7;
+  border: 2px solid var(--frame-showcase);
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  box-shadow: 0 16px 34px -30px rgba(24, 44, 118, 0.5);
+  box-shadow: var(--shadow-showcase);
 }
 .scenarioPanel {
   background: #f1f6ff;
@@ -734,7 +741,7 @@
 .scenarioExample {
   margin: 27px 0;
   background: #fff;
-  border: 1px solid #e0e7f7;
+  border: 1px solid var(--frame-standard);
   padding: 27px;
   border-radius: 12px;
 }
@@ -757,7 +764,7 @@
   background: #eff2ff;
   padding: 6px 10px;
   border-radius: 6px;
-  font-size: 9px;
+  font-size: 11px;
   color: #4c587f;
 }
 .textAction {
@@ -787,7 +794,7 @@
   align-items: center;
   gap: 10px;
   padding: 9px 0;
-  border-bottom: 1px solid #e0e7f7;
+  border-bottom: 1px solid var(--frame-divider);
 }
 .starRows > div:last-child {
   border-bottom: 0;
@@ -802,19 +809,20 @@
   font-size: 18px;
 }
 .starRows strong {
-  font-size: 11px;
+  font-size: 12px;
 }
 .starRows span {
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--muted);
 }
 .progressStage {
   padding: 28px;
-  border: 1px solid #dedff1;
+  border: 2px solid var(--frame-showcase);
   border-radius: 16px;
   background: white;
   min-height: 405px;
-  box-shadow: 0 16px 34px -30px rgba(24, 44, 118, 0.5);
+  box-shadow: var(--shadow-showcase);
 }
 .progressStage h3 {
   font-weight: 700;
@@ -826,7 +834,7 @@
   align-items: center;
   gap: 8px;
   color: #554aaa;
-  font-size: 10px;
+  font-size: 12px;
   cursor: pointer;
   padding: 5px 0;
   text-decoration: underline;
@@ -838,7 +846,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 22px;
-  font-size: 10px;
+  font-size: 12px;
   color: #5f6583;
 }
 .historyRow b {
@@ -931,14 +939,14 @@
   width: 100%;
   padding: 30px 24px 24px;
   background: #ffffff;
-  border: 1px solid #dce0f2;
+  border: 1px solid var(--frame-standard);
   border-radius: 18px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .highlightedPlan {
   background: #ffffff;
-  border: 1.5px solid var(--accent);
+  border: 2px solid var(--frame-selected);
   box-shadow: 0 12px 32px -8px rgba(27, 51, 199, 0.16);
 }
 .popularBadge {
@@ -950,13 +958,12 @@
   align-items: center;
   gap: 6px;
   padding: 4px 14px;
-  border-radius: 9999px;
+  border-radius: 9px 9px 9px 3px;
   background: #1b33c7;
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   box-shadow: 0 4px 14px rgba(27, 51, 199, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -999,7 +1006,7 @@
   line-height: 1.1;
 }
 .planDuration {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: #64748b;
   margin-top: 6px;

@@ -18,6 +18,11 @@ export interface NextPracticeRecommendationResponse {
   resourceId: string | null;
   estimatedMinutes: number;
   priority: number;
+  rationale?: {
+    competencyName: string;
+    evidenceCount: number;
+    hasMoreRecentlyPracticedPeer: boolean;
+  } | null;
   action?: {
     type: string;
     reason: string;
@@ -29,14 +34,13 @@ export interface NextPracticeRecommendationResponse {
 }
 
 /**
- * Presents a recommendation with product copy derived from structured fields.
- * The backend reason is retained for contract compatibility, but it is not
- * customer-facing because it may be generated in English.
+ * Presents a recommendation from server-owned structured rationale.
+ * The legacy backend reason remains non-customer-facing because it may be English.
  */
 export function getLocalizedRecommendationReason(
   recommendation: Pick<
     NextPracticeRecommendationResponse,
-    'activityType' | 'priority' | 'estimatedMinutes'
+    'activityType' | 'priority' | 'estimatedMinutes' | 'rationale'
   > | null | undefined
 ): string {
   if (!recommendation) {
@@ -61,6 +65,21 @@ export function getLocalizedRecommendationReason(
     recommendation.estimatedMinutes > 0
       ? ` Dành khoảng ${recommendation.estimatedMinutes} phút cho lượt luyện này.`
       : '';
+
+  const rationale = recommendation.rationale;
+  if (rationale?.competencyName.trim()) {
+    const priorityReason =
+      recommendation.priority <= 1
+        ? 'điểm cần ưu tiên cao'
+        : recommendation.priority === 2
+          ? 'điểm nên củng cố tiếp theo'
+          : 'một phần trong lộ trình hiện tại';
+    const recencyReason = rationale.hasMoreRecentlyPracticedPeer
+      ? ' Nội dung này cũng đã lâu chưa được luyện hơn một điểm cần cải thiện khác cùng mức ưu tiên.'
+      : '';
+
+    return `Nên luyện ${rationale.competencyName.trim()} tiếp theo vì đây là ${priorityReason}, dựa trên ${Math.max(0, rationale.evidenceCount)} bằng chứng đã ghi nhận.${recencyReason}${durationLabel}`;
+  }
 
   return `${activityLabel} ${priorityLabel} theo lộ trình hiện tại của bạn.${durationLabel}`;
 }
@@ -103,6 +122,13 @@ export function normalizeNextPracticeRecommendationResponse(
     resourceId: asNullableString(raw.resourceId),
     estimatedMinutes: asNumber(raw.estimatedMinutes, 0),
     priority: asNumber(raw.priority, 1),
+    rationale: isRecord(raw.rationale)
+      ? {
+          competencyName: asString(raw.rationale.competencyName).trim(),
+          evidenceCount: Math.max(0, asNumber(raw.rationale.evidenceCount, 0)),
+          hasMoreRecentlyPracticedPeer: raw.rationale.hasMoreRecentlyPracticedPeer === true,
+        }
+      : null,
     action: isRecord(raw.action)
       ? {
           type: asString(raw.action.type),
