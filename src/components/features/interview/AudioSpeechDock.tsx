@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnswerEditor } from './AnswerEditor';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { mergeFinalTranscript } from '@/hooks/speechRecognitionContract';
+import { selectInterviewInputMode } from './inputModeSelection';
 import {
   getAnswerSubmissionStatus,
   type AnswerSubmissionPhase,
@@ -203,16 +204,20 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
     speech.stop();
   };
 
-  const handleModeChange = (next: 'voice' | 'chatbox') => {
-    if (next === effectiveMode) return;
-    if (isStartingListening || listeningStartInFlightRef.current || speech.listening) {
-      handleStopListening();
-    }
-    onModeChange(next);
-    onEditorOpenChange?.(next === 'chatbox');
-  };
-  const selectVoice = () => handleModeChange('voice');
-  const selectText = () => handleModeChange('chatbox');
+  const selectMode = (next: 'voice' | 'chatbox') => selectInterviewInputMode(
+    effectiveMode,
+    next,
+    forcedTextOnly,
+    () => {
+      if (isStartingListening || listeningStartInFlightRef.current || speech.listening) {
+        handleStopListening();
+      }
+    },
+    onModeChange,
+    onEditorOpenChange
+  );
+  const selectVoice = () => selectMode('voice');
+  const selectText = () => selectMode('chatbox');
 
   const handleSubmit = async () => {
     const wasPreparingListening =
@@ -300,7 +305,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
               </>
             )}
             {forcedTextOnly && (
-              <button type="button" className="interview-call-button" aria-pressed="true" disabled={isLocked} onClick={() => onEditorOpenChange?.(true)}>
+              <button type="button" className="interview-call-button" aria-pressed="true" disabled={isLocked} onClick={selectText}>
                 Bàn phím
               </button>
             )}
