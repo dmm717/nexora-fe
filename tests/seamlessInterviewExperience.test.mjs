@@ -266,10 +266,73 @@ test('input mode belongs to interview room and report recovery stays user-trigge
   assert.match(room, /mode=\{inputMode\}/);
   assert.match(dock, /aria-pressed=\{effectiveMode === 'voice'\}/);
   assert.match(dock, /aria-pressed=\{effectiveMode === 'chatbox'\}/);
-  assert.match(dock, /onEditorOpenChange\?\.\(next === 'chatbox'\)/);
+  assert.match(dock, /selectInterviewInputMode\(/);
   assert.doesNotMatch(dock, /setDeviceMode/);
   assert.match(report, /Khôi phục xử lý kết quả/);
   assert.match(report, /onClick=\{handleRetryResults\}/);
+});
+
+test('keyboard selection reopens an empty editor after advancing questions without resetting room mode', async () => {
+  const { selectInterviewInputMode } = await import('../src/components/features/interview/inputModeSelection.ts');
+  const contract = await import('../src/services/interviewContract.ts');
+  let mode = 'voice';
+  let editorOpen = false;
+  let stoppedListening = 0;
+  let draft = '';
+  const select = (nextMode, forcedTextOnly = false) => selectInterviewInputMode(
+    mode,
+    nextMode,
+    forcedTextOnly,
+    () => { stoppedListening += 1; },
+    (next) => { mode = next; },
+    (open) => { editorOpen = open; }
+  );
+
+  select('voice');
+  assert.equal(stoppedListening, 0, 'reselecting voice must not start or stop recognition');
+  select('chatbox');
+  assert.equal(mode, 'chatbox');
+  assert.equal(editorOpen, true);
+  assert.equal(stoppedListening, 1);
+
+  select('chatbox');
+  assert.equal(editorOpen, true, 'reselecting keyboard leaves an open editor open');
+  draft = 'Q2 answer';
+  const q2 = { id: 'q-2', sequence: 2, kind: 'primary', content: 'Q2', createdAt: '' };
+  const q3 = { id: 'q-3', sequence: 3, kind: 'primary', content: 'Q3', createdAt: '' };
+  const beforeSubmit = {
+    id: 'iv-keyboard', status: 'active', version: 10, questions: [q2], answers: [],
+    continuation: { state: 'in_progress', canFinishNow: false, canUpgradeAndContinue: false },
+  };
+  const accepted = contract.applyAnswerResultToInterview(beforeSubmit, {
+    answer: { id: 'a-2', questionId: q2.id, content: draft, createdAt: '' },
+    nextQuestion: q3,
+    continuation: beforeSubmit.continuation,
+  });
+  editorOpen = false; // AnswerEditor closes on submit.
+  draft = '';
+  const afterLateGet = contract.reconcileInterviewSnapshot(accepted, beforeSubmit);
+  assert.equal(contract.getCurrentQuestion(afterLateGet.questions, afterLateGet.answers).id, 'q-3');
+  assert.equal(mode, 'chatbox');
+  assert.equal(draft, '');
+  select('chatbox');
+  assert.equal(mode, 'chatbox');
+  assert.equal(editorOpen, true, 'keyboard reopens the empty editor on Q3');
+  draft = 'Q3 answer';
+  assert.equal(draft, 'Q3 answer');
+
+  select('voice');
+  assert.equal(mode, 'voice');
+  assert.equal(editorOpen, false);
+  assert.equal(stoppedListening, 2);
+
+  mode = 'chatbox'; // Text-only room never offers voice.
+  select('voice', true);
+  assert.equal(mode, 'chatbox');
+  editorOpen = false;
+  select('chatbox', true);
+  assert.equal(mode, 'chatbox');
+  assert.equal(editorOpen, true);
 });
 
 test('5. Paid user Q3: Q4 returned -> no Free boundary modal', () => {
