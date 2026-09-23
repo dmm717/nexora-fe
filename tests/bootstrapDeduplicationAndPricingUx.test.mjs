@@ -4,14 +4,27 @@ import { readFile } from 'node:fs/promises';
 
 const readSource = (relPath) => readFile(new URL(relPath, import.meta.url), 'utf8');
 
-test('Part A: Query deduplication and bootstrap request storm elimination', async () => {
+test('Query Client freshness defaults and principal cache isolation', async () => {
+  const sessionClientSource = await readSource('../src/services/sessionQueryClient.ts');
+
+  // Global QueryClient defaults must preserve pre-PR freshness semantics
+  assert.match(sessionClientSource, /staleTime:\s*0/);
+  assert.match(sessionClientSource, /refetchOnWindowFocus:\s*true/);
+
+  // Account/principal cache isolation remains intact on epoch increment
+  assert.match(sessionClientSource, /SessionQueryClientManager/);
+  assert.match(sessionClientSource, /this\.client\.clear\(\)/);
+  assert.match(sessionClientSource, /this\.client\s*=\s*createSessionQueryClient\(\)/);
+  assert.match(sessionClientSource, /this\.epoch\s*=\s*nextEpoch/);
+});
+
+test('Resource-targeted query tuning for bootstrap and cache deduplication', async () => {
   const careerProfileQuery = await readSource('../src/hooks/queries/useCareerProfile.ts');
   const billingQuery = await readSource('../src/hooks/queries/useBilling.ts');
-  const sessionClient = await readSource('../src/services/sessionQueryClient.ts');
   const progressQuery = await readSource('../src/hooks/queries/useProgressDashboard.ts');
   const nextRecQuery = await readSource('../src/hooks/queries/useNextRecommendation.ts');
 
-  // useCareerProfile and useResumes must be guarded by auth state to avoid unauthenticated 401 request waves
+  // useCareerProfile and useResumes must be guarded by auth state
   assert.match(careerProfileQuery, /useAuth/);
   assert.match(careerProfileQuery, /enabled:\s*authReady\s*&&\s*isAuthenticated/);
   assert.match(careerProfileQuery, /staleTime:\s*5\s*\*\s*60\s*\*\s*1000/);
@@ -22,37 +35,34 @@ test('Part A: Query deduplication and bootstrap request storm elimination', asyn
   assert.match(billingQuery, /queryKey:\s*billingPlanKeys\.all/);
   assert.match(billingQuery, /staleTime:\s*5\s*\*\s*60\s*\*\s*1000/);
 
-  // sessionQueryClient defaultOptions must prevent aggressive window-focus storms
-  assert.match(sessionClient, /refetchOnWindowFocus:\s*false/);
-  assert.match(sessionClient, /staleTime:\s*60\s*\*\s*1000/);
-
-  // Dashboard & recommendations must have sensible cache windows
+  // Dashboard & recommendations retain targeted resource cache windows
   assert.match(progressQuery, /staleTime:\s*60\s*\*\s*1000/);
   assert.match(progressQuery, /refetchOnWindowFocus:\s*false/);
   assert.match(nextRecQuery, /staleTime:\s*60\s*\*\s*1000/);
   assert.match(nextRecQuery, /refetchOnWindowFocus:\s*false/);
 });
 
-test('Part B: Nexora-branded boot loader for root session boot & suspense', async () => {
+test('Loading architecture: Initial auth boot overlay vs contained route loading', async () => {
   const bootLoaderSource = await readSource('../src/components/brand/NexoraBootLoader.tsx');
   const requireAuthSource = await readSource('../src/components/providers/RequireAuth.tsx');
   const rootLoadingSource = await readSource('../src/app/loading.tsx');
 
-  // NexoraBootLoader contains brand logo, accessible status role, and branded progress bar
+  // Initial auth boot: full-screen NexoraBootLoader overlay with logo and brand tokens
+  assert.match(bootLoaderSource, /fixed inset-0 z-50/);
   assert.match(bootLoaderSource, /NexoraLogo/);
-  assert.match(bootLoaderSource, /role="status"/);
-  assert.match(bootLoaderSource, /aria-live="polite"/);
-  assert.match(bootLoaderSource, /nexora-boot-loader-indicator/);
+  assert.match(requireAuthSource, /<NexoraBootLoader/);
 
-  // RequireAuth uses NexoraBootLoader during initial auth bootstrap
-  assert.match(requireAuthSource, /NexoraBootLoader/);
-  assert.doesNotMatch(requireAuthSource, /animate-spin.*rounded-full/);
-
-  // Root loading.tsx uses NexoraBootLoader
-  assert.match(rootLoadingSource, /NexoraBootLoader/);
+  // Normal route loading: contained layout UI that preserves application shell/navigation
+  assert.match(rootLoadingSource, /functional-spinner/);
+  assert.doesNotMatch(rootLoadingSource, /fixed inset-0/);
+  assert.doesNotMatch(rootLoadingSource, /z-50/);
+  assert.doesNotMatch(rootLoadingSource, /NexoraBootLoader/);
+  assert.doesNotMatch(rootLoadingSource, /animate-spin/);
+  assert.match(rootLoadingSource, /role="status"/);
+  assert.match(rootLoadingSource, /aria-live="polite"/);
 });
 
-test('Part C & D: Pricing 2-level progressive disclosure and GSAP Master Timeline preservation', async () => {
+test('Pricing progressive disclosure, authoritative data rendering, and GSAP timeline', async () => {
   const pricingCards = await readSource('../src/components/features/pricing/PricingCards.tsx');
   const productVisualCss = await readSource('../src/styles/product-visual.css');
 
@@ -70,7 +80,7 @@ test('Part C & D: Pricing 2-level progressive disclosure and GSAP Master Timelin
   assert.match(pricingCards, /Chọn gói này/);
   assert.match(pricingCards, /Bắt đầu miễn phí/);
 
-  // Level 2: Detailed comparison table
+  // Level 2: Detailed comparison table derived solely from backend plan/price features
   assert.match(pricingCards, /id="feature-comparison"/);
   assert.match(pricingCards, /So sánh chi tiết quyền lợi các gói/);
   assert.match(pricingCards, /overflow-x-auto/);
@@ -78,6 +88,9 @@ test('Part C & D: Pricing 2-level progressive disclosure and GSAP Master Timelin
   assert.match(pricingCards, /<thead/);
   assert.match(pricingCards, /<tbody/);
   assert.match(pricingCards, /<tfoot/);
+
+  // No unbacked or invented universal claims
+  assert.doesNotMatch(pricingCards, /Mọi gói đều hỗ trợ bảo mật dữ liệu/);
 
   // GSAP Master Timeline preservation
   assert.match(pricingCards, /useLayoutEffect/);

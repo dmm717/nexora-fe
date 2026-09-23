@@ -4,10 +4,10 @@ import { getPrincipalEpoch } from '../store/authStore.ts';
 export const createSessionQueryClient = (): QueryClient => new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,
+      staleTime: 0,
       gcTime: 5 * 60 * 1000,
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
     },
   },
 });

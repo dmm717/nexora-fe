@@ -597,9 +597,6 @@ export default function PricingCards() {
                       Xem toàn bộ hạn mức phỏng vấn, công cụ đánh giá AI và quyền lợi đi kèm để đưa ra quyết định phù hợp nhất.
                     </p>
                   </div>
-                  <div className="text-xs font-medium text-on-surface-variant hidden sm:block">
-                    Mọi gói đều hỗ trợ bảo mật dữ liệu và lưu trữ phiên phỏng vấn.
-                  </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-outline-variant/40 bg-white shadow-xs">
