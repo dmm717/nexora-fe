@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthBootstrapProvider';
+import { NexoraBootLoader } from '@/components/brand/NexoraBootLoader';
 
 export interface RequireAuthProps {
   children: React.ReactNode;
@@ -28,31 +29,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
   }, [authReady, isAuthenticated, bootstrapError, router]);
 
   if (!authReady) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          backgroundColor: '#f8fafc',
-        }}
-        role="status"
-        aria-live="polite"
-      >
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #e2e8f0',
-            borderTop: '4px solid #3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }}
-        />
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <NexoraBootLoader message="Đang kết nối phiên đăng nhập..." />;
   }
 
   if (bootstrapError && !isAuthenticated) {

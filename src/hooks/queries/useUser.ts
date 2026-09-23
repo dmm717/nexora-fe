@@ -10,7 +10,8 @@ export const useCurrentUser = () => {
   return useQuery({
     queryKey: CURRENT_USER_QUERY_KEY,
     queryFn: () => userApi.getCurrentUser(),
-    staleTime: 30000, // 30 seconds for dynamic user data
+    staleTime: 60 * 1000,
     enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
   });
 };

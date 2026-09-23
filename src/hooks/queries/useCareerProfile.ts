@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi, type CareerProfileResponse } from '@/services/profileApi';
 import type { ResumeView } from '@/services/cvAnalysisApi';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { CURRENT_USER_QUERY_KEY } from './useUser';
 import {
   applyPrimaryResumeToCareerProfile,
@@ -18,10 +19,13 @@ export const resumeKeys = {
 };
 
 export function useCareerProfile() {
+  const { authReady, isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: careerProfileKeys.all,
     queryFn: profileApi.getCareerProfile,
-    staleTime: 60000, // Cache for 1 minute
+    staleTime: 5 * 60 * 1000, // 5 minutes - stable within normal session
+    enabled: authReady && isAuthenticated,
     retry: shouldRetryCareerProfileRequest,
     retryOnMount: false,
     refetchOnWindowFocus: false,
@@ -29,10 +33,14 @@ export function useCareerProfile() {
 }
 
 export function useResumes() {
+  const { authReady, isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: resumeKeys.all,
     queryFn: profileApi.getResumes,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000,
+    enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
   });
 }
 

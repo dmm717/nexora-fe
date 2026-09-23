@@ -1,7 +1,12 @@
+import { NexoraBootLoader } from '@/components/brand/NexoraBootLoader';
+
 export default function Loading() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(5px)' }}>
-      <div className="functional-spinner" style={{ width: '40px', height: '40px', border: '3px solid rgba(0, 156, 166, 0.2)', borderTopColor: '#009ca6', borderRadius: '50%' }} />
+    <div className="relative">
+      <NexoraBootLoader message="Đang tải trang..." />
+      <span className="sr-only functional-spinner" aria-hidden="true" />
     </div>
   );
 }
+
+

@@ -9,8 +9,9 @@ export const useDashboardSummary = () => {
   return useQuery({
     queryKey: ['dashboardSummary'],
     queryFn: () => dashboardApi.getDashboardSummary(),
-    staleTime: 30000,
+    staleTime: 60 * 1000,
     enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -20,6 +21,8 @@ export const useAnalytics = () => {
   return useQuery({
     queryKey: ['analytics'],
     queryFn: () => progressApi.getProgressAnalytics(),
+    staleTime: 60 * 1000,
     enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
   });
 };

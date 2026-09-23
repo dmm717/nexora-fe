@@ -112,15 +112,17 @@ export function ProductPageHero({
   title,
   description,
   feature,
+  className,
   children,
 }: {
   title: string;
   description: string;
   feature: ProductFeature;
+  className?: string;
   children?: ReactNode;
 }) {
   return (
-    <section className="product-page-hero" data-product-intro data-product-reveal>
+    <section className={`product-page-hero ${className || ''}`.trim()} data-product-intro data-product-reveal>
       <div className="product-page-hero-copy">
         <h1>{title}</h1>
         <p>{description}</p>

@@ -14,8 +14,9 @@ export const useNextRecommendation = () => {
   return useQuery({
     queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY,
     queryFn: () => recommendationsApi.getNext(),
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
     enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       // Deterministic prerequisite errors should not be retried continuously
       const apiError = error as { code?: string; status?: number };
