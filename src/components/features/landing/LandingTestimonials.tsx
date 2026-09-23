@@ -7,6 +7,7 @@ import { usePublicFeedback } from '@/hooks/queries/useFeedback';
 import { usePlatformStats } from '@/hooks/queries/usePlatformStats';
 import type { PublicFeedbackItem } from '@/services/feedbackContract';
 import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
+import { BadgeCheck, CheckCircle2 } from 'lucide-react';
 import styles from './LandingTestimonials.module.css';
 
 const PUBLIC_FEEDBACK_LIMIT = 3;
@@ -130,7 +131,7 @@ export const LandingTestimonials: React.FC = () => {
           <div className={styles.testimonialsPanel} data-social-proof-reveal>
             <div className={styles.panelHeading}>
               <span className={styles.badge}>
-                <span className="material-symbols-outlined" aria-hidden="true">verified</span>
+                <BadgeCheck size={15} aria-hidden="true" />
                 Chia sẻ từ người dùng
               </span>
               <h2>Tiến bộ được kể bằng trải nghiệm thật.</h2>
@@ -212,7 +213,7 @@ export const LandingTestimonials: React.FC = () => {
             <ul className={styles.proofList}>
               {productProof.map((proof) => (
                 <li key={proof} data-social-proof-reveal>
-                  <span className="material-symbols-outlined" aria-hidden="true">check_circle</span>
+                  <CheckCircle2 size={17} aria-hidden="true" />
                   {proof}
                 </li>
               ))}
