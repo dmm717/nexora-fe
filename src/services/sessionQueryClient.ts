@@ -26,6 +26,10 @@ export class SessionQueryClientManager {
     this.client = createSessionQueryClient();
   }
 
+  getEpoch(): number {
+    return this.epoch;
+  }
+
   getQueryClient(): QueryClient {
     return this.client;
   }

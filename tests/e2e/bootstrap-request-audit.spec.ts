@@ -161,7 +161,7 @@ test.describe('Bootstrap & Navigation Request Deduplication Audit', () => {
     // Flow C: Switch browser tab / window visibility transition using a second page in the same context
     const context = page.context();
     const secondPage = await context.newPage();
-    await secondPage.goto('/pricing');
+    await secondPage.goto('about:blank');
     await secondPage.bringToFront();
     await page.waitForTimeout(300);
 

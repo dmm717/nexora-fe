@@ -23,6 +23,10 @@ import {
   STAR_COMPONENT_LABELS,
   type NormalizedStarEvaluation,
 } from '@/services/interviewContract';
+import {
+  invalidateScenarioTerminalCompletion,
+  invalidateStarTerminalCompletion,
+} from '@/services/practiceInvalidation';
 
 const getScoreClass = (score: number) => {
   if (score >= 80) return styles.scoreExcellent;
@@ -313,14 +317,10 @@ function StarBuilderContent() {
       setAttemptId(id);
       if (scenarioData) {
         activeScenarioAttemptIdRef.current = null;
-        queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', id] });
-        queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
-        queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
+        invalidateScenarioTerminalCompletion(queryClient, id);
       } else {
-        queryClient.invalidateQueries({ queryKey: ['starAttempt', id] });
-        queryClient.invalidateQueries({ queryKey: ['starAttempts'] });
+        invalidateStarTerminalCompletion(queryClient, id);
       }
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Lỗi khi gửi đánh giá.');
