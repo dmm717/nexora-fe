@@ -24,6 +24,8 @@ export interface AudioSpeechDockProps {
   onTranscriptChange?: (transcript: string) => void;
   onDurationUpdate?: (seconds: number) => void;
   forcedTextOnly?: boolean;
+  mode: 'voice' | 'chatbox';
+  onModeChange: (mode: 'voice' | 'chatbox') => void;
   variant?: 'default' | 'call';
   controls?: React.ReactNode;
   onStateChange?: (state: AudioSpeechState) => void;
@@ -42,6 +44,8 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   onTranscriptChange,
   onDurationUpdate,
   forcedTextOnly = false,
+  mode,
+  onModeChange,
   variant = 'call',
   controls,
   onStateChange,
@@ -51,16 +55,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   editorOpen,
   onEditorOpenChange,
 }) => {
-  const [deviceMode, setDeviceMode] = useState<'voice' | 'chatbox'>(() => {
-    if (forcedTextOnly) return 'chatbox';
-    if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem('nexora_text_only_mode');
-      if (stored === '1') return 'chatbox';
-    }
-    return 'voice';
-  });
-
-  const effectiveMode = forcedTextOnly ? 'chatbox' : deviceMode;
+  const effectiveMode = forcedTextOnly ? 'chatbox' : mode;
 
   const [content, setContent] = useState<string>(initialContent);
   const [durationSeconds, setDurationSeconds] = useState<number>(0);
@@ -208,6 +203,17 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
     speech.stop();
   };
 
+  const handleModeChange = (next: 'voice' | 'chatbox') => {
+    if (next === effectiveMode) return;
+    if (isStartingListening || listeningStartInFlightRef.current || speech.listening) {
+      handleStopListening();
+    }
+    onModeChange(next);
+    onEditorOpenChange?.(next === 'chatbox');
+  };
+  const selectVoice = () => handleModeChange('voice');
+  const selectText = () => handleModeChange('chatbox');
+
   const handleSubmit = async () => {
     const wasPreparingListening =
       isStartingListening || listeningStartInFlightRef.current;
@@ -241,7 +247,7 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
     return (
       <div className="interview-speech-controls" aria-label="Điều khiển câu trả lời">
         <div className="interview-control-tray">
-          {!forcedTextOnly && (
+          {!forcedTextOnly && effectiveMode === 'voice' && (
             <button
               type="button"
               className={`interview-mic-button ${speech.listening ? 'is-listening' : ''}`}
@@ -270,36 +276,35 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
             </button>
           )}
 
-          <button
-            type="button"
-            className="interview-call-button"
-            disabled={isLocked}
-            aria-label={
-              forcedTextOnly
-                ? 'Mở trình chỉnh sửa văn bản'
-                : effectiveMode === 'voice'
-                ? 'Chuyển sang gõ văn bản'
-                : 'Chuyển sang giọng nói'
-            }
-            onClick={() => {
-              const wasPreparingListening =
-                isStartingListening || listeningStartInFlightRef.current;
-              if (wasPreparingListening) {
-                cancelPendingListeningStart();
-                speech.stop();
-              } else if (speech.listening) {
-                handleStopListening();
-              }
-              const next = forcedTextOnly || effectiveMode === 'voice' ? 'chatbox' : 'voice';
-              setDeviceMode(next);
-              onEditorOpenChange?.(next === 'chatbox');
-            }}
-          >
-            <span aria-hidden="true" className="material-symbols-outlined">
-              {effectiveMode === 'voice' ? 'keyboard' : 'mic'}
-            </span>
-            <span>{forcedTextOnly || effectiveMode === 'voice' ? 'Gõ văn bản' : 'Giọng nói'}</span>
-          </button>
+          <div role="group" aria-label="Cách trả lời" className="flex gap-2">
+            {!forcedTextOnly && (
+              <>
+                <button
+                  type="button"
+                  className="interview-call-button"
+                  disabled={isLocked}
+                  aria-pressed={effectiveMode === 'voice'}
+                  onClick={selectVoice}
+                >
+                  Giọng nói
+                </button>
+                <button
+                  type="button"
+                  className="interview-call-button"
+                  disabled={isLocked}
+                  aria-pressed={effectiveMode === 'chatbox'}
+                  onClick={selectText}
+                >
+                  Bàn phím
+                </button>
+              </>
+            )}
+            {forcedTextOnly && (
+              <button type="button" className="interview-call-button" aria-pressed="true" disabled={isLocked} onClick={() => onEditorOpenChange?.(true)}>
+                Bàn phím
+              </button>
+            )}
+          </div>
 
           {controls}
         </div>

@@ -79,6 +79,10 @@ export default function InterviewRoomPage() {
     }
     return false;
   });
+  const [inputMode, setInputMode] = useState<'voice' | 'chatbox'>(() =>
+    typeof window !== 'undefined' && sessionStorage.getItem('nexora_text_only_mode') === '1'
+      ? 'chatbox' : 'voice'
+  );
 
   const [editorOpen, setEditorOpen] = useState<boolean>(false);
   const [currentDraftContent, setCurrentDraftContent] = useState<string>('');
@@ -654,7 +658,7 @@ export default function InterviewRoomPage() {
               listening={candidateState.listening}
               disabled={submitting}
               submitDisabled={!canAnswer || submitting}
-              onEdit={() => setEditorOpen(true)}
+              onEdit={() => { setInputMode('chatbox'); setEditorOpen(true); }}
               onSubmit={() => {
                 const trimmed = currentDraftContent.trim();
                 if (trimmed) {
@@ -678,6 +682,8 @@ export default function InterviewRoomPage() {
               isLocked={submitting}
               submissionPhase={submitting ? 'submitting' : 'idle'}
               forcedTextOnly={forcedTextOnly}
+              mode={inputMode}
+              onModeChange={setInputMode}
               variant="call"
               editorOpen={editorOpen}
               onEditorOpenChange={(open) => setEditorOpen(open)}
