@@ -13,10 +13,10 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   const variantClasses = {
-    elevated: 'bg-white border border-outline-variant/60 shadow-subtle transition-shadow',
-    flat: 'bg-white border border-outline-variant/60',
-    subtle: 'bg-surface-container-low border border-outline-variant/30',
-    interactive: 'bg-white border border-outline-variant/60 shadow-subtle hover:shadow-card hover:border-primary/50 transition-all cursor-pointer',
+    elevated: 'bg-white border border-outline-variant/80 shadow-subtle transition-shadow',
+    flat: 'bg-white border border-outline-variant/80',
+    subtle: 'bg-surface-container-low border border-outline-variant/60',
+    interactive: 'bg-white border border-outline-variant/80 shadow-subtle hover:shadow-card hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all cursor-pointer',
     selected: 'bg-primary-fixed/10 border-2 border-primary shadow-subtle ring-2 ring-primary-fixed/30 transition-all',
   };
 

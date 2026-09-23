@@ -139,7 +139,7 @@ export default function AnalyticsPage() {
     const score = comp.score != null ? Math.round(comp.score) : null;
     const evidenceNum = 'evidenceCount' in comp ? comp.evidenceCount : 0;
     const card = (
-      <Card variant="elevated" padding="md" className="space-y-2">
+      <Card variant="elevated" padding="md" className="space-y-2 border border-outline-variant/80">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs font-bold text-on-surface">{comp.name || comp.code}</div>
@@ -390,14 +390,14 @@ export default function AnalyticsPage() {
                 <Skeleton className="h-20 w-full rounded-xl" />
               </div>
             ) : (
-              <div role="status" className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
+              <div role="status" className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/60">
                 Chưa nhận được dữ liệu năng lực để hiển thị. Thông tin này chưa đủ để kết luận rằng bạn chưa có năng lực được đánh giá.
               </div>
             )
           ) : competencies.length > 0 ? (
             <StaggerContainer className="space-y-3">{competencies.map(renderCompetencyCard)}</StaggerContainer>
           ) : (
-            <div className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/30">
+            <div className="p-8 text-center text-xs text-on-surface-variant bg-surface-container-low rounded-xl border border-outline-variant/60">
               Chưa có năng lực nào được đánh giá. Hãy hoàn thành một hoạt động tạo bằng chứng.
             </div>
           )}
@@ -415,7 +415,7 @@ export default function AnalyticsPage() {
             <div className="space-y-3">
               {weakestCompetencies.length > 0 ? (
                 weakestCompetencies.map((w, idx) => (
-                  <div key={idx} className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/40 space-y-1.5">
+                  <div key={idx} className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/70 space-y-1.5 shadow-2xs">
                     <div className="flex items-center justify-between text-xs font-bold text-on-surface">
                       <span>{w.name}</span>
                       <span className="text-primary">{w.score}%</span>
@@ -436,8 +436,8 @@ export default function AnalyticsPage() {
                 <p className="text-xs text-on-surface-variant italic">
                   {!hasProgressData
                     ? progressLocked
-                      ? 'Danh sách năng lực theo điểm không có trong gói hiện tại.'
-                      : 'Chưa thể tải danh sách năng lực lúc này.'
+                    ? 'Danh sách năng lực theo điểm không có trong gói hiện tại.'
+                    : 'Chưa thể tải danh sách năng lực lúc này.'
                     : evidenceCount === 0
                       ? 'Chưa đủ dữ liệu để xác định điểm cần cải thiện.'
                       : 'Chưa có đủ dữ liệu để xác định năng lực cần ưu tiên.'}
@@ -466,7 +466,7 @@ export default function AnalyticsPage() {
                     key={idx}
                     onClick={() => improvementDestination && router.push(improvementDestination)}
                     disabled={!improvementDestination}
-                    className="w-full flex items-center justify-between text-left text-xs p-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 enabled:hover:border-primary/50 enabled:cursor-pointer disabled:cursor-default transition-all"
+                    className="w-full flex items-center justify-between text-left text-xs p-2.5 rounded-lg bg-surface-container-low border border-outline-variant/60 enabled:hover:border-primary/60 enabled:hover:bg-surface-container-low/80 enabled:cursor-pointer disabled:cursor-default transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs"
                   >
                     <div>
                       <div className="font-bold text-on-surface flex items-center gap-1">
