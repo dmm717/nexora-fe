@@ -166,7 +166,7 @@ test('AF-AI: focused routes remove global shell and use non-fabricated context',
   ]);
   assert.match(layout, /!focused && <AuthenticatedHeader/);
   assert.doesNotMatch(header, /Backend Engineer · Middle|Câu 1\/3/);
-  assert.match(room, /const headerQuestionLabel = `Câu \$\{currentSequence\}`/);
+  assert.match(room, /const headerQuestionLabel = activeQuestion \? `Câu \$\{activeQuestion\.sequence\}` : undefined/);
   assert.match(room, /exitTo: '\/interviews'/);
   assert.doesNotMatch(report, /issuedQuestions \?\? 3/);
   assert.match(report, /totalCount == null/);

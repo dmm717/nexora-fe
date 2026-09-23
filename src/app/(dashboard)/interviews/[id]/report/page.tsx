@@ -11,6 +11,7 @@ import { interviewApi, type PracticeAgainCommand } from '@/services/interviewApi
 import {
   isReportProcessingError,
   isReportFailedError,
+  isReportUnavailableError,
   getInterviewReportRenderState,
   generateIdempotencyKey,
   SCORE_SCALE,
@@ -60,16 +61,21 @@ export default function InterviewReportPage() {
   const isResultsFailed = interview?.resultState === 'failed';
   const isReportFailed = interview?.reportState === 'failed' || isReportFailedError(queryError);
   const isFailed = isResultsFailed || isReportFailed;
-
-  const isProcessing = !isFailed && (
+  const isProcessing = interview?.status === 'completing' ||
     interview?.resultState === 'processing' ||
     interview?.reportState === 'processing' ||
-    isReportProcessingError(queryError) ||
-    (interview?.reportState === undefined && interview?.status === 'completing')
-  );
+    isReportProcessingError(queryError);
+  const isUnavailable = isReportUnavailableError(queryError) ||
+    interview?.status === 'failed' || interview?.status === 'abandoned' ||
+    (interview?.status === 'completed' && (
+      interview.reportState === 'none' ||
+      (queryError instanceof ApiError && (queryError.status === 404 || queryError.code === 'NOT_FOUND'))
+    ));
   const reportRenderState = getInterviewReportRenderState({
     loading: interviewLoading || (interview?.reportState === 'ready' && reportLoading),
     failed: isFailed,
+    unavailable: isUnavailable,
+    hasReport: Boolean(report),
     pollingBoundExhausted: statusPollingBoundExhausted || legacyReportPollingBoundExhausted,
     processing: isProcessing,
   });
@@ -244,7 +250,7 @@ export default function InterviewReportPage() {
     );
   }
 
-  if (!report) {
+  if (reportRenderState === 'unavailable') {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Không tìm thấy báo cáo</h2>
@@ -255,6 +261,8 @@ export default function InterviewReportPage() {
       </div>
     );
   }
+
+  if (!report) return null;
 
   const sample = report.sample;
   const isPartial = sample?.isPartial ?? false;
