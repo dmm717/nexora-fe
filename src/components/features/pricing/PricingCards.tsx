@@ -125,18 +125,21 @@ export default function PricingCards() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const checkoutInProgressRef = useRef(false);
   const autoCheckoutAttemptedRef = useRef<string | null>(null);
-  const pricingGridRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const hasAnimatedPricingRef = useRef(false);
 
   React.useLayoutEffect(() => {
-    const grid = pricingGridRef.current;
-    if (!grid || pricedPlans.length === 0 || hasAnimatedPricingRef.current) return;
+    const container = containerRef.current;
+    if (!container || !hasPlansData || pricedPlans.length === 0 || hasAnimatedPricingRef.current) return;
 
-    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-pricing-card]'));
-    if (cards.length === 0) return;
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      gsap.set(cards, { clearProps: 'all' });
+    const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReducedMotion) {
+      const heroTitle = container.querySelector('.product-page-hero h1');
+      const heroDesc = container.querySelector('.product-page-hero p');
+      const cards = container.querySelectorAll<HTMLElement>('[data-pricing-card]');
+      const features = container.querySelectorAll<HTMLElement>('[data-feature-item]');
+      const badges = container.querySelectorAll<HTMLElement>('[data-popular-badge]');
+      gsap.set([heroTitle, heroDesc, ...cards, ...features, ...badges].filter(Boolean), { clearProps: 'all' });
       hasAnimatedPricingRef.current = true;
       return;
     }
@@ -144,37 +147,99 @@ export default function PricingCards() {
     let completed = false;
     try {
       const ctx = gsap.context(() => {
-        const content = grid.querySelectorAll<HTMLElement>('[data-pricing-card-content]');
-        const timeline = gsap.timeline({
+        const heroTitle = container.querySelector('.product-page-hero h1');
+        const heroDesc = container.querySelector('.product-page-hero p');
+        const cards = container.querySelectorAll<HTMLElement>('[data-pricing-card]');
+        const features = container.querySelectorAll<HTMLElement>('[data-feature-item]');
+        const badges = container.querySelectorAll<HTMLElement>('[data-popular-badge]');
+
+        const tl = gsap.timeline({
+          defaults: { ease: 'power3.out' },
           onComplete: () => {
             completed = true;
             hasAnimatedPricingRef.current = true;
           },
         });
 
-        timeline
-          .fromTo(
+        // 1. Header Text Animation
+        if (heroTitle) {
+          tl.fromTo(
+            heroTitle,
+            { autoAlpha: 0, y: 35 },
+            { autoAlpha: 1, y: 0, duration: 0.7, ease: 'power3.out', clearProps: 'transform,opacity,visibility' },
+          );
+        }
+        if (heroDesc) {
+          tl.fromTo(
+            heroDesc,
+            { autoAlpha: 0, y: 18 },
+            { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'transform,opacity,visibility' },
+            '-=0.45',
+          );
+        }
+
+        // 2. Pricing Cards Entrance
+        if (cards.length > 0) {
+          tl.fromTo(
             cards,
-            { autoAlpha: 0, y: 22 },
-            { autoAlpha: 1, y: 0, duration: 0.52, stagger: 0.075, ease: 'power3.out', clearProps: 'transform,opacity,visibility' },
-          )
-          .fromTo(
-            content,
-            { autoAlpha: 0, y: 8 },
-            { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity,visibility' },
+            { autoAlpha: 0, y: 50, scale: 0.96 },
+            {
+              autoAlpha: 1,
+              y: 0,
+              scale: 1,
+              duration: 0.75,
+              stagger: 0.12,
+              ease: 'power2.out',
+              clearProps: 'transform,opacity,visibility',
+            },
             '-=0.3',
           );
-      }, grid);
+        }
+
+        // 3. Feature Items inside each card
+        if (features.length > 0) {
+          tl.fromTo(
+            features,
+            { autoAlpha: 0, y: 10 },
+            {
+              autoAlpha: 1,
+              y: 0,
+              duration: 0.35,
+              stagger: 0.03,
+              ease: 'power2.out',
+              clearProps: 'transform,opacity,visibility',
+            },
+            '-=0.4',
+          );
+        }
+
+        // 4. Popular Badge Pop-in on Highlight card
+        if (badges.length > 0) {
+          tl.fromTo(
+            badges,
+            { autoAlpha: 0, scale: 0 },
+            {
+              autoAlpha: 1,
+              scale: 1,
+              duration: 0.5,
+              ease: 'back.out(1.8)',
+              clearProps: 'transform,opacity,visibility',
+            },
+            '-=0.2',
+          );
+        }
+      }, container);
 
       return () => {
         ctx.revert();
         if (!completed) hasAnimatedPricingRef.current = false;
       };
     } catch {
+      const cards = container.querySelectorAll<HTMLElement>('[data-pricing-card]');
       gsap.set(cards, { clearProps: 'all' });
       hasAnimatedPricingRef.current = true;
     }
-  }, [pricedPlans.length]);
+  }, [hasPlansData, pricedPlans.length]);
 
   const beginCheckout = useCallback(async (planPriceId: string) => {
     if (checkoutInProgressRef.current) return;
@@ -286,7 +351,7 @@ export default function PricingCards() {
 
   return (
     <ProductMotionBoundary>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12">
+      <div ref={containerRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-12">
         <ProductPageHero
           feature="pricing"
           title="Chọn gói đồng hành tối ưu cho hành trình nghề nghiệp của bạn"
@@ -399,7 +464,7 @@ export default function PricingCards() {
               <p className="text-sm text-on-surface-variant mt-2">Bảng giá chưa có lựa chọn khả dụng vào lúc này. Bạn có thể quay lại sau.</p>
             </div>
           ) : (
-            <div ref={pricingGridRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
               {pricedPlans.map(({ plan, price }) => {
                 const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
                 const isHighlight = plan.isHighlighted;
@@ -421,7 +486,7 @@ export default function PricingCards() {
                     }`}
                   >
                     {isHighlight && (
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                      <div data-popular-badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
                         <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-[9px_9px_9px_3px] text-xs font-bold bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
                           <Sparkles size={13} aria-hidden="true" className="text-amber-300" />
                           Phổ biến nhất
@@ -457,11 +522,11 @@ export default function PricingCards() {
                     <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
                       Tính năng bao gồm:
                     </div>
-                    <div className="text-sm font-bold text-primary">
+                    <div data-feature-item className="text-sm font-bold text-primary">
                       Hạn mức phỏng vấn: {price.interviewQuota !== null ? `${price.interviewQuota} lượt` : 'Chưa có thông tin'}
                     </div>
                     {featureDescriptions.map((description) => (
-                      <div key={description} className="flex items-start gap-2 text-sm">
+                      <div key={description} data-feature-item className="flex items-start gap-2 text-sm">
                         <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
                         <span className="text-on-surface">{description}</span>
                       </div>
