@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('landing runtime motion', () => {
-  test('normal motion initializes GSAP, scroll triggers and replayable CV demo', async ({ page }) => {
+  test('normal motion initializes GSAP, scroll triggers and visible CV result', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/');
 
@@ -15,18 +15,13 @@ test.describe('landing runtime motion', () => {
     await expect.poll(async () => parallax.evaluate((element) => getComputedStyle(element).transform))
       .not.toBe(initialTransform);
 
-    await page.getByRole('button', { name: 'Xem demo phân tích mẫu' }).click();
-    await expect(page.getByText('Đã nhận CV mẫu')).toBeVisible();
-    await expect(page.getByText('AI đang đọc các điểm phù hợp trong CV mẫu…')).toBeVisible({ timeout: 2_000 });
     const result = page.locator('[data-cv-demo-result]');
     await expect(result).toBeVisible({ timeout: 4_000 });
     await expect(result.locator('[data-cv-count]')).toHaveText('78', { timeout: 2_000 });
     await expect(result.locator('[data-cv-radial]')).toHaveCSS('stroke-dashoffset', '58px');
 
-    await page.getByRole('button', { name: 'Chạy lại demo phân tích mẫu' }).click();
-    await expect(page.getByText('Đã nhận CV mẫu')).toBeVisible();
-    await expect(result).toBeVisible({ timeout: 4_000 });
-    await expect(result.locator('[data-cv-count]')).toHaveText('78', { timeout: 2_000 });
+    await expect(page.getByRole('button', { name: /demo phân tích mẫu/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /trạng thái tài khoản mới/i })).toHaveCount(0);
   });
 
   test('reduced motion keeps content final and creates no ScrollTrigger instances', async ({ page }) => {
@@ -39,7 +34,6 @@ test.describe('landing runtime motion', () => {
 
     const parallax = page.locator('[data-parallax]');
     await expect(parallax).toHaveCSS('transform', 'none');
-    await page.getByRole('button', { name: 'Xem demo phân tích mẫu' }).click();
     const result = page.locator('[data-cv-demo-result]');
     await expect(result).toBeVisible({ timeout: 4_000 });
     await expect(result.locator('[data-cv-count]')).toHaveText('78');

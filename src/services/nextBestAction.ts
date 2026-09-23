@@ -1,5 +1,6 @@
 import {
   getRecommendationDeepLink,
+  getLocalizedRecommendationReason,
   RecommendationActivityValues,
   type NextPracticeRecommendationResponse,
 } from './recommendationContract.ts';
@@ -14,7 +15,7 @@ export function resolveNextBestAction({
   needsFirstEvidence: boolean;
 }) {
   const base = {
-    description: recommendation?.reason || 'Chọn bài luyện phù hợp với điều bạn muốn cải thiện tiếp theo.',
+    description: getLocalizedRecommendationReason(recommendation),
     estimatedMinutes:
       recommendation && recommendation.estimatedMinutes > 0
         ? recommendation.estimatedMinutes

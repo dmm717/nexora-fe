@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { getQueryPresentation } from '@/utils/queryPresentation';
+import { Sparkles } from 'lucide-react';
 import {
   describePlanFeature,
   formatFeatureAvailability,
@@ -283,9 +284,9 @@ export default function BillingPage() {
             <Skeleton className="h-6 w-56" />
             <Skeleton className="h-3 w-full max-w-xl" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }, (_, index) => (
-              <Card key={index} variant="elevated" padding="lg" className="space-y-5 bg-white border border-outline-variant/60">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Card key={index} variant="elevated" padding="lg" className="pricing-choice space-y-5 bg-white border border-outline-variant/60">
                 <Skeleton className="h-6 w-2/3" />
                 <Skeleton className="h-3 w-full" />
                 <Skeleton className="h-9 w-1/2" />
@@ -444,9 +445,9 @@ export default function BillingPage() {
         )}
 
         {showPlansSkeleton ? (
-          <div role="status" aria-label="Đang tải danh mục gói cước" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }, (_, index) => (
-              <Card key={index} variant="elevated" padding="lg" className="space-y-5 bg-white border border-outline-variant/60">
+          <div role="status" aria-label="Đang tải danh mục gói cước" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Card key={index} variant="elevated" padding="lg" className="pricing-choice space-y-5 bg-white border border-outline-variant/60">
                 <Skeleton className="h-6 w-2/3" />
                 <Skeleton className="h-3 w-full" />
                 <Skeleton className="h-9 w-1/2" />
@@ -480,7 +481,7 @@ export default function BillingPage() {
             <p className="text-xs text-on-surface-variant">Các gói dịch vụ hiện có chưa được cấu hình mức giá để thanh toán.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
             {plansWithPrices.map((plan) => {
               const price = plan.prices[0];
               if (!price) return null;
@@ -495,18 +496,19 @@ export default function BillingPage() {
                 key={plan.id}
                 variant={isCurrentPlan ? 'selected' : 'elevated'}
                 padding="lg"
-                className={`flex flex-col justify-between relative transition-all ${
+                data-current={isCurrentPlan}
+                className={`pricing-choice flex flex-col justify-between relative ${
                   isCurrentPlan
-                    ? 'border-2 border-primary shadow-floating scale-[1.02] bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
+                    ? 'border-2 border-primary shadow-floating bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
                     : isHighlighted
-                    ? 'border border-primary/40 shadow-card bg-white'
-                    : 'border border-outline-variant/60 shadow-subtle bg-white'
+                    ? 'border-2 border-primary/70 shadow-card bg-white'
+                    : 'border border-outline/45 shadow-subtle bg-white'
                 }`}
               >
                 {isHighlighted && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
-                      <span className="material-symbols-outlined text-[14px] text-amber-300">sparkles</span>
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-[9px_9px_9px_3px] text-xs font-bold bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                      <Sparkles size={13} aria-hidden="true" className="text-amber-300" />
                       Phổ biến nhất
                     </span>
                   </div>
@@ -516,10 +518,10 @@ export default function BillingPage() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-black text-on-surface tracking-tight">{plan.name}</h3>
                     {isCurrentPlan && (
-                      <Badge variant="primary" size="sm">Đang dùng</Badge>
+                      <Badge variant="primary" size="sm">Gói hiện tại</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-on-surface-variant min-h-[32px] leading-relaxed">
+                  <p className="text-sm text-on-surface-variant min-h-[40px] leading-relaxed">
                     {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
                   </p>
                   <div className="pt-2 pb-2 border-b border-outline-variant/30">
@@ -528,18 +530,18 @@ export default function BillingPage() {
                         {isFree ? 'Miễn phí' : formatCurrency(price.amountMinor, price.currency)}
                       </span>
                       {!isFree && price.durationDays && (
-                        <span className="text-xs text-on-surface-variant font-medium">
+                        <span className="text-sm text-on-surface-variant font-medium">
                           / {price.durationDays} ngày
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <ul className="space-y-2.5 pt-2 text-xs text-on-surface">
+                  <ul className="space-y-2.5 pt-2 text-sm text-on-surface">
                     {price.interviewQuota !== null && (
                       <li className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                        <span>Hạn mức giá: {price.interviewQuota} lượt phỏng vấn</span>
+                        <span>Hạn mức phỏng vấn: {price.interviewQuota} lượt</span>
                       </li>
                     )}
                     {featureDescriptions.map((description) => (

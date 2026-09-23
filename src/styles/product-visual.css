@@ -255,6 +255,32 @@
   opacity: 0.6;
 }
 
+/* Shared pricing interaction: clear ownership, calm pointer-only lift. */
+.pricing-choice {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease,
+    border-color 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pricing-choice:not([data-current='true']):hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--color-primary) 52%, white);
+    box-shadow: 0 18px 32px -24px rgb(23 37 84 / 55%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pricing-choice {
+    transition: none;
+  }
+
+  .pricing-choice:not([data-current='true']):hover {
+    transform: none;
+  }
+}
+
 .product-focused-surface {
   --product-ground: #111a3e;
   --product-surface: #1b2855;

@@ -99,11 +99,11 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
             container.dataset.motionMode = 'normal';
             const ctx = gsap.context(() => {
               gsap.from('[data-hero-copy]', {
-                y: 26,
-                opacity: 0.8,
-                duration: 1,
-                stagger: 0.13,
-                ease: 'expo.out',
+                y: 18,
+                opacity: 0.86,
+                duration: 0.65,
+                stagger: 0.08,
+                ease: 'power2.out',
                 clearProps: 'transform,opacity',
               });
 
@@ -114,12 +114,12 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
               }> = [];
 
               gsap.from('[data-hero-card]', {
-                y: 38,
-                rotation: -3,
-                opacity: 0.8,
-                duration: 1.15,
-                stagger: 0.16,
-                ease: 'expo.out',
+                y: 24,
+                rotation: 0,
+                opacity: 0.86,
+                duration: 0.72,
+                stagger: 0.1,
+                ease: 'power2.out',
                 clearProps: 'transform,opacity',
                 onComplete: () => {
                   heroEntranceComplete = true;
@@ -133,12 +133,12 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
 
               gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((el, index) => {
                 gsap.from(el, {
-                  y: index % 2 ? 32 : 45,
-                  opacity: 0.7,
+                  y: index % 2 ? 18 : 24,
+                  opacity: 0.8,
                   immediateRender: false,
-                  duration: 0.9,
-                  delay: (index % 3) * 0.06,
-                  ease: 'expo.out',
+                  duration: 0.6,
+                  delay: (index % 3) * 0.04,
+                  ease: 'power2.out',
                   scrollTrigger: { trigger: el, start: 'top 90%', once: true },
                   clearProps: 'transform,opacity',
                 });
@@ -170,8 +170,8 @@ export function useLandingMotion(root: RefObject<HTMLDivElement | null>) {
               });
 
               gsap.to('[data-parallax]', {
-                y: 55,
-                rotation: 7,
+                y: 24,
+                rotation: 0,
                 ease: 'none',
                 scrollTrigger: {
                   trigger: '#hero',

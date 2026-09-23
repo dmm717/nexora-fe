@@ -21,7 +21,7 @@ test('Pricing: isCurrentPlan owns selection border while isHighlight receives pr
   const pricingCardsSource = await readSource('../src/components/features/pricing/PricingCards.tsx');
   assert.match(
     pricingCardsSource,
-    /isCurrentPlan\s*\?\s*['"]border-2 border-primary shadow-floating scale-\[1\.02\]/
+    /isCurrentPlan\s*\?\s*['"]border-2 border-primary shadow-floating bg-primary-fixed\/5 ring-4 ring-primary-fixed\/20/
   );
   assert.doesNotMatch(
     pricingCardsSource,
@@ -119,10 +119,11 @@ test('Copywriting Anti-Slop: Technical testing and machine jargon phrases are re
   assert.doesNotMatch(requireAuthSource, /máy chủ/);
 });
 
-test('Landing: cvDemoStage defaults to result so visitors see outcomes without clicking', async () => {
+test('Landing: product proof is visible without replay or empty-state controls', async () => {
   const landingSource = await readSource('../src/components/features/landing/MarketingLanding.tsx');
-  assert.match(landingSource, /const\s*\[cvDemoStage,\s*setCvDemoStage\]\s*=\s*useState<CvDemoStage>\('result'\)/);
-  assert.doesNotMatch(landingSource, /const\s*\[cvDemoStage,\s*setCvDemoStage\]\s*=\s*useState<CvDemoStage>\('empty'\)/);
+  assert.match(landingSource, /data-cv-demo-result/);
+  assert.doesNotMatch(landingSource, /demo phân tích mẫu/);
+  assert.doesNotMatch(landingSource, /Xem trạng thái tài khoản mới/);
 });
 
 test('Billing & Account: Order status safely falls back to localized label and avoids raw enum strings', async () => {

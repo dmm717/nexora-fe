@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useRef, useState } from 'react';
+import gsap from 'gsap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -30,7 +31,7 @@ import { getQueryPresentation } from '@/utils/queryPresentation';
 function PricingPlanGridSkeleton() {
   return (
     <div role="status" aria-label="Đang tải các gói dịch vụ">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch" aria-hidden="true">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch" aria-hidden="true">
         {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
@@ -124,6 +125,56 @@ export default function PricingCards() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const checkoutInProgressRef = useRef(false);
   const autoCheckoutAttemptedRef = useRef<string | null>(null);
+  const pricingGridRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedPricingRef = useRef(false);
+
+  React.useLayoutEffect(() => {
+    const grid = pricingGridRef.current;
+    if (!grid || pricedPlans.length === 0 || hasAnimatedPricingRef.current) return;
+
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-pricing-card]'));
+    if (cards.length === 0) return;
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      gsap.set(cards, { clearProps: 'all' });
+      hasAnimatedPricingRef.current = true;
+      return;
+    }
+
+    let completed = false;
+    try {
+      const ctx = gsap.context(() => {
+        const content = grid.querySelectorAll<HTMLElement>('[data-pricing-card-content]');
+        const timeline = gsap.timeline({
+          onComplete: () => {
+            completed = true;
+            hasAnimatedPricingRef.current = true;
+          },
+        });
+
+        timeline
+          .fromTo(
+            cards,
+            { autoAlpha: 0, y: 22 },
+            { autoAlpha: 1, y: 0, duration: 0.52, stagger: 0.075, ease: 'power3.out', clearProps: 'transform,opacity,visibility' },
+          )
+          .fromTo(
+            content,
+            { autoAlpha: 0, y: 8 },
+            { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity,visibility' },
+            '-=0.3',
+          );
+      }, grid);
+
+      return () => {
+        ctx.revert();
+        if (!completed) hasAnimatedPricingRef.current = false;
+      };
+    } catch {
+      gsap.set(cards, { clearProps: 'all' });
+      hasAnimatedPricingRef.current = true;
+    }
+  }, [pricedPlans.length]);
 
   const beginCheckout = useCallback(async (planPriceId: string) => {
     if (checkoutInProgressRef.current) return;
@@ -348,7 +399,7 @@ export default function PricingCards() {
               <p className="text-sm text-on-surface-variant mt-2">Bảng giá chưa có lựa chọn khả dụng vào lúc này. Bạn có thể quay lại sau.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+            <div ref={pricingGridRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
               {pricedPlans.map(({ plan, price }) => {
                 const isCurrentPlan = currentPlanCode === plan.code.toLowerCase();
                 const isHighlight = plan.isHighlighted;
@@ -357,25 +408,27 @@ export default function PricingCards() {
                 return (
                   <Card
                     key={plan.id}
-                    variant={isCurrentPlan ? 'selected' : isHighlight ? 'interactive' : 'elevated'}
+                    data-pricing-card
+                    variant={isCurrentPlan ? 'selected' : 'elevated'}
                     padding="lg"
-                    className={`flex flex-col justify-between transition-all relative ${
+                    data-current={isCurrentPlan}
+                    className={`pricing-choice flex flex-col justify-between relative ${
                       isCurrentPlan
-                        ? 'border-2 border-primary shadow-floating scale-[1.02] bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
+                        ? 'border-2 border-primary shadow-floating bg-primary-fixed/5 ring-4 ring-primary-fixed/20'
                         : isHighlight
-                        ? 'border border-primary/40 shadow-card bg-white hover:border-primary/60'
-                        : 'border border-outline-variant/60 bg-white'
+                        ? 'border-2 border-primary/70 shadow-card bg-white'
+                        : 'border border-outline/45 shadow-subtle bg-white'
                     }`}
                   >
                     {isHighlight && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-[9px_9px_9px_3px] text-xs font-bold bg-primary text-white shadow-md border border-white/20 whitespace-nowrap">
                           <Sparkles size={13} aria-hidden="true" className="text-amber-300" />
                           Phổ biến nhất
                         </span>
                       </div>
                     )}
-                    <div className="space-y-4">
+                    <div className="space-y-4" data-pricing-card-content>
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         {isCurrentPlan && (
                           <Badge variant="secondary" size="md">
@@ -386,7 +439,7 @@ export default function PricingCards() {
 
                   <div>
                     <h3 className="font-bold text-lg text-on-surface">{plan.name}</h3>
-                    <p className="text-xs sm:text-sm text-on-surface-variant mt-1.5 min-h-[36px] leading-relaxed">
+                    <p className="text-sm text-on-surface-variant mt-1.5 min-h-[40px] leading-relaxed">
                       {plan.description || 'Gói dịch vụ được thiết kế tối ưu cho nhu cầu rèn luyện phỏng vấn của bạn.'}
                     </p>
                   </div>
@@ -395,7 +448,7 @@ export default function PricingCards() {
                     <div className="text-2xl sm:text-3xl font-black text-on-surface">
                       {formatPrice(price.amountMinor, price.currency)}
                     </div>
-                    <div className="text-xs text-on-surface-variant font-medium mt-1">
+                    <div className="text-sm text-on-surface-variant font-medium mt-1">
                       {price.durationDays ? `Thời hạn ${price.durationDays} ngày` : 'Sử dụng linh hoạt'}
                     </div>
                   </div>
@@ -404,11 +457,11 @@ export default function PricingCards() {
                     <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
                       Tính năng bao gồm:
                     </div>
-                    <div className="text-xs sm:text-sm font-semibold text-primary">
+                    <div className="text-sm font-bold text-primary">
                       Hạn mức phỏng vấn: {price.interviewQuota !== null ? `${price.interviewQuota} lượt` : 'Chưa có thông tin'}
                     </div>
                     {featureDescriptions.map((description) => (
-                      <div key={description} className="flex items-start gap-2 text-xs sm:text-sm">
+                      <div key={description} className="flex items-start gap-2 text-sm">
                         <Check size={16} className="text-emerald-700 mt-0.5 flex-shrink-0" />
                         <span className="text-on-surface">{description}</span>
                       </div>
@@ -430,7 +483,7 @@ export default function PricingCards() {
                         icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
                       >
                         {isCurrentPlan
-                          ? 'Đang sử dụng'
+                          ? 'Gói hiện tại'
                           : price.amountMinor <= 0
                             ? 'Bắt đầu miễn phí'
                             : 'Chọn gói này'}

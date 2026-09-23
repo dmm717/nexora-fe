@@ -203,7 +203,7 @@ test('Landing mascot system: wires several decorative poses into feature storyte
     'utf8'
   );
 
-  for (const pose of ['cvAnalysis', 'aiCoach', 'emptyHelper', 'celebrate']) {
+  for (const pose of ['cvAnalysis', 'aiCoach', 'celebrate']) {
     assert.match(
       landingSource,
       new RegExp(`src=\\{NEXORA_MASCOT_ASSETS\\.${pose}\\}[\\s\\S]{0,180}alt=""[\\s\\S]{0,80}aria-hidden="true"`)

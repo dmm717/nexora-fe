@@ -96,22 +96,12 @@ function SampleLabel({ label = 'Ví dụ kết quả' }: { label?: string }) {
   );
 }
 
-type CvDemoStage = 'empty' | 'document' | 'scanning' | 'result';
-
-function CvPreview({
-  compact = false,
-  demoStage = 'result',
-  onStartDemo,
-}: {
-  compact?: boolean;
-  demoStage?: CvDemoStage;
-  onStartDemo?: () => void;
-}) {
+function CvPreview({ compact = false }: { compact?: boolean }) {
   const scoreRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (compact || demoStage !== 'result' || !resultRef.current) return undefined;
+    if (compact || !resultRef.current) return undefined;
 
     let cancelled = false;
     let context: { revert: () => void } | undefined;
@@ -192,10 +182,7 @@ function CvPreview({
       context?.revert();
       showFinalState();
     };
-  }, [compact, demoStage]);
-
-  const showResult = compact || demoStage === 'result';
-  const showSampleContext = compact || demoStage !== 'empty';
+  }, [compact]);
 
   return (
     <div className={`${styles.productWindow} ${compact ? styles.compact : ''}`}>
@@ -206,8 +193,7 @@ function CvPreview({
         </span>
         {!compact && <SampleLabel />}
       </div>
-      {showResult ? (
-        <div ref={compact ? undefined : resultRef} data-cv-demo-result={compact ? undefined : ''}>
+      <div ref={compact ? undefined : resultRef} data-cv-demo-result={compact ? undefined : ''}>
           <div className={styles.scoreSummary}>
             <div className={styles.scoreRing}>
               <svg viewBox="0 0 100 100" aria-hidden="true">
@@ -252,58 +238,9 @@ function CvPreview({
                   Thay “tham gia tối ưu API” bằng hành động cụ thể và kết quả có thể kiểm chứng.
                 </p>
               </div>
-              <button className={styles.textAction} type="button" onClick={onStartDemo}>
-                Xem lại cách phân tích
-                <RotateCcw size={16} />
-              </button>
             </>
           )}
-        </div>
-      ) : (
-        <>
-          {showSampleContext && (
-            <div className={styles.cvSampleContext}>
-              <div>
-                <FileText size={18} aria-hidden="true" />
-                <span>CV ví dụ · Backend Engineer</span>
-              </div>
-              <span>Mục tiêu: Lập trình viên Backend</span>
-            </div>
-          )}
-          {demoStage === 'empty' ? (
-            <div className={styles.emptyState}>
-              <FileText size={34} aria-hidden="true" />
-              <h3>Chưa có CV chính</h3>
-              <p>Chưa chọn vị trí mục tiêu · Chưa có kết quả phân tích</p>
-              <button className={styles.primaryAction} type="button" onClick={onStartDemo}>
-                Xem thử cách phân tích
-                <ArrowUpRight size={17} aria-hidden="true" />
-              </button>
-            </div>
-          ) : (
-            <>
-              {demoStage === 'scanning' && (
-                <div className={styles.analyzing}>
-                  <span className={styles.analyzingDots} aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <span>Đang đối chiếu CV với vị trí mục tiêu…</span>
-                </div>
-              )}
-              {demoStage === 'document' && (
-                <div className={styles.cvDocumentState}>
-                  <span className={styles.documentLine} />
-                  <span className={styles.documentLine} />
-                  <span className={`${styles.documentLine} ${styles.short}`} />
-                  <span className={styles.documentTag}>Đã nhận CV ví dụ</span>
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
+      </div>
     </div>
   );
 }
@@ -409,24 +346,6 @@ export function MarketingLanding() {
 
   const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
   const [preview, setPreview] = useState<'cv' | 'interview' | 'recommendation'>('cv');
-  const [showEmpty, setShowEmpty] = useState(false);
-  const [cvDemoRun, setCvDemoRun] = useState(0);
-  const [cvDemoStage, setCvDemoStage] = useState<CvDemoStage>('result');
-
-  useEffect(() => {
-    if (cvDemoRun === 0) return undefined;
-    const scanTimer = window.setTimeout(() => setCvDemoStage('scanning'), 850);
-    const resultTimer = window.setTimeout(() => setCvDemoStage('result'), 2500);
-    return () => {
-      window.clearTimeout(scanTimer);
-      window.clearTimeout(resultTimer);
-    };
-  }, [cvDemoRun]);
-
-  const startCvDemo = () => {
-    setCvDemoStage('document');
-    setCvDemoRun((run) => run + 1);
-  };
 
   const start = (action: AuthIntent['action'], targetUrl: string) => {
     if (!authReady) return;
@@ -615,7 +534,7 @@ export function MarketingLanding() {
             src={NEXORA_MASCOT_ASSETS.cvAnalysis}
             width={768}
             height={768}
-            sizes="(max-width: 1100px) 88px, 112px"
+            sizes="(max-width: 760px) 116px, (max-width: 1100px) 140px, 172px"
             alt=""
             aria-hidden="true"
             className={`${styles.featureMascot} ${styles.cvMascot}`}
@@ -639,7 +558,7 @@ export function MarketingLanding() {
           </div>
           <div id="product-preview" className={styles.tabPanel}>
             {preview === 'cv' ? (
-              <CvPreview demoStage={cvDemoStage} onStartDemo={startCvDemo} />
+              <CvPreview />
             ) : preview === 'interview' ? (
               <InterviewPreview large />
             ) : (
@@ -706,7 +625,7 @@ export function MarketingLanding() {
               src={NEXORA_MASCOT_ASSETS.aiCoach}
               width={768}
               height={768}
-              sizes="(max-width: 1100px) 92px, 118px"
+              sizes="(max-width: 760px) 118px, (max-width: 1100px) 146px, 180px"
               alt=""
               aria-hidden="true"
               className={`${styles.featureMascot} ${styles.interviewMascot}`}
@@ -804,59 +723,23 @@ export function MarketingLanding() {
             </span>
             <SampleLabel />
           </div>
-          <button
-            type="button"
-            className={styles.emptyToggle}
-            aria-pressed={showEmpty}
-            onClick={() => setShowEmpty(!showEmpty)}
-          >
-            {showEmpty ? 'Xem ví dụ khi đã có dữ liệu' : 'Xem trạng thái tài khoản mới'}
-            <RotateCcw size={14} />
-          </button>
-          {showEmpty ? (
-            <div className={styles.emptyState}>
-              <Image
-                src={NEXORA_MASCOT_ASSETS.emptyHelper}
-                width={768}
-                height={768}
-                sizes="96px"
-                alt=""
-                aria-hidden="true"
-                className={styles.emptyMascot}
-              />
-              <h3>Chưa đủ dữ liệu đánh giá</h3>
-              <p>
-                Thêm mục tiêu nghề nghiệp và hoàn thành bài phân tích CV hoặc phiên luyện đầu tiên.
-                Tiến độ sẽ bắt đầu từ bằng chứng của bạn.
-              </p>
-              {actionButton(
-                'Bắt đầu phiên đầu tiên',
-                'interview',
-                '/interview'
-              )}
-            </div>
-          ) : (
-            <>
-              <h3>Nhìn rõ điểm cần luyện tiếp.</h3>
-              <Meter label="Cấu trúc câu trả lời" value={76} />
-              <Meter label="Chiều sâu chuyên môn" value={68} />
-              <Meter label="Bằng chứng kết quả" value={62} />
-              <div className={styles.feedback}>
-                <RotateCcw size={22} />
-                <p>
-                  <b>Ưu tiên: làm rõ kết quả</b>
-                  <br />
-                  Luyện lại câu trả lời về tối ưu hiệu năng. So sánh lần thử để nhận ra điều đã thay
-                  đổi.
-                </p>
-              </div>
-              <div className={styles.historyRow}>
-                <span>Lần thử trước</span>
-                <ArrowRight size={16} />
-                <b>Lần luyện tiếp theo</b>
-              </div>
-            </>
-          )}
+          <h3>Nhìn rõ điểm cần luyện tiếp.</h3>
+          <Meter label="Cấu trúc câu trả lời" value={76} />
+          <Meter label="Chiều sâu chuyên môn" value={68} />
+          <Meter label="Bằng chứng kết quả" value={62} />
+          <div className={styles.feedback}>
+            <RotateCcw size={22} />
+            <p>
+              <b>Ưu tiên: làm rõ kết quả</b>
+              <br />
+              Luyện lại câu trả lời về tối ưu hiệu năng. So sánh lần thử để nhận ra điều đã thay đổi.
+            </p>
+          </div>
+          <div className={styles.historyRow}>
+            <span>Lần thử trước</span>
+            <ArrowRight size={16} />
+            <b>Lần luyện tiếp theo</b>
+          </div>
         </div>
         <div className={styles.featureCopy} data-reveal>
           <h2>
@@ -895,7 +778,7 @@ export function MarketingLanding() {
         {plansPresentation.showInitialLoading && (
           <div role="status">
             <div className={styles.pricingGrid} aria-hidden="true">
-              {Array.from({ length: 3 }, (_, index) => (
+              {Array.from({ length: 4 }, (_, index) => (
                 <div key={index} className={styles.planSkeleton}>
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-6 w-2/3" />
@@ -948,7 +831,7 @@ export function MarketingLanding() {
         {pricedPlans.length > 0 && (
           <div className={styles.pricingGrid}>
             {pricedPlans.map(({ plan, price }) => (
-              <div data-reveal className={styles.planWrap} key={plan.id}>
+              <div data-reveal className={`${styles.planWrap} pricing-choice`} key={plan.id}>
                 <LandingPlanCard
                   plan={plan}
                   price={price}

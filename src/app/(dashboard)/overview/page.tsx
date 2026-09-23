@@ -261,7 +261,7 @@ export default function OverviewPage() {
               : progressUnavailable
                 ? 'Chưa thể tải dữ liệu tiến độ lúc này. Bạn có thể làm mới trang để thử lại.'
                 : hasProgressData
-                  ? `Hệ thống ghi nhận ${progressData.readiness.evidenceCount} bằng chứng năng lực thực tế. Đây là bước đi tốt nhất tiếp theo trong hành trình của bạn.`
+                  ? `Bạn đã có ${progressData.readiness.evidenceCount} bằng chứng từ quá trình luyện tập. Hãy tiếp tục với bước phù hợp nhất cho mục tiêu hiện tại.`
                   : 'Đang tải dữ liệu tiến độ học tập...'
         }
       >
@@ -372,9 +372,9 @@ export default function OverviewPage() {
         </div>
       )}
 
-      {/* 2. Core 4 Questions Section */}
+      {/* 2. Core questions section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* QUESTION 4: Tôi nên làm gì tiếp theo? (Spotlight Next Best Action) */}
+        {/* QUESTION 4: Tôi nên làm gì tiếp theo? */}
         <div className="lg:col-span-7 flex flex-col justify-between relative overflow-hidden rounded-2xl bg-white p-6 sm:p-7 border border-outline-variant/60 shadow-card group">
           <div className="relative z-10">
             {recommendationError && (
@@ -393,7 +393,7 @@ export default function OverviewPage() {
                 <span className="material-symbols-outlined text-[16px] text-primary">
                   auto_awesome
                 </span>
-                Hành động tốt nhất tiếp theo (Next Best Action)
+                Bước tiếp theo phù hợp
               </span>
               {nextAction.estimatedMinutes && <span className="text-xs text-on-surface-variant">Ước tính {nextAction.estimatedMinutes} phút</span>}
             </div>
@@ -403,7 +403,7 @@ export default function OverviewPage() {
                 <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
                   {nextAction.label}
                 </h3>
-                <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+                <p className="text-sm text-on-surface-variant leading-relaxed">
                   {nextAction.description}
                 </p>
                 <div className="pt-4 flex flex-wrap items-center gap-3">
@@ -431,7 +431,7 @@ export default function OverviewPage() {
                 <h3 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
                   {nextActionPending ? <Skeleton className="h-7 w-3/4 max-w-md" /> : nextAction.label}
                 </h3>
-                <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+                <p className="text-sm text-on-surface-variant leading-relaxed">
                   {nextAction.description}
                 </p>
                 <div className="pt-4 flex flex-wrap items-center gap-3">
@@ -505,7 +505,7 @@ export default function OverviewPage() {
                       Điểm cần chú ý nhất:
                     </div>
                     <p className="text-on-surface-variant text-xs">
-                      Hệ thống ghi nhận {progressData.readiness.priorityGapCount} khoảng trống năng lực ưu tiên cần bồi đắp.
+                      Có {progressData.readiness.priorityGapCount} khoảng trống năng lực đang được ưu tiên bồi đắp.
                     </p>
                   </div>
                 ) : null}
