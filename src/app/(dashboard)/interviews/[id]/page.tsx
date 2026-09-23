@@ -19,6 +19,7 @@ import {
   getOrCreateAnswerIntent,
   getAnswerEvaluationErrorMessage,
   applyAnswerResultToInterview,
+  shouldAutoComplete,
   createCompleteIntentState,
   type AnswerIntent,
   type CompleteIntentState,
@@ -101,6 +102,7 @@ export default function InterviewRoomPage() {
   const continueKeyRef = useRef<string>(generateIdempotencyKey());
   const questionRetryKeyRef = useRef<string>(generateIdempotencyKey());
   const completeIntentRef = useRef<CompleteIntentState>(createCompleteIntentState());
+  const completeInFlightRef = useRef(false);
   const continuationReturnHandledRef = useRef<boolean>(false);
   const continueInFlightRef = useRef<boolean>(false);
 
@@ -245,26 +247,26 @@ export default function InterviewRoomPage() {
       .toUpperCase();
   }, [candidateName]);
 
-  // Question sequence & header text
-  const currentSequence = activeQuestion?.sequence ?? (answeredPairs.length + 1);
-  const headerQuestionLabel = `Câu ${currentSequence}`;
+  const headerQuestionLabel = activeQuestion ? `Câu ${activeQuestion.sequence}` : undefined;
 
   useFocusedPracticeShell({
     title: interview?.role ? `Phỏng vấn ${interview.role}` : 'Phỏng vấn AI',
     subtitle: interview?.seniority
       ? `${interview.seniority} · ${interview.interviewType}`
       : undefined,
-    stepInfo: activeQuestion ? headerQuestionLabel : undefined,
+    stepInfo: completing ? undefined : headerQuestionLabel,
     statusLabel:
-      submitting
-        ? 'Đang lưu câu trả lời...'
-        : candidateState.listening
-          ? 'Đang lắng nghe câu trả lời'
-          : isAiSpeaking
-            ? 'AI đang đọc câu hỏi'
-            : interview?.status === 'active'
-              ? 'Phiên phỏng vấn đang hoạt động'
-              : undefined,
+      completing
+        ? 'Đang hoàn tất phiên phỏng vấn...'
+        : submitting
+          ? 'Đang lưu câu trả lời...'
+          : candidateState.listening
+            ? 'Đang lắng nghe câu trả lời'
+            : isAiSpeaking
+              ? 'AI đang đọc câu hỏi'
+              : interview?.status === 'active'
+                ? 'Phiên phỏng vấn đang hoạt động'
+                : undefined,
     exitTo: '/interviews',
   });
 
@@ -272,6 +274,31 @@ export default function InterviewRoomPage() {
     setCandidateState(state);
     if (state.listening) setIsAiSpeaking(false);
   }, []);
+
+  const completeInterview = async () => {
+    if (completeInFlightRef.current) return;
+    completeInFlightRef.current = true;
+    setShowQ3BoundaryModal(false);
+    setCompleting(true);
+    setActionError(null);
+    void questionSpeakerRef.current?.stop().catch(() => undefined);
+    disableCamera();
+
+    try {
+      const updated = await interviewApi.complete(id, completeIntentRef.current.getKey());
+      queryClient.setQueryData(['interview', id], updated);
+      completeIntentRef.current.confirmComplete();
+      router.replace(`/interviews/${id}/report`);
+    } catch (err: unknown) {
+      completeInFlightRef.current = false;
+      setCompleting(false);
+      setActionError({
+        message: err instanceof ApiError ? err.message : 'Lỗi khi kết thúc bài thi. Vui lòng thử lại.',
+        requestId: err instanceof ApiError ? err.requestId : undefined,
+        code: err instanceof ApiError ? err.code : undefined,
+      });
+    }
+  };
 
   // Submit Answer handler (Seamless transition: 200 -> next question immediately)
   const handleSubmitAnswer = async (content: string, durationSec?: number) => {
@@ -305,6 +332,11 @@ export default function InterviewRoomPage() {
       pendingAnswerIntentRef.current = null;
       setCurrentDraftContent('');
       setAnswerSubmitState('draft');
+
+      if (shouldAutoComplete(result.isComplete, result.continuation, result.nextQuestion)) {
+        await completeInterview();
+        return;
+      }
 
       // Authoritative Free upgrade boundary: only open modal if server explicitly requires upgrade
       // (no next question returned AND continuation state is upgrade_required)
@@ -384,23 +416,7 @@ export default function InterviewRoomPage() {
       return;
     }
 
-    setShowQ3BoundaryModal(false);
-    setCompleting(true);
-    setActionError(null);
-
-    try {
-      await interviewApi.complete(id, completeIntentRef.current.getKey());
-      completeIntentRef.current.confirmComplete();
-      disableCamera();
-      router.push(`/interviews/${id}/report`);
-    } catch (err: unknown) {
-      setActionError({
-        message: err instanceof ApiError ? err.message : 'Lỗi khi kết thúc bài thi. Vui lòng thử lại.',
-        requestId: err instanceof ApiError ? err.requestId : undefined,
-        code: err instanceof ApiError ? err.code : undefined,
-      });
-      setCompleting(false);
-    }
+    await completeInterview();
   };
 
   // Upgrade & Continue into Q4+ in the SAME session
@@ -461,6 +477,15 @@ export default function InterviewRoomPage() {
   }
 
   if (!interview) return null;
+
+  if (completing) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-slate-700" role="status">
+        <div className="functional-spinner w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full" />
+        <p>Đang hoàn tất phiên phỏng vấn...</p>
+      </div>
+    );
+  }
 
   const routeState = getInterviewRouteState(interview.status);
 
@@ -589,7 +614,7 @@ export default function InterviewRoomPage() {
             </span>
             <span>{topicLabel}</span>
             <span>{interview.role} ({interview.seniority})</span>
-            <span>{headerQuestionLabel}</span>
+            {headerQuestionLabel && <span>{headerQuestionLabel}</span>}
           </div>
 
           <div className="interview-stage-center">
@@ -622,7 +647,7 @@ export default function InterviewRoomPage() {
               </div>
             )}
 
-            <details className="interview-coach-tip">
+            {activeQuestion && <details className="interview-coach-tip">
               <summary>
                 <span aria-hidden="true" className="material-symbols-outlined">
                   tips_and_updates
@@ -630,14 +655,14 @@ export default function InterviewRoomPage() {
                 Mẹo trả lời chung
               </summary>
               <p>
-                {currentSequence === 1 &&
+                {activeQuestion.sequence === 1 &&
                   'Nêu bật kinh nghiệm thực chiến gần nhất, nhấn mạnh công nghệ chủ đạo và đóng góp cá nhân nổi bật.'}
-                {currentSequence === 2 &&
+                {activeQuestion.sequence === 2 &&
                   'Trình bày có cấu trúc: 1) Cô lập và chẩn đoán sự cố; 2) Giải pháp ứng phó; 3) Thiết kế phòng ngừa lâu dài.'}
-                {currentSequence >= 3 &&
+                {activeQuestion.sequence >= 3 &&
                   'Áp dụng cấu trúc STAR: Nêu rõ Bối cảnh (S), Mục tiêu (T), Hành động cụ thể (A), và Kết quả định lượng (R).'}
               </p>
-            </details>
+            </details>}
           </div>
 
           {/* Candidate Self Tile (Initials/Avatar, live camera preview, timer, status) */}

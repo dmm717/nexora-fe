@@ -715,21 +715,14 @@ export function getInterviewRouteState(status?: string | null): InterviewRouteSt
 }
 
 /**
- * Evaluates whether the interview should automatically trigger complete().
- * CRITICAL: nextQuestion = null + upgrade_required MUST NOT auto-complete.
+ * Only the server's final allocated-question boundary triggers complete().
  */
 export function shouldAutoComplete(
   isComplete: boolean,
   continuation?: InterviewContinuationView | null,
   nextQuestion?: QuestionView | null
 ): boolean {
-  if (isUpgradeRequired(continuation)) {
-    return false;
-  }
-  if (nextQuestion) {
-    return false;
-  }
-  return Boolean(isComplete);
+  return isComplete === true && !nextQuestion && isMaxQuestionsReached(continuation);
 }
 
 /**
@@ -1340,22 +1333,27 @@ export function buildInterviewPreflightPayload(params: {
 export type InterviewReportRenderState =
   | 'loading'
   | 'failed'
+  | 'unavailable'
   | 'polling_exhausted'
   | 'processing'
   | 'ready';
 
-/** Confirmed server failure wins; local polling exhaustion wins over processing. */
+/** A missing report never implies readiness while the interview is transitioning. */
 export function getInterviewReportRenderState(params: {
   loading: boolean;
   failed: boolean;
+  unavailable: boolean;
+  hasReport: boolean;
   pollingBoundExhausted: boolean;
   processing: boolean;
 }): InterviewReportRenderState {
   if (params.loading) return 'loading';
   if (params.failed) return 'failed';
+  if (params.hasReport) return 'ready';
+  if (params.unavailable) return 'unavailable';
   if (params.pollingBoundExhausted) return 'polling_exhausted';
   if (params.processing) return 'processing';
-  return 'ready';
+  return 'loading';
 }
 
 export interface StartIntent {

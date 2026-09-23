@@ -110,6 +110,9 @@ test('3. nextQuestion = null + upgrade_required does NOT auto-complete', () => {
     canUpgradeAndContinue: false,
   };
   assert.equal(shouldAutoComplete(true, continuationMaxReached, null), true);
+  assert.equal(shouldAutoComplete(false, continuationMaxReached, null), false);
+  assert.equal(shouldAutoComplete(true, { ...continuationMaxReached, state: 'in_progress' }, null), false);
+  assert.equal(shouldAutoComplete(true, null, null), false);
 
   // If there is still a nextQuestion, it must not auto-complete
   const fakeNextQ = { id: 'q-4', sequence: 4, content: 'Next question', createdAt: '' };
@@ -1238,6 +1241,8 @@ test('44. report render precedence separates server failure, polling exhaustion,
     getInterviewReportRenderState({
       loading: false,
       failed: false,
+      unavailable: false,
+      hasReport: false,
       pollingBoundExhausted: true,
       processing: true,
     }),
@@ -1247,6 +1252,8 @@ test('44. report render precedence separates server failure, polling exhaustion,
     getInterviewReportRenderState({
       loading: false,
       failed: true,
+      unavailable: false,
+      hasReport: false,
       pollingBoundExhausted: true,
       processing: true,
     }),
@@ -1256,11 +1263,55 @@ test('44. report render precedence separates server failure, polling exhaustion,
     getInterviewReportRenderState({
       loading: false,
       failed: false,
+      unavailable: false,
+      hasReport: false,
       pollingBoundExhausted: false,
       processing: true,
     }),
     'processing'
   );
+});
+
+test('44a. report remains transitional until data arrives or the server confirms absence', () => {
+  const state = (overrides) => getInterviewReportRenderState({
+    loading: false,
+    failed: false,
+    unavailable: false,
+    hasReport: false,
+    pollingBoundExhausted: false,
+    processing: false,
+    ...overrides,
+  });
+
+  assert.equal(state({}), 'loading'); // stale active cache after navigation
+  assert.equal(state({ processing: true }), 'processing'); // completing, 4/5 ready
+  assert.equal(state({ loading: true, hasReport: false }), 'loading'); // ready state, report fetch pending
+  assert.equal(state({ hasReport: true }), 'ready');
+  assert.equal(state({ unavailable: true }), 'unavailable');
+  assert.equal(state({ failed: true, processing: true }), 'failed');
+});
+
+test('44b. final answer completes once in the event path and caches server state before navigation', () => {
+  const source = readFileSync(
+    new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const completion = source.slice(source.indexOf('const completeInterview'), source.indexOf('const handleSubmitAnswer'));
+  const submission = source.slice(source.indexOf('const handleSubmitAnswer'), source.indexOf('const handleEntitlementRecheck'));
+  const earlyFinish = source.slice(source.indexOf('const handleFinishEarly'), source.indexOf('const handleUpgradeAndContinue'));
+
+  assert.match(submission, /shouldAutoComplete\(result\.isComplete, result\.continuation, result\.nextQuestion\)/);
+  assert.match(submission, /await completeInterview\(\)/);
+  assert.match(completion, /if \(completeInFlightRef\.current\) return/);
+  assert.match(completion, /completeInFlightRef\.current = true/);
+  assert.match(completion, /interviewApi\.complete\(id, completeIntentRef\.current\.getKey\(\)\)/);
+  assert.match(completion, /completeInFlightRef\.current = false/);
+  assert.ok(completion.indexOf("queryClient.setQueryData(['interview', id], updated)") < completion.indexOf('router.replace(`/interviews/${id}/report`)'));
+  assert.doesNotMatch(completion, /window\.confirm/);
+  assert.match(earlyFinish, /window\.confirm/);
+  assert.match(source, /if \(completing\)[\s\S]*?Đang hoàn tất phiên phỏng vấn/);
+  assert.match(source, /const headerQuestionLabel = activeQuestion \? `Câu \$\{activeQuestion\.sequence\}` : undefined/);
+  assert.doesNotMatch(source, /answeredPairs\.length \+ 1/);
 });
 
 test('45. polling exhaustion UI only rechecks queries while failure UI owns report retry', () => {
