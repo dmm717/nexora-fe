@@ -4,7 +4,11 @@ import { scenarioApi, type ScenarioAttemptResponse } from '@/services/scenarioAp
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus, type RealtimeFallbackInterval } from '@/utils/queryPolling';
-import { invalidatePracticeAggregates } from '@/services/practiceInvalidation';
+import {
+  fetchPracticeSnapshot,
+  invalidateObservedScenarioCompletion,
+  invalidateObservedStarCompletion,
+} from '@/services/practiceInvalidation';
 
 export const useStarAttempt = (id: string, isScenario: boolean, refetchInterval?: RealtimeFallbackInterval) => {
   const { authReady, isAuthenticated } = useAuth();
@@ -12,13 +16,15 @@ export const useStarAttempt = (id: string, isScenario: boolean, refetchInterval?
 
   return useQuery({
     queryKey: isScenario ? ['scenarioAttempt', id] : ['starAttempt', id],
-    queryFn: async (): Promise<ScenarioAttemptResponse | StarAttemptResponse> => {
-      const result = isScenario ? await scenarioApi.getAttempt(id) : await starBuilderApi.getAttempt(id);
-      if (result && 'status' in result && result.status === 'completed') {
-        invalidatePracticeAggregates(queryClient);
-      }
-      return result;
-    },
+    queryFn: () => fetchPracticeSnapshot(
+      queryClient,
+      isScenario ? ['scenarioAttempt', id] : ['starAttempt', id],
+      async (): Promise<ScenarioAttemptResponse | StarAttemptResponse> =>
+        isScenario ? scenarioApi.getAttempt(id) : starBuilderApi.getAttempt(id),
+      () => isScenario
+        ? invalidateObservedScenarioCompletion(queryClient)
+        : invalidateObservedStarCompletion(queryClient)
+    ),
     staleTime: 0,
     enabled: authReady && isAuthenticated && !!id,
     // Realtime notifications are primary via SignalR resourceChanged; polling provides safety-net fallback.

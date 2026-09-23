@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { progressDashboardApi } from '@/services/progressDashboardApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { PROGRESS_DASHBOARD_QUERY_KEY } from '@/services/sharedQueryKeys';
 
-export const PROGRESS_DASHBOARD_QUERY_KEY = ['progressDashboard'] as const;
+export { PROGRESS_DASHBOARD_QUERY_KEY } from '@/services/sharedQueryKeys';
 
 export type { ProgressDashboardResponse } from '@/services/progressDashboardApi';
 

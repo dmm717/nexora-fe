@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { recommendationsApi } from '@/services/recommendationsApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from '@/services/sharedQueryKeys';
 
-export const NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY = [
-  'nextPracticeRecommendation',
-] as const;
+export { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from '@/services/sharedQueryKeys';
 
 export type { NextPracticeRecommendationResponse } from '@/services/recommendationsApi';
 

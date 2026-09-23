@@ -6,6 +6,16 @@ import { SessionQueryClientManager } from '../src/services/sessionQueryClient.ts
 import {
   PRACTICE_AGGREGATE_QUERY_KEYS,
   getQueryKeysForEvent,
+  fetchPracticeSnapshot,
+  invalidateInterviewCompletionResult,
+  invalidateObservedInterviewCompletion,
+  invalidateObservedScenarioCompletion,
+  invalidateObservedStarCompletion,
+  invalidateScenarioAttemptResult,
+  invalidateStarAttemptResult,
+  CURRENT_USER_QUERY_KEY as invalidationUserKey,
+  PROGRESS_DASHBOARD_QUERY_KEY as invalidationProgressKey,
+  NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY as invalidationRecommendationKey,
   invalidateInterviewTerminalCompletion,
   invalidateScenarioTerminalCompletion,
   invalidateStarTerminalCompletion,
@@ -297,4 +307,130 @@ test('Practice completion invalidates aggregate cache during 60s staleTime windo
   assert.equal(queryCache.find({ queryKey: ['progressDashboard'] }).isStale(), false);
   invalidateStarTerminalCompletion(queryClient, 'star-test-1');
   assert.equal(queryCache.find({ queryKey: ['progressDashboard'] }).isStale(), true);
+});
+
+test('Practice lifecycle: queued acceptance refreshes resources without terminal aggregates', () => {
+  const queryClient = new QueryClient();
+  for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) queryClient.setQueryData(key, { fresh: true });
+  queryClient.setQueryData(['careerProfile'], { fresh: true });
+
+  queryClient.setQueryData(['interview', 'int-queued'], { status: 'completing' });
+  invalidateInterviewCompletionResult(queryClient, 'int-queued', 'completing', { status: 'completing' });
+  assert.equal(queryClient.getQueryData(['interview', 'int-queued']).status, 'completing');
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['currentUser'] }).isStale(), false);
+
+  queryClient.setQueryData(['scenarioAttempt', 'scenario-queued'], { status: 'processing' });
+  invalidateScenarioAttemptResult(queryClient, 'scenario-queued', 'processing', { status: 'processing' });
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['scenarioAttempt', 'scenario-queued'] }).isStale(), true);
+
+  queryClient.setQueryData(['starAttempt', 'star-queued'], { status: 'queued' });
+  invalidateStarAttemptResult(queryClient, 'star-queued', 'queued', { status: 'queued' });
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['starAttempt', 'star-queued'] }).isStale(), true);
+
+  for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) {
+    assert.equal(queryClient.getQueryCache().find({ queryKey: key }).isStale(), false, `${JSON.stringify(key)} stays fresh while work is queued`);
+  }
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['careerProfile'] }).isStale(), false);
+});
+
+test('Practice lifecycle: a mutation response already marked completed invalidates immediately', () => {
+  const queryClient = new QueryClient();
+  for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) queryClient.setQueryData(key, { fresh: true });
+
+  invalidateInterviewCompletionResult(queryClient, 'int-done', 'completed', { status: 'completed' });
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['currentUser'] }).isStale(), true);
+  for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) queryClient.setQueryData(key, { fresh: true });
+
+  invalidateScenarioAttemptResult(queryClient, 'scenario-done', 'completed', { status: 'completed' });
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['progressDashboard'] }).isStale(), true);
+  for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) queryClient.setQueryData(key, { fresh: true });
+
+  invalidateStarAttemptResult(queryClient, 'star-done', 'completed', { status: 'completed' });
+  assert.equal(queryClient.getQueryCache().find({ queryKey: ['nextPracticeRecommendation'] }).isStale(), true);
+});
+
+test('Practice lifecycle: interview, scenario, and STAR polling invalidate only on a cached transition to completed', async () => {
+  const interviewHook = await readSource('../src/hooks/queries/useInterviews.ts');
+  const scenarioHook = await readSource('../src/hooks/queries/useScenarios.ts');
+  const starHook = await readSource('../src/hooks/queries/useStarAttempts.ts');
+  assert.match(interviewHook, /fetchPracticeSnapshot\([\s\S]*invalidateObservedInterviewCompletion/);
+  assert.match(scenarioHook, /fetchPracticeSnapshot\([\s\S]*invalidateObservedScenarioCompletion/);
+  assert.match(starHook, /fetchPracticeSnapshot\([\s\S]*invalidateObservedScenarioCompletion[\s\S]*invalidateObservedStarCompletion/);
+
+  const cases = [
+    {
+      kind: 'interview',
+      key: ['interview', 'int-transition'],
+      observed: invalidateObservedInterviewCompletion,
+      before: { status: 'completing', version: 1 },
+    },
+    {
+      kind: 'scenario',
+      key: ['scenarioAttempt', 'scenario-transition'],
+      observed: invalidateObservedScenarioCompletion,
+      before: { status: 'processing' },
+    },
+    {
+      kind: 'STAR',
+      key: ['starAttempt', 'star-transition'],
+      observed: invalidateObservedStarCompletion,
+      before: { status: 'queued' },
+    },
+  ];
+
+  for (const lifecycle of cases) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000 } } });
+    for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) queryClient.setQueryData(key, { value: 1 });
+    queryClient.setQueryData(['careerProfile'], { fresh: true });
+    queryClient.setQueryData(lifecycle.key, lifecycle.before);
+
+    await queryClient.fetchQuery({
+      queryKey: lifecycle.key,
+      staleTime: 0,
+      queryFn: () => fetchPracticeSnapshot(
+        queryClient,
+        lifecycle.key,
+        async () => ({ status: 'completed' }),
+        () => lifecycle.observed(queryClient)
+      ),
+    });
+
+    for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) {
+      assert.equal(queryClient.getQueryCache().find({ queryKey: key }).isStale(), true, `${lifecycle.kind} completion refreshes ${JSON.stringify(key)}`);
+    }
+    assert.equal(queryClient.getQueryCache().find({ queryKey: ['careerProfile'] }).isStale(), false, 'unrelated queries remain fresh');
+
+    // Model aggregate refetch completion, then revisit the already-completed resource.
+    for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) queryClient.setQueryData(key, { value: 2 });
+    await queryClient.fetchQuery({
+      queryKey: lifecycle.key,
+      staleTime: 0,
+      queryFn: () => fetchPracticeSnapshot(
+        queryClient,
+        lifecycle.key,
+        async () => ({ status: 'completed' }),
+        () => lifecycle.observed(queryClient)
+      ),
+    });
+    for (const key of PRACTICE_AGGREGATE_QUERY_KEYS) {
+      assert.equal(queryClient.getQueryCache().find({ queryKey: key }).isStale(), false, `${lifecycle.kind} historical read does not re-invalidate ${JSON.stringify(key)}`);
+    }
+  }
+});
+
+test('Shared invalidation query keys have one canonical authority', async () => {
+  const userQuery = await readSource('../src/hooks/queries/useUser.ts');
+  const progressQuery = await readSource('../src/hooks/queries/useProgressDashboard.ts');
+  const recommendationQuery = await readSource('../src/hooks/queries/useNextRecommendation.ts');
+  const keyModule = await readSource('../src/services/sharedQueryKeys.ts');
+
+  assert.match(userQuery, /import \{ CURRENT_USER_QUERY_KEY \} from ['"]@\/services\/sharedQueryKeys['"]/);
+  assert.match(progressQuery, /import \{ PROGRESS_DASHBOARD_QUERY_KEY \} from ['"]@\/services\/sharedQueryKeys['"]/);
+  assert.match(recommendationQuery, /import \{ NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY \} from ['"]@\/services\/sharedQueryKeys['"]/);
+  assert.match(keyModule, /export const CURRENT_USER_QUERY_KEY/);
+  assert.match(keyModule, /export const PROGRESS_DASHBOARD_QUERY_KEY/);
+  assert.match(keyModule, /export const NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY/);
+  assert.deepEqual(invalidationUserKey, ['currentUser']);
+  assert.deepEqual(invalidationProgressKey, ['progressDashboard']);
+  assert.deepEqual(invalidationRecommendationKey, ['nextPracticeRecommendation']);
 });

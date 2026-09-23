@@ -37,7 +37,7 @@ import {
 } from '@/services/interviewContract';
 import { readStatus } from '@/utils/queryPolling';
 import { useFocusedPracticeShell } from '@/components/layouts/FocusedPracticeShellContext';
-import { invalidateStarTerminalCompletion } from '@/services/practiceInvalidation';
+import { invalidateStarAttemptResult } from '@/services/practiceInvalidation';
 
 const componentHints = [
   ['S', 'Situation', 'Bối cảnh thực tế của câu chuyện.'],
@@ -101,7 +101,7 @@ export default function StarPractice() {
       intentRef.current = null;
       setError(null);
       setSelectedAttemptId(created.id);
-      invalidateStarTerminalCompletion(queryClient, created.id);
+      invalidateStarAttemptResult(queryClient, created.id, created.status, created);
       router.replace(`/practice/star?attempt=${encodeURIComponent(created.id)}`);
     },
     onError: (caught) => setError(caught),

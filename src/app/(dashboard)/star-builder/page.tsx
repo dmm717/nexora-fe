@@ -24,8 +24,8 @@ import {
   type NormalizedStarEvaluation,
 } from '@/services/interviewContract';
 import {
-  invalidateScenarioTerminalCompletion,
-  invalidateStarTerminalCompletion,
+  invalidateScenarioAttemptResult,
+  invalidateStarAttemptResult,
 } from '@/services/practiceInvalidation';
 
 const getScoreClass = (score: number) => {
@@ -288,13 +288,13 @@ function StarBuilderContent() {
         );
         scenarioSubmitIntentRef.current = submitIntent;
 
-        await scenarioApi.submitAttempt(
+        const submitted = await scenarioApi.submitAttempt(
           submitIntent.payload.attemptId,
           { answer: submitIntent.payload.answer },
           submitIntent.key
         );
         scenarioSubmitIntentRef.current = null;
-        return currentAttemptId;
+        return submitted;
       } else {
         const starIntent = getOrCreateStarAttemptIntent(
           starIntentRef.current,
@@ -310,16 +310,16 @@ function StarBuilderContent() {
           starIntent.key
         );
         starIntentRef.current = null;
-        return response.id;
+        return response;
       }
     },
-    onSuccess: (id) => {
-      setAttemptId(id);
+    onSuccess: (attempt) => {
+      setAttemptId(attempt.id);
       if (scenarioData) {
         activeScenarioAttemptIdRef.current = null;
-        invalidateScenarioTerminalCompletion(queryClient, id);
+        invalidateScenarioAttemptResult(queryClient, attempt.id, attempt.status, attempt);
       } else {
-        invalidateStarTerminalCompletion(queryClient, id);
+        invalidateStarAttemptResult(queryClient, attempt.id, attempt.status, attempt);
       }
     },
     onError: (err) => {

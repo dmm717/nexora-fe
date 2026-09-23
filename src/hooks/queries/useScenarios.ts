@@ -5,8 +5,9 @@ import type { ScenarioFilterParams } from '@/types/scenario';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus, type RealtimeFallbackInterval } from '@/utils/queryPolling';
 import {
-  invalidatePracticeAggregates,
-  invalidateScenarioTerminalCompletion,
+  fetchPracticeSnapshot,
+  invalidateObservedScenarioCompletion,
+  invalidateScenarioAttemptResult,
 } from '@/services/practiceInvalidation';
 
 export const useScenarioCategories = () => {
@@ -63,13 +64,12 @@ export const useScenarioAttempt = (
 
   return useQuery({
     queryKey: ['scenarioAttempt', attemptId],
-    queryFn: async () => {
-      const attempt = await scenarioApi.getAttempt(attemptId);
-      if (attempt?.status === 'completed') {
-        invalidatePracticeAggregates(queryClient);
-      }
-      return attempt;
-    },
+    queryFn: () => fetchPracticeSnapshot(
+      queryClient,
+      ['scenarioAttempt', attemptId],
+      () => scenarioApi.getAttempt(attemptId),
+      () => invalidateObservedScenarioCompletion(queryClient)
+    ),
     staleTime: 0,
     enabled: authReady && isAuthenticated && !!attemptId,
     refetchInterval:
@@ -139,7 +139,7 @@ export const useSubmitScenarioAttempt = () => {
       idempotencyKey?: string;
     }) => scenarioApi.submitAttempt(attemptId, answer, idempotencyKey),
     onSuccess: (attempt) => {
-      invalidateScenarioTerminalCompletion(queryClient, attempt.id);
+      invalidateScenarioAttemptResult(queryClient, attempt.id, attempt.status, attempt);
     },
   });
 };
@@ -156,7 +156,7 @@ export const useRetryScenario = () => {
       idempotencyKey?: string;
     }) => scenarioApi.retryScenario(scenarioId, idempotencyKey),
     onSuccess: (attempt) => {
-      invalidateScenarioTerminalCompletion(queryClient, attempt.id);
+      invalidateScenarioAttemptResult(queryClient, attempt.id, attempt.status, attempt);
     },
   });
 };

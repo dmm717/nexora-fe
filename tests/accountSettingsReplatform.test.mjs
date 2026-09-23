@@ -232,7 +232,9 @@ test('Corrective 1: No localUserOverride store; useCurrentUser is canonical and 
   const userHookSource = await readSource(
     '../src/hooks/queries/useUser.ts'
   );
-  assert.match(userHookSource, /export const CURRENT_USER_QUERY_KEY\s*=\s*\['currentUser'\]/);
+  assert.match(userHookSource, /CURRENT_USER_QUERY_KEY/);
+  const sharedQueryKeysSource = await readSource('../src/services/sharedQueryKeys.ts');
+  assert.match(sharedQueryKeysSource, /export const CURRENT_USER_QUERY_KEY\s*=\s*\['currentUser'\]/);
 
   const screenSource = await readSource(
     '../src/components/features/account/AccountSettings.tsx'

@@ -5,6 +5,10 @@ import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus, type RealtimeFallbackInterval } from '@/utils/queryPolling';
 import {
+  fetchPracticeSnapshot,
+  invalidateObservedInterviewCompletion,
+} from '@/services/practiceInvalidation';
+import {
   isDeterministicError,
   isReportProcessingError,
   isReportFailedError,
@@ -27,16 +31,21 @@ export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInter
 
   const query = useQuery({
     queryKey: ['interview', id],
-    queryFn: async () => {
-      statusPollingTracker.ensureCycle(id);
-      if (statusPollingTracker.consumeScheduledPoll()) {
-        statusPollingTracker.recordFallbackPoll();
-      }
-      const incoming = await interviewApi.getById(id);
-      return reconcileInterviewSnapshot(
-        queryClient.getQueryData<InterviewView>(['interview', id]), incoming
-      );
-    },
+    queryFn: () => fetchPracticeSnapshot(
+      queryClient,
+      ['interview', id],
+      async () => {
+        statusPollingTracker.ensureCycle(id);
+        if (statusPollingTracker.consumeScheduledPoll()) {
+          statusPollingTracker.recordFallbackPoll();
+        }
+        const incoming = await interviewApi.getById(id);
+        return reconcileInterviewSnapshot(
+          queryClient.getQueryData<InterviewView>(['interview', id]), incoming
+        );
+      },
+      () => invalidateObservedInterviewCompletion(queryClient)
+    ),
     enabled: authReady && isAuthenticated && !!id,
     refetchInterval:
       refetchInterval !== undefined
