@@ -564,69 +564,81 @@ export default function NewInterviewPage() {
 
           {/* Interview Type Selector */}
           <Card variant="elevated" padding="md">
-            <h3 className="font-bold text-sm text-on-surface mb-3 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">category</span>
-              <span>Chủ đề phỏng vấn trọng tâm</span>
-            </h3>
+            <fieldset className="space-y-3">
+              <legend className="font-bold text-sm text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[20px]">category</span>
+                <span>Chủ đề phỏng vấn trọng tâm</span>
+              </legend>
 
-            <div className="space-y-2" role="radiogroup" aria-label="Chủ đề phỏng vấn trọng tâm">
-              {INTERVIEW_TYPES.map((item) => {
-                const isSelected = interviewType === item.type;
-                return (
-                  <button
-                    key={item.type}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    onClick={() => setInterviewType(item.type)}
-                    className={`w-full p-3 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                      isSelected
-                        ? 'bg-primary-fixed/20 border-2 border-primary text-on-surface shadow-sm ring-1 ring-primary/20'
-                        : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low text-on-surface shadow-2xs cursor-pointer'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs sm:text-sm">{item.title}</span>
-                      <span className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-primary' : 'text-outline-variant'}`}>
-                        {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-on-surface-variant mt-1 leading-normal">{item.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
+              <div className="space-y-2">
+                {INTERVIEW_TYPES.map((item) => {
+                  const isSelected = interviewType === item.type;
+                  return (
+                    <label
+                      key={item.type}
+                      className={`block w-full p-3 rounded-xl border text-left transition-all cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary ${
+                        isSelected
+                          ? 'bg-primary-fixed/20 border-primary text-on-surface shadow-sm ring-1 ring-primary/20'
+                          : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low text-on-surface shadow-2xs'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="interview_type_selection"
+                        value={item.type}
+                        checked={isSelected}
+                        onChange={() => setInterviewType(item.type)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs sm:text-sm">{item.title}</span>
+                        <span className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-primary' : 'text-outline-variant'}`}>
+                          {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-on-surface-variant mt-1 leading-normal">{item.desc}</p>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           </Card>
 
           {/* Localized Difficulty Selector */}
           <Card variant="elevated" padding="md">
-            <h3 className="font-bold text-sm text-on-surface mb-3 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">speed</span>
-              <span>Độ khó của phiên</span>
-            </h3>
+            <fieldset className="space-y-3">
+              <legend className="font-bold text-sm text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[20px]">speed</span>
+                <span>Độ khó của phiên</span>
+              </legend>
 
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Độ khó của phiên">
-              {(['Standard', 'Challenging', 'Expert'] as InterviewDifficultyVisual[]).map((d) => {
-                const localized = DIFFICULTY_LABELS[d];
-                const isSelected = difficulty === d;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    onClick={() => setDifficulty(d)}
-                    className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                      isSelected
-                        ? 'bg-primary text-white border-2 border-primary shadow-sm'
-                        : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low text-on-surface shadow-2xs cursor-pointer'
-                    }`}
-                  >
-                    {localized.labelVi}
-                  </button>
-                );
-              })}
-            </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(['Standard', 'Challenging', 'Expert'] as InterviewDifficultyVisual[]).map((d) => {
+                  const localized = DIFFICULTY_LABELS[d];
+                  const isSelected = difficulty === d;
+                  return (
+                    <label
+                      key={d}
+                      className={`block p-2.5 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary ${
+                        isSelected
+                          ? 'bg-primary text-white border-primary shadow-sm ring-1 ring-primary/30'
+                          : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low text-on-surface shadow-2xs'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="interview_difficulty_selection"
+                        value={d}
+                        checked={isSelected}
+                        onChange={() => setDifficulty(d)}
+                        className="sr-only"
+                      />
+                      <span>{localized.labelVi}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           </Card>
         </div>
 

@@ -139,7 +139,7 @@ export default function AnalyticsPage() {
     const score = comp.score != null ? Math.round(comp.score) : null;
     const evidenceNum = 'evidenceCount' in comp ? comp.evidenceCount : 0;
     const card = (
-      <Card variant="elevated" padding="md" className="space-y-2 border border-outline-variant/80 hover:border-outline/50 transition-all">
+      <Card variant="elevated" padding="md" className="space-y-2 border border-outline-variant/80">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs font-bold text-on-surface">{comp.name || comp.code}</div>

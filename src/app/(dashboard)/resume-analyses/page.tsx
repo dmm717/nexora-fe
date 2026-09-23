@@ -249,9 +249,9 @@ const ResumeUploadPanel = ({
         </label>
 
         {existingResumes && existingResumes.length > 0 && onSelectExistingResume && (
-          <div className="pt-2 border-t border-outline-variant/30 space-y-2">
-            <div className="text-[11px] font-semibold text-on-surface-variant">Hoặc chọn từ CV đã lưu:</div>
-            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1" role="radiogroup" aria-label="Danh sách CV đã lưu">
+          <fieldset className="pt-2 border-t border-outline-variant/30 space-y-2">
+            <legend className="text-[11px] font-semibold text-on-surface-variant">Hoặc chọn từ CV đã lưu:</legend>
+            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
               {existingResumes.map((r) => {
                 const isSelected = selectedResumeId === r.id;
                 const isReady = r.status === 'ready';
@@ -259,21 +259,25 @@ const ResumeUploadPanel = ({
                 const isFailed = r.status === 'failed';
 
                 return (
-                  <button
+                  <label
                     key={r.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    disabled={!isReady}
-                    onClick={() => onSelectExistingResume(r)}
-                    className={`p-2.5 rounded-lg border text-left text-xs transition-all flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    className={`p-2.5 rounded-lg border text-left text-xs transition-all flex items-center justify-between gap-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary ${
                       !isReady
                         ? 'opacity-60 bg-surface-container-low/50 border-outline-variant/40 cursor-not-allowed text-on-surface-variant'
                         : isSelected
-                        ? 'border-2 border-primary bg-primary-fixed/20 text-primary font-bold shadow-xs ring-1 ring-primary/30'
+                        ? 'border-primary bg-primary-fixed/20 text-primary font-bold shadow-xs ring-1 ring-primary/30 cursor-pointer'
                         : 'border-outline-variant/80 hover:border-primary/60 hover:bg-primary-fixed/5 text-on-surface bg-white shadow-2xs cursor-pointer'
                     }`}
                   >
+                    <input
+                      type="radio"
+                      name="existing_resume_selection"
+                      value={r.id}
+                      checked={isSelected}
+                      disabled={!isReady}
+                      onChange={() => onSelectExistingResume(r)}
+                      className="sr-only"
+                    />
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`material-symbols-outlined text-[18px] flex-shrink-0 ${isSelected ? 'text-primary' : 'text-outline-variant'}`}>
                         {isSelected ? 'check_circle' : 'radio_button_unchecked'}
@@ -293,11 +297,11 @@ const ResumeUploadPanel = ({
                         <span className="text-on-surface-variant">Chưa sẵn sàng</span>
                       )}
                     </span>
-                  </button>
+                  </label>
                 );
               })}
             </div>
-          </div>
+          </fieldset>
         )}
       </div>
     ) : (
@@ -1079,16 +1083,15 @@ export default function ResumesPage() {
           <span className="material-symbols-outlined text-primary text-[18px]">tune</span>
           <span>Nguồn dữ liệu phân tích:</span>
         </div>
-        <div className="flex items-center gap-1.5" role="tablist" aria-label="Nguồn dữ liệu">
+        <div className="flex items-center gap-1.5" role="group" aria-label="Nguồn dữ liệu phân tích">
           <button
             type="button"
-            role="tab"
-            aria-selected={useCurrentGoal}
+            aria-pressed={useCurrentGoal}
             onClick={() => handleSourceModeChange('current_profile')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all border ${
               useCurrentGoal
-                ? 'bg-white text-primary border-2 border-primary/50 shadow-sm ring-1 ring-primary/20 cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-                : 'border border-transparent hover:border-outline-variant/60 hover:bg-white/80 text-on-surface-variant hover:text-on-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
+                ? 'bg-white text-primary border-primary shadow-xs ring-1 ring-primary/20 cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                : 'border-outline-variant/80 bg-white/80 hover:border-outline hover:bg-white text-on-surface-variant hover:text-on-surface cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
             }`}
           >
             <span>Dùng hồ sơ hiện tại</span>
@@ -1096,13 +1099,12 @@ export default function ResumesPage() {
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={!useCurrentGoal}
+            aria-pressed={!useCurrentGoal}
             onClick={() => handleSourceModeChange('custom')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all border ${
               !useCurrentGoal
-                ? 'bg-white text-primary border-2 border-primary/50 shadow-sm ring-1 ring-primary/20 cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-                : 'border border-transparent hover:border-outline-variant/60 hover:bg-white/80 text-on-surface-variant hover:text-on-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
+                ? 'bg-white text-primary border-primary shadow-xs ring-1 ring-primary/20 cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                : 'border-outline-variant/80 bg-white/80 hover:border-outline hover:bg-white text-on-surface-variant hover:text-on-surface cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
             }`}
           >
             <span>Tùy chỉnh lần phân tích</span>
@@ -1313,23 +1315,27 @@ export default function ResumesPage() {
 
       {/* Analysis Mode Selector & JD Textarea */}
       <Card variant="elevated" padding="lg" className="space-y-6 bg-white border border-outline-variant/80 shadow-card">
-        <div>
-          <label className="block text-xs font-bold text-on-surface mb-2">
+        <fieldset className="space-y-2">
+          <legend className="block text-xs font-bold text-on-surface mb-2">
             Chọn hình thức phân tích đối chiếu:
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Hình thức phân tích đối chiếu">
+          </legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Mode 1: Field Benchmark */}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={mode === 'field_benchmark'}
-              onClick={() => { setMode('field_benchmark'); setError(null); }}
-              className={`p-4 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            <label
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary ${
                 mode === 'field_benchmark'
-                  ? 'bg-primary-fixed/20 border-2 border-primary shadow-sm ring-1 ring-primary/20'
+                  ? 'bg-primary-fixed/20 border-primary shadow-sm ring-1 ring-primary/30'
                   : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low/60 shadow-2xs'
               }`}
             >
+              <input
+                type="radio"
+                name="analysis_mode"
+                value="field_benchmark"
+                checked={mode === 'field_benchmark'}
+                onChange={() => { setMode('field_benchmark'); setError(null); }}
+                className="sr-only"
+              />
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-sm text-on-surface">Theo vị trí mục tiêu</span>
                 <span
@@ -1343,20 +1349,24 @@ export default function ResumesPage() {
               <p className="text-xs text-on-surface-variant leading-relaxed">
                 Đánh giá độ sẵn sàng 6 trục đối chiếu với chuẩn thị trường của {careerProfile?.activeCareerGoal?.targetRole || targetRole || 'vị trí mục tiêu'}.
               </p>
-            </button>
+            </label>
 
             {/* Mode 2: Job Targeted */}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={mode === 'job_targeted'}
-              onClick={() => { setMode('job_targeted'); setError(null); }}
-              className={`p-4 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            <label
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary ${
                 mode === 'job_targeted'
-                  ? 'bg-primary-fixed/20 border-2 border-primary shadow-sm ring-1 ring-primary/20'
+                  ? 'bg-primary-fixed/20 border-primary shadow-sm ring-1 ring-primary/30'
                   : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low/60 shadow-2xs'
               }`}
             >
+              <input
+                type="radio"
+                name="analysis_mode"
+                value="job_targeted"
+                checked={mode === 'job_targeted'}
+                onChange={() => { setMode('job_targeted'); setError(null); }}
+                className="sr-only"
+              />
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-bold text-sm text-on-surface">Theo JD cụ thể</span>
                 <span
@@ -1370,9 +1380,9 @@ export default function ResumesPage() {
               <p className="text-xs text-on-surface-variant leading-relaxed">
                 Đo lường 5 trục tiêu chuẩn đối chiếu trực tiếp với một văn bản mô tả công việc (JD) bạn dán vào.
               </p>
-            </button>
+            </label>
           </div>
-        </div>
+        </fieldset>
 
         {/* JD Inputs for job_targeted when using current goal */}
         {mode === 'job_targeted' && useCurrentGoal && (
