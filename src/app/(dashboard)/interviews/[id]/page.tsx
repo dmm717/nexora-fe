@@ -44,6 +44,7 @@ import { AudioSpeechDock, type AudioSpeechState } from '@/components/features/in
 import { useLocalCamera } from '@/hooks/useLocalCamera';
 import { InterviewCandidateTile } from '@/components/features/interview/InterviewCandidateTile';
 import { CameraToggleButton } from '@/components/features/interview/CameraToggleButton';
+import { PhoneOff } from 'lucide-react';
 
 export default function InterviewRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -378,7 +379,7 @@ export default function InterviewRoomPage() {
     if (!canFinish || completing || submitting) return;
     if (
       answeredPairs.length > 0 &&
-      !window.confirm('Bạn có chắc chắn muốn kết thúc buổi phỏng vấn và xuất báo cáo đánh giá?')
+      !window.confirm('Kết thúc phiên phỏng vấn và tổng hợp báo cáo?')
     ) {
       return;
     }
@@ -723,14 +724,20 @@ export default function InterviewRoomPage() {
                   <button
                     type="button"
                     className="interview-call-button interview-end-button"
-                    aria-label="Kết thúc phiên phỏng vấn"
+                    aria-label={completing ? 'Đang kết thúc phiên phỏng vấn' : 'Kết thúc phiên phỏng vấn'}
+                    title={completing ? 'Đang kết thúc phiên phỏng vấn' : 'Kết thúc phiên phỏng vấn'}
+                    aria-busy={completing}
                     disabled={submitting || !canFinish}
                     onClick={handleFinishEarly}
                   >
-                    <span aria-hidden="true" className="material-symbols-outlined">
-                      call_end
-                    </span>
-                    <span>{completing ? 'Đang nộp...' : 'Nộp bài sớm'}</span>
+                    {completing ? (
+                      <span
+                        className="functional-spinner inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <PhoneOff size={20} aria-hidden="true" />
+                    )}
                   </button>
                 </>
               }

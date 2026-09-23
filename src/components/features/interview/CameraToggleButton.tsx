@@ -2,6 +2,8 @@
 
 import React from 'react';
 import type { CameraState } from '@/hooks/useLocalCamera';
+import { MorphIcon } from 'morphicons/react';
+import { Video, VideoOff } from 'lucide';
 
 export interface CameraToggleButtonProps {
   state: CameraState;
@@ -28,30 +30,32 @@ export const CameraToggleButton: React.FC<CameraToggleButtonProps> = ({
     : 'Bật camera';
 
   return (
-    <div className="relative inline-flex flex-col items-center">
-      <button
-        type="button"
-        className={`interview-call-button interview-camera-button ${
-          isOn ? 'is-camera-on' : ''
-        } ${className}`}
-        aria-label={label}
-        aria-pressed={isOn}
-        disabled={disabled || isRequesting}
-        onClick={() => void onToggle()}
-        title={errorMessage || label}
-      >
-        {isRequesting ? (
-          <span
-            className="functional-spinner inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full"
-            aria-hidden="true"
-          />
-        ) : (
-          <span aria-hidden="true" className="material-symbols-outlined">
-            {isOn ? 'videocam' : 'videocam_off'}
-          </span>
-        )}
-        <span>{label}</span>
-      </button>
-    </div>
+    <button
+      type="button"
+      className={`interview-call-button interview-camera-button ${
+        isOn ? 'is-camera-on' : ''
+      } ${className}`}
+      aria-label={label}
+      aria-pressed={isOn}
+      disabled={disabled || isRequesting}
+      onClick={() => void onToggle()}
+      title={errorMessage || label}
+    >
+      {isRequesting ? (
+        <span
+          className="functional-spinner inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+          aria-hidden="true"
+        />
+      ) : (
+        <MorphIcon
+          icon={isOn ? Video : VideoOff}
+          spring="snappy"
+          reducedMotion="user"
+          size={20}
+          aria-hidden="true"
+        />
+      )}
+    </button>
   );
 };
+

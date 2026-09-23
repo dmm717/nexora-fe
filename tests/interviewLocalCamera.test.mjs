@@ -188,8 +188,9 @@ test('6. CameraToggleButton component renders accessible button with distinct st
   assert.match(buttonSource, /aria-label=\{label\}/);
   assert.match(buttonSource, /aria-pressed=\{isOn\}/);
   assert.match(buttonSource, /disabled=\{disabled \|\| isRequesting\}/);
-  assert.match(buttonSource, /videocam/);
-  assert.match(buttonSource, /videocam_off/);
+  assert.match(buttonSource, /Video/);
+  assert.match(buttonSource, /VideoOff/);
+  assert.match(buttonSource, /MorphIcon/);
   assert.match(buttonSource, /Bật camera/);
   assert.match(buttonSource, /Tắt camera/);
 });

@@ -264,8 +264,9 @@ test('input mode belongs to interview room and report recovery stays user-trigge
   const report = readFileSync(new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url), 'utf8');
   assert.match(room, /const \[inputMode, setInputMode\]/);
   assert.match(room, /mode=\{inputMode\}/);
-  assert.match(dock, /aria-pressed=\{effectiveMode === 'voice'\}/);
+  assert.match(dock, /aria-pressed=\{speech\.listening\}/);
   assert.match(dock, /aria-pressed=\{effectiveMode === 'chatbox'\}/);
+  assert.doesNotMatch(dock, />\s*Giọng nói\s*</);
   assert.match(dock, /selectInterviewInputMode\(/);
   assert.doesNotMatch(dock, /setDeviceMode/);
   assert.match(report, /Khôi phục xử lý kết quả/);
