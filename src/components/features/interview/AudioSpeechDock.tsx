@@ -9,6 +9,9 @@ import {
   getAnswerSubmissionStatus,
   type AnswerSubmissionPhase,
 } from '@/services/interviewContract';
+import { MorphIcon } from 'morphicons/react';
+import { Mic, MicOff } from 'lucide';
+import { Keyboard } from 'lucide-react';
 
 export interface AudioSpeechState {
   listening: boolean;
@@ -219,6 +222,18 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
   const selectVoice = () => selectMode('voice');
   const selectText = () => selectMode('chatbox');
 
+  const handleMicClick = () => {
+    if (isLocked || isStartingListening) return;
+    if (speech.listening) {
+      handleStopListening();
+      return;
+    }
+    if (effectiveMode === 'chatbox') {
+      selectVoice();
+    }
+    void handleStartListening();
+  };
+
   const handleSubmit = async () => {
     const wasPreparingListening =
       isStartingListening || listeningStartInFlightRef.current;
@@ -252,64 +267,61 @@ export const AudioSpeechDock: React.FC<AudioSpeechDockProps> = ({
     return (
       <div className="interview-speech-controls" aria-label="Điều khiển câu trả lời">
         <div className="interview-control-tray">
-          {!forcedTextOnly && effectiveMode === 'voice' && (
+          {!forcedTextOnly && (
             <button
               type="button"
-              className={`interview-mic-button ${speech.listening ? 'is-listening' : ''}`}
+              className={`interview-call-button interview-mic-button ${
+                speech.listening ? 'is-listening' : ''
+              }`}
               aria-label={
                 isStartingListening
-                  ? 'Đang dừng giọng AI trước khi bật microphone'
+                  ? 'Đang chuẩn bị micro...'
                   : speech.listening
-                  ? 'Dừng microphone và xem lại câu trả lời'
-                  : 'Bắt đầu trả lời bằng microphone'
+                  ? 'Dừng ghi âm'
+                  : 'Bắt đầu trả lời bằng giọng nói'
+              }
+              title={
+                isStartingListening
+                  ? 'Đang chuẩn bị micro...'
+                  : speech.listening
+                  ? 'Dừng ghi âm'
+                  : 'Bắt đầu trả lời bằng giọng nói'
               }
               aria-pressed={speech.listening}
               aria-busy={isStartingListening}
               disabled={isLocked || isStartingListening}
-              onClick={speech.listening ? handleStopListening : () => void handleStartListening()}
+              onClick={handleMicClick}
             >
-              <span aria-hidden="true" className="material-symbols-outlined">
-                {speech.listening ? 'stop_circle' : 'mic'}
-              </span>
-              <span>
-                {isStartingListening
-                  ? 'Đang chuẩn bị micro...'
-                  : speech.listening
-                  ? 'Dừng nói'
-                  : 'Trả lời'}
-              </span>
+              {isStartingListening ? (
+                <span
+                  className="functional-spinner inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+                  aria-hidden="true"
+                />
+              ) : (
+                <MorphIcon
+                  icon={speech.listening ? MicOff : Mic}
+                  spring="snappy"
+                  reducedMotion="user"
+                  size={20}
+                  aria-hidden="true"
+                />
+              )}
             </button>
           )}
 
-          <div role="group" aria-label="Cách trả lời" className="flex gap-2">
-            {!forcedTextOnly && (
-              <>
-                <button
-                  type="button"
-                  className="interview-call-button"
-                  disabled={isLocked}
-                  aria-pressed={effectiveMode === 'voice'}
-                  onClick={selectVoice}
-                >
-                  Giọng nói
-                </button>
-                <button
-                  type="button"
-                  className="interview-call-button"
-                  disabled={isLocked}
-                  aria-pressed={effectiveMode === 'chatbox'}
-                  onClick={selectText}
-                >
-                  Bàn phím
-                </button>
-              </>
-            )}
-            {forcedTextOnly && (
-              <button type="button" className="interview-call-button" aria-pressed="true" disabled={isLocked} onClick={selectText}>
-                Bàn phím
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            className={`interview-call-button interview-keyboard-button ${
+              effectiveMode === 'chatbox' ? 'is-active' : ''
+            }`}
+            aria-label="Trả lời bằng bàn phím"
+            title="Trả lời bằng bàn phím"
+            aria-pressed={effectiveMode === 'chatbox'}
+            disabled={isLocked}
+            onClick={selectText}
+          >
+            <Keyboard size={20} aria-hidden="true" />
+          </button>
 
           {controls}
         </div>

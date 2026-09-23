@@ -7,6 +7,8 @@ import React, {
   useRef,
 } from 'react';
 import { useAzureSpeechSynthesis } from '@/hooks/useAzureSpeechSynthesis';
+import { MorphIcon } from 'morphicons/react';
+import { Volume2, VolumeX } from 'lucide';
 
 export interface QuestionSpeakerProps {
   interviewId: string;
@@ -24,7 +26,7 @@ export interface QuestionSpeakerHandle {
 
 const labelForState = (status: string) => {
   if (status === 'loading') return 'Đang chuẩn bị giọng AI...';
-  if (status === 'speaking') return 'Dừng đọc';
+  if (status === 'speaking') return 'Dừng đọc câu hỏi';
   if (status === 'error') return 'Thử lại giọng AI';
   return 'Nghe lại câu hỏi';
 };
@@ -98,7 +100,7 @@ export const QuestionSpeaker = forwardRef<
   };
 
   return (
-    <div className="inline-flex flex-col items-start gap-1">
+    <>
       <button
         type="button"
         disabled={disabled || !text.trim()}
@@ -106,29 +108,33 @@ export const QuestionSpeaker = forwardRef<
         aria-pressed={status === 'speaking'}
         aria-busy={status === 'loading'}
         onClick={handleToggleSpeak}
-        title={label}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-          status === 'speaking'
-            ? 'bg-primary text-white animate-pulse'
-            : 'bg-surface-container-high hover:bg-surface-container text-primary'
+        title={status === 'error' && error ? `${label}: ${error}` : label}
+        className={`interview-call-button interview-speaker-button ${
+          status === 'speaking' ? 'is-speaking' : ''
         } ${className}`}
       >
-        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-          {status === 'speaking'
-            ? 'volume_up'
-            : status === 'loading'
-            ? 'progress_activity'
-            : 'volume_down'}
-        </span>
-        <span>{label}</span>
+        {status === 'loading' ? (
+          <span
+            className="functional-spinner inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+            aria-hidden="true"
+          />
+        ) : (
+          <MorphIcon
+            icon={status === 'speaking' ? VolumeX : Volume2}
+            spring="snappy"
+            reducedMotion="user"
+            size={20}
+            aria-hidden="true"
+          />
+        )}
       </button>
 
       {status === 'error' && error && (
-        <p className="max-w-xs text-xs text-muted-foreground" role="status">
+        <span className="sr-only" role="status">
           {error}
-        </p>
+        </span>
       )}
-    </div>
+    </>
   );
 });
 

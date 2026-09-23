@@ -91,14 +91,91 @@
 .interview-editor-footer button { background: #d1c6ff; color: #21194b; flex-shrink: 0; }
 .interview-answer-editor :is(button, textarea):focus-visible { outline: 2px solid #c4b7ff; outline-offset: 3px; }
 .interview-answer-editor ::selection, .interview-current-answer ::selection { background: #d1c6ff; color: #21194b; }
-.interview-control-tray { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.interview-control-tray { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
 .interview-call-button, .interview-mic-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 12px; padding: 10px 16px; font-size: 12px; font-weight: 600; background: #253452; color: #f3f5ff; cursor: pointer; }
-.interview-mic-button { background: #d1c6ff; color: #21194b; min-width: 110px; }
-.interview-mic-button.is-listening { background: #a6edda; color: #102f29; }
-.interview-call-button.interview-end-button { background: #4a283b; color: #ffd8e1; }
-.interview-call-button:hover { background: #344766; }
-.interview-speech-controls [role="group"] .interview-call-button[aria-pressed="true"] { background: #d1c6ff; color: #21194b; }
-.interview-call-button:disabled, .interview-mic-button:disabled { opacity: .6; cursor: not-allowed; }
+.interview-control-tray .interview-call-button,
+.interview-control-tray .interview-mic-button {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid #3d4f73;
+  background: #253452;
+  color: #f3f5ff;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease, box-shadow .15s ease;
+}
+.interview-control-tray .interview-call-button:hover:not(:disabled),
+.interview-control-tray .interview-mic-button:hover:not(:disabled) {
+  background: #344766;
+  border-color: #556a94;
+}
+.interview-control-tray .interview-call-button:active:not(:disabled),
+.interview-control-tray .interview-mic-button:active:not(:disabled) {
+  transform: scale(.96);
+}
+.interview-control-tray .interview-mic-button {
+  background: #253452;
+  color: #f3f5ff;
+  border-color: #3d4f73;
+}
+.interview-control-tray .interview-mic-button.is-listening {
+  background: #a6edda;
+  color: #102f29;
+  border-color: #79d8b9;
+}
+.interview-control-tray .interview-mic-button.is-listening:hover:not(:disabled) {
+  background: #bbf2e3;
+  border-color: #94ead1;
+}
+.interview-control-tray .interview-keyboard-button.is-active,
+.interview-control-tray .interview-keyboard-button[aria-pressed="true"] {
+  background: #d1c6ff;
+  color: #21194b;
+  border-color: #d1c6ff;
+}
+.interview-control-tray .interview-keyboard-button.is-active:hover:not(:disabled),
+.interview-control-tray .interview-keyboard-button[aria-pressed="true"]:hover:not(:disabled) {
+  background: #e2daff;
+  border-color: #e2daff;
+}
+.interview-control-tray .interview-camera-button.is-camera-on {
+  background: #3b396b;
+  color: #d1c6ff;
+  border-color: #705ec9;
+}
+.interview-control-tray .interview-camera-button.is-camera-on:hover:not(:disabled) {
+  background: #484580;
+  border-color: #8574dc;
+}
+.interview-control-tray .interview-speaker-button.is-speaking {
+  background: #3b396b;
+  color: #d1c6ff;
+  border-color: #705ec9;
+}
+.interview-control-tray .interview-speaker-button.is-speaking:hover:not(:disabled) {
+  background: #484580;
+  border-color: #8574dc;
+}
+.interview-control-tray .interview-call-button.interview-end-button {
+  margin-left: 6px;
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+.interview-control-tray .interview-call-button.interview-end-button:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #dc2626;
+}
+.interview-control-tray .interview-call-button.interview-end-button:disabled {
+  background: #4a283b;
+  color: #8e6273;
+  border-color: #5d334a;
+  opacity: .55;
+  cursor: not-allowed;
+}
+.interview-call-button:disabled, .interview-mic-button:disabled { opacity: .5; cursor: not-allowed; }
 .interview-call-room :is(button,summary,textarea):focus-visible { outline: 2px solid #c4b7ff; outline-offset: 4px; }
 .interview-dock-status { text-align: center; color: #c3cde5; font-size: 11px; line-height: 1.6; margin: 12px 0 0; }
 .interview-mic-error { color: #ffdaa5; background: #453620; padding: 12px; border-radius: 10px; font-size: 12px; margin-top: 12px; }
@@ -164,11 +241,22 @@
   .interview-self-avatar { width: 36px; height: 36px; font-size: 14px; margin: 0; grid-row: span 2; }
   .interview-self-tile p { justify-content: flex-start; margin: 4px 0 0; }
   .interview-answer-duration { grid-column: 3; grid-row: 1 / span 2; }
-  .interview-control-tray { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .interview-call-button, .interview-mic-button { padding: 10px 8px; font-size: 11px; }
+  .interview-control-tray { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .interview-control-tray .interview-call-button, .interview-control-tray .interview-mic-button {
+    width: 48px;
+    height: 48px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
   .interview-composer-footer { flex-direction: column; align-items: stretch; gap: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .interview-control-tray .interview-call-button,
+  .interview-control-tray .interview-mic-button {
+    transition: none;
+    transform: none;
+  }
   .interview-call-room .ai-orb { animation: none; will-change: auto; }
   .interview-call-room .ai-presence-bars { transition: none; }
   .interview-call-room .ai-presence[data-state="speaking"] .ai-orb {
