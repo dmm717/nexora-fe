@@ -211,7 +211,7 @@ const ResumeUploadPanel = ({
   selectedResumeId,
   onSelectExistingResume,
 }: ResumeUploadPanelProps) => (
-  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/60 shadow-card">
+  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/80 shadow-card">
     <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
       <div className="flex items-center gap-2 text-primary font-bold text-sm">
         <span className="material-symbols-outlined text-[20px]">upload_file</span>
@@ -251,7 +251,7 @@ const ResumeUploadPanel = ({
         {existingResumes && existingResumes.length > 0 && onSelectExistingResume && (
           <div className="pt-2 border-t border-outline-variant/30 space-y-2">
             <div className="text-[11px] font-semibold text-on-surface-variant">Hoặc chọn từ CV đã lưu:</div>
-            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1" role="radiogroup" aria-label="Danh sách CV đã lưu">
               {existingResumes.map((r) => {
                 const isSelected = selectedResumeId === r.id;
                 const isReady = r.status === 'ready';
@@ -262,17 +262,24 @@ const ResumeUploadPanel = ({
                   <button
                     key={r.id}
                     type="button"
+                    role="radio"
+                    aria-checked={isSelected}
                     disabled={!isReady}
                     onClick={() => onSelectExistingResume(r)}
-                    className={`p-2.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between gap-2 ${
+                    className={`p-2.5 rounded-lg border text-left text-xs transition-all flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       !isReady
                         ? 'opacity-60 bg-surface-container-low/50 border-outline-variant/40 cursor-not-allowed text-on-surface-variant'
                         : isSelected
-                        ? 'border-primary bg-primary-fixed/20 text-primary font-bold'
-                        : 'border-outline-variant/50 hover:border-primary text-on-surface bg-white'
+                        ? 'border-2 border-primary bg-primary-fixed/20 text-primary font-bold shadow-xs ring-1 ring-primary/30'
+                        : 'border-outline-variant/80 hover:border-primary/60 hover:bg-primary-fixed/5 text-on-surface bg-white shadow-2xs cursor-pointer'
                     }`}
                   >
-                    <span className="truncate font-medium">{r.fileName}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`material-symbols-outlined text-[18px] flex-shrink-0 ${isSelected ? 'text-primary' : 'text-outline-variant'}`}>
+                        {isSelected ? 'check_circle' : 'radio_button_unchecked'}
+                      </span>
+                      <span className="truncate font-medium">{r.fileName}</span>
+                    </div>
                     <span className="text-[11px] flex-shrink-0 font-bold">
                       {isSelected ? (
                         <span className="text-primary">Đã chọn</span>
@@ -294,7 +301,7 @@ const ResumeUploadPanel = ({
         )}
       </div>
     ) : (
-      <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/40 flex items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/60 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-sm">
             <span className="material-symbols-outlined text-[20px]">description</span>
@@ -339,7 +346,7 @@ interface JobDescriptionPanelProps {
 }
 
 const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loading }: JobDescriptionPanelProps) => (
-  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/60 shadow-card">
+  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/80 shadow-card">
     <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
       <div className="flex items-center gap-2 text-primary font-bold text-sm">
         <span className="material-symbols-outlined text-[20px]">work</span>
@@ -356,7 +363,7 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
         <input
           id="jdTitle"
           type="text"
-          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm bg-white"
           placeholder="VD: Senior Frontend Developer (React)"
           value={jdTitle}
           onChange={e => setJdTitle(e.target.value)}
@@ -374,7 +381,7 @@ const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loa
         <textarea
           id="jdContent"
           rows={5}
-          className="w-full p-3.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm leading-relaxed"
+          className="w-full p-3.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm leading-relaxed bg-white"
           placeholder="Dán toàn bộ hoặc các yêu cầu chính trong JD (kỹ năng, trách nhiệm, kinh nghiệm) vào đây để Nexora đối chiếu chi tiết..."
           value={jdContent}
           onChange={e => setJdContent(e.target.value)}
@@ -404,7 +411,7 @@ const FieldBenchmarkPanel = ({
   setSeniority,
   loading,
 }: FieldBenchmarkPanelProps) => (
-  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/60 shadow-card">
+  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/80 shadow-card">
     <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
       <div className="flex items-center gap-2 text-primary font-bold text-sm">
         <span className="material-symbols-outlined text-[20px]">insights</span>
@@ -422,7 +429,7 @@ const FieldBenchmarkPanel = ({
           id="industry"
           type="text"
           maxLength={160}
-          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm bg-white"
           placeholder="VD: Công nghệ thông tin / Thương mại điện tử / Fintech"
           value={industry}
           onChange={e => setIndustry(e.target.value)}
@@ -438,7 +445,7 @@ const FieldBenchmarkPanel = ({
           id="targetRole"
           type="text"
           maxLength={160}
-          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm bg-white"
           placeholder="VD: Senior Frontend Developer / Data Analyst"
           value={targetRole}
           onChange={e => setTargetRole(e.target.value)}
@@ -454,7 +461,7 @@ const FieldBenchmarkPanel = ({
           id="seniority"
           type="text"
           maxLength={80}
-          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm bg-white"
           placeholder="VD: Fresher / Junior / Mid-level / Senior / Lead"
           value={seniority}
           onChange={e => setSeniority(e.target.value)}
@@ -1067,7 +1074,7 @@ export default function ResumesPage() {
       })()}
 
       {/* Data Source / Intent Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-xl bg-surface-container-low border border-outline-variant/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-xl bg-surface-container-low border border-outline-variant/70">
         <div className="flex items-center gap-2 px-2 text-xs font-bold text-on-surface">
           <span className="material-symbols-outlined text-primary text-[18px]">tune</span>
           <span>Nguồn dữ liệu phân tích:</span>
@@ -1078,10 +1085,10 @@ export default function ResumesPage() {
             role="tab"
             aria-selected={useCurrentGoal}
             onClick={() => handleSourceModeChange('current_profile')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
               useCurrentGoal
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-on-surface-variant hover:text-on-surface'
+                ? 'bg-white text-primary border-2 border-primary/50 shadow-sm ring-1 ring-primary/20 cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                : 'border border-transparent hover:border-outline-variant/60 hover:bg-white/80 text-on-surface-variant hover:text-on-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
             }`}
           >
             <span>Dùng hồ sơ hiện tại</span>
@@ -1092,10 +1099,10 @@ export default function ResumesPage() {
             role="tab"
             aria-selected={!useCurrentGoal}
             onClick={() => handleSourceModeChange('custom')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
               !useCurrentGoal
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-on-surface-variant hover:text-on-surface'
+                ? 'bg-white text-primary border-2 border-primary/50 shadow-sm ring-1 ring-primary/20 cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                : 'border border-transparent hover:border-outline-variant/60 hover:bg-white/80 text-on-surface-variant hover:text-on-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
             }`}
           >
             <span>Tùy chỉnh lần phân tích</span>
@@ -1123,20 +1130,20 @@ export default function ResumesPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-white rounded-lg border border-outline-variant/30 flex items-center gap-3">
+                <div className="p-3 bg-white rounded-lg border border-outline-variant/60 shadow-2xs flex items-center gap-3">
                   <span className="material-symbols-outlined text-primary text-[20px]">description</span>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-on-surface-variant">CV chính:</div>
+                    <div className="text-[11px] text-on-surface-variant font-medium">CV chính:</div>
                     <div className="font-bold text-on-surface truncate">
                       {careerProfile?.primaryResume?.fileName}
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 bg-white rounded-lg border border-outline-variant/30 flex items-center gap-3">
+                <div className="p-3 bg-white rounded-lg border border-outline-variant/60 shadow-2xs flex items-center gap-3">
                   <span className="material-symbols-outlined text-primary text-[20px]">flag</span>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-on-surface-variant">Mục tiêu nghề nghiệp:</div>
+                    <div className="text-[11px] text-on-surface-variant font-medium">Mục tiêu nghề nghiệp:</div>
                     <div className="font-bold text-on-surface truncate">
                       {careerProfile?.activeCareerGoal?.targetRole} · {careerProfile?.activeCareerGoal?.seniority}
                       {careerProfile?.activeCareerGoal?.industry ? ` · ${careerProfile.activeCareerGoal.industry}` : ''}
@@ -1164,7 +1171,7 @@ export default function ResumesPage() {
                         className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
                           industry === ind
                             ? 'bg-primary text-white font-semibold'
-                            : 'bg-white border border-outline-variant/60 text-on-surface hover:bg-surface-container-low'
+                            : 'bg-white border border-outline-variant/80 text-on-surface hover:border-primary/50 hover:bg-surface-container-low shadow-2xs'
                         }`}
                       >
                         {ind}
@@ -1176,7 +1183,7 @@ export default function ResumesPage() {
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
                     placeholder="Hoặc nhập ngành khác..."
-                    className="w-full px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-1.5 rounded-lg border border-outline-variant/80 hover:border-outline text-xs focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white"
                   />
                 </div>
               )}
@@ -1305,20 +1312,22 @@ export default function ResumesPage() {
       )}
 
       {/* Analysis Mode Selector & JD Textarea */}
-      <Card variant="elevated" padding="lg" className="space-y-6 bg-white border border-outline-variant/60 shadow-card">
+      <Card variant="elevated" padding="lg" className="space-y-6 bg-white border border-outline-variant/80 shadow-card">
         <div>
           <label className="block text-xs font-bold text-on-surface mb-2">
             Chọn hình thức phân tích đối chiếu:
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Hình thức phân tích đối chiếu">
             {/* Mode 1: Field Benchmark */}
             <button
               type="button"
+              role="radio"
+              aria-checked={mode === 'field_benchmark'}
               onClick={() => { setMode('field_benchmark'); setError(null); }}
-              className={`p-4 rounded-xl border text-left transition-all ${
+              className={`p-4 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 mode === 'field_benchmark'
-                  ? 'bg-primary-fixed/30 border-primary shadow-sm'
-                  : 'bg-white border-outline-variant/50 hover:bg-surface-container-low'
+                  ? 'bg-primary-fixed/20 border-2 border-primary shadow-sm ring-1 ring-primary/20'
+                  : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low/60 shadow-2xs'
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
@@ -1339,11 +1348,13 @@ export default function ResumesPage() {
             {/* Mode 2: Job Targeted */}
             <button
               type="button"
+              role="radio"
+              aria-checked={mode === 'job_targeted'}
               onClick={() => { setMode('job_targeted'); setError(null); }}
-              className={`p-4 rounded-xl border text-left transition-all ${
+              className={`p-4 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 mode === 'job_targeted'
-                  ? 'bg-primary-fixed/30 border-primary shadow-sm'
-                  : 'bg-white border-outline-variant/50 hover:bg-surface-container-low'
+                  ? 'bg-primary-fixed/20 border-2 border-primary shadow-sm ring-1 ring-primary/20'
+                  : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low/60 shadow-2xs'
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
@@ -1373,7 +1384,7 @@ export default function ResumesPage() {
               <input
                 id="currentGoalJdTitle"
                 type="text"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm bg-white"
                 placeholder="VD: Senior Frontend Developer (React)"
                 value={jdTitle}
                 onChange={e => setJdTitle(e.target.value)}
@@ -1394,7 +1405,7 @@ export default function ResumesPage() {
                 onChange={(e) => setJdContent(e.target.value)}
                 rows={5}
                 disabled={loading}
-                className="w-full p-3.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:outline-none text-xs sm:text-sm leading-relaxed"
+                className="w-full p-3.5 rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus:outline-none transition-all text-xs sm:text-sm leading-relaxed bg-white"
                 placeholder="Dán toàn bộ hoặc các yêu cầu chính trong JD (kỹ năng, trách nhiệm, kinh nghiệm) vào đây để Nexora đối chiếu chi tiết..."
               />
             </div>

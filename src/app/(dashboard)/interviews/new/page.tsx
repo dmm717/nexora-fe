@@ -342,7 +342,7 @@ export default function NewInterviewPage() {
               <button
                 type="button"
                 onClick={() => setIsEditingContext(!isEditingContext)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-primary/30 text-primary hover:border-primary/60 hover:bg-primary/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">
                   {isEditingContext ? 'close' : 'edit'}
@@ -353,7 +353,7 @@ export default function NewInterviewPage() {
 
             {/* Compact View */}
             {!isEditingContext ? (
-              <div className="bg-surface-container-low p-3.5 rounded-xl space-y-2 text-xs">
+              <div className="bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/60 space-y-2 text-xs">
                 {interviewType === 'cv_targeted' && <div className="flex items-center justify-between">
                   <span className="text-on-surface-variant text-[11px]">CV:</span>
                   <span className="font-semibold text-on-surface truncate max-w-[240px]" title={activeResumeObj?.fileName || 'Chưa gắn CV'}>
@@ -412,7 +412,7 @@ export default function NewInterviewPage() {
                           setSessionRole(null);
                           setSessionSeniority(null);
                         }}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface font-medium"
                       >
                         {activeGoals.map((g) => (
                           <option key={g.id} value={g.id}>
@@ -431,7 +431,7 @@ export default function NewInterviewPage() {
                     <select
                       value={effectiveSelectedResumeId}
                       onChange={(e) => setSelectedResumeId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface font-medium"
                     >
                       {readyResumes.length > 0 ? (
                         readyResumes.map((r) => (
@@ -456,7 +456,7 @@ export default function NewInterviewPage() {
                         value={effectiveSessionRole}
                         onChange={(e) => setSessionRole(e.target.value)}
                         placeholder="VD: Backend Engineer"
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface"
                       />
                     </div>
 
@@ -467,7 +467,7 @@ export default function NewInterviewPage() {
                       <select
                         value={effectiveSessionSeniority}
                         onChange={(e) => setSessionSeniority(e.target.value as SeniorityLevel)}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface font-medium"
                       >
                         {(['Intern', 'Fresher', 'Junior', 'Middle', 'Senior', 'Lead', 'Principal'] as SeniorityLevel[]).map((lvl) => (
                           <option key={lvl} value={lvl}>
@@ -479,7 +479,7 @@ export default function NewInterviewPage() {
                   </div>
 
                   {interviewType === 'jd_targeted' && (
-                    <div className="space-y-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-3">
+                    <div className="space-y-3 rounded-xl border border-outline-variant/60 bg-surface-container-low p-3">
                       <div className="flex flex-wrap gap-2" role="group" aria-label="Nguồn Job Description">
                         <Button type="button" size="sm" variant={jdSource === 'existing' ? 'primary' : 'outline'} onClick={() => setJdSource('existing')}>
                           JD đã lưu
@@ -498,7 +498,7 @@ export default function NewInterviewPage() {
                             id="jobDescriptionSelect"
                             value={effectiveJdId}
                             onChange={(event) => setSelectedJdId(event.target.value)}
-                            className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary font-medium"
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface font-medium"
                           >
                             {jobDescriptions.length > 0 ? jobDescriptions.map((jd) => (
                               <option key={jd.id} value={jd.id}>{jd.title}</option>
@@ -522,7 +522,7 @@ export default function NewInterviewPage() {
                                 jdIdempotencyKeyRef.current = generateIdempotencyKey();
                               }}
                               placeholder="VD: Senior Backend Engineer"
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface"
                             />
                           </div>
                           <div>
@@ -539,7 +539,7 @@ export default function NewInterviewPage() {
                               }}
                               rows={4}
                               placeholder="Dán nội dung Job Description đầy đủ..."
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/50 bg-white text-on-surface focus:outline-none focus:border-primary placeholder:text-outline-variant"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-outline-variant/80 hover:border-outline focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary focus:outline-none transition-all bg-white text-on-surface placeholder:text-outline-variant"
                             />
                           </div>
                         </div>
@@ -569,27 +569,32 @@ export default function NewInterviewPage() {
               <span>Chủ đề phỏng vấn trọng tâm</span>
             </h3>
 
-            <div className="space-y-2">
-              {INTERVIEW_TYPES.map((item) => (
-                <button
-                  key={item.type}
-                  type="button"
-                  onClick={() => setInterviewType(item.type)}
-                  className={`w-full p-3 rounded-xl border text-left transition-all ${
-                    interviewType === item.type
-                      ? 'bg-primary-fixed/30 border-primary text-on-surface shadow-sm'
-                      : 'border-outline-variant/40 hover:bg-surface-container-low text-on-surface'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs sm:text-sm">{item.title}</span>
-                    <span className={`material-symbols-outlined text-[18px] ${interviewType === item.type ? 'text-primary' : 'text-outline-variant'}`}>
-                      {interviewType === item.type ? 'radio_button_checked' : 'radio_button_unchecked'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-on-surface-variant mt-1 leading-normal">{item.desc}</p>
-                </button>
-              ))}
+            <div className="space-y-2" role="radiogroup" aria-label="Chủ đề phỏng vấn trọng tâm">
+              {INTERVIEW_TYPES.map((item) => {
+                const isSelected = interviewType === item.type;
+                return (
+                  <button
+                    key={item.type}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => setInterviewType(item.type)}
+                    className={`w-full p-3 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      isSelected
+                        ? 'bg-primary-fixed/20 border-2 border-primary text-on-surface shadow-sm ring-1 ring-primary/20'
+                        : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low text-on-surface shadow-2xs cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs sm:text-sm">{item.title}</span>
+                      <span className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-primary' : 'text-outline-variant'}`}>
+                        {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant mt-1 leading-normal">{item.desc}</p>
+                  </button>
+                );
+              })}
             </div>
           </Card>
 
@@ -600,18 +605,21 @@ export default function NewInterviewPage() {
               <span>Độ khó của phiên</span>
             </h3>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Độ khó của phiên">
               {(['Standard', 'Challenging', 'Expert'] as InterviewDifficultyVisual[]).map((d) => {
                 const localized = DIFFICULTY_LABELS[d];
+                const isSelected = difficulty === d;
                 return (
                   <button
                     key={d}
                     type="button"
+                    role="radio"
+                    aria-checked={isSelected}
                     onClick={() => setDifficulty(d)}
-                    className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${
-                      difficulty === d
-                        ? 'bg-primary text-white border-primary shadow-sm'
-                        : 'border-outline-variant/40 hover:bg-surface-container-low text-on-surface'
+                    className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      isSelected
+                        ? 'bg-primary text-white border-2 border-primary shadow-sm'
+                        : 'bg-white border-outline-variant/80 hover:border-primary/50 hover:bg-surface-container-low text-on-surface shadow-2xs cursor-pointer'
                     }`}
                   >
                     {localized.labelVi}
@@ -631,7 +639,7 @@ export default function NewInterviewPage() {
             </h3>
 
             {/* Mic Meter & Testing Area */}
-            <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-3.5">
+            <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/60 space-y-3.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-on-surface">
                   {isMicTesting ? '🎤 Đang đo tín hiệu âm thanh...' : 'Tín hiệu Microphone:'}
