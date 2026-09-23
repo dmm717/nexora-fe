@@ -46,13 +46,22 @@ test('Loading architecture: Initial auth boot overlay vs contained route loading
   const bootLoaderSource = await readSource('../src/components/brand/NexoraBootLoader.tsx');
   const requireAuthSource = await readSource('../src/components/providers/RequireAuth.tsx');
   const rootLoadingSource = await readSource('../src/app/loading.tsx');
+  const dashboardLoadingSource = await readSource('../src/app/(dashboard)/loading.tsx');
 
   // Initial auth boot: full-screen NexoraBootLoader overlay with logo and brand tokens
   assert.match(bootLoaderSource, /fixed inset-0 z-50/);
   assert.match(bootLoaderSource, /NexoraLogo/);
   assert.match(requireAuthSource, /<NexoraBootLoader/);
 
-  // Normal route loading: contained layout UI that preserves application shell/navigation
+  // Dashboard route loading: contained within (dashboard) route boundary so DashboardLayout remains mounted
+  assert.match(dashboardLoadingSource, /functional-spinner/);
+  assert.doesNotMatch(dashboardLoadingSource, /fixed inset-0/);
+  assert.doesNotMatch(dashboardLoadingSource, /z-50/);
+  assert.doesNotMatch(dashboardLoadingSource, /animate-spin/);
+  assert.match(dashboardLoadingSource, /role="status"/);
+  assert.match(dashboardLoadingSource, /aria-live="polite"/);
+
+  // Root route loading: non-dashboard fallback
   assert.match(rootLoadingSource, /functional-spinner/);
   assert.doesNotMatch(rootLoadingSource, /fixed inset-0/);
   assert.doesNotMatch(rootLoadingSource, /z-50/);
