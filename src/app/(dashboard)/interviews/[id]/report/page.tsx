@@ -209,6 +209,18 @@ export default function InterviewReportPage() {
           >
             Kiểm tra lại trạng thái
           </Button>
+          {interview?.status === 'completing' && (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleRetryResults}
+              disabled={retryingResults}
+              className="shadow-sm font-semibold ml-2"
+            >
+              {retryingResults ? 'Đang gửi yêu cầu...' : 'Khôi phục xử lý kết quả'}
+            </Button>
+          )}
+          {retryResultsError && <p role="alert" className="text-xs text-red-600 mt-2">{retryResultsError.message}</p>}
         </div>
       </div>
     );

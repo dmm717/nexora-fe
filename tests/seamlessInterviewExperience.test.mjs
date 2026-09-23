@@ -175,12 +175,12 @@ test('3. Canonical questionPreparationState=failed exposes only question retry, 
   );
 });
 
-test('4. Unlimited batch boundary: no manual /continue, polling/refetch obtains released next question', async () => {
+test('4. Paid continuation preparation: polling obtains released Q4 without another continue', async () => {
   const contract = await import('../src/services/interviewContract.ts');
 
-  // Step 1: Candidate answers batch-ending question Q20
+  // Step 1: Candidate answers Q3 while paid question preparation is pending
   const current = {
-    id: 'iv-unlimited',
+    id: 'iv-paid',
     status: 'active',
     role: 'Staff Engineer',
     seniority: 'Staff',
@@ -188,7 +188,7 @@ test('4. Unlimited batch boundary: no manual /continue, polling/refetch obtains 
     difficulty: 'hard',
     version: 20,
     questions: [
-      { id: 'q-20', sequence: 20, kind: 'primary', content: 'Scaling DB', createdAt: '' },
+      { id: 'q-3', sequence: 3, kind: 'primary', content: 'Scaling DB', createdAt: '' },
     ],
     answers: [],
     questionPreparationState: 'ready',
@@ -198,7 +198,7 @@ test('4. Unlimited batch boundary: no manual /continue, polling/refetch obtains 
   };
 
   const answerResult = {
-    answer: { id: 'ans-20', questionId: 'q-20', content: 'Distributed caching strategy', createdAt: '' },
+    answer: { id: 'ans-3', questionId: 'q-3', content: 'Distributed caching strategy', createdAt: '' },
     nextQuestion: null,
     continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
   };
@@ -213,15 +213,15 @@ test('4. Unlimited batch boundary: no manual /continue, polling/refetch obtains 
       questionPreparationState: state1.questionPreparationState,
     }),
     'none',
-    'No continue action during batch-boundary question preparation'
+    'No continue action during paid question preparation'
   );
 
-  // Step 2: Background planning completes; canonical GET returns newly planned Q21 with state ready
+  // Step 2: Background planning completes; canonical GET returns Q4 with state ready
   const serverUpdate = {
     ...state1,
     questions: [
       ...state1.questions,
-      { id: 'q-21', sequence: 21, kind: 'primary', content: 'Event-driven architecture', createdAt: '' },
+      { id: 'q-4', sequence: 4, kind: 'primary', content: 'Event-driven architecture', createdAt: '' },
     ],
     questionPreparationState: 'ready',
     version: 21,
@@ -229,8 +229,47 @@ test('4. Unlimited batch boundary: no manual /continue, polling/refetch obtains 
 
   const activeQ = contract.getCurrentQuestion(serverUpdate.questions, serverUpdate.answers);
   assert.ok(activeQ);
-  assert.equal(activeQ.id, 'q-21');
-  assert.equal(activeQ.sequence, 21);
+  assert.equal(activeQ.id, 'q-4');
+  assert.equal(activeQ.sequence, 4);
+});
+
+test('stale GET resolving after Q2 POST cannot rewind the accepted answer or Q3', async () => {
+  const contract = await import('../src/services/interviewContract.ts');
+  const q2 = { id: 'q-2', sequence: 2, kind: 'primary', content: 'Q2', createdAt: '' };
+  const q3 = { id: 'q-3', sequence: 3, kind: 'primary', content: 'Q3', createdAt: '' };
+  const oldGet = {
+    id: 'iv-race', status: 'active', version: 10, questions: [q2], answers: [],
+    continuation: { state: 'in_progress', canFinishNow: false, canUpgradeAndContinue: false },
+    questionPreparationState: 'ready', reportState: 'none', resultState: 'collecting',
+  };
+  const accepted = contract.applyAnswerResultToInterview(oldGet, {
+    answer: { id: 'a-2', questionId: 'q-2', content: 'Answer', createdAt: '' },
+    nextQuestion: q3,
+    continuation: { state: 'in_progress', canFinishNow: true, canUpgradeAndContinue: false },
+  });
+  const afterStaleGet = contract.reconcileInterviewSnapshot(accepted, oldGet);
+  assert.equal(afterStaleGet.version, 11);
+  assert.equal(afterStaleGet.answers[0].id, 'a-2');
+  assert.equal(contract.getCurrentQuestion(afterStaleGet.questions, afterStaleGet.answers).id, 'q-3');
+  assert.equal(contract.reconcileInterviewSnapshot(afterStaleGet, { ...oldGet, version: 11 }), afterStaleGet);
+  assert.equal(contract.reconcileInterviewSnapshot(afterStaleGet, { ...accepted, version: 12 }).version, 12);
+
+  const hook = readFileSync(new URL('../src/hooks/queries/useInterviews.ts', import.meta.url), 'utf8');
+  assert.match(hook, /reconcileInterviewSnapshot\(/);
+});
+
+test('input mode belongs to interview room and report recovery stays user-triggered', () => {
+  const room = readFileSync(new URL('../src/app/(dashboard)/interviews/[id]/page.tsx', import.meta.url), 'utf8');
+  const dock = readFileSync(new URL('../src/components/features/interview/AudioSpeechDock.tsx', import.meta.url), 'utf8');
+  const report = readFileSync(new URL('../src/app/(dashboard)/interviews/[id]/report/page.tsx', import.meta.url), 'utf8');
+  assert.match(room, /const \[inputMode, setInputMode\]/);
+  assert.match(room, /mode=\{inputMode\}/);
+  assert.match(dock, /aria-pressed=\{effectiveMode === 'voice'\}/);
+  assert.match(dock, /aria-pressed=\{effectiveMode === 'chatbox'\}/);
+  assert.match(dock, /onEditorOpenChange\?\.\(next === 'chatbox'\)/);
+  assert.doesNotMatch(dock, /setDeviceMode/);
+  assert.match(report, /Khôi phục xử lý kết quả/);
+  assert.match(report, /onClick=\{handleRetryResults\}/);
 });
 
 test('5. Paid user Q3: Q4 returned -> no Free boundary modal', () => {

@@ -831,6 +831,19 @@ export function applyAnswerResultToInterview(
   };
 }
 
+export function reconcileInterviewSnapshot(
+  current: InterviewView | undefined,
+  incoming: InterviewView
+): InterviewView {
+  if (!current || incoming.version > current.version) return incoming;
+  if (incoming.version < current.version) return current;
+  if (current.answers.some(answer => !incoming.answers.some(item => item.id === answer.id)) ||
+      current.questions.some(question => !incoming.questions.some(item => item.id === question.id))) {
+    return current;
+  }
+  return incoming;
+}
+
 /**
  * Holds the idempotency key for a single interview completion intent.
  * The key is generated once and reused across ALL attempts: a transport failure

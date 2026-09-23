@@ -97,6 +97,7 @@
 .interview-mic-button.is-listening { background: #a6edda; color: #102f29; }
 .interview-call-button.interview-end-button { background: #4a283b; color: #ffd8e1; }
 .interview-call-button:hover { background: #344766; }
+.interview-speech-controls [role="group"] .interview-call-button[aria-pressed="true"] { background: #d1c6ff; color: #21194b; }
 .interview-call-button:disabled, .interview-mic-button:disabled { opacity: .6; cursor: not-allowed; }
 .interview-call-room :is(button,summary,textarea):focus-visible { outline: 2px solid #c4b7ff; outline-offset: 4px; }
 .interview-dock-status { text-align: center; color: #c3cde5; font-size: 11px; line-height: 1.6; margin: 12px 0 0; }

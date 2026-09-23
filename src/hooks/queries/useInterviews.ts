@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { interviewApi } from '@/services/interviewApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
@@ -16,10 +16,13 @@ import {
   type InterviewReportState,
   shouldFetchInterviewReport,
   shouldUseLegacyReportCompatibility,
+  reconcileInterviewSnapshot,
+  type InterviewView,
 } from '@/services/interviewContract';
 
 export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInterval) => {
   const { authReady, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const statusPollingTracker = useMemo(() => createReportPollingAttemptTracker(), []);
 
   const query = useQuery({
@@ -29,7 +32,10 @@ export const useInterview = (id: string, refetchInterval?: RealtimeFallbackInter
       if (statusPollingTracker.consumeScheduledPoll()) {
         statusPollingTracker.recordFallbackPoll();
       }
-      return interviewApi.getById(id);
+      const incoming = await interviewApi.getById(id);
+      return reconcileInterviewSnapshot(
+        queryClient.getQueryData<InterviewView>(['interview', id]), incoming
+      );
     },
     enabled: authReady && isAuthenticated && !!id,
     refetchInterval:
