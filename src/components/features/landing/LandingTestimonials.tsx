@@ -1,23 +1,17 @@
 'use client';
 
 import Image from 'next/image';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { usePublicFeedback } from '@/hooks/queries/useFeedback';
 import { usePlatformStats } from '@/hooks/queries/usePlatformStats';
-import type { PublicFeedbackItem } from '@/services/feedbackContract';
 import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
 import { BadgeCheck, CheckCircle2 } from 'lucide-react';
 import styles from './LandingTestimonials.module.css';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 const PUBLIC_FEEDBACK_LIMIT = 3;
 const ratingSteps = [1, 2, 3, 4, 5] as const;
-
-function getInitials(displayName: string): string {
-  const words = displayName.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'N';
-  return words.slice(0, 2).map((word) => word.charAt(0)).join('').toUpperCase();
-}
 
 function formatPublishedAt(value: string): string | null {
   const date = new Date(value);
@@ -27,29 +21,6 @@ function formatPublishedAt(value: string): string | null {
     month: 'short',
     year: 'numeric',
   }).format(date);
-}
-
-function FeedbackAvatar({ item }: { item: PublicFeedbackItem }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const displayName = item.displayName.trim() || 'Người dùng Nexora';
-
-  if (item.avatarUrl && !imageFailed) {
-    return (
-      // The backend controls future avatar hosts, so a native image keeps this optional field host-agnostic.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={item.avatarUrl}
-        alt=""
-        className={styles.avatarImage}
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={() => setImageFailed(true)}
-      />
-    );
-  }
-
-  return <span className={styles.avatarFallback}>{getInitials(displayName)}</span>;
 }
 
 function RatingStars({ rating, label }: { rating: number; label: string }) {
@@ -160,9 +131,7 @@ export const LandingTestimonials: React.FC = () => {
                   <article key={item.id} className={styles.testimonialCard} data-social-proof-reveal>
                     <div className={styles.testimonialHeader}>
                       <div className={styles.author}>
-                        <span className={styles.avatar} aria-hidden="true">
-                          <FeedbackAvatar item={item} />
-                        </span>
+                        <UserAvatar avatarUrl={item.avatarUrl} displayName={displayName} className={styles.avatar} decorative />
                         <div>
                           <strong>{displayName}</strong>
                           {publishedAt && <time dateTime={item.publishedAt}>{publishedAt}</time>}

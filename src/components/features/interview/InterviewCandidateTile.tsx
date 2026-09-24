@@ -3,11 +3,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { AudioSpeechState } from './AudioSpeechDock';
 import type { CameraState } from '@/hooks/useLocalCamera';
+import { resolveApiAssetUrl } from '@/services/apiClient';
 
 export interface InterviewCandidateTileProps {
   candidateName: string;
   initials: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   candidateState: AudioSpeechState;
   forcedTextOnly?: boolean;
   cameraStream: MediaStream | null;
@@ -107,10 +108,10 @@ export const InterviewCandidateTile: React.FC<InterviewCandidateTileProps> = ({
       ) : (
         <div className="interview-self-tile-content">
           <div className="interview-self-avatar" aria-hidden="true">
-            {avatarUrl && !avatarError ? (
+            {avatarUrl && !avatarError && resolveApiAssetUrl(avatarUrl) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={avatarUrl}
+                src={resolveApiAssetUrl(avatarUrl) || undefined}
                 alt=""
                 className="w-full h-full object-cover rounded-full"
                 onError={() => setAvatarError(true)}

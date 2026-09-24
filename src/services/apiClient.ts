@@ -32,6 +32,9 @@ export interface PaginatedResponse<T> {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
 
+export const resolveApiAssetUrl = (value?: string | null): string | null =>
+  value?.startsWith('/api/v1/avatars/') ? `${new URL(BASE_URL).origin}${value}` : null;
+
 /**
  * Adds the current in-memory bearer token to a request. Tokens are never
  * persisted outside the auth store.
@@ -122,12 +125,11 @@ const handleResponse = async (
         throw new StaleAuthSessionError(requestEpoch);
       }
 
+      const retryHeaders = { ...fetchParams.options.headers, ...getHeaders() } as Record<string, string>;
+      if (fetchParams.options.body instanceof FormData) delete retryHeaders['Content-Type'];
       const retryResponse = await fetch(fetchParams.url, {
         ...fetchParams.options,
-        headers: {
-          ...fetchParams.options.headers,
-          ...getHeaders(),
-        },
+        headers: retryHeaders,
       });
 
       if (retryResponse.ok) {
@@ -257,6 +259,16 @@ export const apiClient = {
       ...restOptions,
       headers,
     };
+    const response = await fetch(url, options);
+    return handleResponse(response, { url, options, principalEpoch });
+  },
+
+  putForm: async (endpoint: string, body: FormData) => {
+    const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
+    const headers = getHeaders();
+    delete headers['Content-Type'];
+    const options: RequestInit = { method: 'PUT', body, credentials: 'include', headers };
     const response = await fetch(url, options);
     return handleResponse(response, { url, options, principalEpoch });
   },

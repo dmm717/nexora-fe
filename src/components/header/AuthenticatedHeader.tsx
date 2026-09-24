@@ -9,7 +9,7 @@ import { CANONICAL_NAV_ITEMS, AVATAR_MENU_ITEMS, type AvatarMenuItem } from '@/c
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { authApi } from '@/services/authApi';
-import { getAvatarColor } from '@/utils/colorUtils';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 export interface AuthenticatedHeaderProps {
   targetRole?: string | null;
@@ -152,12 +152,7 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
               className="flex items-center gap-2 p-1.5 rounded-full hover:bg-surface-container-low transition-colors cursor-pointer"
               aria-label="Tài khoản"
             >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                style={{ backgroundColor: getAvatarColor(userEmail || userName || 'neutral-user') }}
-              >
-                {userName ? userName.charAt(0).toUpperCase() : '·'}
-              </div>
+              <UserAvatar avatarUrl={user?.avatarUrl} displayName={userName} email={userEmail} className="w-8 h-8 text-xs" decorative />
               <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-variant hidden sm:inline">
                 expand_more
               </span>

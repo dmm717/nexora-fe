@@ -2,27 +2,13 @@ import React from 'react';
 import Link from 'next/link';
 import { UserResponse } from '@/services/userApi';
 import { AccountSecurityAsset } from './AccountSecurityAsset';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface AccountHeaderProps {
   user: UserResponse;
 }
 
-function getInitials(displayName?: string | null, email?: string): string {
-  if (displayName && displayName.trim().length > 0) {
-    const parts = displayName.trim().split(/\s+/);
-    if (parts.length === 1) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  if (email && email.length > 0) {
-    return email.slice(0, 2).toUpperCase();
-  }
-  return 'NX';
-}
-
 export const AccountHeader: React.FC<AccountHeaderProps> = ({ user }) => {
-  const initials = getInitials(user.displayName, user.email);
 
   return (
     <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-outline-variant/50">
@@ -52,10 +38,8 @@ export const AccountHeader: React.FC<AccountHeaderProps> = ({ user }) => {
       </div>
 
       {/* Identity Summary with Decorative Asset */}
-      <div className="flex items-center gap-4 bg-surface-container-low/80 border border-outline-variant/40 rounded-2xl p-3.5 sm:p-4 shadow-subtle flex-shrink-0">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-primary-container to-primary text-white font-bold text-base sm:text-lg flex items-center justify-center shadow-sm flex-shrink-0">
-          {initials}
-        </div>
+      <div className="flex items-center gap-4 bg-surface-container-low/80 border border-outline-variant/40 rounded-2xl p-3.5 sm:p-4 shadow-subtle min-w-0 max-w-full">
+        <UserAvatar avatarUrl={user.avatarUrl} displayName={user.displayName} email={user.email} className="w-12 h-12 sm:w-14 sm:h-14 text-base" decorative />
         <div className="min-w-0 pr-2">
           <div className="text-sm sm:text-base font-semibold text-on-surface truncate">
             {user.displayName || 'Chưa đặt tên'}

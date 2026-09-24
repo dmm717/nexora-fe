@@ -20,7 +20,7 @@ export interface CareerProfileResponse {
     email: string;
     displayName?: string;
     yearsOfExperience?: number | null;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
   };
   primaryResume?: PrimaryResumeSummary | null;
   activeCareerGoal?: {

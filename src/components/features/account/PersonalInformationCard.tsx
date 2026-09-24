@@ -13,6 +13,7 @@ import {
   type ProfileFormValues,
   resolveYearsOfExperience,
 } from '@/schema/accountSchema';
+import { AvatarEditor } from './AvatarEditor';
 
 export { profileSchema, type ProfileFormValues, resolveYearsOfExperience };
 
@@ -97,6 +98,7 @@ export const PersonalInformationCard: React.FC<PersonalInformationCardProps> = (
 
   return (
     <Card variant="elevated" padding="lg" className="space-y-6">
+      <AvatarEditor user={user} />
       <div>
         <h2 className="text-lg font-bold text-on-surface">Thông tin cá nhân</h2>
         <p className="text-xs text-on-surface-variant mt-1">
