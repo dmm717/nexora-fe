@@ -89,7 +89,7 @@ test('career profile and resume sections preserve cached data on refetch errors'
 });
 
 test('history errors cannot fall through to confirmed-empty presentation', async () => {
-  const interviews = await source('src/app/(dashboard)/interviews/page.tsx');
+  const interviews = await source('src/app/(dashboard)/interviews/history/page.tsx');
   const jobDescriptions = await source('src/app/(dashboard)/job-descriptions/page.tsx');
 
   assert.match(interviews, /error/);
@@ -247,7 +247,7 @@ test('billing keeps account and catalogue query failures separate', async () => 
 
 test('target lists use shared motion and route surfaces avoid redundant MotionPage wrappers', async () => {
   const analytics = await source('src/app/(dashboard)/analytics/page.tsx');
-  const interviews = await source('src/app/(dashboard)/interviews/page.tsx');
+  const interviews = await source('src/app/(dashboard)/interviews/history/page.tsx');
   const jobDescriptions = await source('src/app/(dashboard)/job-descriptions/page.tsx');
   const skillProfile = await source('src/components/features/skill-profile/SkillProfile.tsx');
   const learningPath = await source('src/components/features/learning-path/LearningPathView.tsx');
@@ -266,7 +266,7 @@ test('async list and profile surfaces use the shared skeleton primitive', async 
   const screens = await Promise.all([
     source('src/app/(dashboard)/analytics/page.tsx'),
     source('src/app/(dashboard)/overview/page.tsx'),
-    source('src/app/(dashboard)/interviews/page.tsx'),
+    source('src/app/(dashboard)/interviews/history/page.tsx'),
     source('src/app/(dashboard)/job-descriptions/page.tsx'),
     source('src/app/(dashboard)/billing/page.tsx'),
     source('src/app/(dashboard)/scenarios/page.tsx'),

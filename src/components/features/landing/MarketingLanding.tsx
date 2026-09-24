@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
-  ArrowUpRight,
   Check,
   FileText,
   Target,
@@ -388,7 +387,7 @@ export function MarketingLanding() {
       onClick={() => start(type, url)}
     >
       {text}
-      <ArrowUpRight size={18} aria-hidden="true" />
+      <ArrowRight size={18} aria-hidden="true" />
     </button>
   );
 
@@ -681,7 +680,7 @@ export function MarketingLanding() {
               onClick={() => start('scenario', '/scenarios')}
             >
               Mở thư viện tình huống
-              <ArrowUpRight size={19} />
+              <ArrowRight size={19} />
             </button>
           </article>
           <article className={styles.starPanel} data-reveal>
@@ -707,7 +706,7 @@ export function MarketingLanding() {
               onClick={() => start('star', '/star-builder')}
             >
               Bắt đầu bài luyện STAR
-              <ArrowUpRight size={19} />
+              <ArrowRight size={19} />
             </button>
           </article>
         </div>

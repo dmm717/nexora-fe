@@ -27,7 +27,7 @@ test('Requirement A: /career-profile contains canonical Career Goal management w
   assert.match(sectionSource, /Mục tiêu nghề nghiệp/);
 });
 
-test('Requirement B & Q: /career-goals redirects to /career-profile?section=goals without 404', async () => {
+test('Requirement B & Q: /career-goals owns goal editor and legacy deep link redirects', async () => {
   await assert.doesNotReject(() =>
     access(
       new URL('../src/app/(dashboard)/career-goals/page.tsx', import.meta.url),
@@ -38,8 +38,9 @@ test('Requirement B & Q: /career-goals redirects to /career-profile?section=goal
   const routeSource = await readSource(
     '../src/app/(dashboard)/career-goals/page.tsx'
   );
-  assert.match(routeSource, /redirect\(['"]\/career-profile\?section=goals['"]\)/);
-  assert.doesNotMatch(routeSource, /<CareerGoals/);
+  assert.match(routeSource, /<CareerGoalsPageContent \/>/);
+  const legacySource = await readSource('../src/app/(dashboard)/career-profile/page.tsx');
+  assert.match(legacySource, /section === 'goals' \? '\/career-goals' : '\/profile'/);
 });
 
 test('Requirement C: Old standalone CareerGoals component and stylesheet are deleted', async () => {
@@ -372,10 +373,7 @@ test('Corrective 6-D: No full-page Suspense fallback={null} wraps CareerProfileS
     pageSource,
     /<Suspense[^>]*fallback=\{null\}[^>]*>\s*<CareerProfileScreen/
   );
-  assert.match(
-    pageSource,
-    /export default function CareerProfilePage\(\)\s*\{\s*return\s*<CareerProfileScreen\s*\/>;\s*\}/
-  );
+  assert.match(pageSource, /redirect\(section === 'goals'/);
 
   const screenSource = await readSource(
     '../src/components/features/career-profile/CareerProfileScreen.tsx'

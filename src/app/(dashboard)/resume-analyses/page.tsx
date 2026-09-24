@@ -1533,11 +1533,11 @@ export default function ResumesPage() {
       {/* History Section or Empty State */}
       {history.length > 0 ? (
         <ResumeHistoryList 
-          history={history} 
+          history={history.slice(0, 5)}
           primaryResumeId={careerProfile?.primaryResume?.id}
           onSetPrimary={setPrimaryResume}
           isSettingPrimary={isSettingPrimary}
-          hasNextPage={!!historyQuery.hasNextPage}
+          hasNextPage={false}
           isFetchingNextPage={historyQuery.isFetchingNextPage}
           onLoadMore={() => historyQuery.fetchNextPage()}
         />
@@ -1552,6 +1552,11 @@ export default function ResumesPage() {
           </p>
         </Card>
       )}
+      <div className="text-right">
+        <a href="/cv-analysis/history" className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline">
+          Xem toàn bộ lịch sử <span aria-hidden="true" className="material-symbols-outlined text-[17px]">arrow_forward</span>
+        </a>
+      </div>
     </div>
   );
 }

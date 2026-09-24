@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { CareerGoalsPageContent } from '@/components/features/career-profile/CareerGoalsPageContent';
 
 export default function CareerGoalsPage() {
-  redirect('/career-profile?section=goals');
+  return <CareerGoalsPageContent />;
 }

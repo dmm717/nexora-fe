@@ -1,4 +1,7 @@
 .product-app-shell {
+  --color-action: #a3ed3d;
+  --color-action-hover: #8bd72d;
+  --color-on-action: #122006;
   --product-ground: #f8f8ff;
   --product-surface: #ffffff;
   --product-lavender: #efedff;
@@ -17,18 +20,37 @@
   isolation: isolate;
   min-height: calc(100vh - 4rem);
   overflow: hidden;
-  background: var(--product-ground);
+  background: radial-gradient(circle at 82% 4%, rgb(59 80 223 / 14%), transparent 30rem),
+    radial-gradient(circle at 7% 86%, rgb(108 248 187 / 6%), transparent 25rem),
+    linear-gradient(180deg, #fafbff 0%, #f2f6ff 48%, #eaf0ff 100%);
 }
 
 .product-main-surface::before,
 .product-main-surface::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 999px;
-  filter: blur(18px);
-  opacity: 0.5;
+  content: none;
+}
+
+.action-forward {
+  background: var(--color-action);
+  color: var(--color-on-action);
+  border-color: #83c526;
+}
+.action-forward:hover { background: var(--color-action-hover); }
+.action-forward:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+
+.footer-brand-link img,
+.footer-brand-link svg { transition: transform 210ms ease; transform-origin: left center; }
+.footer-brand-link:hover img,
+.footer-brand-link:hover svg,
+.footer-brand-link:focus-visible img,
+.footer-brand-link:focus-visible svg { transform: scale(1.05); }
+@media (prefers-reduced-motion: reduce) {
+  .footer-brand-link img,
+  .footer-brand-link svg { transition: none; }
+  .footer-brand-link:hover img,
+  .footer-brand-link:hover svg,
+  .footer-brand-link:focus-visible img,
+  .footer-brand-link:focus-visible svg { transform: none; }
 }
 
 .product-main-surface::before {

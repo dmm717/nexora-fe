@@ -7,40 +7,9 @@ import { Menu, X, LogIn, Rocket } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { NexoraLogo } from '@/components/brand/NexoraLogo';
+import { PUBLIC_NAV_ITEMS, type NavItem } from '@/config/navigation';
 
-export interface NavItem {
-  label: string;
-  href: string;
-  sectionId?: string;
-}
-
-export const CANONICAL_PUBLIC_NAV: NavItem[] = [
-  {
-    label: 'Phân tích CV',
-    href: '/#cv-analysis',
-    sectionId: 'cv-analysis',
-  },
-  {
-    label: 'Phỏng vấn AI',
-    href: '/#ai-interview',
-    sectionId: 'ai-interview',
-  },
-  {
-    label: 'Luyện tập',
-    href: '/#practice',
-    sectionId: 'practice',
-  },
-  {
-    label: 'Năng lực',
-    href: '/#capabilities',
-    sectionId: 'capabilities',
-  },
-  {
-    label: 'Bảng giá',
-    href: '/pricing',
-    sectionId: 'pricing',
-  },
-];
+export const CANONICAL_PUBLIC_NAV: NavItem[] = PUBLIC_NAV_ITEMS;
 
 export const Header: React.FC = () => {
   const pathname = usePathname();

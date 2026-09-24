@@ -59,10 +59,6 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
       router.push('/auth');
       return;
     }
-    if (item.actionKey === 'settings') {
-      router.push('/account');
-      return;
-    }
     if (item.href) {
       router.push(item.href);
       return;
@@ -76,7 +72,7 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
         <div className="flex items-center gap-6 lg:gap-8">
           {/* Logo */}
           <Link
-            href="/overview"
+            href="/"
             className="flex items-center gap-2.5 group text-left"
           >
             <NexoraLogo variant="horizontal" className="h-7 w-auto object-contain" />
@@ -91,29 +87,16 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
               const isActive =
                 pathname === item.href ||
                 (item.href === '/overview' && (pathname === '/today' || pathname === '/')) ||
-                (item.href === '/cv-analysis' && (pathname.startsWith('/cv-analysis') || pathname.startsWith('/resume-analyses') || pathname.startsWith('/resumes'))) ||
-                (item.href === '/practice/interview/preflight' && (pathname.startsWith('/interviews/new') || pathname.startsWith('/practice/interview'))) ||
+                (item.href === '/resume-analyses' && (pathname.startsWith('/resume-analyses') || pathname.startsWith('/resumes'))) ||
+                (item.href === '/interviews/new' && pathname.startsWith('/interviews')) ||
                 (item.href === '/practice' && (pathname.startsWith('/practice') || pathname.startsWith('/scenarios') || pathname.startsWith('/star-builder')) && !pathname.startsWith('/practice/interview')) ||
-                (item.href === '/progress' && (pathname.startsWith('/progress') || pathname.startsWith('/analytics') || pathname.startsWith('/skill-profile') || pathname.startsWith('/learning-path'))) ||
+                (item.href === '/analytics' && (pathname.startsWith('/analytics') || pathname.startsWith('/skill-profile') || pathname.startsWith('/learning-path'))) ||
                 (item.href === '/pricing' && (pathname === '/pricing' || pathname === '/billing'));
-
-              // Route map translation:
-              // /cv-analysis -> /resume-analyses
-              // /practice/interview/preflight -> /interviews/new
-              // /progress -> /analytics
-              const targetRoute =
-                item.href === '/cv-analysis'
-                  ? '/resume-analyses'
-                  : item.href === '/practice/interview/preflight'
-                  ? '/interviews/new'
-                  : item.href === '/progress'
-                  ? '/analytics'
-                  : item.href;
 
               return (
                 <Link
                   key={item.href}
-                  href={targetRoute}
+                  href={item.href}
                   aria-current={isActive ? 'page' : undefined}
                   className={`h-full flex items-center px-1 text-sm font-semibold transition-all relative ${
                     isActive
@@ -185,25 +168,21 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
                     </div>
                   </div>
 
-                  {/* Account Navigation Links */}
+                  {/* Account and archive navigation */}
                   <div className="p-1.5 space-y-0.5">
                     {AVATAR_MENU_ITEMS.map((item) => {
-                      // Map destination for production routes:
-                      // settings -> /account
-                      let resolvedHref = item.href;
-                      if (item.actionKey === 'settings') resolvedHref = '/account';
-
                       return (
                         <button
                           key={item.label}
                           type="button"
                           role="menuitem"
-                          onClick={() => handleAvatarAction({ ...item, href: resolvedHref })}
+                          onClick={() => handleAvatarAction(item)}
+                          data-menu-group={item.href?.includes('history') ? 'history' : item.actionKey === 'logout' ? 'sign-out' : 'account'}
                           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors text-left font-medium cursor-pointer ${
                             item.danger
                               ? 'text-red-700 hover:bg-red-50'
                               : 'text-on-surface hover:bg-surface-container-low'
-                          }`}
+                          } ${item.href === '/cv-analysis/history' || item.href === '/settings' ? 'border-t border-outline-variant/40 mt-1.5 pt-3' : ''}`}
                         >
                           <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${item.danger ? 'text-red-600' : 'text-on-surface-variant'}`}>
                             {item.icon}
@@ -238,21 +217,12 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
       {mobileMenuOpen && (
         <div id="authenticated-mobile-menu" role="navigation" aria-label="Điều hướng di động" className="md:hidden border-t border-outline-variant/30 bg-white px-4 py-3 space-y-1 animate-in slide-in-from-top duration-150 shadow-md">
           {CANONICAL_NAV_ITEMS.map((item) => {
-            const targetRoute =
-              item.href === '/cv-analysis'
-                ? '/resume-analyses'
-                : item.href === '/practice/interview/preflight'
-                ? '/interviews/new'
-                : item.href === '/progress'
-                ? '/analytics'
-                : item.href;
-
-            const isActive = pathname === targetRoute;
+            const isActive = pathname === item.href;
 
             return (
               <Link
                 key={item.href}
-                href={targetRoute}
+                href={item.href}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-between ${

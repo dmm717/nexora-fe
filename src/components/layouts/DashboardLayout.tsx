@@ -3,6 +3,7 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { AuthenticatedHeader } from '@/components/header/AuthenticatedHeader';
+import Footer from '@/components/layouts/Footer';
 import {
   FocusedPracticeShellProvider,
 } from '@/components/layouts/FocusedPracticeShellContext';
@@ -13,11 +14,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const focused = isFocusedPracticeRoute(pathname);
 
   return (
-    <>
+    <div className={focused ? 'min-h-screen' : 'product-app-shell flex min-h-screen flex-col'}>
       {!focused && <AuthenticatedHeader />}
       <FocusedPracticeShellProvider>
-        <div className={focused ? '' : 'pt-16'}>{children}</div>
+        <main className={focused ? '' : 'product-main-surface flex-1 pt-16'}>{children}</main>
       </FocusedPracticeShellProvider>
-    </>
+      {!focused && <Footer />}
+    </div>
   );
 }

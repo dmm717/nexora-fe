@@ -11,22 +11,22 @@ import {
 
 const readSource = (relativePath) => readFile(new URL(relativePath, import.meta.url), 'utf8');
 
-test('A: Authenticated avatar "Hồ sơ nghề nghiệp" resolves to /career-profile, not /career-goals', async () => {
+test('A: Authenticated avatar Hồ sơ resolves to canonical /profile', async () => {
   const source = await readSource('../src/components/header/AuthenticatedHeader.tsx');
   assert.doesNotMatch(source, /if\s*\(\s*item\.href\s*===\s*['"]\/career-profile['"]\s*\)\s*resolvedHref\s*=\s*['"]\/career-goals['"]/);
-  assert.match(source, /if\s*\(\s*item\.actionKey\s*===\s*['"]settings['"]\s*\)\s*resolvedHref\s*=\s*['"]\/account['"]/);
+  assert.doesNotMatch(source, /resolvedHref/);
 
   const navSource = await readSource('../src/config/navigation.ts');
-  assert.match(navSource, /label:\s*['"]Hồ sơ nghề nghiệp['"],\s*href:\s*['"]\/career-profile['"]/);
+  assert.match(navSource, /label:\s*['"]Hồ sơ['"],\s*href:\s*['"]\/profile['"]/);
 });
 
-test('B: /career-profile route exists and renders CareerProfileScreen', async () => {
+test('B: /career-profile route redirects to /profile or /career-goals', async () => {
   await assert.doesNotReject(() =>
     access(new URL('../src/app/(dashboard)/career-profile/page.tsx', import.meta.url), constants.F_OK)
   );
 
   const source = await readSource('../src/app/(dashboard)/career-profile/page.tsx');
-  assert.match(source, /CareerProfileScreen/);
+  assert.match(source, /redirect\(section === 'goals'/);
 });
 
 test('C & D: Identity card uses real CareerProfile/User data and renders truthful empty copy', async () => {
@@ -124,9 +124,11 @@ test('M, N, O: Skill Profile uses real evidence, never fabricates Date.now(), an
   assert.match(source, /Tín hiệu khuyết thiếu năng lực đã được ghi nhận:/);
 });
 
-test('P: /account remains account settings and CareerProfileSection is retired', async () => {
+test('P: /settings owns account controls and /account remains a redirect', async () => {
   const accountSource = await readSource('../src/app/(dashboard)/account/page.tsx');
-  assert.match(accountSource, /AccountSettings/);
+  assert.match(accountSource, /redirect\('\/settings'\)/);
+  const settingsSource = await readSource('../src/app/(dashboard)/settings/page.tsx');
+  assert.match(settingsSource, /AccountSettings/);
 
   await assert.rejects(() =>
     access(new URL('../src/components/features/career/CareerProfileSection.tsx', import.meta.url), constants.F_OK)

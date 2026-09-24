@@ -2,10 +2,7 @@
 
 import React from 'react';
 import { useCurrentUser } from '@/hooks/queries/useUser';
-import { AccountHeader } from './AccountHeader';
-import { PersonalInformationCard } from './PersonalInformationCard';
 import { SecurityCard } from './SecurityCard';
-import { PlanUsageCard } from './PlanUsageCard';
 import { PrivacyDataCard } from './PrivacyDataCard';
 import { ProductFeedbackCard } from './ProductFeedbackCard';
 import { SessionsCard } from './SessionsCard';
@@ -50,22 +47,23 @@ export const AccountSettings: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-      {/* Account Hero / Identity summary */}
-      <AccountHeader user={user} />
+      <header className="rounded-3xl border border-[#dbe3fa] bg-white p-7 shadow-subtle">
+        <p className="text-xs font-bold uppercase tracking-widest text-primary">Tài khoản</p>
+        <h1 className="mt-2 text-3xl font-extrabold text-[#172554]">Cài đặt</h1>
+        <p className="mt-2 text-sm text-[#52617e]">Bảo mật, phiên đăng nhập, dữ liệu cá nhân và phản hồi sản phẩm.</p>
+      </header>
 
       {/* Main Responsive Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-        {/* Left Column (7 cols): Personal Info & Privacy/Data & Feedback */}
+        {/* Account data and feedback */}
         <div className="lg:col-span-7 space-y-6 sm:space-y-8">
-          <PersonalInformationCard user={user} />
           <PrivacyDataCard />
           <ProductFeedbackCard />
         </div>
 
-        {/* Right Column (5 cols): Security, Plan & Usage, Sessions */}
+        {/* Security and sessions */}
         <div className="lg:col-span-5 space-y-6 sm:space-y-8">
           <SecurityCard />
-          <PlanUsageCard billing={user.billing} />
           <SessionsCard />
         </div>
       </div>
