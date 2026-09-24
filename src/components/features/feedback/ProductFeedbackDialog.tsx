@@ -285,7 +285,7 @@ const ProductFeedbackDialogContent: React.FC<ProductFeedbackDialogContentProps> 
                   Cho phép Nexora hiển thị đánh giá này trên trang giới thiệu.
                 </span>
                 <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">
-                  Chỉ tên hiển thị, số sao và lời nhận xét của bạn sẽ được hiển thị công khai sau khi được kiểm duyệt.
+                  Nếu được duyệt, tên hiển thị, ảnh đại diện (nếu có), số sao và nhận xét của bạn có thể xuất hiện công khai.
                 </p>
               </div>
             </label>

@@ -39,6 +39,7 @@ export interface UserResponse {
   roles: string[];
   billing?: BillingSummaryResponse | null;
   yearsOfExperience?: number | null;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateProfileRequest {
@@ -72,6 +73,17 @@ export const userApi = {
   updateProfile: async (data: UpdateProfileRequest): Promise<UserResponse> => {
     const response = await apiClient.patch('/me/profile', data);
     return response.data;
+  },
+
+  updateAvatar: async (file: File): Promise<string> => {
+    const body = new FormData();
+    body.append('file', file);
+    const response = await apiClient.putForm('/me/avatar', body);
+    return response.data.avatarUrl;
+  },
+
+  deleteAvatar: async (): Promise<void> => {
+    await apiClient.delete('/me/avatar');
   },
 
   exportData: async (): Promise<CoreDataExport> => {

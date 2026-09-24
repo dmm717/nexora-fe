@@ -1,9 +1,9 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styles from './DashboardLayout.module.css'; // Reuse CSS
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { userApi } from '@/services/userApi';
+import { useCurrentUser } from '@/hooks/queries/useUser';
 import { authApi } from '@/services/authApi';
 import { SharedSidebar } from './SharedSidebar';
 
@@ -59,22 +59,8 @@ const menuItems = [
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState('Free User');
-
-  useEffect(() => {
-    let isMounted = true;
-    userApi.getCurrentUser()
-      .then(user => {
-        if (isMounted && user.email) {
-          setUserEmail(user.email);
-        }
-      })
-      .catch(() => {
-        // Ignored
-      });
-    
-    return () => { isMounted = false; };
-  }, []);
+  const { data: user } = useCurrentUser();
+  const userEmail = user?.email || 'Free User';
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -85,7 +71,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className={styles.container}>
-      <SharedSidebar pathname={pathname} userEmail={userEmail} handleLogout={handleLogout} menuItems={menuItems} />
+      <SharedSidebar pathname={pathname} userEmail={userEmail} displayName={user?.displayName} avatarUrl={user?.avatarUrl} handleLogout={handleLogout} menuItems={menuItems} />
 
       <main className={styles.mainContent}>
         <header className={styles.header}>

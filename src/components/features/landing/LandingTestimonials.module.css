@@ -124,8 +124,9 @@
 .testimonialList {
   display: grid;
   grid-template-columns: 1fr;
-  align-content: center;
+  align-content: start;
   flex: 1;
+  min-height: 0;
   gap: 12px;
   max-height: 430px;
   overflow-y: auto;
@@ -217,25 +218,6 @@
   border: 1px solid #dedafa;
   border-radius: 50%;
   background: #ece9ff;
-}
-
-.avatarImage,
-.avatarFallback {
-  width: 100%;
-  height: 100%;
-}
-
-.avatarImage {
-  display: block;
-  object-fit: cover;
-}
-
-.avatarFallback {
-  display: grid;
-  place-items: center;
-  color: #4a43a1;
-  font-size: 10px;
-  font-weight: 800;
 }
 
 .statsPanel {

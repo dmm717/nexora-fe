@@ -154,11 +154,11 @@ test('Landing social proof consumes authoritative public aggregates without fake
   assert.match(testimonialsStyles, /\.testimonialList\[data-count='1'\][\s\S]*?min-height:\s*0/);
   // Future avatar URLs are optional and retain a safe initials fallback.
   assert.match(testimonialsSource, /item\.avatarUrl/);
-  assert.match(testimonialsSource, /getInitials/);
+  assert.match(testimonialsSource, /<UserAvatar avatarUrl=\{item\.avatarUrl\}/);
   assert.doesNotMatch(testimonialsSource, /randomuser\.me/);
 });
 
-test('Public Feedback Contract: supports optional user avatars without requiring backend changes', () => {
+test('Public Feedback Contract: supports optional user avatars', () => {
   const contractSource = readFileSync(
     new URL('../src/services/feedbackContract.ts', import.meta.url),
     'utf8'
