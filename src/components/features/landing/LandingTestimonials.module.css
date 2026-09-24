@@ -124,6 +124,7 @@
 .testimonialList {
   display: grid;
   grid-template-columns: 1fr;
+  grid-auto-rows: max-content;
   align-content: start;
   flex: 1;
   min-height: 0;

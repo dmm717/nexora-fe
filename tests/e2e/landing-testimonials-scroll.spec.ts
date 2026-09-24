@@ -31,12 +31,16 @@ for (const width of [1664, 1440, 390]) {
     await list.scrollIntoViewIfNeeded();
     const initial = await list.evaluate((element) => {
       const listRect = element.getBoundingClientRect();
-      const firstRect = element.querySelector('article')!.getBoundingClientRect();
+      const first = element.querySelector('article')!;
+      const firstRect = first.getBoundingClientRect();
       return {
         scrollTop: element.scrollTop,
         firstTop: firstRect.top,
         firstBottom: firstRect.bottom,
         listTop: listRect.top,
+        listBottom: listRect.bottom,
+        cardScrollHeight: first.scrollHeight,
+        cardClientHeight: first.clientHeight,
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
       };
@@ -44,6 +48,8 @@ for (const width of [1664, 1440, 390]) {
     expect(initial.scrollTop).toBe(0);
     expect(initial.firstTop).toBeGreaterThanOrEqual(initial.listTop - 1);
     expect(initial.firstBottom).toBeGreaterThan(initial.firstTop);
+    expect(initial.firstBottom).toBeLessThanOrEqual(initial.listBottom + 1);
+    expect(initial.cardScrollHeight).toBeLessThanOrEqual(initial.cardClientHeight + 1);
     expect(initial.scrollHeight).toBeGreaterThan(initial.clientHeight);
     await page.screenshot({ path: testInfo.outputPath(`testimonials-${width}.png`) });
     await list.evaluate((element) => { element.scrollTop = element.scrollHeight; });
