@@ -6,6 +6,7 @@ import {
   setAccessToken,
 } from '../store/authStore.ts';
 import { translateErrorMessage } from '../utils/errorTranslator.ts';
+import { isValidInternalPath } from '../utils/authIntent.ts';
 import { AuthRefreshError, refreshSession, StaleAuthSessionError } from './authSession.ts';
 
 export class ApiError extends Error {
@@ -55,6 +56,11 @@ const getHeaders = () => {
 
 const redirectToAuth = () => {
   if (typeof window !== 'undefined') {
+    const currentPath = window.location.pathname + window.location.search;
+    if (isValidInternalPath(currentPath) && !currentPath.startsWith('/auth')) {
+      window.location.href = `/auth?returnTo=${encodeURIComponent(currentPath)}`;
+      return;
+    }
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/auth';
   }
