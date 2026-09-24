@@ -12,7 +12,12 @@
   --product-violet: #7769df;
   --product-positive: #087257;
   --product-attention: #8e6011;
-  background: var(--product-ground);
+}
+
+.nexora-ambient-shell {
+  background: radial-gradient(circle at 82% 4%, rgb(59 80 223 / 14%), transparent 30rem),
+    radial-gradient(circle at 7% 82%, rgb(108 248 187 / 6%), transparent 27rem),
+    linear-gradient(180deg, #fafbff 0%, #f1f5ff 48%, #e9efff 100%);
 }
 
 .product-main-surface {
@@ -20,9 +25,52 @@
   isolation: isolate;
   min-height: calc(100vh - 4rem);
   overflow: hidden;
-  background: radial-gradient(circle at 82% 4%, rgb(59 80 223 / 14%), transparent 30rem),
-    radial-gradient(circle at 7% 86%, rgb(108 248 187 / 6%), transparent 25rem),
-    linear-gradient(180deg, #fafbff 0%, #f2f6ff 48%, #eaf0ff 100%);
+  background: transparent;
+}
+
+.site-footer {
+  background: rgb(239 244 255 / 78%);
+  backdrop-filter: blur(12px);
+}
+
+.footer-social {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dce4f7;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 78%);
+  color: #3646c8;
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease, color 200ms ease;
+}
+.footer-social--enabled:hover,
+.footer-social--enabled:focus-visible {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 8px 20px rgb(23 37 84 / 12%);
+}
+.footer-social--facebook.footer-social--enabled:hover,
+.footer-social--facebook.footer-social--enabled:focus-visible {
+  border-color: #1877f2;
+  background: #1877f2;
+  color: white;
+}
+.footer-social--tiktok.footer-social--enabled:hover,
+.footer-social--tiktok.footer-social--enabled:focus-visible {
+  border-color: #25f4ee;
+  background: #172554;
+  color: white;
+  box-shadow: -3px 4px 0 rgb(254 44 85 / 40%), 3px -2px 0 rgb(37 244 238 / 35%);
+}
+.footer-social--disabled { color: #7783a2; cursor: default; }
+.footer-social--disabled:hover { border-color: #b9c8e5; background: #edf2ff; color: #52617e; }
+.footer-social--enabled:focus-visible { outline: 3px solid #3646c8; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-social { transition: none; }
+  .footer-social--enabled:hover,
+  .footer-social--enabled:focus-visible { transform: none; }
 }
 
 .product-main-surface::before,
