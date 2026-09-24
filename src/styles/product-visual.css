@@ -156,6 +156,57 @@
   mask-composite: intersect;
 }
 
+/* Compact hero for decision pages like /pricing */
+.product-page-hero.pricing-hero {
+  min-height: auto;
+  margin-bottom: 1.25rem;
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  grid-template-columns: minmax(0, 1.55fr) minmax(10rem, 0.65fr);
+  gap: 1.5rem;
+}
+
+.product-page-hero.pricing-hero .product-page-hero-copy h1 {
+  max-width: 32ch;
+  font-size: clamp(1.5rem, 2.75vw, 2.25rem);
+  line-height: 1.2;
+}
+
+.product-page-hero.pricing-hero .product-page-hero-copy p {
+  max-width: 54ch;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.product-page-hero.pricing-hero .product-page-hero-art {
+  min-height: 6rem;
+  width: min(100%, 14rem);
+}
+
+/* Nexora Branded Boot Loader */
+.nexora-boot-loader-indicator {
+  width: 45%;
+  animation: nexora-loader-slide 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes nexora-loader-slide {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexora-boot-loader-indicator {
+    left: 27.5%;
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+
 .product-evidence-card {
   display: flex;
   flex-direction: column;

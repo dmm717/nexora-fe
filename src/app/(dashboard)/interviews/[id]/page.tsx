@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import '@/styles/interview-stage.css';
 import { interviewApi } from '@/services/interviewApi';
+import { invalidateInterviewCompletionResult } from '@/services/practiceInvalidation';
 import {
   type InterviewView,
   getCurrentQuestion,
@@ -286,7 +287,7 @@ export default function InterviewRoomPage() {
 
     try {
       const updated = await interviewApi.complete(id, completeIntentRef.current.getKey());
-      queryClient.setQueryData(['interview', id], updated);
+      invalidateInterviewCompletionResult(queryClient, id, updated.status, updated);
       completeIntentRef.current.confirmComplete();
       router.replace(`/interviews/${id}/report`);
     } catch (err: unknown) {

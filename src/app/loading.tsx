@@ -1,7 +1,22 @@
 export default function Loading() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(5px)' }}>
-      <div className="functional-spinner" style={{ width: '40px', height: '40px', border: '3px solid rgba(0, 156, 166, 0.2)', borderTopColor: '#009ca6', borderRadius: '50%' }} />
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-col items-center justify-center min-h-[50vh] sm:min-h-[calc(100vh-10rem)] w-full px-4 py-12"
+    >
+      <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+        <div
+          aria-hidden="true"
+          className="functional-spinner w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full flex-shrink-0"
+        />
+        <p className="text-xs font-medium text-on-surface-variant tracking-wide">
+          Đang tải dữ liệu...
+        </p>
+      </div>
+      <span className="sr-only">Đang tải trang...</span>
     </div>
   );
 }
+
+

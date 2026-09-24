@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { recommendationsApi } from '@/services/recommendationsApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from '@/services/sharedQueryKeys';
 
-export const NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY = [
-  'nextPracticeRecommendation',
-] as const;
+export { NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY } from '@/services/sharedQueryKeys';
 
 export type { NextPracticeRecommendationResponse } from '@/services/recommendationsApi';
 
@@ -14,8 +13,9 @@ export const useNextRecommendation = () => {
   return useQuery({
     queryKey: NEXT_PRACTICE_RECOMMENDATION_QUERY_KEY,
     queryFn: () => recommendationsApi.getNext(),
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
     enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       // Deterministic prerequisite errors should not be retried continuously
       const apiError = error as { code?: string; status?: number };

@@ -4,6 +4,11 @@ import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import type { ScenarioFilterParams } from '@/types/scenario';
 import { REALTIME_FALLBACK_POLL_MS } from '@/constants/realtime';
 import { readStatus, type RealtimeFallbackInterval } from '@/utils/queryPolling';
+import {
+  fetchPracticeSnapshot,
+  invalidateObservedScenarioCompletion,
+  invalidateScenarioAttemptResult,
+} from '@/services/practiceInvalidation';
 
 export const useScenarioCategories = () => {
   const { authReady, isAuthenticated } = useAuth();
@@ -55,10 +60,16 @@ export const useScenarioAttempt = (
   refetchInterval?: RealtimeFallbackInterval
 ) => {
   const { authReady, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['scenarioAttempt', attemptId],
-    queryFn: () => scenarioApi.getAttempt(attemptId),
+    queryFn: () => fetchPracticeSnapshot(
+      queryClient,
+      ['scenarioAttempt', attemptId],
+      () => scenarioApi.getAttempt(attemptId),
+      () => invalidateObservedScenarioCompletion(queryClient)
+    ),
     staleTime: 0,
     enabled: authReady && isAuthenticated && !!attemptId,
     refetchInterval:
@@ -128,10 +139,7 @@ export const useSubmitScenarioAttempt = () => {
       idempotencyKey?: string;
     }) => scenarioApi.submitAttempt(attemptId, answer, idempotencyKey),
     onSuccess: (attempt) => {
-      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', attempt.id] });
-      void queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
-      void queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
-      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempts'] });
+      invalidateScenarioAttemptResult(queryClient, attempt.id, attempt.status, attempt);
     },
   });
 };
@@ -148,10 +156,7 @@ export const useRetryScenario = () => {
       idempotencyKey?: string;
     }) => scenarioApi.retryScenario(scenarioId, idempotencyKey),
     onSuccess: (attempt) => {
-      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', attempt.id] });
-      void queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
-      void queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
-      void queryClient.invalidateQueries({ queryKey: ['scenarioAttempts'] });
+      invalidateScenarioAttemptResult(queryClient, attempt.id, attempt.status, attempt);
     },
   });
 };

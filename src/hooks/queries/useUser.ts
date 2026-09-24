@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { userApi } from '@/services/userApi';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
+import { CURRENT_USER_QUERY_KEY } from '@/services/sharedQueryKeys';
 
-export const CURRENT_USER_QUERY_KEY = ['currentUser'] as const;
+export { CURRENT_USER_QUERY_KEY } from '@/services/sharedQueryKeys';
 
 export const useCurrentUser = () => {
   const { authReady, isAuthenticated } = useAuth();
@@ -10,7 +11,8 @@ export const useCurrentUser = () => {
   return useQuery({
     queryKey: CURRENT_USER_QUERY_KEY,
     queryFn: () => userApi.getCurrentUser(),
-    staleTime: 30000, // 30 seconds for dynamic user data
+    staleTime: 60 * 1000,
     enabled: authReady && isAuthenticated,
+    refetchOnWindowFocus: false,
   });
 };

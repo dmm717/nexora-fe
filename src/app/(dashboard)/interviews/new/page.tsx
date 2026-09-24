@@ -2,7 +2,9 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CURRENT_USER_QUERY_KEY } from '@/hooks/queries/useUser';
 import { interviewApi, type StartInterviewCommand } from '@/services/interviewApi';
 import {
   getOrCreateStartIntent,
@@ -44,6 +46,7 @@ const INTERVIEW_TYPES: Array<{ type: InterviewType; title: string; desc: string 
 
 export default function NewInterviewPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
 
@@ -294,6 +297,8 @@ export default function NewInterviewPage() {
       );
       pendingStartIntentRef.current = null;
       createdJdIdRef.current = null;
+      void queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['interviews'] });
       router.push(`/interviews/${res.id}`);
     } catch (err: unknown) {
       setError({

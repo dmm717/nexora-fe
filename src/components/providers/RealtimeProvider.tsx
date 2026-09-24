@@ -10,7 +10,14 @@ import {
   isPrincipalEpochCurrent,
   subscribeAuthState,
 } from '@/store/authStore';
-import { getRealtimeInvalidationKeys } from '@/utils/scenarioHelpers';
+
+import {
+  PRACTICE_AGGREGATE_QUERY_KEYS,
+  getQueryKeysForEvent,
+  type RealtimeEvent,
+} from '@/services/practiceInvalidation';
+
+export { getQueryKeysForEvent, type RealtimeEvent };
 
 export interface RealtimeState {
   isConnected: boolean;
@@ -26,14 +33,6 @@ const RealtimeContext = createContext<RealtimeState>(defaultState);
 
 export const useRealtime = () => useContext(RealtimeContext);
 
-interface RealtimeEvent {
-  eventId: string;
-  resourceType: string;
-  resourceId: string;
-  status: string;
-  occurredAt: string;
-}
-
 const MAX_SEEN_EVENTS = 1000;
 
 const RECOVERY_QUERY_PREFIXES: readonly QueryKey[] = [
@@ -45,6 +44,7 @@ const RECOVERY_QUERY_PREFIXES: readonly QueryKey[] = [
   ['scenarioHistory'],
   ['scenarioProgress'],
   ['starAttempt'],
+  ...PRACTICE_AGGREGATE_QUERY_KEYS,
 ];
 
 function parseResourceChangedEvent(value: unknown): RealtimeEvent | null {
@@ -74,31 +74,6 @@ function parseResourceChangedEvent(value: unknown): RealtimeEvent | null {
   }
 
   return null;
-}
-
-/**
- * Maps only resource types emitted by the backend to authoritative queries.
- * Events are notifications, so the query functions still fetch the final API state.
- */
-function getQueryKeysForEvent(event: RealtimeEvent): QueryKey[] {
-  const resourceType = event.resourceType.toLowerCase();
-  const status = event.status.toLowerCase();
-
-  const scenarioKeys = getRealtimeInvalidationKeys(event.resourceType, event.resourceId);
-  if (scenarioKeys.length > 0) return scenarioKeys;
-
-  switch (resourceType) {
-    case 'resume':
-      return [['resume', event.resourceId]];
-    case 'resumeanalysis':
-      return [['resumeAnalysis', event.resourceId]];
-    case 'interview':
-      return status === 'completed'
-        ? [['interview', event.resourceId], ['interviewReport', event.resourceId]]
-        : [['interview', event.resourceId]];
-    default:
-      return [];
-  }
 }
 
 function resolveHubUrl(): string {

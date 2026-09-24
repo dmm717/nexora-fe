@@ -23,6 +23,10 @@ import {
   STAR_COMPONENT_LABELS,
   type NormalizedStarEvaluation,
 } from '@/services/interviewContract';
+import {
+  invalidateScenarioAttemptResult,
+  invalidateStarAttemptResult,
+} from '@/services/practiceInvalidation';
 
 const getScoreClass = (score: number) => {
   if (score >= 80) return styles.scoreExcellent;
@@ -284,13 +288,13 @@ function StarBuilderContent() {
         );
         scenarioSubmitIntentRef.current = submitIntent;
 
-        await scenarioApi.submitAttempt(
+        const submitted = await scenarioApi.submitAttempt(
           submitIntent.payload.attemptId,
           { answer: submitIntent.payload.answer },
           submitIntent.key
         );
         scenarioSubmitIntentRef.current = null;
-        return currentAttemptId;
+        return submitted;
       } else {
         const starIntent = getOrCreateStarAttemptIntent(
           starIntentRef.current,
@@ -306,21 +310,17 @@ function StarBuilderContent() {
           starIntent.key
         );
         starIntentRef.current = null;
-        return response.id;
+        return response;
       }
     },
-    onSuccess: (id) => {
-      setAttemptId(id);
+    onSuccess: (attempt) => {
+      setAttemptId(attempt.id);
       if (scenarioData) {
         activeScenarioAttemptIdRef.current = null;
-        queryClient.invalidateQueries({ queryKey: ['scenarioAttempt', id] });
-        queryClient.invalidateQueries({ queryKey: ['scenarioHistory'] });
-        queryClient.invalidateQueries({ queryKey: ['scenarioProgress'] });
+        invalidateScenarioAttemptResult(queryClient, attempt.id, attempt.status, attempt);
       } else {
-        queryClient.invalidateQueries({ queryKey: ['starAttempt', id] });
-        queryClient.invalidateQueries({ queryKey: ['starAttempts'] });
+        invalidateStarAttemptResult(queryClient, attempt.id, attempt.status, attempt);
       }
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Lỗi khi gửi đánh giá.');
