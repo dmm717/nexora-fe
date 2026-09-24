@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const focused = isFocusedPracticeRoute(pathname);
 
   return (
-    <div className={focused ? 'min-h-screen' : 'product-app-shell flex min-h-screen flex-col'}>
+    <div className={focused ? 'min-h-screen' : 'nexora-ambient-shell product-app-shell flex min-h-screen flex-col'}>
       {!focused && <AuthenticatedHeader />}
       <FocusedPracticeShellProvider>
         <main className={focused ? '' : 'product-main-surface flex-1 pt-16'}>{children}</main>

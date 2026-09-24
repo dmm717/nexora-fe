@@ -7,7 +7,11 @@ import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { siteContentApi } from '@/services/siteContentApi';
 
 export const SITE_SETTINGS_QUERY_KEY = ['public-site-settings'] as const;
-const FacebookMark = ({ size }: { size: number }) => <span aria-hidden="true" style={{ width: size, height: size, lineHeight: `${size}px` }} className="block text-center font-black">f</span>;
+const FacebookMark = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M13.6 21v-8.2h2.8l.42-3.2H13.6V7.55c0-.93.27-1.55 1.62-1.55h1.73V3.14A23.5 23.5 0 0 0 14.43 3c-2.5 0-4.22 1.53-4.22 4.35V9.6H7.4v3.2h2.81V21h3.39Z" />
+  </svg>
+);
 const TikTokMark = ({ size }: { size: number }) => (
   <svg
     width={size}
@@ -47,7 +51,7 @@ export const Footer = () => {
   ];
 
   return (
-    <footer className="site-footer mt-auto border-t border-[#dce4f7] bg-white/95 text-[#334166]">
+    <footer className="site-footer mt-auto border-t border-[#dce4f7] text-[#334166]">
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-8 md:grid-cols-[1.5fr_1fr_1fr] lg:gap-20">
         <div className="space-y-5">
           <Link href="/" className="footer-brand-link inline-flex rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary" aria-label="Nexora - Trang chủ">
@@ -62,12 +66,12 @@ export const Footer = () => {
           </div>
           <div className="flex flex-wrap gap-3" aria-label="Mạng xã hội">
             {socials.map(({ label, url, icon: Icon }) => url ? (
-              <a key={label} href={url} target="_blank" rel="noopener noreferrer" aria-label={label} className="rounded-full border border-[#dce4f7] p-2.5 text-primary transition-colors hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-primary">
-                <Icon aria-hidden="true" size={17} />
+              <a key={label} href={url} target="_blank" rel="noopener noreferrer" aria-label={label} className={`footer-social footer-social--enabled footer-social--${label.toLowerCase()}`}>
+                <Icon size={20} />
               </a>
             ) : (
-              <span key={label} title={`${label}: Sắp cập nhật`} aria-label={`${label}: Sắp cập nhật`} className="rounded-full border border-[#e6e9f1] p-2.5 text-[#a2a9bb]">
-                <Icon aria-hidden="true" size={17} />
+              <span key={label} title={`${label}: Sắp cập nhật`} aria-label={`${label}: Sắp cập nhật`} className="footer-social footer-social--disabled">
+                <Icon size={20} />
               </span>
             ))}
           </div>
