@@ -40,7 +40,24 @@ export interface CheckoutSessionResponse {
   };
 }
 
+export interface OrderHistoryItem {
+  id: string;
+  planCode: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface OrderHistoryPage { items: OrderHistoryItem[]; nextCursor: string | null }
+
 export const billingApi = {
+  getOrderHistory: async (cursor?: string | null, status?: string): Promise<OrderHistoryPage> => {
+    const params = new URLSearchParams({ pageSize: '20' });
+    if (cursor) params.set('cursor', cursor);
+    if (status) params.set('status', status);
+    return (await apiClient.get(`/me/orders?${params}`) as { data: OrderHistoryPage }).data;
+  },
   getPlans: async (): Promise<PlanView[]> => {
     const response = await apiClient.get('/plans') as { data: PlanView[] };
     return response.data;

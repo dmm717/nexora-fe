@@ -23,7 +23,8 @@ import {
   isValidInternalPath,
   isInterviewRoute,
 } from '@/utils/authIntent';
-import { Check, ArrowUpRight, Sparkles } from 'lucide-react';
+import { Check, ArrowRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { describePlanFeature } from '@/services/billingPresentation';
 import { formatPriceMinor } from '@/utils/formatters';
 import { getQueryPresentation } from '@/utils/queryPresentation';
@@ -375,6 +376,10 @@ export default function PricingCards() {
           title="Chọn gói đồng hành tối ưu cho hành trình nghề nghiệp của bạn"
           description="Không ép buộc thanh toán sớm. Bắt đầu với gói Miễn phí để kiểm chứng phương pháp của Nexora, sau đó nâng cấp khi cần tăng tốc độ luyện tập."
         />
+        {isAuthenticated && user?.billing?.entitlement && <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#dbe3fa] bg-white p-5 text-sm shadow-subtle">
+          <div><strong className="text-[#172554]">Gói hiện tại: {user.billing.entitlement.planCode}</strong><span className="ml-3 text-[#52617e]">{user.billing.entitlement.endsAt ? `Hết hạn ${new Date(user.billing.entitlement.endsAt).toLocaleDateString('vi-VN')}` : 'Không có ngày hết hạn'}</span><span className="ml-3 text-[#52617e]">{user.billing.entitlement.available === null ? 'Lượt phỏng vấn: không giới hạn' : `Còn ${user.billing.entitlement.available} lượt phỏng vấn`}</span></div>
+          <Link href="/payment-history" className="font-bold text-primary hover:underline">Lịch sử thanh toán →</Link>
+        </div>}
 
         {checkoutPriceInProgress && (
           <div
@@ -572,7 +577,7 @@ export default function PricingCards() {
                           disabled={!authReady || isCurrentPlan || (checkoutPriceInProgress !== null && price.amountMinor > 0)}
                           loading={checkoutPriceInProgress === price.id}
                           onClick={() => handleSelectPlan(plan, price)}
-                          icon={price.amountMinor > 0 ? <ArrowUpRight size={16} /> : undefined}
+                          icon={price.amountMinor > 0 ? <ArrowRight size={16} /> : undefined}
                         >
                           {isCurrentPlan
                             ? 'Gói hiện tại'
@@ -702,7 +707,7 @@ export default function PricingCards() {
                                 disabled={!authReady || isCurrentPlan || (checkoutPriceInProgress !== null && price.amountMinor > 0)}
                                 loading={checkoutPriceInProgress === price.id}
                                 onClick={() => handleSelectPlan(plan, price)}
-                                icon={price.amountMinor > 0 ? <ArrowUpRight size={14} /> : undefined}
+                                icon={price.amountMinor > 0 ? <ArrowRight size={14} /> : undefined}
                               >
                                 {isCurrentPlan
                                   ? 'Gói hiện tại'

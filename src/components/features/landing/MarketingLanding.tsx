@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
-  ArrowUpRight,
   Check,
   FileText,
   Target,
@@ -29,7 +28,7 @@ import { useLandingMotion } from './useLandingMotion';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { usePlans } from '@/hooks/queries/useBilling';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
-import type { AuthIntent } from '@/utils/authIntent';
+import { resolveCheckoutDestination, type AuthIntent } from '@/utils/authIntent';
 import { getQueryPresentation } from '@/utils/queryPresentation';
 import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
 import styles from './landing.module.css';
@@ -362,9 +361,9 @@ export function MarketingLanding() {
       start('navigation', '/overview');
       return;
     }
-    const checkoutUrl = `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
+    const checkoutUrl = resolveCheckoutDestination(price.id) ?? '/pricing';
     if (isAuthenticated) {
-      // Authenticated user selecting paid plan navigates directly to canonical billing checkout
+      // Authenticated user selecting a paid plan uses the canonical pricing checkout.
       router.push(checkoutUrl);
     } else {
       setPendingIntent({
@@ -388,7 +387,7 @@ export function MarketingLanding() {
       onClick={() => start(type, url)}
     >
       {text}
-      <ArrowUpRight size={18} aria-hidden="true" />
+      <ArrowRight size={18} aria-hidden="true" />
     </button>
   );
 
@@ -681,7 +680,7 @@ export function MarketingLanding() {
               onClick={() => start('scenario', '/scenarios')}
             >
               Mở thư viện tình huống
-              <ArrowUpRight size={19} />
+              <ArrowRight size={19} />
             </button>
           </article>
           <article className={styles.starPanel} data-reveal>
@@ -707,7 +706,7 @@ export function MarketingLanding() {
               onClick={() => start('star', '/star-builder')}
             >
               Bắt đầu bài luyện STAR
-              <ArrowUpRight size={19} />
+              <ArrowRight size={19} />
             </button>
           </article>
         </div>

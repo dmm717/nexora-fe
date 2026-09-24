@@ -359,12 +359,14 @@ test('shared Input associates validation feedback with the invalid field', async
 
 test('public header keeps canonical navigation, Escape close, aria-expanded, and reduced-motion scrolling', async () => {
   const header = await source('src/components/layouts/Header.tsx');
+  const navigation = await source('src/config/navigation.ts');
   const landing = await source('src/components/features/landing/MarketingLanding.tsx');
   const footer = await source('src/components/layouts/Footer.tsx');
 
   for (const label of ['Phân tích CV', 'Phỏng vấn AI', 'Luyện tập', 'Năng lực', 'Bảng giá']) {
-    assert.ok(header.includes(label), `missing canonical navigation label ${label}`);
+    assert.ok(navigation.includes(label), `missing canonical navigation label ${label}`);
   }
+  assert.match(header, /CANONICAL_PUBLIC_NAV: NavItem\[\] = PUBLIC_NAV_ITEMS/);
   assert.match(header, /aria-expanded=\{/);
   assert.match(header, /Escape/);
   assert.match(header, /usePathname/);
@@ -372,5 +374,6 @@ test('public header keeps canonical navigation, Escape close, aria-expanded, and
   for (const id of ['cv-analysis', 'ai-interview', 'practice', 'capabilities']) {
     assert.match(landing, new RegExp(`id=["']${id}["']`));
   }
-  assert.doesNotMatch(footer, /href=["']\/(?:terms|privacy)["']/i);
+  assert.match(footer, /\['Điều khoản dịch vụ', '\/terms'\]/);
+  assert.match(footer, /\['Chính sách bảo mật', '\/privacy'\]/);
 });

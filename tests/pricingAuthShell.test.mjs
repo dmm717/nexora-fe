@@ -11,7 +11,7 @@ test('F: anonymous /pricing uses public shell (Header + Footer)', async () => {
   assert.match(shellSource, /Header/);
 });
 
-test('G: authenticated /pricing uses authenticated shell (AuthenticatedHeader without public footer)', async () => {
+test('G: authenticated /pricing uses authenticated shell with global footer', async () => {
   const shellSource = await readSource('../src/components/features/pricing/PricingPageShell.tsx');
   assert.match(shellSource, /if \(authReady && isAuthenticated\)/);
   assert.match(shellSource, /<AuthenticatedHeader \/>/);
@@ -20,7 +20,7 @@ test('G: authenticated /pricing uses authenticated shell (AuthenticatedHeader wi
     shellSource.indexOf('if (authReady && isAuthenticated)'),
     shellSource.indexOf('if (!authReady)')
   );
-  assert.doesNotMatch(authBranch, /<Footer/);
+  assert.match(authBranch, /<Footer \/>/);
   assert.doesNotMatch(authBranch, /<Header \/>/);
 });
 

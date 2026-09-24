@@ -170,7 +170,7 @@ export default function StarPractice() {
         <Alert
           variant="warning"
           title="STAR chưa khả dụng với quyền hiện tại"
-          action={<Button size="sm" onClick={() => router.push('/billing?returnTo=%2Fpractice%2Fstar')}>Xem gói</Button>}
+          action={<Button size="sm" onClick={() => router.push('/pricing?returnTo=%2Fpractice%2Fstar')}>Xem gói</Button>}
         >
           Tính năng này yêu cầu gói tài khoản phù hợp. Nâng cấp gói để bắt đầu luyện tập STAR.
         </Alert>
@@ -180,7 +180,7 @@ export default function StarPractice() {
         <Alert
           variant="error"
           title={isAccessError(displayError) ? 'Không còn quyền gửi đánh giá' : 'Chưa thể hoàn tất yêu cầu'}
-          action={isAccessError(displayError) ? <Button size="sm" onClick={() => router.push('/billing?returnTo=%2Fpractice%2Fstar')}>Xem gói</Button> : undefined}
+          action={isAccessError(displayError) ? <Button size="sm" onClick={() => router.push('/pricing?returnTo=%2Fpractice%2Fstar')}>Xem gói</Button> : undefined}
         >
           {displayError instanceof Error ? displayError.message : 'Vui lòng thử lại với cùng nội dung. Hệ thống giữ nguyên idempotency key cho lần thử vận chuyển này.'}
         </Alert>

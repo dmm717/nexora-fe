@@ -7,20 +7,20 @@ import { passwordSchema, resolveYearsOfExperience } from '../src/schema/accountS
 const readSource = (relativePath) =>
   readFile(new URL(relativePath, import.meta.url), 'utf8');
 
-test('Requirement A: /account route renders AccountSettings replatformed surface', async () => {
+test('Requirement A: /account redirects to canonical account-only /settings', async () => {
   const pageSource = await readSource(
     '../src/app/(dashboard)/account/page.tsx'
   );
-  assert.match(pageSource, /import AccountSettings from/);
-  assert.match(pageSource, /<AccountSettings \/>/);
+  assert.match(pageSource, /redirect\('\/settings'\)/);
+  const settingsSource = await readSource('../src/app/(dashboard)/settings/page.tsx');
+  assert.match(settingsSource, /<AccountSettings \/>/);
 
   const screenSource = await readSource(
     '../src/components/features/account/AccountSettings.tsx'
   );
-  assert.match(screenSource, /AccountHeader/);
-  assert.match(screenSource, /PersonalInformationCard/);
+  assert.doesNotMatch(screenSource, /<PersonalInformationCard/);
   assert.match(screenSource, /SecurityCard/);
-  assert.match(screenSource, /PlanUsageCard/);
+  assert.doesNotMatch(screenSource, /<PlanUsageCard/);
   assert.match(screenSource, /PrivacyDataCard/);
   assert.match(screenSource, /SessionsCard/);
   assert.match(screenSource, /DangerZoneCard/);
@@ -246,8 +246,8 @@ test('Corrective 1: No localUserOverride store; useCurrentUser is canonical and 
 
   // Directly renders canonical user
   assert.match(screenSource, /const \{\s*data:\s*user/);
-  assert.match(screenSource, /<AccountHeader user=\{user\} \/>/);
-  assert.match(screenSource, /<PersonalInformationCard user=\{user\} \/>/);
+  const profileSource = await readSource('../src/app/(dashboard)/profile/page.tsx');
+  assert.match(profileSource, /<PersonalInformationCard user=\{user\.data\} \/>/);
 
   const personalInfoSource = await readSource(
     '../src/components/features/account/PersonalInformationCard.tsx'

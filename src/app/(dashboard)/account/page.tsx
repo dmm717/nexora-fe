@@ -1,6 +1,5 @@
-import React from 'react';
-import AccountSettings from '@/components/features/account/AccountSettings';
+import { redirect } from 'next/navigation';
 
 export default function AccountPage() {
-  return <AccountSettings />;
+  redirect('/settings');
 }

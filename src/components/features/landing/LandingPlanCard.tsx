@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, ArrowUpRight, Sparkles } from 'lucide-react';
+import { Check, ArrowRight, Sparkles } from 'lucide-react';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
 import { formatPriceMinor } from '@/utils/formatters';
 import { describePlanFeature } from '@/services/billingPresentation';
@@ -83,7 +83,7 @@ export const LandingPlanCard: React.FC<LandingPlanCardProps> = ({
         onClick={() => onSelect(plan, price)}
       >
         <span>{isFree ? 'Bắt đầu miễn phí' : 'Chọn gói luyện tập'}</span>
-        <ArrowUpRight size={16} aria-hidden="true" />
+        <ArrowRight size={16} aria-hidden="true" />
       </button>
     </article>
   );

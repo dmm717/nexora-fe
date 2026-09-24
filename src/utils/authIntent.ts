@@ -30,11 +30,18 @@ export const ALLOWED_PATH_PREFIXES = [
   '/career-goals',
   '/career-profile',
   '/account',
+  '/profile',
+  '/settings',
   '/billing',
+  '/payment-history',
   '/resumes',
   '/resume-analyses',
   '/learning-path',
   '/skill-profile',
+  '/job-descriptions',
+  '/about',
+  '/terms',
+  '/privacy',
   '/admin',
 ];
 

@@ -14,15 +14,15 @@ export const CANONICAL_NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Phân tích CV',
-    href: '/cv-analysis',
+    href: '/resume-analyses',
     icon: 'document_scanner',
     sectionId: 'cv-analysis',
   },
   {
     label: 'Phỏng vấn AI',
-    href: '/practice/interview/preflight',
+    href: '/interviews/new',
     icon: 'record_voice_over',
-    sectionId: 'interview',
+    sectionId: 'ai-interview',
   },
   {
     label: 'Luyện tập',
@@ -32,7 +32,7 @@ export const CANONICAL_NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Năng lực',
-    href: '/progress',
+    href: '/analytics',
     icon: 'trending_up',
     sectionId: 'capabilities',
   },
@@ -81,27 +81,35 @@ export interface AvatarMenuItem {
   label: string;
   href?: string;
   icon: string;
-  actionKey?: 'profile' | 'billing' | 'settings' | 'privacy' | 'logout';
+  actionKey?: 'logout';
   danger?: boolean;
 }
 
 export const AVATAR_MENU_ITEMS: AvatarMenuItem[] = [
   {
-    label: 'Hồ sơ nghề nghiệp',
-    href: '/career-profile',
+    label: 'Hồ sơ',
+    href: '/profile',
     icon: 'account_circle',
-    actionKey: 'profile',
   },
   {
-    label: 'Gói & thanh toán',
-    href: '/billing',
-    icon: 'credit_card',
-    actionKey: 'billing',
+    label: 'Lịch sử phân tích CV',
+    href: '/cv-analysis/history',
+    icon: 'history_edu',
   },
   {
-    label: 'Cài đặt tài khoản',
+    label: 'Lịch sử phỏng vấn',
+    href: '/interviews/history',
+    icon: 'history',
+  },
+  {
+    label: 'Lịch sử thanh toán',
+    href: '/payment-history',
+    icon: 'receipt_long',
+  },
+  {
+    label: 'Cài đặt',
+    href: '/settings',
     icon: 'settings',
-    actionKey: 'settings',
   },
   {
     label: 'Đăng xuất',

@@ -272,4 +272,15 @@ export const apiClient = {
     const response = await fetch(url, options);
     return handleResponse(response, { url, options, principalEpoch });
   },
+
+  postForm: async (endpoint: string, body: FormData) => {
+    const url = `${BASE_URL}${endpoint}`;
+    const principalEpoch = getPrincipalEpoch();
+    const headers = getHeaders();
+    delete headers['Content-Type'];
+    headers['Idempotency-Key'] = crypto.randomUUID();
+    const options: RequestInit = { method: 'POST', body, credentials: 'include', headers };
+    const response = await fetch(url, options);
+    return handleResponse(response, { url, options, principalEpoch });
+  },
 };

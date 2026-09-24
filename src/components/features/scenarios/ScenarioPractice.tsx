@@ -358,7 +358,7 @@ export function ScenarioPractice({ scenario }: ScenarioPracticeProps) {
           <span>{errorMessage}</span>
           {upgradeRequired && (
             <Link
-              href={`/billing?returnTo=${encodeURIComponent(`/practice/scenarios/${scenario.slug}`)}`}
+              href={`/pricing?returnTo=${encodeURIComponent(`/practice/scenarios/${scenario.slug}`)}`}
               className={`${styles.btnSecondaryAction} ${styles.contentWidthAuto}`}
             >
               Xem gói phù hợp

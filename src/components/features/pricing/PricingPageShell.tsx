@@ -22,6 +22,7 @@ export function PricingPageShell({ children }: PricingPageShellProps) {
         <main className="flex-1 pt-16 bg-surface product-main-surface">
           {children}
         </main>
+        <Footer />
       </div>
     );
   }

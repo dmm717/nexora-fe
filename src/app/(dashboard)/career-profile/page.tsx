@@ -1,6 +1,6 @@
-import React from 'react';
-import { CareerProfileScreen } from '@/components/features/career-profile/CareerProfileScreen';
+import { redirect } from 'next/navigation';
 
-export default function CareerProfilePage() {
-  return <CareerProfileScreen />;
+export default async function CareerProfilePage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
+  const { section } = await searchParams;
+  redirect(section === 'goals' ? '/career-goals' : '/profile');
 }

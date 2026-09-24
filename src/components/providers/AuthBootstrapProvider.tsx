@@ -84,7 +84,7 @@ export default function AuthBootstrapProvider({ children }: { children: React.Re
         return;
       }
 
-      // If current route is truly stateless (e.g. /status, /design-system),
+      // If current route is truly stateless (e.g. /design-system),
       // we do not need to eagerly probe auth
       if (!shouldBootstrap) {
         if (!cancelled) {

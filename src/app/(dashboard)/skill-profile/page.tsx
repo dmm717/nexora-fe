@@ -1,6 +1,5 @@
-import React from 'react';
-import SkillProfile from '@/components/features/skill-profile/SkillProfile';
+import { redirect } from 'next/navigation';
 
 export default function SkillProfilePage() {
-  return <SkillProfile />;
+  redirect('/analytics');
 }
