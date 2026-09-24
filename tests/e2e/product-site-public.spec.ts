@@ -26,3 +26,8 @@ for (const viewport of [
     }
   });
 }
+
+test('retired status URL redirects to the public home page', async ({ page }) => {
+  await page.goto('/status');
+  await expect(page).toHaveURL(/\/$/);
+});

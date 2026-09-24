@@ -7,13 +7,12 @@
  * MUST eagerly restore the session via /api/v1/auth/refresh when the in-memory access token
  * is absent, so that a valid HttpOnly refresh-cookie session is preserved across hard page reloads.
  *
- * Truly stateless routes (such as '/status' and '/design-system') have no authentication-dependent
+ * Truly stateless routes (such as '/design-system') have no authentication-dependent
  * UI components (no auth-aware Header, CTAs, or guards) and skip eager session probing.
  */
 
 // Truly stateless public routes whose UI has zero auth dependencies
 export const STATELESS_NON_AUTH_ROUTES: readonly string[] = [
-  '/status',
   '/design-system',
 ];
 

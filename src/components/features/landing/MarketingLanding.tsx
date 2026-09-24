@@ -28,7 +28,7 @@ import { useLandingMotion } from './useLandingMotion';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { usePlans } from '@/hooks/queries/useBilling';
 import type { PlanView, PlanPrice } from '@/services/billingApi';
-import type { AuthIntent } from '@/utils/authIntent';
+import { resolveCheckoutDestination, type AuthIntent } from '@/utils/authIntent';
 import { getQueryPresentation } from '@/utils/queryPresentation';
 import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
 import styles from './landing.module.css';
@@ -361,9 +361,9 @@ export function MarketingLanding() {
       start('navigation', '/overview');
       return;
     }
-    const checkoutUrl = `/billing?selectedPriceId=${encodeURIComponent(price.id)}`;
+    const checkoutUrl = resolveCheckoutDestination(price.id) ?? '/pricing';
     if (isAuthenticated) {
-      // Authenticated user selecting paid plan navigates directly to canonical billing checkout
+      // Authenticated user selecting a paid plan uses the canonical pricing checkout.
       router.push(checkoutUrl);
     } else {
       setPendingIntent({

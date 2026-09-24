@@ -254,9 +254,9 @@ test('H. protected routes: restore session before RequireAuth guard resolves', (
   );
 });
 
-test('I. truly stateless routes (e.g. /status, /design-system) skip eager bootstrap probe', () => {
-  assert.equal(isStatelessNonAuthRoute('/status'), true);
-  assert.equal(shouldEagerlyBootstrapAuth('/status'), false);
+test('I. only truly stateless routes skip eager bootstrap probe; /status redirects away', () => {
+  assert.equal(isStatelessNonAuthRoute('/status'), false);
+  assert.equal(shouldEagerlyBootstrapAuth('/status'), true);
   assert.equal(isStatelessNonAuthRoute('/design-system'), true);
   assert.equal(shouldEagerlyBootstrapAuth('/design-system'), false);
 

@@ -1468,7 +1468,7 @@ export default function ResumesPage() {
               )}
             </div>
           </div>
-          <Link href="/billing" className="flex-shrink-0">
+          <Link href="/pricing" className="flex-shrink-0">
             <Button variant="primary" size="sm">
               Nâng cấp gói ngay
             </Button>

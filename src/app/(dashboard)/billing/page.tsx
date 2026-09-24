@@ -45,6 +45,7 @@ function BillingPageHeader() {
 
 export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
+  const [legacyPaymentReturn, setLegacyPaymentReturn] = useState(false);
 
   const plansQuery = useBillingPlans();
   const currentUserQuery = useCurrentUser();
@@ -87,6 +88,21 @@ export default function BillingPage() {
   const selectedPriceId = searchParams.get('selectedPriceId');
   const rawReturnTo = searchParams.get('returnTo');
   const safeReturnTo = rawReturnTo && isValidInternalPath(rawReturnTo) ? rawReturnTo : null;
+
+  // Compatibility route only: normal pricing/checkout requests use the canonical page.
+  // Preserve this page solely for older payment return URLs that still need status recovery.
+  useEffect(() => {
+    const hasPendingOrder = Boolean(window.sessionStorage.getItem('pendingPaymentOrderId'));
+    if (hasPendingOrder || searchParams.has('error') || searchParams.has('success')) {
+      // Browser-only payment return state is resolved after hydration.
+      const timer = window.setTimeout(() => setLegacyPaymentReturn(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+    const params = new URLSearchParams();
+    if (selectedPriceId) params.set('checkoutPriceId', selectedPriceId);
+    if (safeReturnTo) params.set('returnTo', safeReturnTo);
+    router.replace(params.size ? `/pricing?${params}` : '/pricing');
+  }, [router, safeReturnTo, searchParams, selectedPriceId]);
 
   const autoCheckoutAttemptedRef = useRef(false);
   const checkoutInProgressRef = useRef(false);
@@ -193,6 +209,7 @@ export default function BillingPage() {
   // One-shot auto-checkout when selectedPriceId is passed in query
   useEffect(() => {
     if (
+      !legacyPaymentReturn ||
       !selectedPriceId ||
       autoCheckoutAttemptedRef.current ||
       !hasPlansData ||
@@ -236,6 +253,7 @@ export default function BillingPage() {
     handleBuyPlan(matchedPrice.id);
   }, [
     selectedPriceId,
+    legacyPaymentReturn,
     hasPlansData,
     fetchingPlans,
     hasUserData,
@@ -244,6 +262,10 @@ export default function BillingPage() {
     createCheckoutMutation,
     handleBuyPlan,
   ]);
+
+  if (!legacyPaymentReturn) {
+    return <div role="status" className="mx-auto max-w-6xl px-5 py-10 text-sm text-on-surface-variant">Đang chuyển đến bảng giá...</div>;
+  }
 
   if (showUserSkeleton) {
     return (

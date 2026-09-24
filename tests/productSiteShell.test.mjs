@@ -42,3 +42,24 @@ test('payment history uses the full owner-scoped cursor endpoint', async () => {
   assert.match(page, /last\.nextCursor/);
   assert.match(page, /billingApi\.getOrderHistory/);
 });
+
+test('legacy billing only preserves payment-return recovery and forwards ordinary checkout to pricing', async () => {
+  const [billing, landing] = await Promise.all([
+    readSource('../src/app/(dashboard)/billing/page.tsx'),
+    readSource('../src/components/features/landing/MarketingLanding.tsx'),
+  ]);
+  assert.match(billing, /hasPendingOrder \|\| searchParams\.has\('error'\) \|\| searchParams\.has\('success'\)/);
+  assert.match(billing, /params\.set\('checkoutPriceId', selectedPriceId\)/);
+  assert.match(billing, /router\.replace\(params\.size \? `\/pricing\?\$\{params\}` : '\/pricing'\)/);
+  assert.match(billing, /!legacyPaymentReturn \|\|\s*!selectedPriceId/);
+  assert.match(landing, /resolveCheckoutDestination\(price\.id\)/);
+});
+
+test('retired status destination redirects home and is not an active route', async () => {
+  const [config, routePolicy] = await Promise.all([
+    readSource('../next.config.ts'),
+    readSource('../src/services/authRoutePolicy.ts'),
+  ]);
+  assert.match(config, /source: '\/status', destination: '\/', permanent: false/);
+  assert.doesNotMatch(routePolicy, /^\s*'\/status',?\s*$/m);
+});
