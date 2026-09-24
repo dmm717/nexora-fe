@@ -70,19 +70,54 @@ function PageForm({ initial, pageKey }: { initial: SitePage; pageKey: SitePageKe
     finally { setSaving(false); }
   };
   const publish = async () => {
+    if (!value.concurrencyToken) {
+      toast.error('Không tìm thấy mã phiên bản. Hãy tải lại trang.');
+      return;
+    }
     if (!window.confirm('Công bố bản nháp hiện đã lưu? Nội dung sẽ hiển thị công khai.')) return;
     setPublishing(true);
     try {
-      const published = await siteContentApi.publishPage(pageKey);
+      const published = await siteContentApi.publishPage(pageKey, value.concurrencyToken);
       setValue(published);
       await queryClient.invalidateQueries({ queryKey: ['admin-site-page', pageKey] });
       await queryClient.invalidateQueries({ queryKey: ['public-site-page', pageKey] });
       toast.success('Đã công bố nội dung.');
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Không thể công bố. Hãy lưu bản nháp trước.'); }
-    finally { setPublishing(false); }
+    } catch (error) {
+      const isConflict =
+        (error instanceof ApiError && (error.status === 409 || error.code === 'SITE_CONTENT_CONFLICT' || error.code === 'CONFLICT')) ||
+        (typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 409);
+      if (isConflict) {
+        toast.error('Nội dung đã được thay đổi ở nơi khác. Hãy tải lại trước khi công bố.');
+        await queryClient.invalidateQueries({ queryKey: ['admin-site-page', pageKey] });
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Không thể công bố. Hãy lưu bản nháp trước.');
+      }
+    } finally {
+      setPublishing(false);
+    }
   };
+
+  const isDraftOnly = !value.publishedAt;
+  const hasUnpublishedChanges = Boolean(
+    value.publishedAt &&
+    value.updatedAt &&
+    new Date(value.updatedAt).getTime() > new Date(value.publishedAt).getTime()
+  );
+  const statusLabel = isDraftOnly
+    ? 'Bản nháp'
+    : hasUnpublishedChanges
+    ? 'Đã công bố · Có thay đổi chưa công bố'
+    : 'Đã công bố';
+  const statusBadgeClass = isDraftOnly || hasUnpublishedChanges
+    ? 'bg-amber-50 text-amber-800'
+    : 'bg-emerald-50 text-emerald-800';
+
   return <div className="space-y-6">
-    <div className="flex flex-wrap items-center gap-3 text-xs text-[#52617e]"><span className={`rounded-full px-3 py-1 font-bold ${value.isPublished ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{value.isPublished ? 'Đã công bố' : 'Bản nháp'}</span>{value.updatedAt && <span>Cập nhật: {new Date(value.updatedAt).toLocaleString('vi-VN')}</span>}{value.publishedAt && <span>Công bố: {new Date(value.publishedAt).toLocaleString('vi-VN')}</span>}</div>
+    <div className="flex flex-wrap items-center gap-3 text-xs text-[#52617e]">
+      <span className={`rounded-full px-3 py-1 font-bold ${statusBadgeClass}`}>{statusLabel}</span>
+      {value.updatedAt && <span>Cập nhật: {new Date(value.updatedAt).toLocaleString('vi-VN')}</span>}
+      {value.publishedAt && <span>Công bố: {new Date(value.publishedAt).toLocaleString('vi-VN')}</span>}
+    </div>
     <label className={labelClass}>Tiêu đề<input value={value.title} onChange={(e) => update('title', e.target.value)} maxLength={160} className={fieldClass} /></label>
     {pageKey === 'about' ? <AboutEditor value={value.about || INITIAL_ABOUT_DRAFT} onChange={(about) => update('about', about)} /> : <>
       <label className={labelClass}>Nội dung văn bản (Markdown đơn giản, không HTML)<textarea value={value.bodyMarkdown || ''} onChange={(e) => update('bodyMarkdown', e.target.value)} rows={18} maxLength={30000} className={`${fieldClass} font-mono leading-6`} /></label>

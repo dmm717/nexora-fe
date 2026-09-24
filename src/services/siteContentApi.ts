@@ -60,8 +60,8 @@ export const siteContentApi = {
   getAdminPage: async (key: SitePageKey) => (await apiClient.get(`/admin/site-pages/${key}`) as { data: SitePage }).data,
   updatePage: async (key: SitePageKey, data: Pick<SitePage, 'title' | 'bodyMarkdown' | 'about' | 'effectiveAt' | 'concurrencyToken'>) =>
     (await apiClient.put(`/admin/site-pages/${key}`, data) as { data: SitePage }).data,
-  publishPage: async (key: SitePageKey) =>
-    (await apiClient.post(`/admin/site-pages/${key}/publish`) as { data: SitePage }).data,
+  publishPage: async (key: SitePageKey, concurrencyToken: string) =>
+    (await apiClient.post(`/admin/site-pages/${key}/publish`, { concurrencyToken }) as { data: SitePage }).data,
   uploadAsset: async (file: File) => {
     const body = new FormData();
     body.append('file', file);

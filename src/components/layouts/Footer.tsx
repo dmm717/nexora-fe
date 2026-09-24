@@ -2,13 +2,24 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Music2 } from 'lucide-react';
 import { NexoraLogo } from '@/components/brand/NexoraLogo';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { siteContentApi } from '@/services/siteContentApi';
 
 export const SITE_SETTINGS_QUERY_KEY = ['public-site-settings'] as const;
 const FacebookMark = ({ size }: { size: number }) => <span aria-hidden="true" style={{ width: size, height: size, lineHeight: `${size}px` }} className="block text-center font-black">f</span>;
+const TikTokMark = ({ size }: { size: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    className="inline-block"
+  >
+    <path d="M19.589 6.686a4.793 4.793 0 0 1-3.77-4.245V2h-3.445v13.672a2.896 2.896 0 0 1-2.891 2.891 2.896 2.896 0 0 1-2.892-2.891 2.896 2.896 0 0 1 2.892-2.892c.307 0 .604.043.886.124v-3.55a6.34 6.34 0 0 0-.886-.062C5.925 7.292 3 10.217 3 13.781c0 3.565 2.925 6.49 6.488 6.49 3.564 0 6.489-2.925 6.489-6.49V8.898a8.212 8.212 0 0 0 4.612 1.344V6.797a4.81 4.81 0 0 1-1-.111z" />
+  </svg>
+);
 
 const safeExternal = (value?: string | null) => {
   try {
@@ -32,7 +43,7 @@ export const Footer = () => {
   const aboutLinks = [['Giới thiệu', '/about'], ['Điều khoản dịch vụ', '/terms'], ['Chính sách bảo mật', '/privacy']];
   const socials = [
     { label: 'Facebook', url: safeExternal(data?.facebookUrl), icon: FacebookMark },
-    { label: 'TikTok', url: safeExternal(data?.tiktokUrl), icon: Music2 },
+    { label: 'TikTok', url: safeExternal(data?.tiktokUrl), icon: TikTokMark },
   ];
 
   return (
