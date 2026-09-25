@@ -5,8 +5,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ApiError } from '@/services/apiClient';
 import { siteContentApi, type SitePage, type SitePageKey, type SiteSettings } from '@/services/siteContentApi';
-import { INITIAL_ABOUT_DRAFT, INITIAL_PRIVACY_DRAFT, INITIAL_TERMS_DRAFT } from '@/services/siteContentDrafts';
-import { AboutEditor } from '@/components/features/site/AboutEditor';
+import {
+  INITIAL_ABOUT_DRAFT,
+  INITIAL_PRIVACY_DRAFT,
+  INITIAL_TERMS_DRAFT,
+  RECOMMENDED_PRIVACY_TEMPLATE,
+  RECOMMENDED_TERMS_TEMPLATE,
+} from '@/services/siteContentDrafts';
+import { AboutEditor, validateImageFile } from '@/components/features/site/AboutEditor';
 
 const tabs = [
   { key: 'settings', label: 'Footer & liên hệ' },
@@ -62,12 +68,35 @@ function PageForm({ initial, pageKey }: { initial: SitePage; pageKey: SitePageKe
   const save = async () => {
     setSaving(true);
     try {
-      const saved = await siteContentApi.updatePage(pageKey, value);
+      const payload: SitePage =
+        pageKey === 'about' && value.about
+          ? { ...value, about: { ...value.about, milestones: [] } }
+          : value;
+      const saved = await siteContentApi.updatePage(pageKey, payload);
       setValue(saved);
       await queryClient.invalidateQueries({ queryKey: ['admin-site-page', pageKey] });
       toast.success('Đã lưu bản nháp. Nội dung công khai chưa thay đổi.');
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Không thể lưu bản nháp.'); }
     finally { setSaving(false); }
+  };
+
+  const handleApplyRecommendedLegal = () => {
+    const template =
+      pageKey === 'terms'
+        ? RECOMMENDED_TERMS_TEMPLATE
+        : pageKey === 'privacy'
+        ? RECOMMENDED_PRIVACY_TEMPLATE
+        : null;
+    if (!template) return;
+    if (
+      !window.confirm(
+        `Áp dụng mẫu ${pageKey === 'terms' ? 'Điều khoản dịch vụ' : 'Chính sách bảo mật'} do Nexora đề xuất vào bản nháp hiện tại? Thao tác này chỉ cập nhật dữ liệu chỉnh sửa cục bộ và chưa lưu hoặc công bố.`
+      )
+    ) {
+      return;
+    }
+    update('bodyMarkdown', template);
+    toast.info('Mẫu chỉ được áp dụng vào bản chỉnh sửa hiện tại. Hãy kiểm tra trước khi lưu và công bố.');
   };
   const publish = async () => {
     if (!value.concurrencyToken) {
@@ -120,7 +149,22 @@ function PageForm({ initial, pageKey }: { initial: SitePage; pageKey: SitePageKe
     </div>
     <label className={labelClass}>Tiêu đề<input value={value.title} onChange={(e) => update('title', e.target.value)} maxLength={160} className={fieldClass} /></label>
     {pageKey === 'about' ? <AboutEditor value={value.about || INITIAL_ABOUT_DRAFT} onChange={(about) => update('about', about)} /> : <>
-      <label className={labelClass}>Nội dung văn bản (Markdown đơn giản, không HTML)<textarea value={value.bodyMarkdown || ''} onChange={(e) => update('bodyMarkdown', e.target.value)} rows={18} maxLength={30000} className={`${fieldClass} font-mono leading-6`} /></label>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className={labelClass}>Nội dung văn bản (Markdown đơn giản, không HTML)</label>
+          <button
+            type="button"
+            onClick={handleApplyRecommendedLegal}
+            className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-1 text-xs font-bold text-primary hover:bg-primary hover:text-white transition-colors"
+          >
+            Dùng mẫu Nexora đề xuất
+          </button>
+        </div>
+        <p className="text-xs text-[#52617e]">
+          Mẫu chỉ được áp dụng vào bản chỉnh sửa hiện tại. Hãy kiểm tra trước khi lưu và công bố.
+        </p>
+        <textarea value={value.bodyMarkdown || ''} onChange={(e) => update('bodyMarkdown', e.target.value)} rows={18} maxLength={30000} className={`${fieldClass} font-mono leading-6`} />
+      </div>
       <label className={labelClass}>Ngày hiệu lực<input type="date" value={value.effectiveAt?.slice(0, 10) || ''} onChange={(e) => update('effectiveAt', e.target.value ? new Date(`${e.target.value}T00:00:00Z`).toISOString() : null)} className={fieldClass} /></label>
     </>}
     <div className="flex flex-wrap gap-3"><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60">{saving ? 'Đang lưu...' : 'Lưu bản nháp'}</button><button type="button" onClick={() => setPreview(!preview)} className="min-h-11 rounded-xl border border-primary px-5 text-sm font-bold text-primary">{preview ? 'Ẩn xem trước' : 'Xem trước'}</button><button type="button" disabled={publishing || !value.concurrencyToken} onClick={() => void publish()} className="min-h-11 rounded-xl border border-emerald-700 px-5 text-sm font-bold text-emerald-800 disabled:opacity-50">{publishing ? 'Đang công bố...' : 'Công bố bản đã lưu'}</button></div>
@@ -140,14 +184,80 @@ function ImagesPanel() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [assetId, setAssetId] = useState<string | null>(null);
-  const upload = async () => {
-    if (!file) return;
-    setBusy(true);
-    try { const asset = await siteContentApi.uploadAsset(file); setAssetId(asset.id); toast.success('Ảnh đã tải lên kho riêng tư. Gắn vào bản nháp Giới thiệu rồi công bố để hiển thị công khai.'); }
-    catch (error) { toast.error(error instanceof Error ? error.message : 'Không thể tải ảnh lên.'); }
-    finally { setBusy(false); }
+
+  const handleSelect = (candidate: File | null) => {
+    if (!candidate) return;
+    const result = validateImageFile(candidate);
+    if (!result.valid) {
+      toast.error(result.error);
+      return;
+    }
+    setFile(candidate);
   };
-  return <div className="space-y-4 text-sm"><p>Ảnh JPEG, PNG hoặc WebP, tối đa 5 MiB. Ảnh chỉ công khai khi được gắn vào trang Giới thiệu đã công bố.</p><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] || null)} /><button type="button" disabled={!file || busy} onClick={() => void upload()} className="block min-h-11 rounded-xl bg-primary px-5 font-bold text-white disabled:opacity-50">{busy ? 'Đang tải...' : 'Tải ảnh lên'}</button>{assetId && <p>Asset ID: <code className="break-all">{assetId}</code>. Bạn có thể chọn ảnh trực tiếp trong tab Giới thiệu.</p>}</div>;
+
+  const upload = async () => {
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const asset = await siteContentApi.uploadAsset(file);
+      setAssetId(asset.id);
+      setFile(null);
+      toast.success('Ảnh đã tải lên kho riêng tư. Gắn vào bản nháp Giới thiệu rồi công bố để hiển thị công khai.');
+    } catch (error) {
+      if (
+        (error instanceof ApiError && error.status === 401) ||
+        (typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 401)
+      ) {
+        return;
+      }
+      if (error instanceof ApiError) {
+        if (error.status === 403) {
+          toast.error('Bạn không có quyền tải ảnh quản trị.');
+          return;
+        }
+        if (error.status === 413) {
+          toast.error('Ảnh vượt quá dung lượng cho phép.');
+          return;
+        }
+        if (error.status === 400) {
+          toast.error(error.message || 'Dữ liệu ảnh không hợp lệ.');
+          return;
+        }
+      }
+      toast.error('Không thể tải ảnh lúc này. Vui lòng thử lại.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 text-sm">
+      <p>Ảnh JPEG, PNG hoặc WebP, tối đa 5 MiB. Ảnh chỉ công khai khi được gắn vào trang Giới thiệu đã công bố.</p>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(e) => handleSelect(e.target.files?.[0] || null)}
+      />
+      {file && (
+        <p className="text-xs text-[#52617e]">
+          Đã chọn: <strong className="text-[#172554]">{file.name}</strong> ({(file.size / 1024).toFixed(0)} KB)
+        </p>
+      )}
+      <button
+        type="button"
+        disabled={!file || busy}
+        onClick={() => void upload()}
+        className="block min-h-11 rounded-xl bg-primary px-5 font-bold text-white disabled:opacity-50"
+      >
+        {busy ? 'Đang tải...' : 'Tải ảnh lên'}
+      </button>
+      {assetId && (
+        <p>
+          Asset ID: <code className="break-all">{assetId}</code>. Bạn có thể chọn ảnh trực tiếp trong tab Giới thiệu.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function SiteContentAdminPage() {

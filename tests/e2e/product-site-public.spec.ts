@@ -9,7 +9,7 @@ for (const viewport of [
     test.use({ viewport });
 
     for (const [path, heading] of [
-      ['/about', /Tự tin bước vào phỏng vấn|Giới thiệu Nexora/],
+      ['/about', /Tự tin bước vào phỏng vấn|Giới thiệu Nexora|Luyện đúng điều cần cải thiện/],
       ['/terms', /Điều khoản dịch vụ/],
       ['/privacy', /Chính sách bảo mật/],
     ] as const) {
@@ -33,8 +33,9 @@ test('retired status URL redirects to the public home page', async ({ page }) =>
 
 for (const [name, milestones, teamMembers, expected] of [
   ['no optional sections', [], [], ['01', '02', '03']],
-  ['milestones only', [{ label: '2026', title: 'Launch', description: 'First release' }], [], ['01', '02', '03', '04']],
-  ['milestones and team', [{ label: '2026', title: 'Launch', description: 'First release' }], [{ name: 'A', role: 'Builder', bio: null, assetId: null }], ['01', '02', '03', '04', '05']],
+  ['milestones ignored when present', [{ label: '2026', title: 'Launch', description: 'First release' }], [], ['01', '02', '03']],
+  ['team enabled with members', [], [{ name: 'A', role: 'Builder', bio: null, assetId: null }], ['01', '02', '03', '04']],
+  ['milestones ignored and team enabled', [{ label: '2026', title: 'Launch', description: 'First release' }], [{ name: 'A', role: 'Builder', bio: null, assetId: null }], ['01', '02', '03', '04']],
 ] as const) {
   test(`About numbers match visible section eyebrows: ${name}`, async ({ page }) => {
     await page.route('**/api/v1/public/pages/about', (route) => route.fulfill({

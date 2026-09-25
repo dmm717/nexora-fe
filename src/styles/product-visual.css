@@ -20,6 +20,13 @@
     linear-gradient(180deg, #fafbff 0%, #f1f5ff 48%, #e9efff 100%);
 }
 
+.nexora-editorial-shell {
+  background:
+    radial-gradient(circle at 85% 8%, rgb(59 80 223 / 5%), transparent 32rem),
+    radial-gradient(circle at 8% 72%, rgb(163 237 61 / 3%), transparent 26rem),
+    #fbfbfd;
+}
+
 .product-main-surface {
   position: relative;
   isolation: isolate;
