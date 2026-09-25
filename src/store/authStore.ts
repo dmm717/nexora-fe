@@ -19,6 +19,11 @@ let accessToken: string | null = null;
 let principalEpoch = 0;
 let principalId: string | null = null;
 const listeners = new Set<AuthStateListener>();
+let onClearAccessTokenHook: (() => void) | null = null;
+
+export const setOnClearAccessTokenHook = (fn: (() => void) | null) => {
+  onClearAccessTokenHook = fn;
+};
 
 const decodePrincipalId = (token: string): string | null => {
   const payloadPart = token.split('.')[1];
@@ -112,6 +117,7 @@ export const setAccessToken = (token: string | null, options: SetAccessTokenOpti
 };
 
 export const clearAccessToken = () => {
+  onClearAccessTokenHook?.();
   if (accessToken === null && principalId === null) return;
   accessToken = null;
   principalId = null;

@@ -5,9 +5,85 @@ import {
   invalidatePrincipal,
   isPrincipalEpochCurrent,
   setAccessToken,
+  setOnClearAccessTokenHook,
 } from '../store/authStore.ts';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
+
+const SESSION_TERMINATION_STORAGE_KEY = 'nexora_session_termination_barrier';
+
+const safeGetSessionStorage = (): string | null => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return window.sessionStorage.getItem(SESSION_TERMINATION_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+  return null;
+};
+
+const safeSetSessionStorage = (value: string | null): void => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      if (value === null) {
+        window.sessionStorage.removeItem(SESSION_TERMINATION_STORAGE_KEY);
+      } else {
+        window.sessionStorage.setItem(SESSION_TERMINATION_STORAGE_KEY, value);
+      }
+    }
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+};
+
+let sessionTerminationActive = false;
+
+export const isSessionTerminationActive = (): boolean => {
+  if (sessionTerminationActive) return true;
+  return safeGetSessionStorage() === 'active';
+};
+
+export interface SessionTerminationResult {
+  serverLogoutSucceeded: boolean;
+}
+
+export const beginSessionTermination = (): void => {
+  sessionTerminationActive = true;
+  safeSetSessionStorage('active');
+
+  // Abort any in-flight refresh network request immediately
+  if (refreshAbortController) {
+    try {
+      refreshAbortController.abort();
+    } catch {
+      // Best-effort abort
+    }
+    refreshAbortController = null;
+  }
+
+  // Drop tracked refresh promise immediately so concurrent callers do not wait on stale work
+  refreshRequestPromise = null;
+  refreshRequestEpoch = null;
+
+  // Invalidate local principal and advance security boundary
+  invalidatePrincipal();
+};
+
+export const finishSessionTermination = (_result?: SessionTerminationResult): void => {
+  void _result;
+  // Barrier remains active following termination completion until explicit login
+};
+
+export const resetSessionTerminationForExplicitLogin = (): void => {
+  sessionTerminationActive = false;
+  safeSetSessionStorage(null);
+};
+
+// Automatically synchronize test resets with the termination barrier
+setOnClearAccessTokenHook(() => {
+  resetSessionTerminationForExplicitLogin();
+});
 
 export interface RefreshSessionResponse {
   data: {
@@ -51,16 +127,46 @@ const getRefreshErrorMessage = (body: RefreshErrorBody | undefined, status: numb
   return `Auth refresh failed with status ${status}`;
 };
 
+let refreshAbortController: AbortController | null = null;
+
 const requestRefresh = async (requestEpoch: number): Promise<RefreshSessionResponse> => {
-  const response = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  });
+  if (isSessionTerminationActive()) {
+    throw new StaleAuthSessionError(requestEpoch);
+  }
+
+  const controller = new AbortController();
+  refreshAbortController = controller;
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: controller.signal,
+    });
+  } catch (error: unknown) {
+    if (controller.signal.aborted || isSessionTerminationActive()) {
+      throw new StaleAuthSessionError(requestEpoch);
+    }
+    throw error;
+  } finally {
+    if (refreshAbortController === controller) {
+      refreshAbortController = null;
+    }
+  }
+
+  if (isSessionTerminationActive() || !isPrincipalEpochCurrent(requestEpoch)) {
+    throw new StaleAuthSessionError(requestEpoch);
+  }
 
   const body = await response.json().catch(() => undefined) as RefreshErrorBody | {
     data?: { accessToken?: unknown };
   } | undefined;
+
+  if (isSessionTerminationActive() || !isPrincipalEpochCurrent(requestEpoch)) {
+    throw new StaleAuthSessionError(requestEpoch);
+  }
 
   if (!response.ok) {
     throw new AuthRefreshError(
@@ -88,6 +194,10 @@ let refreshRequestEpoch: number | null = null;
 
 export const refreshSession = (): Promise<RefreshSessionResponse> => {
   const requestEpoch = getPrincipalEpoch();
+  if (isSessionTerminationActive()) {
+    return Promise.reject(new StaleAuthSessionError(requestEpoch));
+  }
+
   if (!refreshRequestPromise || refreshRequestEpoch !== requestEpoch) {
     const request = requestRefresh(requestEpoch);
     const trackedRequest = request.finally(() => {
@@ -109,7 +219,7 @@ export const applyRefreshSessionResponse = (
   response: RefreshSessionResponse,
   expectedEpoch: number = response.principalEpoch,
 ): string => {
-  if (response.principalEpoch !== expectedEpoch) {
+  if (isSessionTerminationActive() || response.principalEpoch !== expectedEpoch) {
     throw new StaleAuthSessionError(response.principalEpoch);
   }
 
@@ -117,8 +227,8 @@ export const applyRefreshSessionResponse = (
   // Multiple callers may await the same refresh promise. The first caller
   // establishes the epoch; later callers may safely observe that exact token
   // already applied, while any other token means the response is stale.
-  if (!isPrincipalEpochCurrent(expectedEpoch)) {
-    if (getAccessToken() === newToken) return newToken;
+  if (!isPrincipalEpochCurrent(expectedEpoch) || isSessionTerminationActive()) {
+    if (!isSessionTerminationActive() && getAccessToken() === newToken) return newToken;
     throw new StaleAuthSessionError(response.principalEpoch);
   }
 
@@ -130,13 +240,18 @@ export const applyRefreshSessionResponse = (
 };
 
 export const bootstrapAuthSession = (): Promise<boolean> => {
+  if (isSessionTerminationActive()) return Promise.resolve(false);
   if (getAccessToken()) return Promise.resolve(true);
 
   const requestEpoch = getPrincipalEpoch();
   return refreshSession()
     .then((response) => {
-      if (response.principalEpoch !== requestEpoch || !isPrincipalEpochCurrent(requestEpoch)) {
-        return Boolean(getAccessToken());
+      if (
+        isSessionTerminationActive()
+        || response.principalEpoch !== requestEpoch
+        || !isPrincipalEpochCurrent(requestEpoch)
+      ) {
+        return Boolean(!isSessionTerminationActive() && getAccessToken());
       }
 
       applyRefreshSessionResponse(response, requestEpoch);
@@ -147,8 +262,12 @@ export const bootstrapAuthSession = (): Promise<boolean> => {
         ? error.principalEpoch
         : requestEpoch;
 
-      if (error instanceof StaleAuthSessionError || !isPrincipalEpochCurrent(errorEpoch)) {
-        return Boolean(getAccessToken());
+      if (
+        error instanceof StaleAuthSessionError
+        || isSessionTerminationActive()
+        || !isPrincipalEpochCurrent(errorEpoch)
+      ) {
+        return Boolean(!isSessionTerminationActive() && getAccessToken());
       }
 
       if (error instanceof AuthRefreshError && error.status === 401) {
@@ -239,6 +358,11 @@ export const getUsableAccessToken = async (
 ): Promise<string> => {
   const { refreshIfExpiringWithinSeconds = 60 } = options;
   const requestEpoch = getPrincipalEpoch();
+
+  if (isSessionTerminationActive()) {
+    throw new StaleAuthSessionError(requestEpoch);
+  }
+
   const currentToken = getAccessToken();
 
   if (currentToken && isTokenValidAndFresh(currentToken, refreshIfExpiringWithinSeconds)) {
@@ -256,6 +380,7 @@ export const getUsableAccessToken = async (
     if (
       error instanceof AuthRefreshError
       && error.status === 401
+      && !isSessionTerminationActive()
       && isPrincipalEpochCurrent(errorEpoch)
     ) {
       invalidatePrincipal(errorEpoch);

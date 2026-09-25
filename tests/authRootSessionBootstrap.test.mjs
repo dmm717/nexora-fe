@@ -120,8 +120,8 @@ test('6. RequireAuth guard handles protection, redirects unauthenticated, and sh
   );
   assert.match(
     guardContent,
-    /router\.replace\(['"]\/auth['"]\)/,
-    'RequireAuth must redirect to /auth when unauthenticated'
+    /router\.replace\(getSafeAuthRedirectUrl\(\)\)/,
+    'RequireAuth must redirect to /auth (preserving safe returnTo) when unauthenticated'
   );
   assert.match(
     guardContent,

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { authApi } from '@/services/authApi';
 import { SharedSidebar } from './SharedSidebar';
+import { toast } from 'sonner';
 
 const menuItems = [
   {
@@ -63,7 +64,14 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   const userEmail = user?.email || 'Free User';
 
   const handleLogout = async () => {
-    await authApi.logout();
+    try {
+      const result = await authApi.logout();
+      if (!result.serverLogoutSucceeded) {
+        toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
+      }
+    } catch {
+      toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
+    }
     router.push('/auth');
   };
 

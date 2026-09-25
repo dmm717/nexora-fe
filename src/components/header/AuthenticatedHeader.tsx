@@ -10,6 +10,7 @@ import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { authApi } from '@/services/authApi';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import { toast } from 'sonner';
 
 export interface AuthenticatedHeaderProps {
   targetRole?: string | null;
@@ -52,9 +53,12 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
     setUserMenuOpen(false);
     if (item.actionKey === 'logout') {
       try {
-        await authApi.logout();
+        const result = await authApi.logout();
+        if (!result.serverLogoutSucceeded) {
+          toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
+        }
       } catch {
-        // Continue navigation to auth even if logout call fails
+        toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
       }
       router.push('/auth');
       return;

@@ -17,14 +17,18 @@ export const LogoutAllModal: React.FC<LogoutAllModalProps> = ({ isOpen, onClose 
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
-      await authApi.logoutAll();
-      toast.success('Đã đăng xuất khỏi tất cả thiết bị');
+      const result = await authApi.logoutAll();
+      if (result.serverLogoutSucceeded) {
+        toast.success('Đã đăng xuất khỏi tất cả thiết bị');
+      } else {
+        toast.warning('Không thể xác nhận thu hồi tất cả phiên trên máy chủ. Phiên trên thiết bị này đã được xóa.');
+      }
       onClose();
       router.push('/auth');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Lỗi khi đăng xuất các thiết bị';
-      toast.error(message);
+    } catch {
+      toast.warning('Không thể xác nhận thu hồi tất cả phiên trên máy chủ. Phiên trên thiết bị này đã được xóa.');
+      onClose();
+      router.push('/auth');
     } finally {
       setIsSubmitting(false);
     }
