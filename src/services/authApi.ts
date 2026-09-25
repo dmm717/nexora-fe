@@ -1,17 +1,21 @@
-import { apiClient } from './apiClient';
+import { apiClient } from './apiClient.ts';
 import {
   getPrincipalEpoch,
   invalidatePrincipal,
   isPrincipalEpochCurrent,
   setAccessToken,
-} from '../store/authStore';
+} from '../store/authStore.ts';
 import {
   applyRefreshSessionResponse,
   AuthRefreshError,
+  beginSessionTermination,
+  finishSessionTermination,
+  isSessionTerminationActive,
   refreshSession,
-} from './authSession';
-import { logoutAllSessions, logoutCurrentSession } from './sessionActions';
-import {
+  resetSessionTerminationForExplicitLogin,
+} from './authSession.ts';
+import { logoutAllSessions, logoutCurrentSession } from './sessionActions.ts';
+import type {
   LoginRequest,
   RegisterRequest,
   AuthResponse,
@@ -22,7 +26,7 @@ import {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   MessageResponse,
-} from '../types/auth';
+} from '../types/auth.ts';
 
 export const authApi = {
   register: async (data: RegisterRequest) => {
@@ -70,8 +74,9 @@ export const authApi = {
     const response = (await apiClient.post('/auth/login', data)) as {
       data?: AuthResponse;
     };
-    // Save Access Token in memory immediately upon successful login
+    // Save Access Token in memory immediately upon successful login and re-arm session
     if (response && response.data && response.data.accessToken) {
+      resetSessionTerminationForExplicitLogin();
       setAccessToken(response.data.accessToken, {
         principalId: response.data.user?.id,
       });
@@ -100,4 +105,12 @@ export const authApi = {
   logout: logoutCurrentSession,
 
   logoutAll: logoutAllSessions,
+
+  beginSessionTermination,
+
+  isSessionTerminationActive,
+
+  finishSessionTermination,
+
+  resetSessionTerminationForExplicitLogin,
 };

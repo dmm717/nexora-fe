@@ -7,7 +7,12 @@ import {
 } from '../store/authStore.ts';
 import { translateErrorMessage } from '../utils/errorTranslator.ts';
 import { isValidInternalPath } from '../utils/authIntent.ts';
-import { AuthRefreshError, refreshSession, StaleAuthSessionError } from './authSession.ts';
+import {
+  AuthRefreshError,
+  isSessionTerminationActive,
+  refreshSession,
+  StaleAuthSessionError,
+} from './authSession.ts';
 
 export class ApiError extends Error {
   code?: string;
@@ -109,14 +114,15 @@ const handleResponse = async (
   if (response.status === 401 && !isExcludedFrom401Redirect) {
     const requestEpoch = fetchParams.principalEpoch;
 
-    if (!isPrincipalEpochCurrent(requestEpoch)) {
+    if (isSessionTerminationActive() || !isPrincipalEpochCurrent(requestEpoch)) {
       throw new StaleAuthSessionError(requestEpoch);
     }
 
     try {
       const refreshResponse = await refreshSession();
       if (
-        refreshResponse.principalEpoch !== requestEpoch
+        isSessionTerminationActive()
+        || refreshResponse.principalEpoch !== requestEpoch
         || !isPrincipalEpochCurrent(requestEpoch)
       ) {
         throw new StaleAuthSessionError(requestEpoch);
@@ -127,7 +133,7 @@ const handleResponse = async (
 
       setAccessToken(newToken);
 
-      if (!isPrincipalEpochCurrent(requestEpoch)) {
+      if (isSessionTerminationActive() || !isPrincipalEpochCurrent(requestEpoch)) {
         throw new StaleAuthSessionError(requestEpoch);
       }
 
@@ -149,6 +155,7 @@ const handleResponse = async (
     } catch (error: unknown) {
       if (
         error instanceof StaleAuthSessionError
+        || isSessionTerminationActive()
         || !isPrincipalEpochCurrent(requestEpoch)
         || (error instanceof AuthRefreshError && error.principalEpoch !== requestEpoch)
       ) {
@@ -163,7 +170,7 @@ const handleResponse = async (
       throw error;
     }
 
-    if (!isPrincipalEpochCurrent(requestEpoch)) {
+    if (isSessionTerminationActive() || !isPrincipalEpochCurrent(requestEpoch)) {
       throw new StaleAuthSessionError(requestEpoch);
     }
 

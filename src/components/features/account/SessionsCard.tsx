@@ -14,12 +14,15 @@ export const SessionsCard: React.FC = () => {
   const handleLogoutCurrent = async () => {
     try {
       setIsLoggingOut(true);
-      await authApi.logout();
+      const result = await authApi.logout();
+      if (!result.serverLogoutSucceeded) {
+        toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
+      }
       router.push('/auth');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Lỗi khi đăng xuất';
-      toast.error(message);
+    } catch {
+      toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
+      router.push('/auth');
+    } finally {
       setIsLoggingOut(false);
     }
   };

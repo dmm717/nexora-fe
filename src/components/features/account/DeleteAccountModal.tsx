@@ -24,7 +24,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       await userApi.requestDeletion();
       toast.success('Yêu cầu xóa tài khoản thành công. Đang đăng xuất...');
       try {
-        await authApi.logout();
+        const result = await authApi.logout();
+        if (!result.serverLogoutSucceeded) {
+          toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
+        }
+      } catch {
+        toast.warning('Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa.');
       } finally {
         onClose();
         router.push('/auth');

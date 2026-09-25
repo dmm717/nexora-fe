@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from './AuthBootstrapProvider';
 import { NexoraBootLoader } from '@/components/brand/NexoraBootLoader';
+import { isValidInternalPath } from '@/utils/authIntent';
 
 export interface RequireAuthProps {
   children: React.ReactNode;
@@ -20,13 +21,24 @@ export interface RequireAuthProps {
  */
 export default function RequireAuth({ children }: RequireAuthProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { authReady, isAuthenticated, bootstrapError } = useAuth();
+  const getSafeAuthRedirectUrl = React.useCallback((): string => {
+    const currentPath = typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}`
+      : pathname;
+
+    if (currentPath && isValidInternalPath(currentPath) && !currentPath.startsWith('/auth')) {
+      return `/auth?returnTo=${encodeURIComponent(currentPath)}`;
+    }
+    return '/auth';
+  }, [pathname]);
 
   useEffect(() => {
     if (authReady && !isAuthenticated && !bootstrapError) {
-      router.replace('/auth');
+      router.replace(getSafeAuthRedirectUrl());
     }
-  }, [authReady, isAuthenticated, bootstrapError, router]);
+  }, [authReady, isAuthenticated, bootstrapError, router, getSafeAuthRedirectUrl]);
 
   if (!authReady) {
     return <NexoraBootLoader message="Đang kết nối phiên đăng nhập..." />;
@@ -69,7 +81,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
             Thử lại
           </button>
           <button
-            onClick={() => router.replace('/auth')}
+            onClick={() => router.replace(getSafeAuthRedirectUrl())}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: '#e2e8f0',
