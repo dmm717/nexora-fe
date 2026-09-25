@@ -159,8 +159,9 @@ export function AssetPicker({
         id={inputId}
         ref={fileInputRef}
         type="file"
+        tabIndex={-1}
+        aria-hidden="true"
         accept="image/jpeg,image/png,image/webp"
-        aria-label={`Tải ảnh cho ${title}`}
         className="sr-only"
         onChange={(e) => {
           const next = e.target.files?.[0] || null;
@@ -168,10 +169,9 @@ export function AssetPicker({
         }}
       />
 
-      {/* State 1: No local file chosen -> Dropzone accessible label */}
+      {/* State 1: No local file chosen -> Dropzone container */}
       {!file ? (
-        <label
-          htmlFor={inputId}
+        <div
           onDragOver={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -189,7 +189,7 @@ export function AssetPicker({
             const dropped = e.dataTransfer.files?.[0] || null;
             handleSelectFile(dropped);
           }}
-          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all cursor-pointer focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${
+          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
             isDragging
               ? 'border-primary bg-primary/10 scale-[1.01]'
               : 'border-[#cbd6ef] bg-white hover:border-primary hover:bg-[#f3f7ff]'
@@ -200,16 +200,17 @@ export function AssetPicker({
           </div>
           <p className="text-sm font-bold text-[#172554]">Kéo thả ảnh vào đây</p>
           <p className="mt-1 text-xs text-[#64748b]">hoặc</p>
-          <span
-            aria-hidden="true"
-            className="mt-2.5 inline-block rounded-xl border border-primary bg-white px-4 py-2 text-xs font-bold text-primary shadow-sm hover:bg-primary hover:text-white transition-colors"
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="mt-2.5 inline-flex items-center justify-center rounded-xl border border-primary bg-white px-4 py-2 text-xs font-bold text-primary shadow-sm hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors cursor-pointer"
           >
             Chọn ảnh
-          </span>
+          </button>
           <p className="mt-3 text-[11px] text-[#64748b]">
             JPEG, PNG, WebP · tối đa 5 MB
           </p>
-        </label>
+        </div>
       ) : (
         /* State 2: Valid local file selected -> Preview + Details + Active Upload Action */
         <div className="rounded-2xl border border-[#cbd6ef] bg-white p-4 shadow-sm space-y-4">

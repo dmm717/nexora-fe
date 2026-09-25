@@ -1,4 +1,7 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useRef, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+
+const emptySubscribe = () => () => {};
 
 export interface ModalProps {
   isOpen: boolean;
@@ -42,6 +45,7 @@ export const Modal: React.FC<ModalProps> = ({
   const previousOverflow = useRef('');
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -49,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !mounted) return;
 
     // 1. Capture currently focused element before opening
     if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
@@ -126,9 +130,9 @@ export const Modal: React.FC<ModalProps> = ({
         prevElement.focus();
       }
     };
-  }, [isOpen]);
+  }, [isOpen, mounted]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const resolvedSize = size ?? maxWidth ?? 'md';
   const maxWidthClasses = {
@@ -138,8 +142,8 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-4xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" role="presentation">
       {/* Backdrop */}
       <div
         aria-hidden="true"
@@ -156,10 +160,10 @@ export const Modal: React.FC<ModalProps> = ({
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={description ? descriptionId : undefined}
         aria-label={title ? undefined : 'Hộp thoại'}
-        className={`relative w-full ${maxWidthClasses[resolvedSize]} bg-white rounded-2xl shadow-floating border border-outline-variant/60 overflow-hidden z-10 outline-none animate-in fade-in zoom-in-95 duration-200`}
+        className={`relative w-full ${maxWidthClasses[resolvedSize]} max-h-[calc(100dvh-2rem)] flex flex-col bg-white rounded-2xl shadow-floating border border-outline-variant/60 overflow-hidden z-10 outline-none animate-in fade-in zoom-in-95 duration-200`}
       >
         {title && (
-          <div className="flex items-start justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/50">
+          <div className="flex items-start justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/50 shrink-0">
             <div>
               <h2 id={titleId} className="font-bold text-lg text-on-surface">{title}</h2>
               {description && (
@@ -176,9 +180,10 @@ export const Modal: React.FC<ModalProps> = ({
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

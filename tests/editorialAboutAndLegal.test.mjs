@@ -131,7 +131,7 @@ test('Legal: safe parser never renders raw HTML or dangerous markup', () => {
 - List item with <iframe src="evil.com"></iframe>
 Paragraph text with normal words.`;
 
-  const sections = parseLegalMarkdown(dangerousMarkdown);
+  const { sections } = parseLegalMarkdown(dangerousMarkdown);
   assert.equal(sections.length, 1);
   assert.equal(sections[0].title, 'Section One');
   assert.equal(sections[0].number, '01');
@@ -160,7 +160,7 @@ Paragraph 2.
 ## 3. Nội dung AI và giới hạn của phản hồi
 Paragraph 3.`;
 
-  const sections = parseLegalMarkdown(markdown);
+  const { sections } = parseLegalMarkdown(markdown);
   assert.equal(sections.length, 3);
   assert.deepEqual(sections.map((s) => s.number), ['01', '02', '03']);
   assert.deepEqual(sections.map((s) => s.id), [
@@ -181,6 +181,75 @@ test('Legal: public API content remains authoritative and admin draft is never e
   assert.doesNotMatch(source, /INITIAL_PRIVACY_DRAFT/);
   assert.doesNotMatch(source, /RECOMMENDED_TERMS_TEMPLATE/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
+});
+
+test('Legal 1D.1: document with no ## headings preserves text, TOC is absent, does not show unavailable', () => {
+  const markdown = 'Plain published legal text.\n\nSecond paragraph without headings.';
+  const { preambleBlocks, sections } = parseLegalMarkdown(markdown);
+  assert.equal(sections.length, 0, 'No sections should be created when no ## headings exist');
+  assert.equal(preambleBlocks.length, 2, 'All paragraphs must be preserved in preambleBlocks');
+  assert.equal(preambleBlocks[0].text, 'Plain published legal text.');
+  assert.equal(preambleBlocks[1].text, 'Second paragraph without headings.');
+});
+
+test('Legal 1D.2: document with intro text before ## preserves preamble, renders section, and TOC contains section', () => {
+  const markdown = `Intro text paragraph 1.
+Intro text paragraph 2.
+
+## 1. Scope
+Section body text.`;
+
+  const { preambleBlocks, sections } = parseLegalMarkdown(markdown);
+  assert.equal(preambleBlocks.length, 2, 'Preamble blocks before first ## must not be dropped');
+  assert.equal(preambleBlocks[0].text, 'Intro text paragraph 1.');
+  assert.equal(preambleBlocks[1].text, 'Intro text paragraph 2.');
+  assert.equal(sections.length, 1, 'Section after ## must be parsed');
+  assert.equal(sections[0].title, 'Scope');
+  assert.equal(sections[0].blocks.length, 1);
+  assert.equal(sections[0].blocks[0].text, 'Section body text.');
+});
+
+test('Legal 1D.3: document with only ## sections preserves sectioned behavior', () => {
+  const markdown = `## 1. Scope
+Section 1 text.
+
+## 2. Privacy
+Section 2 text.`;
+
+  const { preambleBlocks, sections } = parseLegalMarkdown(markdown);
+  assert.equal(preambleBlocks.length, 0);
+  assert.equal(sections.length, 2);
+  assert.equal(sections[0].title, 'Scope');
+  assert.equal(sections[1].title, 'Privacy');
+});
+
+test('Legal 1D.4, 1D.5 & 1D.6: hasPublishedData does not depend on sections.length > 0; empty body or error triggers unavailable; admin draft is never used', async () => {
+  const source = await readSource('../src/components/features/site/PublicLegalDocument.tsx');
+
+  // hasPublishedData does NOT require sections.length > 0
+  const hasPublishedMatch = source.match(/const hasPublishedData = Boolean\([\s\S]*?\);/);
+  assert.ok(hasPublishedMatch);
+  assert.doesNotMatch(hasPublishedMatch[0], /sections/);
+
+  // hasPublishedData checks query status, isPublished, and non-empty bodyMarkdown
+  assert.match(source, /!page\.isLoading/);
+  assert.match(source, /!page\.isError/);
+  assert.match(source, /page\.data\.isPublished !== false/);
+  assert.match(source, /page\.data\.bodyMarkdown\?\.trim\(\)/);
+
+  // TOC is strictly optional and only rendered when sections.length > 0
+  assert.match(source, /hasPublishedData\s*&&\s*hasSections/);
+
+  // When sections.length === 0, renders preambleBlocks directly in reading surface
+  assert.match(source, /parsed\.preambleBlocks/);
+
+  // Unavailable state is rendered when !hasPublishedData
+  assert.match(source, /Nội dung hiện chưa khả dụng/);
+
+  // Admin draft is strictly never used
+  assert.doesNotMatch(source, /RECOMMENDED_TERMS_TEMPLATE/);
+  assert.doesNotMatch(source, /RECOMMENDED_PRIVACY_TEMPLATE/);
+  assert.doesNotMatch(source, /INITIAL_TERMS_DRAFT/);
 });
 
 /* ====================================================================
@@ -308,23 +377,60 @@ test('Assets: unused duplicate root About images are removed and canonical image
   await assert.rejects(() => access(new URL('../public/about-mission-nexora.png', import.meta.url)));
 });
 
-test('AssetPicker: accessible dropzone without nested interactive controls', async () => {
+test('AssetPicker 2B: accessible keyboard focus architecture with visible button and tabIndex -1 hidden input', async () => {
   const source = await readSource('../src/components/features/site/AboutEditor.tsx');
 
-  // Uses useId for stable inputId
-  assert.match(source, /const inputId = useId\(\)/);
-  assert.match(source, /id=\{inputId\}/);
-  assert.match(source, /htmlFor=\{inputId\}/);
+  // Surrounding container is a div (not a label, no role="button")
+  assert.doesNotMatch(source, /role="button"[\s\S]*?Kéo thả ảnh vào đây/);
+  assert.doesNotMatch(source, /<label[\s\S]*?Kéo thả ảnh vào đây/);
+  assert.match(source, /<div[\s\S]*?onDragOver=\{[\s\S]*?Kéo thả ảnh vào đây/);
 
-  // Dropzone is a label, NOT role="button" with a nested button
-  assert.doesNotMatch(source, /role="button"/);
-  assert.match(source, /<label[\s\S]*?htmlFor=\{inputId\}/);
+  // Visible "Chọn ảnh" is a real button
+  assert.match(source, /<button[\s\S]*?type="button"[\s\S]*?onClick=\{\(\)\s*=>\s*fileInputRef\.current\?\.click\(\)\}[\s\S]*?Chọn ảnh[\s\S]*?<\/button>/);
 
-  // "Chọn ảnh" visual button inside label is a non-interactive span
-  assert.match(source, /<span[\s\S]*?Chọn ảnh[\s\S]*?<\/span>/);
-  assert.doesNotMatch(source, /<label[\s\S]*?<button[\s\S]*?Chọn ảnh/);
+  // Visible button has focus-visible treatment
+  assert.match(source, /focus-visible:ring-2/);
+  assert.match(source, /focus-visible:ring-primary/);
 
-  // Drag and drop events are handled on the label
+  // Hidden file input has tabIndex={-1} and aria-hidden="true" so it is not an invisible tab stop
+  assert.match(source, /<input[\s\S]*?type="file"[\s\S]*?tabIndex=\{-1\}[\s\S]*?aria-hidden="true"[\s\S]*?className="sr-only"/);
+
+  // "Thay ảnh" button also uses fileInputRef.current?.click() safely
+  assert.match(source, /onClick=\{\(\)\s*=>\s*fileInputRef\.current\?\.click\(\)\}[\s\S]*?Thay ảnh/);
+
+  // Drag and drop event handlers remain intact on dropzone div
   assert.match(source, /onDragOver=\{/);
+  assert.match(source, /onDragLeave=\{/);
   assert.match(source, /onDrop=\{/);
+});
+
+test('Modal: portaled to document.body, z-[100] layer, max-height calc(100dvh-2rem) with internal scrolling', async () => {
+  const source = await readSource('../src/components/ui/Modal.tsx');
+
+  // Uses createPortal(..., document.body)
+  assert.match(source, /import\s*\{\s*createPortal\s*\}\s*from\s*'react-dom'/);
+  assert.match(source, /createPortal\(/);
+  assert.match(source, /document\.body/);
+
+  // Hydration / SSR safe (mounted state check via useSyncExternalStore)
+  assert.match(source, /useSyncExternalStore/);
+  assert.match(source, /if \(!isOpen \|\| !mounted\) return null/);
+
+  // Viewport-level z-[100] overlay
+  assert.match(source, /z-\[100\]/);
+
+  // Dialog has max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden
+  assert.match(source, /max-h-\[calc\(100dvh-2rem\)\]/);
+  assert.match(source, /flex flex-col/);
+
+  // Header has shrink-0 and content container has overflow-y-auto
+  assert.match(source, /shrink-0/);
+  assert.match(source, /min-h-0 flex-1 overflow-y-auto/);
+
+  // Accessibility contract preserved
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /aria-modal="true"/);
+  assert.match(source, /e\.key === 'Escape'/);
+  assert.match(source, /e\.key !== 'Tab'/);
+  assert.match(source, /document\.body\.style\.overflow = 'hidden'/);
 });

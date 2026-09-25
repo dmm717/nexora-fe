@@ -6,7 +6,44 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, ListFilter, ShieldCheck } from 'lucide-react';
 import { PublicSiteShell } from '@/components/layouts/PublicSiteShell';
 import { siteContentApi, type SitePageKey } from '@/services/siteContentApi';
-import { parseLegalMarkdown, type LegalSection } from '@/services/legalParser';
+import { parseLegalMarkdown, type LegalBlock, type LegalSection } from '@/services/legalParser';
+
+function LegalBlockView({ block }: { block: LegalBlock }) {
+  if (block.type === 'h3') {
+    return (
+      <h3 className="mt-6 text-base font-bold text-[#172554]">
+        {block.text}
+      </h3>
+    );
+  }
+  if (block.type === 'unordered-list') {
+    return (
+      <ul className="my-3 space-y-2 pl-5 text-sm leading-7 text-[#405176]">
+        {block.items.map((item, itemIdx) => (
+          <li key={itemIdx} className="list-disc marker:text-primary">
+            {item}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (block.type === 'ordered-list') {
+    return (
+      <ol className="my-3 space-y-2 pl-5 text-sm leading-7 text-[#405176]">
+        {block.items.map((item, itemIdx) => (
+          <li key={itemIdx} className="list-decimal marker:font-bold marker:text-primary">
+            {item}
+          </li>
+        ))}
+      </ol>
+    );
+  }
+  return (
+    <p className="text-sm leading-8 text-[#405176]">
+      {block.text}
+    </p>
+  );
+}
 
 function LegalSectionView({ section }: { section: LegalSection }) {
   return (
@@ -18,42 +55,9 @@ function LegalSectionView({ section }: { section: LegalSection }) {
         </h2>
       </div>
       <div className="mt-5 space-y-4">
-        {section.blocks.map((block, idx) => {
-          if (block.type === 'h3') {
-            return (
-              <h3 key={idx} className="mt-6 text-base font-bold text-[#172554]">
-                {block.text}
-              </h3>
-            );
-          }
-          if (block.type === 'unordered-list') {
-            return (
-              <ul key={idx} className="my-3 space-y-2 pl-5 text-sm leading-7 text-[#405176]">
-                {block.items.map((item, itemIdx) => (
-                  <li key={itemIdx} className="list-disc marker:text-primary">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            );
-          }
-          if (block.type === 'ordered-list') {
-            return (
-              <ol key={idx} className="my-3 space-y-2 pl-5 text-sm leading-7 text-[#405176]">
-                {block.items.map((item, itemIdx) => (
-                  <li key={itemIdx} className="list-decimal marker:font-bold marker:text-primary">
-                    {item}
-                  </li>
-                ))}
-              </ol>
-            );
-          }
-          return (
-            <p key={idx} className="text-sm leading-8 text-[#405176]">
-              {block.text}
-            </p>
-          );
-        })}
+        {section.blocks.map((block, idx) => (
+          <LegalBlockView key={idx} block={block} />
+        ))}
       </div>
     </section>
   );
@@ -75,7 +79,7 @@ export function PublicLegalDocument({
 
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
 
-  const sections = useMemo(() => {
+  const parsed = useMemo(() => {
     return parseLegalMarkdown(page.data?.bodyMarkdown || '');
   }, [page.data?.bodyMarkdown]);
 
@@ -84,9 +88,10 @@ export function PublicLegalDocument({
       !page.isError &&
       page.data &&
       page.data.isPublished !== false &&
-      page.data.bodyMarkdown?.trim() &&
-      sections.length > 0
+      page.data.bodyMarkdown?.trim()
   );
+
+  const hasSections = parsed.sections.length > 0;
 
   return (
     <PublicSiteShell>
@@ -159,8 +164,8 @@ export function PublicLegalDocument({
           )}
         </header>
 
-        {/* Mobile Table of Contents Accordion */}
-        {hasPublishedData && (
+        {/* Mobile Table of Contents Accordion - rendered only when sections exist */}
+        {hasPublishedData && hasSections && (
           <div className="mt-4 lg:hidden">
             <button
               type="button"
@@ -170,7 +175,7 @@ export function PublicLegalDocument({
             >
               <span className="inline-flex items-center gap-2">
                 <ListFilter size={16} className="text-primary" />
-                Mục lục tài liệu ({sections.length} điều khoản)
+                Mục lục tài liệu ({parsed.sections.length} điều khoản)
               </span>
               <ChevronDown
                 size={16}
@@ -182,7 +187,7 @@ export function PublicLegalDocument({
                 aria-label="Mục lục điều khoản di động"
                 className="mt-2 space-y-1 rounded-2xl border border-[#dbe3fa] bg-white p-4 shadow-sm"
               >
-                {sections.map((section) => (
+                {parsed.sections.map((section) => (
                   <a
                     key={section.id}
                     href={`#${section.id}`}
@@ -198,23 +203,23 @@ export function PublicLegalDocument({
           </div>
         )}
 
-        {/* Desktop Layout: Sticky TOC + Reading Surface */}
+        {/* Desktop Layout: Optional Sticky TOC + Reading Surface */}
         <div
           className={`mt-8 grid gap-8 ${
-            hasPublishedData
+            hasPublishedData && hasSections
               ? 'lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)] xl:gap-10'
               : ''
           }`}
         >
-          {/* Desktop Sticky In-page Navigation */}
-          {hasPublishedData && (
+          {/* Desktop Sticky In-page Navigation - rendered only when sections exist */}
+          {hasPublishedData && hasSections && (
             <aside className="hidden lg:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-[#dbe3fa] bg-white/90 p-5 shadow-sm backdrop-blur-sm">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748b]">
                   Mục lục tài liệu
                 </p>
                 <nav aria-label="Mục lục các điều khoản" className="mt-4 space-y-1">
-                  {sections.map((section) => (
+                  {parsed.sections.map((section) => (
                     <a
                       key={section.id}
                       href={`#${section.id}`}
@@ -241,10 +246,22 @@ export function PublicLegalDocument({
               )}
 
               {hasPublishedData ? (
-                <div className="space-y-2">
-                  {sections.map((section) => (
-                    <LegalSectionView key={section.id} section={section} />
-                  ))}
+                <div className="space-y-6">
+                  {parsed.preambleBlocks.length > 0 && (
+                    <div className={`space-y-4 ${hasSections ? 'border-b border-[#e2e8f5] pb-8' : ''}`}>
+                      {parsed.preambleBlocks.map((block, idx) => (
+                        <LegalBlockView key={idx} block={block} />
+                      ))}
+                    </div>
+                  )}
+
+                  {hasSections && (
+                    <div className="space-y-2">
+                      {parsed.sections.map((section) => (
+                        <LegalSectionView key={section.id} section={section} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 !page.isLoading && (

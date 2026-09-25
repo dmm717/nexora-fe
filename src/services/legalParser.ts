@@ -13,6 +13,11 @@ export interface LegalSection {
   blocks: LegalBlock[];
 }
 
+export interface ParsedLegalDocument {
+  preambleBlocks: LegalBlock[];
+  sections: LegalSection[];
+}
+
 export function slugifyHeading(text: string): string {
   const normalized = text
     .normalize('NFD')
@@ -29,19 +34,26 @@ export function cleanHeadingTitle(raw: string): string {
   return raw.replace(/^\d+[\.\:\-]?\s+/, '').trim() || raw.trim();
 }
 
-export function parseLegalMarkdown(markdown: string): LegalSection[] {
-  if (!markdown || !markdown.trim()) return [];
+export function parseLegalMarkdown(markdown: string): ParsedLegalDocument {
+  if (!markdown || !markdown.trim()) {
+    return { preambleBlocks: [], sections: [] };
+  }
 
   const lines = markdown.split(/\r?\n/);
+  const preambleBlocks: LegalBlock[] = [];
   const sections: LegalSection[] = [];
   const slugCounts = new Map<string, number>();
 
   let currentSection: LegalSection | null = null;
   let currentList: { type: 'unordered-list' | 'ordered-list'; items: string[] } | null = null;
 
+  const getTargetBlocks = (): LegalBlock[] => {
+    return currentSection ? currentSection.blocks : preambleBlocks;
+  };
+
   const flushList = () => {
-    if (currentList && currentSection) {
-      currentSection.blocks.push(currentList);
+    if (currentList) {
+      getTargetBlocks().push(currentList);
       currentList = null;
     }
   };
@@ -73,9 +85,6 @@ export function parseLegalMarkdown(markdown: string): LegalSection[] {
       continue;
     }
 
-    // Ignore content before first heading or empty lines
-    if (!currentSection) continue;
-
     if (!trimmed) {
       flushList();
       continue;
@@ -84,7 +93,7 @@ export function parseLegalMarkdown(markdown: string): LegalSection[] {
     // Check for ### subsection heading
     if (trimmed.startsWith('### ')) {
       flushList();
-      currentSection.blocks.push({
+      getTargetBlocks().push({
         type: 'h3',
         text: trimmed.slice(4).trim(),
       });
@@ -118,12 +127,12 @@ export function parseLegalMarkdown(markdown: string): LegalSection[] {
 
     // Regular paragraph
     flushList();
-    currentSection.blocks.push({
+    getTargetBlocks().push({
       type: 'paragraph',
       text: trimmed,
     });
   }
 
   flushList();
-  return sections;
+  return { preambleBlocks, sections };
 }
