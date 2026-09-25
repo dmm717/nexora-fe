@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CheckCircle2,
@@ -33,6 +33,7 @@ export function AssetPicker({
   onSelected,
   showDefaultAction = true,
 }: AssetPickerProps) {
+  const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -153,12 +154,13 @@ export function AssetPicker({
         </div>
       )}
 
-      {/* Hidden native input */}
+      {/* Hidden native input with stable unique id */}
       <input
+        id={inputId}
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        tabIndex={-1}
+        aria-label={`Tải ảnh cho ${title}`}
         className="sr-only"
         onChange={(e) => {
           const next = e.target.files?.[0] || null;
@@ -166,18 +168,10 @@ export function AssetPicker({
         }}
       />
 
-      {/* State 1: No local file chosen -> Dropzone */}
+      {/* State 1: No local file chosen -> Dropzone accessible label */}
       {!file ? (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => fileInputRef.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              fileInputRef.current?.click();
-            }
-          }}
+        <label
+          htmlFor={inputId}
           onDragOver={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -195,7 +189,7 @@ export function AssetPicker({
             const dropped = e.dataTransfer.files?.[0] || null;
             handleSelectFile(dropped);
           }}
-          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-primary ${
+          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all cursor-pointer focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${
             isDragging
               ? 'border-primary bg-primary/10 scale-[1.01]'
               : 'border-[#cbd6ef] bg-white hover:border-primary hover:bg-[#f3f7ff]'
@@ -206,16 +200,16 @@ export function AssetPicker({
           </div>
           <p className="text-sm font-bold text-[#172554]">Kéo thả ảnh vào đây</p>
           <p className="mt-1 text-xs text-[#64748b]">hoặc</p>
-          <button
-            type="button"
-            className="mt-2.5 rounded-xl border border-primary bg-white px-4 py-2 text-xs font-bold text-primary shadow-sm hover:bg-primary hover:text-white transition-colors"
+          <span
+            aria-hidden="true"
+            className="mt-2.5 inline-block rounded-xl border border-primary bg-white px-4 py-2 text-xs font-bold text-primary shadow-sm hover:bg-primary hover:text-white transition-colors"
           >
             Chọn ảnh
-          </button>
+          </span>
           <p className="mt-3 text-[11px] text-[#64748b]">
             JPEG, PNG, WebP · tối đa 5 MB
           </p>
-        </div>
+        </label>
       ) : (
         /* State 2: Valid local file selected -> Preview + Details + Active Upload Action */
         <div className="rounded-2xl border border-[#cbd6ef] bg-white p-4 shadow-sm space-y-4">

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { visibleAboutSections } from '../src/services/aboutSections.ts';
 import { parseLegalMarkdown } from '../src/services/legalParser.ts';
 import {
@@ -247,4 +247,84 @@ test('AssetPicker: upload success updates asset ID in draft and does NOT automat
   // AssetPicker does NOT import updatePage or publishPage
   assert.doesNotMatch(source, /updatePage/);
   assert.doesNotMatch(source, /publishPage/);
+});
+
+/* ====================================================================
+   CORRECTIVE PASS TESTS (PR #56 Follow-up)
+==================================================================== */
+
+test('About routes: ecosystem learning path CTA is exactly /learning-path and all hrefs are canonical', async () => {
+  const source = await readSource('../src/app/about/page.tsx');
+  assert.match(source, /href:\s*'\/learning-path'/);
+  assert.doesNotMatch(source, /href:\s*'\/learning-paths'/);
+  assert.doesNotMatch(source, /id:\s*'learning-paths'/);
+
+  // All 4 ecosystem destinations exist as canonical routes
+  const canonicalHrefs = ['/interviews/new', '/cv-analysis', '/practice', '/learning-path'];
+  for (const href of canonicalHrefs) {
+    assert.match(source, new RegExp(`href:\\s*'${href}'`));
+  }
+});
+
+test('About copy: no unsupported ATS claim in ecosystem copy', async () => {
+  const source = await readSource('../src/app/about/page.tsx');
+  // Must NOT contain ATS in any form
+  assert.doesNotMatch(source, /\bATS\b/i);
+  assert.doesNotMatch(source, /chuẩn ATS/i);
+  assert.doesNotMatch(source, /vượt ATS/i);
+  assert.match(source, /tag:\s*'Đối chiếu CV & JD'/);
+});
+
+test('Legal states: distinct semantics for loading, success, and error/no-content without nested main landmark', async () => {
+  const source = await readSource('../src/components/features/site/PublicLegalDocument.tsx');
+
+  // No nested <main> tag (PublicSiteShell already provides the page <main>)
+  assert.doesNotMatch(source, /<main/);
+
+  // States handling: hasPublishedData boolean gates official badge and date claims
+  assert.match(source, /const hasPublishedData = Boolean/);
+  assert.match(source, /page\.isLoading\s*\?/);
+  assert.match(source, /hasPublishedData\s*\?/);
+
+  // Loading state renders neutral masthead
+  assert.match(source, /Đang tải dữ liệu văn bản\.\.\./);
+
+  // Success state renders official published framing
+  assert.match(source, /Tài liệu chính thức/);
+  assert.match(source, /Phiên bản công bố chính thức/);
+
+  // Error / No data state renders neutral notice without claiming official status
+  assert.match(source, /Thông báo tài liệu/);
+  assert.match(source, /Nội dung hiện chưa khả dụng/);
+});
+
+test('Assets: unused duplicate root About images are removed and canonical images exist', async () => {
+  // Canonical images exist
+  await assert.doesNotReject(() => access(new URL('../public/images/about-hero.jpg', import.meta.url)));
+  await assert.doesNotReject(() => access(new URL('../public/images/about-mission.jpg', import.meta.url)));
+
+  // Root duplicate files must NOT exist
+  await assert.rejects(() => access(new URL('../public/about-hero-nexora.png', import.meta.url)));
+  await assert.rejects(() => access(new URL('../public/about-mission-nexora.png', import.meta.url)));
+});
+
+test('AssetPicker: accessible dropzone without nested interactive controls', async () => {
+  const source = await readSource('../src/components/features/site/AboutEditor.tsx');
+
+  // Uses useId for stable inputId
+  assert.match(source, /const inputId = useId\(\)/);
+  assert.match(source, /id=\{inputId\}/);
+  assert.match(source, /htmlFor=\{inputId\}/);
+
+  // Dropzone is a label, NOT role="button" with a nested button
+  assert.doesNotMatch(source, /role="button"/);
+  assert.match(source, /<label[\s\S]*?htmlFor=\{inputId\}/);
+
+  // "Chọn ảnh" visual button inside label is a non-interactive span
+  assert.match(source, /<span[\s\S]*?Chọn ảnh[\s\S]*?<\/span>/);
+  assert.doesNotMatch(source, /<label[\s\S]*?<button[\s\S]*?Chọn ảnh/);
+
+  // Drag and drop events are handled on the label
+  assert.match(source, /onDragOver=\{/);
+  assert.match(source, /onDrop=\{/);
 });

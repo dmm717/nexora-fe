@@ -58,7 +58,7 @@ const ecosystemItems: EcosystemItem[] = [
     ctaText: 'Phân tích CV ngay',
     href: '/cv-analysis',
     icon: FileText,
-    tag: 'Đối chiếu chuẩn ATS',
+    tag: 'Đối chiếu CV & JD',
   },
   {
     id: 'practice-star',
@@ -71,12 +71,12 @@ const ecosystemItems: EcosystemItem[] = [
     tag: 'Khung phương pháp chuẩn',
   },
   {
-    id: 'learning-paths',
+    id: 'learning-path',
     title: 'Năng lực & lộ trình học',
     description:
       'Kết nối kết quả luyện tập thành tín hiệu năng lực và gợi ý hoạt động tiếp theo theo mục tiêu nghề nghiệp đang chọn.',
     ctaText: 'Xem lộ trình học',
-    href: '/learning-paths',
+    href: '/learning-path',
     icon: Compass,
     tag: 'Định hướng cá nhân hóa',
   },

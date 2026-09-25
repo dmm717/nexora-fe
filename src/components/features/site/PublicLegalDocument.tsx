@@ -79,48 +79,88 @@ export function PublicLegalDocument({
     return parseLegalMarkdown(page.data?.bodyMarkdown || '');
   }, [page.data?.bodyMarkdown]);
 
-  const title = page.data?.title || fallbackTitle;
+  const hasPublishedData = Boolean(
+    !page.isLoading &&
+      !page.isError &&
+      page.data &&
+      page.data.isPublished !== false &&
+      page.data.bodyMarkdown?.trim() &&
+      sections.length > 0
+  );
 
   return (
     <PublicSiteShell>
       <div className="mx-auto max-w-[1180px] px-5 py-8 sm:px-8 sm:py-12">
         {/* Editorial Header Masthead */}
         <header className="rounded-3xl border border-[#dbe3fa] bg-white/95 p-7 shadow-[0_12px_32px_-20px_rgba(23,37,84,0.08)] backdrop-blur-md sm:p-10">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold text-primary">
-              <ShieldCheck size={14} className="text-primary" aria-hidden="true" />
-              Tài liệu chính thức
-            </span>
-            <span className="text-xs font-semibold text-[#64748b]">· Nexora Platform</span>
-          </div>
+          {page.isLoading ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-[#64748b]">Nexora Platform</span>
+              </div>
+              <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#172554] sm:text-5xl">
+                {fallbackTitle}
+              </h1>
+              <div className="mt-5 border-t border-[#edf2fd] pt-4 text-xs font-medium text-[#64748b]">
+                Đang tải dữ liệu văn bản...
+              </div>
+            </>
+          ) : hasPublishedData ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold text-primary">
+                  <ShieldCheck size={14} className="text-primary" aria-hidden="true" />
+                  Tài liệu chính thức
+                </span>
+                <span className="text-xs font-semibold text-[#64748b]">· Nexora Platform</span>
+              </div>
 
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#172554] sm:text-5xl">
-            {title}
-          </h1>
+              <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#172554] sm:text-5xl">
+                {page.data?.title || fallbackTitle}
+              </h1>
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[#edf2fd] pt-4 text-xs font-medium text-[#52617e]">
-            {page.data?.effectiveAt && (
-              <span>
-                Hiệu lực:{' '}
-                <strong className="text-[#172554]">
-                  {new Date(page.data.effectiveAt).toLocaleDateString('vi-VN')}
-                </strong>
-              </span>
-            )}
-            {page.data?.updatedAt && (
-              <span>
-                Cập nhật lần cuối:{' '}
-                <strong className="text-[#172554]">
-                  {new Date(page.data.updatedAt).toLocaleDateString('vi-VN')}
-                </strong>
-              </span>
-            )}
-            <span>Phiên bản công bố chính thức</span>
-          </div>
+              <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[#edf2fd] pt-4 text-xs font-medium text-[#52617e]">
+                {page.data?.effectiveAt && (
+                  <span>
+                    Hiệu lực:{' '}
+                    <strong className="text-[#172554]">
+                      {new Date(page.data.effectiveAt).toLocaleDateString('vi-VN')}
+                    </strong>
+                  </span>
+                )}
+                {page.data?.updatedAt && (
+                  <span>
+                    Cập nhật lần cuối:{' '}
+                    <strong className="text-[#172554]">
+                      {new Date(page.data.updatedAt).toLocaleDateString('vi-VN')}
+                    </strong>
+                  </span>
+                )}
+                <span>Phiên bản công bố chính thức</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-800">
+                  Thông báo tài liệu
+                </span>
+                <span className="text-xs font-semibold text-[#64748b]">· Nexora Platform</span>
+              </div>
+
+              <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#172554] sm:text-5xl">
+                {page.data?.title || fallbackTitle}
+              </h1>
+
+              <div className="mt-5 border-t border-[#edf2fd] pt-4 text-xs font-medium text-[#52617e]">
+                Nội dung hiện chưa khả dụng
+              </div>
+            </>
+          )}
         </header>
 
         {/* Mobile Table of Contents Accordion */}
-        {sections.length > 0 && (
+        {hasPublishedData && (
           <div className="mt-4 lg:hidden">
             <button
               type="button"
@@ -159,9 +199,15 @@ export function PublicLegalDocument({
         )}
 
         {/* Desktop Layout: Sticky TOC + Reading Surface */}
-        <div className="mt-8 grid gap-8 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)] xl:gap-10">
+        <div
+          className={`mt-8 grid gap-8 ${
+            hasPublishedData
+              ? 'lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(0,1fr)] xl:gap-10'
+              : ''
+          }`}
+        >
           {/* Desktop Sticky In-page Navigation */}
-          {sections.length > 0 && (
+          {hasPublishedData && (
             <aside className="hidden lg:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-[#dbe3fa] bg-white/90 p-5 shadow-sm backdrop-blur-sm">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748b]">
@@ -185,8 +231,8 @@ export function PublicLegalDocument({
             </aside>
           )}
 
-          {/* Reading Column */}
-          <main className="min-w-0">
+          {/* Reading Column: using div to avoid nested main landmark inside PublicSiteShell */}
+          <div className="min-w-0">
             <article className="rounded-3xl border border-[#dbe3fa] bg-white p-7 shadow-sm sm:p-12 sm:shadow-[0_16px_40px_-24px_rgba(23,37,84,0.06)]">
               {page.isLoading && (
                 <div role="status" className="py-12 text-center text-sm text-[#52617e]">
@@ -194,7 +240,7 @@ export function PublicLegalDocument({
                 </div>
               )}
 
-              {sections.length > 0 ? (
+              {hasPublishedData ? (
                 <div className="space-y-2">
                   {sections.map((section) => (
                     <LegalSectionView key={section.id} section={section} />
@@ -203,16 +249,22 @@ export function PublicLegalDocument({
               ) : (
                 !page.isLoading && (
                   <div className="space-y-4 py-8 text-sm leading-7 text-[#52617e]">
+                    <h2 className="text-lg font-bold text-[#172554]">
+                      Nội dung hiện chưa khả dụng
+                    </h2>
                     <p>
-                      Nội dung chính thức chưa được công bố hoặc hiện chưa tải được. Nexora không hiển
-                      thị bản nháp quản trị như một chính sách đã có hiệu lực.
+                      Nội dung chính thức chưa được công bố hoặc hiện chưa tải được từ hệ thống. Nexora
+                      không hiển thị bản nháp quản trị như một chính sách đã có hiệu lực.
                     </p>
                     <p>
                       Vui lòng liên hệ{' '}
-                      <a href="mailto:nexorainterview@gmail.com" className="font-semibold text-primary hover:underline">
+                      <a
+                        href="mailto:nexorainterview@gmail.com"
+                        className="font-semibold text-primary hover:underline"
+                      >
                         nexorainterview@gmail.com
                       </a>{' '}
-                      nếu bạn cần thông tin trước khi sử dụng dịch vụ.
+                      nếu bạn cần thông tin hoặc hỗ trợ trước khi sử dụng dịch vụ.
                     </p>
                   </div>
                 )
@@ -228,7 +280,7 @@ export function PublicLegalDocument({
                 </Link>
               </div>
             </article>
-          </main>
+          </div>
         </div>
       </div>
     </PublicSiteShell>
