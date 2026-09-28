@@ -118,3 +118,24 @@ test('authenticated overview uses the ambient normal shell at desktop and mobile
     await page.screenshot({ path: `test-results/site-overview-${viewport.width}.png`, fullPage: true });
   }
 });
+
+test('browser tab renders Nexora metadata title and valid branded favicon links', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveTitle('NEXORA - Innovating Today Inspiring Tomorrow');
+
+  const iconLinks = page.locator('link[rel="icon"]');
+  const count = await iconLinks.count();
+  expect(count).toBeGreaterThan(0);
+
+  for (let i = 0; i < count; i++) {
+    const href = await iconLinks.nth(i).getAttribute('href');
+    expect(href).toBeTruthy();
+    expect(href).not.toContain('vercel.svg');
+
+    const res = await page.request.get(href!);
+    expect(res.status()).toBe(200);
+  }
+
+  const faviconRes = await page.request.get('/favicon.ico');
+  expect(faviconRes.status()).toBe(200);
+});
