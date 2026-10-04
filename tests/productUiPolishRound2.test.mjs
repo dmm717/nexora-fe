@@ -298,11 +298,11 @@ test('Landing practice/product surfaces have explicit boundaries and preserve sh
     readSource('../src/config/brandAssets.ts'),
   ]);
 
-  assert.match(landingCss, /\.scenarioPanel,\s*\.starPanel\s*\{[^}]*border:\s*2px solid/);
-  assert.match(landingCss, /\.previewStage\s*\{[^}]*border:\s*2px solid/);
+  assert.match(landingCss, /\.scenarioPanel,\s*\.starPanel\s*\{[^}]*border:\s*0/);
+  assert.match(landingCss, /\.previewStage\s*\{[^}]*border:\s*1px solid var\(--nexora-line\)/);
   assert.match(landingCss, /\.productWindow\s*\{[^}]*border:\s*1px solid/);
   assert.match(landingSource, /sizes="\(max-width: 760px\) 116px, \(max-width: 1100px\) 140px, 172px"/);
-  assert.match(landingSource, /sizes="\(max-width: 760px\) 118px, \(max-width: 1100px\) 146px, 180px"/);
+  assert.match(await readSource('../src/components/features/landing/CinematicHero.tsx'), /NEXORA_MASCOT_ASSETS\.aiCoach/);
   assert.match(assets, /mascot-cv-analysis\.png/);
   assert.match(assets, /mascot-ai-coach\.png/);
 });

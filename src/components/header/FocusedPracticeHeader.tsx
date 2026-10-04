@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { navigateFocusedExitOnce, type FocusedExitDestination } from '@/services/focusedPracticeRoutes';
+import { NavigationFrame, NavigationRow } from './NavigationFrame';
 
 export interface FocusedPracticeHeaderProps {
   title?: string;
@@ -32,8 +33,8 @@ export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 w-full z-40 bg-white/95 backdrop-blur-md border-b border-outline-variant/40 shadow-[0_1px_6px_rgba(15,23,42,0.02)]">
-        <div className="h-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <NavigationFrame variant="focused">
+        <NavigationRow>
           {/* Left: Exit button & Brand */}
           <div className="flex items-center gap-4">
             <button
@@ -70,8 +71,8 @@ export const FocusedPracticeHeader: React.FC<FocusedPracticeHeaderProps> = ({
               <span className="hidden sm:inline font-medium">{statusLabel}</span>
             </div>
           </div>}
-        </div>
-      </header>
+        </NavigationRow>
+      </NavigationFrame>
 
       {/* Exit confirmation modal */}
       <Modal

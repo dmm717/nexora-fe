@@ -9,6 +9,15 @@ const items = [1, 2, 3].map((number) => ({
   avatarUrl: number === 1 ? '/api/v1/avatars/11111111-1111-1111-1111-111111111111' : null,
 }));
 
+// Enter through the real SPA navigation after auth bootstrap. This isolates the
+// public-feedback layout from the root query client's initial dev cleanup.
+async function openLanding(page: import('@playwright/test').Page) {
+  await page.goto('/about');
+  await expect(page.getByRole('link', { name: 'Đăng nhập', exact: true }).first()).toBeVisible();
+  await page.getByRole('link', { name: 'Nexora AI — Trang chủ', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Luyện tập hôm nay');
+}
+
 for (const width of [1664, 1440, 390]) {
   test(`first testimonial remains visible at ${width}px and later cards scroll into view`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 936 });
@@ -21,7 +30,7 @@ for (const width of [1664, 1440, 390]) {
     await page.route('**/api/v1/avatars/*', (route) => route.fulfill({
       status: 404,
     }));
-    await page.goto('/');
+    await openLanding(page);
 
     const list = page.locator('#testimonials [class*="testimonialList"]');
     await expect(list.locator('article')).toHaveCount(3);
@@ -68,7 +77,7 @@ test('public feedback displays a current avatar when image loads', async ({ page
     contentType: 'image/png',
     body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==', 'base64'),
   }));
-  await page.goto('/');
+  await openLanding(page);
   const cards = page.locator('#testimonials article');
   await expect(cards).toHaveCount(3);
   await expect(cards.first().locator('img')).toBeVisible();

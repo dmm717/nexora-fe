@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
  */
 export const AccountSkeleton: React.FC = () => {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8 animate-pulse" aria-busy="true">
+    <div className="nexora-workspace max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8 animate-pulse" aria-busy="true">
       {/* Header Skeleton */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-outline-variant/40">
         <div className="space-y-3">

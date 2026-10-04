@@ -2,6 +2,7 @@
 
 import React, { useState, Suspense, useRef, useEffect } from 'react';
 import styles from './StarBuilder.module.css';
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
 import { starBuilderApi, StarAttemptRequest, StarAttemptResponse } from '@/services/starBuilderApi';
 import { useSearchParams } from 'next/navigation';
 import { scenarioApi, ScenarioAttemptResponse, ScenarioEvaluationResult } from '@/services/scenarioApi';
@@ -353,10 +354,8 @@ function StarBuilderContent() {
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>S-T-A-R Builder</h1>
-        <p className={styles.subtitle}>Rèn luyện kỹ năng trả lời phỏng vấn theo phương pháp Situation - Task - Action - Result</p>
-      </header>
+      <WorkspaceHeading feature="star" title="S-T-A-R Builder"
+        description="Rèn luyện kỹ năng trả lời phỏng vấn theo phương pháp Situation - Task - Action - Result" />
 
       {displayError && <div className={styles.errorMessage}>{displayError}</div>}
       

@@ -1,5 +1,7 @@
 'use client';
 
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
+
 import React from 'react';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { SecurityCard } from './SecurityCard';
@@ -46,12 +48,8 @@ export const AccountSettings: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-      <header className="rounded-3xl border border-[#dbe3fa] bg-white p-7 shadow-subtle">
-        <p className="text-xs font-bold uppercase tracking-widest text-primary">Tài khoản</p>
-        <h1 className="mt-2 text-3xl font-extrabold text-[#172554]">Cài đặt</h1>
-        <p className="mt-2 text-sm text-[#52617e]">Bảo mật, phiên đăng nhập, dữ liệu cá nhân và phản hồi sản phẩm.</p>
-      </header>
+    <div className="nexora-workspace max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      <WorkspaceHeading feature="settings" title="Cài đặt" description="Bảo mật, phiên đăng nhập, dữ liệu cá nhân và phản hồi sản phẩm." eyebrow="Tài khoản" />
 
       {/* Main Responsive Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">

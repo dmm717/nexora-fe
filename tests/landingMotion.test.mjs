@@ -7,21 +7,12 @@ const source = async (path) => readFile(new URL(`../${path}`, import.meta.url), 
 
 test('1. default landing markup provides visible, accessible content without script animation', async () => {
   const landing = await source('src/components/features/landing/MarketingLanding.tsx');
-
-  // Verify elements have final content and semantic attributes
-  assert.match(landing, /data-hero-copy/);
-  assert.match(landing, /data-hero-card/);
-  assert.match(landing, /data-reveal/);
-  assert.match(landing, /data-loop-node/);
-  assert.match(landing, /data-loop-track/);
-  assert.match(landing, /data-radial/);
-  assert.match(landing, /data-meter/);
-  assert.match(landing, /data-count=\{compact \? '78' : undefined\}/);
-
-  // Content defaults are not blank
-  assert.match(landing, />\s*78\s*<\/b>/);
-  assert.match(landing, /Mục tiêu nghề nghiệp/);
-  assert.match(landing, /Chuẩn bị đúng chỗ\./);
+  const hero = await source('src/components/features/landing/CinematicHero.tsx');
+  assert.match(landing, /<CinematicHero/);
+  for (const selector of ['data-reveal','data-loop-node','data-loop-track','data-story-panel']) assert.ok(landing.includes(selector));
+  assert.match(hero, /Luyện tập hôm nay/);
+  assert.match(landing, /Bắt đầu luyện tập/);
+  assert.doesNotMatch(landing, /data-cv-count|data-cv-meter|data-count=|data-radial/);
 });
 
 test('2. applyLandingFinalState establishes final styles on all landing motion targets including hero cards and float layers', () => {
@@ -86,9 +77,9 @@ test('3. useLandingMotion distinguishes normalMotion and reducedMotion and avoid
   assert.match(landingMotion, /match\.conditions\?\.reducedMotion\s*\|\|\s*!match\.conditions\?\.normalMotion/);
   assert.match(landingMotion, /applyLandingFinalState\(container\)/);
 
-  // Parallax, float, and loop animations are within normal motion context only
-  assert.match(landingMotion, /gsap\.to\(['"]\[data-parallax\]['"]/);
-  assert.match(landingMotion, /gsap\.to\(el,\s*\{[\s\S]*repeat:\s*-1/);
+  // Entrance and loop reveals stay inside the normal-motion context.
+  assert.match(landingMotion, /intro\.to\(bridge/);
+  assert.doesNotMatch(landingMotion, /repeat:\s*-1/);
 });
 
 test('4. late dynamic import after disposal does not initialize motion', async () => {
@@ -117,53 +108,32 @@ test('6. landing module CSS does not contain destructive blanket animation-kill 
   assert.doesNotMatch(landingCss, /transition:\s*none\s*!important/);
 });
 
-test('7. hero entrance and float tweens do not own transform on the same DOM element', async () => {
-  const landing = await source('src/components/features/landing/MarketingLanding.tsx');
-  const landingCss = await source('src/components/features/landing/landing.module.css');
-
-  // No single HTML element possesses both data-hero-card and data-float attributes
-  assert.doesNotMatch(landing, /<[^>]*data-hero-card[^>]*data-float/);
-  assert.doesNotMatch(landing, /<[^>]*data-float[^>]*data-hero-card/);
-
-  // All 3 hero cards have separate outer [data-hero-card] and inner [data-float] elements
-  assert.match(landing, /<div\s+data-hero-card\s+className=\{styles\.heroCv\}>\s*<div\s+data-float\s+className=\{styles\.heroFloatLayer\}>/);
-  assert.match(landing, /<div\s+data-hero-card\s+className=\{styles\.heroInterview\}>\s*<div\s+data-float\s+className=\{styles\.heroFloatLayer\}>/);
-  assert.match(landing, /<div\s+data-hero-card\s+className=\{styles\.heroRecommendation\}>\s*<div\s+data-float\s+className=\{styles\.heroRecommendationCard\}>/);
-
-  // CSS defines the float layer and recommendation card layout preserving original visual styles
-  assert.match(landingCss, /\.heroFloatLayer\s*\{[\s\S]*?width:\s*100%/);
-  assert.match(landingCss, /\.heroRecommendationCard\s*\{[\s\S]*?display:\s*flex;/);
-  assert.match(landingCss, /\.heroRecommendation\s*\{[\s\S]*?position:\s*absolute;/);
+test('7. hero is an explicitly labeled presentation, with no competing float ownership', async () => {
+  const hero = await source('src/components/features/landing/CinematicHero.tsx');
+  const scene = await source('src/components/features/landing/NexoraBrandScene.tsx');
+  assert.match(hero, /Minh họa/);
+  assert.match(scene, /camera.position/);
+  assert.match(scene, /observeBrandMotion/);
+  assert.match(await source('src/components/features/landing/useLandingMotion.ts'), /publishBrandMotion/);
+  assert.doesNotMatch(scene, /pin:|setAnimationLoop/);
 });
 
-test('8. hero entrance clears props and unlocks float tweens deterministically', async () => {
+test('8. hero entrance clears props and scroll motion is cleaned up', async () => {
   const landingMotion = await source('src/components/features/landing/useLandingMotion.ts');
 
   // Hero entrance clears transform and opacity upon completion
-  assert.match(landingMotion, /gsap\.from\(['"]\[data-hero-card\]['"],\s*\{[\s\S]*?clearProps:\s*['"]transform,opacity['"]/);
+  assert.match(landingMotion, /from\('\[data-hero-support\]'[^;]*clearProps:\s*'transform,opacity'/);
 
-  // Hero entrance completion flag unlocks float triggers
-  assert.match(landingMotion, /let heroEntranceComplete = false;/);
-  assert.match(landingMotion, /onComplete:\s*\(\)\s*=>\s*\{[\s\S]*?heroEntranceComplete\s*=\s*true;/);
-
-  // Float triggers start paused and check heroEntranceComplete on toggle
-  assert.match(landingMotion, /paused:\s*true/);
-  assert.match(landingMotion, /if\s*\(!heroEntranceComplete\)\s*return;/);
+  assert.match(landingMotion, /ctx\.revert\(\)/);
+  assert.match(landingMotion, /media\.revert\(\)/);
 });
 
 test('9. runtime mode diagnostics and dynamic CV demo have explicit motion ownership', async () => {
-  const landingMotion = await source('src/components/features/landing/useLandingMotion.ts');
+  const motion = await source('src/components/features/landing/useLandingMotion.ts');
+  for (const mode of ['normal','reduced','fallback']) assert.ok(motion.includes(`dataset.motionMode = '${mode}'`));
+  assert.match(motion, /dataset\.motionTriggerCount/);
   const landing = await source('src/components/features/landing/MarketingLanding.tsx');
-
-  assert.match(landingMotion, /dataset\.motionMode = 'normal'/);
-  assert.match(landingMotion, /dataset\.motionMode = 'reduced'/);
-  assert.match(landingMotion, /dataset\.motionMode = 'fallback'/);
-  assert.match(landingMotion, /dataset\.motionTriggerCount/);
-  assert.doesNotMatch(landingMotion, /gsap\.(?:from|to|fromTo)\(['"]\[data-(?:radial|meter|count)/);
-
-  assert.match(landing, /data-cv-demo-result/);
-  assert.match(landing, /data-cv-radial/);
-  assert.match(landing, /data-cv-meter/);
-  assert.match(landing, /data-cv-count/);
-  assert.match(landing, /\[cv-demo-motion\] Initialization failed/);
+  assert.match(landing, /documentArtifact/);
+  assert.match(landing, /documentInsights/);
+  assert.doesNotMatch(landing, /data-cv-count|data-cv-meter|data-cv-radial/);
 });

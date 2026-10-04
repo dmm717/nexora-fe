@@ -29,7 +29,8 @@ export const Card: React.FC<CardProps> = ({
 
   return (
     <div
-      className={`rounded-xl ${variantClasses[variant]} ${paddingClasses[padding]} ${className}`}
+      data-nexora-surface={variant}
+      className={`nexora-surface rounded-xl ${variantClasses[variant]} ${paddingClasses[padding]} ${className}`}
       {...props}
     >
       {children}

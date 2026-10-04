@@ -3,7 +3,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { CURRENT_USER_QUERY_KEY } from '@/hooks/queries/useUser';
 import { interviewApi, type StartInterviewCommand } from '@/services/interviewApi';
 import {
@@ -46,6 +46,7 @@ const INTERVIEW_TYPES: Array<{ type: InterviewType; title: string; desc: string 
 
 export default function NewInterviewPage() {
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
@@ -310,7 +311,7 @@ export default function NewInterviewPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-8">
+    <div className="nexora-workspace interview-setup max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-6">
       <ProductPageHero
         feature="interview"
         title="Chuẩn bị vào phòng phỏng vấn Nexora AI"
@@ -333,9 +334,9 @@ export default function NewInterviewPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Context & Type Configuration (7 cols) */}
-        <div className="md:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-6">
           {/* Candidate Context Card (Calm compact default with animated editor) */}
           <Card variant="elevated" padding="md" className="transition-all">
             <div className="flex items-center justify-between mb-3">
@@ -393,10 +394,10 @@ export default function NewInterviewPage() {
             <AnimatePresence>
               {isEditingContext && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
+                  initial={reducedMotion ? false : { opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  transition={{ duration: reducedMotion ? 0 : 0.25, ease: 'easeInOut' }}
                   className="space-y-3.5 pt-1 overflow-hidden"
                 >
                   <p className="text-[11px] text-on-surface-variant leading-relaxed">
@@ -648,7 +649,29 @@ export default function NewInterviewPage() {
         </div>
 
         {/* Right Column: Audio & Device Preflight Checklist (5 cols) */}
-        <div className="md:col-span-5 space-y-6">
+        <div className="interview-setup-devices lg:col-span-5 space-y-6">
+          {/* Start CTA Card */}
+          <div className="interview-setup-start p-6 rounded-2xl bg-white border border-primary/40 shadow-card space-y-4">
+            <div>
+              <Badge variant="primary" size="sm" className="mb-2">Q1–Q3 thuộc phạm vi miễn phí</Badge>
+              <h4 className="font-bold text-base text-on-surface">Sẵn sàng bước vào phòng?</h4>
+              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                Khả năng tiếp tục sau 3 câu hỏi trải nghiệm phụ thuộc vào quyền lợi gói dịch vụ của bạn.
+              </p>
+            </div>
+
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleStart}
+              disabled={loading}
+              className="w-full shadow-md"
+              icon={<span className="material-symbols-outlined text-[20px]">{loading ? 'hourglass_top' : 'door_front'}</span>}
+              iconPosition="right"
+            >
+              {loading ? 'Đang khởi tạo phòng phỏng vấn...' : 'Vào phòng phỏng vấn ngay'}
+            </Button>
+          </div>
           <Card variant="elevated" padding="md" className="space-y-4">
             <h3 className="font-bold text-sm text-on-surface flex items-center gap-2">
               <span className="material-symbols-outlined text-secondary text-[20px]">mic</span>
@@ -777,28 +800,7 @@ export default function NewInterviewPage() {
             </div>
           </Card>
 
-          {/* Start CTA Card */}
-          <div className="p-6 rounded-2xl bg-white border border-primary/40 shadow-card space-y-4">
-            <div>
-              <Badge variant="primary" size="sm" className="mb-2">Q1–Q3 thuộc phạm vi miễn phí</Badge>
-              <h4 className="font-bold text-base text-on-surface">Sẵn sàng bước vào phòng?</h4>
-              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                Khả năng tiếp tục sau 3 câu hỏi trải nghiệm phụ thuộc vào quyền lợi gói dịch vụ của bạn.
-              </p>
-            </div>
 
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={handleStart}
-              disabled={loading}
-              className="w-full shadow-md"
-              icon={<span className="material-symbols-outlined text-[20px]">{loading ? 'hourglass_top' : 'door_front'}</span>}
-              iconPosition="right"
-            >
-              {loading ? 'Đang khởi tạo phòng phỏng vấn...' : 'Vào phòng phỏng vấn ngay'}
-            </Button>
-          </div>
         </div>
       </div>
     </div>

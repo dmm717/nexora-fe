@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 import { Toaster } from 'sonner';
 import ReactQueryProvider from '@/components/providers/ReactQueryProvider';
 import AuthBootstrapProvider from '@/components/providers/AuthBootstrapProvider';
-import { Lexend } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 
-const lexend = Lexend({
+const jakarta = Plus_Jakarta_Sans({
+  variable: '--font-nexora',
   subsets: ['latin', 'vietnamese'],
   display: 'swap',
 });
@@ -22,16 +23,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
+
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
         />
       </head>
-      <body className={`min-h-full flex flex-col font-sans text-on-surface bg-surface ${lexend.className}`}>
+      <body className={`min-h-full flex flex-col font-sans text-on-surface bg-surface ${jakarta.variable}`}>
         <ReactQueryProvider>
           <AuthBootstrapProvider>
             {children}

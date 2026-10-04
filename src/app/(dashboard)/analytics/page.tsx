@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -76,7 +77,7 @@ export default function AnalyticsPage() {
 
   if (progressPresentation.showInitialLoading && profilePresentation.showInitialLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8 text-on-surface-variant" role="status" aria-label="Loading analytics">
+      <div className="nexora-workspace max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8 text-on-surface-variant" role="status" aria-label="Loading analytics">
         <div className="space-y-6">
           <div className="space-y-3">
             <Skeleton className="h-6 w-56 rounded-full" />
@@ -169,22 +170,10 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+    <div className="nexora-workspace max-w-6xl mx-auto px-4 py-8 sm:py-10 space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-primary text-xs font-semibold mb-2">
-            <span className="material-symbols-outlined text-[16px]">trending_up</span>
-            <span>Báo cáo hồ sơ năng lực thực chiến</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
-            Chỉ số sẵn sàng & Năng lực cạnh tranh
-          </h1>
-          <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
-            Mục tiêu hiện tại: {goalSummary}
-          </p>
-        </div>
-
+      <WorkspaceHeading feature="capabilities" title="Chỉ số sẵn sàng & Năng lực cạnh tranh" eyebrow="Báo cáo hồ sơ năng lực thực chiến"
+        description={`Mục tiêu hiện tại: ${goalSummary}`} actions={
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -203,7 +192,8 @@ export default function AnalyticsPage() {
             Luyện tập ngay
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {(profilePresentation.showBlockingError || profilePresentation.showBackgroundError) && (
         <div role="alert" className="p-4 rounded-xl bg-amber-50/80 border border-amber-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">

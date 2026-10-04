@@ -4,21 +4,23 @@ import Link from 'next/link';
 import { ArrowRight, Mic, RotateCcw } from 'lucide-react';
 import { useInterviewsHistory } from '@/hooks/queries/useInterviews';
 import { ClientDate } from '@/components/ui/ClientDate';
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
+import { INTERVIEW_START_PATH } from '@/config/navigation';
 
 export default function InterviewsHubPage() {
   const { data, isLoading, isError, refetch } = useInterviewsHistory(5);
   const recent = data?.pages[0]?.items.slice(0, 5) ?? [];
   const active = recent.find((item) => item.status === 'active' || item.status === 'starting');
   return (
-    <div className="mx-auto max-w-6xl space-y-7 px-5 py-10 sm:px-8">
-      <div className="rounded-3xl border border-[#dbe3fa] bg-white p-7 shadow-subtle sm:p-10">
-        <div className="mb-4 inline-flex rounded-full bg-primary-fixed px-3 py-1 text-xs font-bold text-primary">PHỎNG VẤN AI</div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#172554] sm:text-4xl">Luyện tập cho cuộc phỏng vấn tiếp theo</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-[#52617e]">Chọn vai trò và bối cảnh phù hợp, trả lời theo nhịp của bạn rồi xem phản hồi dựa trên chính câu trả lời.</p>
-        <Link href="/interviews/new" className="action-forward mt-7 inline-flex min-h-11 items-center gap-2 rounded-xl border px-5 text-sm font-bold transition-colors">
+    <div className="nexora-workspace mx-auto max-w-6xl space-y-7 px-5 py-10 sm:px-8">
+      <WorkspaceHeading feature="interview"
+        eyebrow="PHỎNG VẤN AI"
+        title="Luyện tập cho cuộc phỏng vấn tiếp theo"
+        description="Chọn vai trò và bối cảnh phù hợp, trả lời theo nhịp của bạn rồi xem phản hồi dựa trên chính câu trả lời."
+        actions={<Link href={INTERVIEW_START_PATH} className="action-forward inline-flex min-h-11 items-center gap-2 rounded-xl border px-5 text-sm font-bold transition-colors">
           Bắt đầu phỏng vấn <ArrowRight size={17} aria-hidden="true" />
-        </Link>
-      </div>
+        </Link>}
+      />
       {active && <Link href={`/interviews/${active.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary-fixed/70 p-5 text-primary hover:bg-primary-fixed">
         <span><strong>Tiếp tục phiên đang diễn ra</strong><br /><span className="text-sm">{active.role || 'Phỏng vấn'} · {active.seniority || 'Chưa chọn cấp độ'}</span></span><ArrowRight size={18} aria-hidden="true" />
       </Link>}

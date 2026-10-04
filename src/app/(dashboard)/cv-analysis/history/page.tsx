@@ -1,5 +1,7 @@
 'use client';
 
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -21,12 +23,8 @@ export default function CvAnalysisHistoryPage() {
   });
   const loaded = history.data?.pages.flatMap((page) => page.items) ?? [];
   const items = loaded.filter((item) => (mode === 'all' || item.mode === mode) && (status === 'all' || item.status === status));
-  return <main className="mx-auto max-w-6xl space-y-6 px-5 py-10 sm:px-8">
-    <header className="archive-hero rounded-3xl border border-[#dbe3fa] bg-white p-7 shadow-subtle sm:p-9">
-      <span className="text-xs font-bold uppercase tracking-widest text-primary">Lịch sử tài khoản</span>
-      <h1 className="mt-2 text-3xl font-extrabold text-[#172554]">Lịch sử phân tích CV</h1>
-      <p className="mt-2 text-sm text-[#52617e]">Các phân tích đã tạo và bối cảnh đối chiếu được lưu theo từng lần thực hiện.</p>
-    </header>
+  return <main className="nexora-workspace mx-auto max-w-6xl space-y-6 px-5 py-10 sm:px-8">
+    <WorkspaceHeading feature="archive" title="Lịch sử phân tích CV" description="Các phân tích đã tạo và bối cảnh đối chiếu được lưu theo từng lần thực hiện." eyebrow="Lịch sử tài khoản" className="archive-hero" />
     <section className="archive-surface rounded-3xl border border-[#dbe3fa] bg-white p-5 shadow-subtle sm:p-7">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-3">
@@ -40,9 +38,9 @@ export default function CvAnalysisHistoryPage() {
       {history.isError && !history.data && <div role="alert" className="py-8 text-sm text-error">Không thể tải lịch sử. <button type="button" className="underline" onClick={() => void history.refetch()}>Thử lại</button></div>}
       {!history.isLoading && !history.isError && loaded.length === 0 && <p className="rounded-xl bg-[#f3f6ff] p-8 text-sm text-[#52617e]">Bạn chưa có phân tích CV nào.</p>}
       {loaded.length > 0 && items.length === 0 && <p className="rounded-xl bg-[#f3f6ff] p-8 text-sm text-[#52617e]">Không có mục phù hợp trong các trang đã tải.</p>}
-      <div className="divide-y divide-[#e9edf7]">{items.map((item) => <Link key={item.id} href={`/resume-analyses/${item.id}`} className="flex flex-wrap items-center justify-between gap-3 py-4 hover:text-primary">
+      <div className="divide-y divide-[#e9edf7]">{items.map((item) => <Link key={item.id} href={`/resume-analyses/${item.id}`} className="archive-row flex flex-wrap items-center justify-between gap-3 py-4 hover:text-primary">
         <span><strong className="block text-sm">{item.context?.targetRole || (item.mode === 'job_targeted' ? 'Phân tích theo JD' : 'Đánh giá theo thị trường')}</strong><span className="text-xs text-[#52617e]">{item.context?.seniority || 'Chưa chọn cấp độ'} · <ClientDate date={item.createdAt} /></span></span>
-        <span className="text-xs font-semibold">{item.status} →</span>
+        <span className="archive-status"><span data-status={item.status}>{({ completed: 'Hoàn thành', processing: 'Đang xử lý', failed: 'Thất bại', pending: 'Đang chờ' } as Record<string, string>)[item.status] || item.status}</span><span aria-hidden="true">→</span></span>
       </Link>)}</div>
       {history.hasNextPage && <button type="button" className="mt-6 min-h-10 rounded-lg border border-primary px-4 text-sm font-bold text-primary hover:bg-primary-fixed" disabled={history.isFetchingNextPage} onClick={() => void history.fetchNextPage()}>{history.isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}</button>}
     </section>

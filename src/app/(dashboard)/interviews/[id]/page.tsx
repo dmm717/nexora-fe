@@ -62,6 +62,7 @@ export default function InterviewRoomPage() {
   const [pendingEntitlementRecheck, setPendingEntitlementRecheck] = useState<boolean>(false);
 
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const [aiPlaybackError, setAiPlaybackError] = useState<string | null>(null);
   const [isPreparingCandidateInput, setIsPreparingCandidateInput] =
     useState<boolean>(false);
   const questionSpeakerRef = useRef<QuestionSpeakerHandle>(null);
@@ -233,8 +234,10 @@ export default function InterviewRoomPage() {
     if (submitting) return 'thinking';
     if (candidateState.listening) return 'listening';
     if (isAiSpeaking) return 'speaking';
+    if (actionError || aiPlaybackError || interview?.questionPreparationState === 'failed') return 'error';
+    if (interview?.questionPreparationState === 'processing') return 'thinking';
     return 'idle';
-  }, [submitting, candidateState.listening, isAiSpeaking]);
+  }, [submitting, candidateState.listening, isAiSpeaking, actionError, aiPlaybackError, interview?.questionPreparationState]);
 
   // Initials for avatar
   const candidateName = careerProfile?.profile?.displayName || 'Bạn';
@@ -560,18 +563,25 @@ export default function InterviewRoomPage() {
   return (
     <ProductFocusedSurface theme="interview" className="min-h-screen py-4 px-2 sm:px-4">
       <div className="interview-call-room mx-auto space-y-4">
+        <div className="interview-studio-heading">
+          <div>
+            <h2>Nexora Interview Studio</h2>
+            <p>Một câu hỏi mỗi lần. Trả lời theo nhịp của bạn.</p>
+          </div>
+          <span>Đã trả lời {answeredPairs.length} câu</span>
+        </div>
         {/* Action Error alert */}
         {actionError && (
-          <div className="p-3.5 bg-red-900/40 border border-red-500/50 rounded-xl text-xs text-red-200 flex items-start gap-2">
+          <div className="interview-action-error" role="alert">
             <span className="material-symbols-outlined text-red-400 text-[18px] flex-shrink-0 mt-0.5">
               error
             </span>
             <div>
               <span className="font-semibold">{actionError.message}</span>
               {actionError.requestId && (
-                <div className="text-[10px] text-red-300 mt-0.5">
+                <small>
                   Request ID: {actionError.requestId}
-                </div>
+                </small>
               )}
               {answerSubmitState === 'recoverable_error' && (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -619,10 +629,14 @@ export default function InterviewRoomPage() {
           </div>
 
           <div className="interview-stage-center">
-            <AiInterviewerPresence state={presenceState} />
+            <AiInterviewerPresence
+              state={presenceState}
+              statusLabel={submitting ? 'Đang lưu câu trả lời...' : interview.questionPreparationState === 'processing' ? 'Đang chuẩn bị câu hỏi tiếp theo...' : presenceState === 'error' && aiPlaybackError ? 'Giọng AI chưa khả dụng. Bạn vẫn có thể đọc câu hỏi.' : undefined}
+            />
 
             {activeQuestion ? (
               <div className="interview-live-caption" aria-label="Phụ đề câu hỏi">
+                <span>Câu hỏi dành cho bạn</span>
                 <p>&ldquo;{activeQuestion.content}&rdquo;</p>
               </div>
             ) : interview.questionPreparationState === 'processing' ? (
@@ -744,6 +758,7 @@ export default function InterviewRoomPage() {
                       submitting
                     }
                     onSpeakingChange={setIsAiSpeaking}
+                    onPlaybackErrorChange={setAiPlaybackError}
                     className="interview-call-button"
                   />
 

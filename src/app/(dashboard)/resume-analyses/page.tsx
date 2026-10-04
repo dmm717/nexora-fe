@@ -7,7 +7,8 @@ import { ClientDate } from '@/components/ui/ClientDate';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ProductPageHero } from '@/components/product-visual';
+import { CvWorkspaceHeading } from '@/components/features/cv-analysis/CvWorkspaceHeading';
+import cvStyles from '@/components/features/cv-analysis/CvWorkspace.module.css';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '@/services/apiClient';
 import { cvAnalysisApi, getUploadContentType, type ResumeView, type ResumeAnalysisHistoryItem } from '@/services/cvAnalysisApi';
@@ -211,7 +212,7 @@ const ResumeUploadPanel = ({
   selectedResumeId,
   onSelectExistingResume,
 }: ResumeUploadPanelProps) => (
-  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/80 shadow-card">
+  <Card variant="elevated" padding="lg" className={`${cvStyles.panel} space-y-4 bg-white border border-outline-variant/80 shadow-card`}>
     <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
       <div className="flex items-center gap-2 text-primary font-bold text-sm">
         <span className="material-symbols-outlined text-[20px]">upload_file</span>
@@ -223,7 +224,16 @@ const ResumeUploadPanel = ({
     {!file ? (
       <div className="space-y-4">
         <label
-          className={`cursor-pointer flex flex-col items-center justify-center p-6 sm:p-8 rounded-xl border-2 border-dashed transition-all text-center ${
+          tabIndex={0}
+          role="button"
+          aria-label="Chọn hoặc kéo thả CV PDF, DOCX"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
+          className={`${cvStyles.upload} cursor-pointer flex flex-col items-center justify-center p-6 sm:p-8 rounded-xl border-2 border-dashed transition-all text-center ${
             isDragging
               ? 'border-primary bg-primary-fixed/20'
               : 'border-outline-variant/80 bg-surface-container-low/50 hover:bg-surface-container-low'
@@ -350,7 +360,7 @@ interface JobDescriptionPanelProps {
 }
 
 const JobDescriptionPanel = ({ jdTitle, setJdTitle, jdContent, setJdContent, loading }: JobDescriptionPanelProps) => (
-  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/80 shadow-card">
+  <Card variant="elevated" padding="lg" className={`${cvStyles.panel} space-y-4 bg-white border border-outline-variant/80 shadow-card`}>
     <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
       <div className="flex items-center gap-2 text-primary font-bold text-sm">
         <span className="material-symbols-outlined text-[20px]">work</span>
@@ -415,7 +425,7 @@ const FieldBenchmarkPanel = ({
   setSeniority,
   loading,
 }: FieldBenchmarkPanelProps) => (
-  <Card variant="elevated" padding="lg" className="space-y-4 bg-white border border-outline-variant/80 shadow-card">
+  <Card variant="elevated" padding="lg" className={`${cvStyles.panel} space-y-4 bg-white border border-outline-variant/80 shadow-card`}>
     <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
       <div className="flex items-center gap-2 text-primary font-bold text-sm">
         <span className="material-symbols-outlined text-[20px]">insights</span>
@@ -1025,12 +1035,8 @@ export default function ResumesPage() {
           : '';
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-8">
-      <ProductPageHero
-        feature="cv"
-        title="Phân tích hồ sơ CV & Độ tương thích mục tiêu"
-        description="Bổ sung CV, mục tiêu và ngữ cảnh của bạn. Khi có đủ thông tin, Nexora sẽ phân tích chuyên sâu và lưu lại kết quả đối chiếu hoàn chỉnh."
-      />
+    <div className={`${cvStyles.workspace} space-y-8`}>
+      <CvWorkspaceHeading />
 
       {/* Latest Completed Analysis Banner (Quick access) */}
       {(() => {
@@ -1274,7 +1280,7 @@ export default function ResumesPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <ResumeUploadPanel
             file={file}
             isDragging={isDragging}
@@ -1485,7 +1491,7 @@ export default function ResumesPage() {
       )}
 
       {/* Action Trigger Block */}
-      <div className="pt-2 border-t border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className={`${cvStyles.actionDock} flex flex-col sm:flex-row items-center justify-between gap-4`}>
         {(() => {
           const validationItems: string[] = [];
           if (useCurrentGoal && !hasPrimaryResume) validationItems.push('Vui lòng bổ sung CV chính trước khi phân tích');

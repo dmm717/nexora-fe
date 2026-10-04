@@ -1,0 +1,92 @@
+/* CV-led shared workspace primitives. Data attributes leave business state ownership in React. */
+.nexora-navigation { position: fixed; inset: 0 0 auto; z-index: 50; border-bottom: 1px solid var(--nexora-line); background: #edf3fff2; color: var(--nexora-ink); backdrop-filter: blur(16px); padding-block: 0; }
+.nexora-navigation [data-navigation-row] { min-height: 64px; }
+.nexora-navigation-brand { border-radius: 8px; }
+.nexora-navigation nav a { font-weight: 600; letter-spacing: -.015em; }
+.nexora-navigation :is(a, button):focus-visible { outline: 2px solid #7c9de5; outline-offset: 3px; }
+.nexora-navigation [aria-current="page"] { color: var(--nexora-blue); }
+.nexora-navigation [aria-controls$="mobile-menu"] { min-width: 44px; min-height: 44px; }
+.nexora-navigation :is(#public-mobile-menu, #authenticated-mobile-menu) { max-height: calc(100dvh - 64px); overflow-y: auto; background: #f2f6ff; }
+.product-main-surface.pt-16, #landing-content { padding-top: 64px; }
+.nexora-ambient-shell { background: radial-gradient(ellipse at 88% 0, #c8d9ff 0, transparent 44rem), linear-gradient(180deg, #f1f6ff, #e8f0ff); }
+.product-app-shell { --product-ground: #edf3ff; --product-surface: #ffffff; --product-lavender: #e7efff; --product-lavender-strong: #cdddfb; --product-ink: #1e365b; --product-muted: #546b90; --color-action: #1b33c7; --color-action-hover: #162fc4; --color-on-action: #ffffff; }
+.action-forward { border-color: #1b33c7; }
+.nexora-workspace { width: 100%; max-width: 1280px; margin-inline: auto; padding: 32px; }
+.nexora-workspace > * { min-width: 0; }
+.nexora-workspace [aria-busy="true"], .nexora-workspace[aria-busy="true"] { max-width: 100%; }
+.nexora-workspace .nexora-profile-summary { border-radius: 14px; border-color: var(--nexora-line); box-shadow: none; }
+.nexora-workspace .nexora-profile-summary strong { overflow-wrap: anywhere; }
+.nexora-workspace-heading { display: grid; grid-template-columns: minmax(0, 1fr) 220px; align-items: center; gap: 32px; padding: 30px 32px; border: 1px solid var(--nexora-line); border-radius: 16px; background: radial-gradient(ellipse at 92% 50%, #d8ddfa, transparent 45%), linear-gradient(110deg, #e1ebff, #f6f9ff 76%); }
+.nexora-workspace-label { margin: 0 0 10px; color: #355b9c; font-size: 12px; line-height: 1.5; font-weight: 600; letter-spacing: .04em; }
+.nexora-workspace-heading h1, .product-page-hero-copy h1 { margin: 0; font-family: var(--font-display); color: var(--nexora-ink); font-size: clamp(28px, 3vw, 40px); font-weight: 600; line-height: 1.24; letter-spacing: -.035em; text-wrap: balance; overflow-wrap: anywhere; }
+.nexora-workspace-description { max-width: 68ch; margin: 12px 0 0; color: var(--nexora-muted); font-size: 14px; line-height: 1.8; }
+.nexora-workspace-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.nexora-workspace-heading .nexora-workspace-label { margin: 0 0 10px; font-size: 12px; color: #355b9c; }
+.product-page-hero { min-height: 190px; padding: 28px 32px; border-color: var(--nexora-line); border-radius: 16px; background: linear-gradient(110deg, #e1ebff, #f7faff 76%); box-shadow: none; }
+.product-page-hero-copy h1 { max-width: 26ch; }
+.product-page-hero-copy p { font-size: 14px; }
+.product-page-hero-art { min-height: 140px; max-width: 240px; overflow: visible; }
+.product-feature-visual img { max-height: 260px; object-fit: contain; mix-blend-mode: normal; }
+.product-page-hero-art img { max-height: 220px; filter: none; mask-image: none; }
+.product-page-hero::after { content: none; }
+.product-evidence-card { border-color: #c5d3ed; background: #f7faff; box-shadow: none; }
+.product-evidence-card strong { font-weight: 600; overflow-wrap: anywhere; }
+.nexora-surface { min-width: 0; border-color: var(--nexora-line); }
+.nexora-surface[data-nexora-surface="elevated"] { box-shadow: 0 12px 32px -26px #34589560; }
+.nexora-surface[data-nexora-surface="interactive"]:hover { border-color: #7c9de5; box-shadow: 0 16px 32px -24px #34589570; }
+.nexora-surface[data-nexora-surface="selected"] { border-color: var(--nexora-blue); }
+[data-nexora-button] { min-height: 40px; border-radius: 10px; line-height: 1.4; }
+[data-nexora-button="primary"] { background: #1b33c7; box-shadow: 0 6px 14px -9px #1b33c780; }
+[data-nexora-button="primary"]:hover:not(:disabled) { background: #162fc4; }
+[data-nexora-badge] { max-width: 100%; line-height: 1.5; white-space: normal; }
+.archive-surface { border-color: var(--nexora-line); border-radius: 16px; box-shadow: none; }
+.archive-row { min-width: 0; padding: 20px 12px; border-radius: 10px; transition: background 160ms ease; }
+.archive-row:hover, .archive-row:focus-visible { background: #edf3ff; }
+.archive-row > span:first-child { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.archive-row time { font-variant-numeric: tabular-nums; }
+.archive-status { display: inline-flex; align-items: center; gap: 8px; }
+.archive-status span { border-radius: 6px; padding: 5px 9px; font-size: 12px; line-height: 1.4; }
+.archive-status [data-status="completed"] { background: #e3f4ed; color: #116344; }
+.archive-status [data-status="processing"] { background: #e3ecff; color: #2e518d; }
+.archive-status [data-status="failed"] { background: #ffe7e7; color: #9c3030; }
+.payment-row { font-variant-numeric: tabular-nums; }
+.payment-row > * { min-width: 0; overflow-wrap: anywhere; }
+.interview-setup { max-width: 1180px; }
+.interview-setup .product-page-hero { min-height: 148px; grid-template-columns: minmax(0, 1fr) 160px; padding: 22px 28px; }
+.interview-setup .product-page-hero h1 { font-size: 32px; }
+.interview-setup .product-page-hero-art { min-height: 100px; max-height: 125px; overflow: hidden; }
+.interview-setup .product-page-hero-art img { max-height: 125px; object-fit: contain; }
+.interview-setup-devices { position: sticky; top: 88px; align-self: start; }
+.interview-setup-start { border: 1px solid #8da9e3; background: linear-gradient(120deg, #e5edff, #f9fbff); box-shadow: none; }
+.interview-setup legend, .interview-setup h3 { font-weight: 600; }
+.interview-setup fieldset label p { font-size: 12px; line-height: 1.7; }
+.nexora-workspace :is(input, select, textarea) { max-width: 100%; accent-color: #1b33c7; }
+.nexora-workspace :is(h2, h3) { letter-spacing: -.02em; }
+@media (max-width: 1023px) {
+  .nexora-navigation [data-navigation-row] { gap: 12px; }
+  .interview-setup-devices { position: static; }
+  .nexora-workspace-heading { grid-template-columns: minmax(0, 1fr) 160px; gap: 24px; }
+}
+@media (max-width: 767px) {
+  .nexora-workspace { padding: 24px 20px; }
+  .nexora-workspace-heading { grid-template-columns: minmax(0, 1fr); padding: 24px; gap: 16px; }
+  .product-page-hero { padding: 24px; grid-template-columns: minmax(0, 1fr); min-height: auto; }
+  .product-page-hero.pricing-hero { grid-template-columns: minmax(0, 1fr); }
+  .product-page-hero.pricing-hero .product-page-hero-copy h1 { max-width: none; font-size: 28px; }
+  .product-page-hero-art { display: none; }
+  .product-page-hero-copy h1 { max-width: none; }
+  .interview-setup .product-page-hero { grid-template-columns: minmax(0, 1fr); padding: 24px; }
+  .interview-setup .product-page-hero h1 { font-size: 28px; }
+  .payment-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payment-row > :last-child { grid-column: 1 / -1; }
+}
+.nexora-navigation-menu { align-items: center; gap: 4px; }
+.nexora-navigation-item { display: flex; align-items: center; min-height: 40px; padding: 10px 12px; border-radius: 9px; font-size: 14px; line-height: 1.4; color: inherit; transition: background 160ms ease, color 160ms ease; white-space: nowrap; }
+.nexora-navigation-item:hover { background: #dbe6fc; color: #1b33c7; }
+.nexora-navigation-item[aria-current="page"] { background: #dae4fe; color: #1b33c7; }
+.nexora-navigation-menu-mobile { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.nexora-navigation-menu-mobile .nexora-navigation-item { min-height: 44px; white-space: normal; }
+.nexora-navigation[data-nexora-header="cinematic"] .nexora-navigation-item:hover,
+.nexora-navigation[data-nexora-header="cinematic"] .nexora-navigation-item[aria-current="page"] { color: white; background: #ffffff14; }
+@media (min-width: 1024px) { .nexora-navigation-menu-mobile { display: none; } }
+@media (prefers-reduced-motion: reduce) { .archive-row { transition: none; } }

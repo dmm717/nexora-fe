@@ -15,6 +15,7 @@ import { Alert } from '@/components/ui/Alert';
 import { RadialScore } from '@/components/ui/RadialScore';
 import { AudioWaveform } from '@/components/ui/AudioWaveform';
 import { ProductFocusedSurface } from '@/components/ui/ProductFocusedSurface';
+import { InterviewStudioShowcase } from '@/components/features/interview/InterviewStudioShowcase';
 
 export default function DesignSystemShowcase() {
   if (process.env.NODE_ENV === 'production') {
@@ -254,9 +255,10 @@ export default function DesignSystemShowcase() {
         </section>
 
         {/* 9. Scoped Dark World Foundation */}
+        <InterviewStudioShowcase />
         <section className="space-y-4">
           <h2 className="text-xl font-bold border-b border-outline-variant/30 pb-2">
-            9. Scoped Dark World Foundation (Interview Call Room)
+            10. Legacy scoped dark surface
           </h2>
           <ProductFocusedSurface theme="interview" className="p-8 rounded-2xl">
             <div className="max-w-xl mx-auto text-center space-y-4">

@@ -1,0 +1,51 @@
+
+.workspace,.report { max-width:1120px; margin:auto; padding:44px 28px 80px; color:#17294c; }
+.workspace:before,.report:before { content:''; position:fixed; inset:64px 0 0; z-index:-1; background:radial-gradient(ellipse at 20% 0,#bfd0f6,transparent 55%),radial-gradient(ellipse at 95% 30%,#d9ddfa,transparent 60%),#edf2fb; }
+.hero { display:grid; grid-template-columns:1.3fr .7fr; align-items:center; gap:50px; padding:12px 0 34px; }
+.eyebrow { font-size:11px; letter-spacing:.17em; color:#445fa0; font-weight:700; text-transform:uppercase; }
+.hero h1 { font-size:clamp(30px,4vw,48px); letter-spacing:-.035em; line-height:1.15; margin:16px 0; max-width:620px; }
+.hero p { color:#526586; font-size:15px; line-height:1.8; max-width:530px; }
+.document { width:180px; height:220px; position:relative; margin:0 auto; padding:28px 24px; border:1px solid #d2ddf2; border-radius:8px; background:linear-gradient(145deg,white,#f3f6ff); box-shadow:18px 20px 0 -5px #d5def1,0 25px 55px #1c367e20; transform:rotate(-7deg); }
+.document:after { content:''; position:absolute; inset:78px 23px 32px; background:repeating-linear-gradient(to bottom,#d0d9ed 0 3px,transparent 3px 17px); }
+.document span { font-size:25px; font-weight:800; color:#405cb0; }
+.document small { display:block; font-size:8px; letter-spacing:.13em; color:#7185a8; }
+.rail { display:flex; padding:18px 0 24px; border-top:1px solid #bfcde5; }
+.rail span { flex:1; color:#4c6288; font-size:12px; display:flex; align-items:center; gap:10px; }
+.rail b { color:#4a60b4; font-size:10px; background:#dce5f8; width:27px; height:27px; border-radius:50%; display:grid; place-items:center; }
+.panel { border:1px solid #cad7ef !important; background:linear-gradient(150deg,#ffffffed,#f6f9ffed) !important; box-shadow:0 8px 24px #2e467208 !important; border-radius:18px !important; }
+.upload { min-height:185px; border:1px dashed #7799d7 !important; background:radial-gradient(ellipse at 50% 0,#e6eeff,#f8fbff) !important; border-radius:12px !important; }
+.upload:focus-visible { outline:3px solid #465ee2; outline-offset:4px; }
+.actionDock { padding:20px 24px; border:1px solid #bacbea; border-radius:14px; background:linear-gradient(110deg,#e0e9fc,#f8faff); box-shadow:0 12px 30px #29437a0d; }
+.workspace :global(.shadow-card) { border-color:#cad7ef; background:linear-gradient(150deg,#ffffffed,#f6f9ffed); box-shadow:0 8px 24px #2e467208; }
+.workspace :global(input[type=radio]) { accent-color:#3656c3; }
+.workspace :global(.text-xs) { font-size:13px; line-height:1.65; }
+.workspace :global(.text-\[11px\]) { font-size:12px; }
+.workspace :global(textarea),.workspace :global(input[type=text]) { font-size:15px; line-height:1.7; }
+@media(max-width:640px) { .workspace :global(textarea),.workspace :global(input[type=text]) { font-size:16px; } .actionDock { padding:18px; align-items:stretch; } }
+.workspace :global(h2),.workspace :global(h3) { color:#253c69; }
+.workspace :global(textarea),.workspace :global(input:not([type=radio]):not([type=checkbox])) { border-color:#becce5; }
+.report > :first-child { padding-bottom:24px; border-bottom:1px solid #bfcee8; }
+.report :global(.shadow-card) { border-color:#c9d6ec; background:linear-gradient(140deg,#fff,#f5f8ff); box-shadow:0 8px 30px #263f780a; }
+.report h1 { color:#193667; letter-spacing:-.035em; }
+.summaryPanel { border-left:3px solid #5a77cf; padding:24px 28px; background:#edf3ff; color:#314c78; border-radius:0 14px 14px 0; }
+.summaryPanel h2 { font-size:12px; font-weight:700; letter-spacing:.03em; margin-bottom:12px; color:#3a58a6; }
+.summaryPanel p { font-size:15px; line-height:1.85; }
+.processing:before { content:''; position:fixed; inset:64px 0 0; z-index:-1; background:radial-gradient(ellipse at 50% 20%,#c9d8f8,transparent 75%),#ecf1fb; }
+.processingDocument { width:110px; height:145px; padding-top:32px; color:#4869c0; background:linear-gradient(130deg,white,#edf3ff); border:1px solid #c6d5ef; border-radius:8px; transform:rotate(-5deg); box-shadow:12px 12px 0 -4px #d2def3,0 20px 40px #294b8812; }
+.processingDocument:after { content:''; display:block; width:60%; height:35px; margin:12px auto; background:repeating-linear-gradient(to bottom,#c5d4ee 0 3px,transparent 3px 12px); }
+.report :global(.text-xs) { font-size:13px; line-height:1.7; }
+.report :global(.text-\[11px\]) { font-size:12px; }
+.scorePanel { background:radial-gradient(ellipse at 50% 0,#d2dffc,transparent 75%),#e9effb !important; border:1px solid #acbfe2 !important; box-shadow:0 16px 35px #203e7515 !important; }
+.report :global(.grid-cols-1) > div { min-width:0; }
+@media(prefers-reduced-motion:reduce) { .report :global(.animate-ping),.report :global(.animate-pulse) { animation:none; } }
+.public { position:relative; min-height:calc(100svh - 64px); padding:80px max(24px,calc((100vw - 1120px)/2)); background:radial-gradient(ellipse at 80% 0,#bccdf8,transparent 65%),linear-gradient(140deg,#edf4ff,#e5eafa); overflow:hidden; }
+.public .hero { grid-template-columns:1.1fr .9fr; gap:72px; min-height:560px; }
+.public .document { width:245px; height:320px; padding:38px; box-shadow:24px 28px 0 -6px #c0cfea,0 45px 80px #203b7b24; }
+.public .document:after { inset:100px 38px 40px; }
+.annotation { margin:28px auto 0; position:relative; width:290px; padding:22px; border:1px solid #c1d0ec; border-radius:12px; background:#ffffffde; box-shadow:0 18px 40px #1c367e15; }
+.annotation small { color:#6880a9; font-size:10px; text-transform:uppercase; letter-spacing:.12em; }
+.annotation p { margin:12px 0; color:#385174; font-size:13px; }
+.actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:28px; }
+.actions a { padding:14px 20px; border-radius:10px; background:#334cbd; color:white; font-size:14px; font-weight:650; }
+.actions a + a { color:#344f9b; background:#fff; border:1px solid #c5d1ea; }
+@media(max-width:640px) { .workspace,.report { padding:26px 18px 60px; } .hero { grid-template-columns:1fr; gap:20px; padding-bottom:25px; } .workspace .document { display:none; } .rail { gap:8px; } .rail span { font-size:10px; gap:5px; align-items:flex-start; } .rail b { flex-shrink:0; width:23px; height:23px; } .public { padding:44px 22px 60px; } .public .hero { grid-template-columns:1fr; gap:50px; } .public .document { width:180px; height:235px; padding:26px; } .public .document:after { inset:82px 26px 30px; } .annotation { width:min(290px,100%); } }

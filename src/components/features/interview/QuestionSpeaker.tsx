@@ -16,6 +16,7 @@ export interface QuestionSpeakerProps {
   text: string;
   className?: string;
   onSpeakingChange?: (speaking: boolean) => void;
+  onPlaybackErrorChange?: (error: string | null) => void;
   autoSpeak?: boolean;
   disabled?: boolean;
 }
@@ -41,6 +42,7 @@ export const QuestionSpeaker = forwardRef<
     text,
     className = '',
     onSpeakingChange,
+    onPlaybackErrorChange,
     autoSpeak = false,
     disabled = false,
   },
@@ -51,6 +53,10 @@ export const QuestionSpeaker = forwardRef<
     interviewId,
     onSpeakingChange
   );
+
+  useEffect(() => {
+    onPlaybackErrorChange?.(status === 'error' ? error : null);
+  }, [status, error, onPlaybackErrorChange]);
 
   useImperativeHandle(ref, () => ({ stop }), [stop]);
 

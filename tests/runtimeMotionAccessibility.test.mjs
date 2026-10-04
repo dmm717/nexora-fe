@@ -23,13 +23,13 @@ test('interview speaking and thinking states retain low-motion activity feedback
   const reducedMotion = interviewCss.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/)?.[1];
 
   assert.match(interviewCss, /\.ai-presence\[data-state="speaking"\] \.ai-presence-bars i\s*\{\s*animation:\s*ai-speaking-bar/);
-  assert.match(interviewCss, /\.ai-presence\[data-state="speaking"\] \.ai-orb\s*\{\s*animation:\s*ai-speaking-orb/);
-  assert.match(interviewCss, /\.ai-presence\[data-state="speaking"\] \.ai-orb-ring\s*\{\s*animation:\s*ai-speaking-ring/);
+  assert.match(interviewCss, /\.ai-mascot img\s*\{[^}]*animation:\s*none/);
   assert.ok(reducedMotion, 'interview has an explicit reduced-motion treatment');
   assert.match(reducedMotion, /data-state="speaking"\] \.ai-presence-bars i\s*\{\s*animation:\s*ai-reduced-speaking-bar/);
-  assert.match(reducedMotion, /data-state="speaking"\] \.ai-orb\s*\{\s*animation:\s*ai-reduced-speaking-orb/);
-  assert.match(reducedMotion, /data-state="speaking"\] \.ai-orb-ring\s*\{\s*animation:\s*ai-reduced-speaking-ring/);
-  assert.match(reducedMotion, /data-state="thinking"\] \.ai-orb-ring\s*\{[^}]*ai-reduced-thinking-feedback/s);
+  assert.doesNotMatch(interviewCss, /\.ai-orb/);
+  const presence = await source('src/components/features/interview/AiInterviewerPresence.tsx');
+  assert.match(presence, /role="status" aria-live="polite"/);
+  assert.match(presence, /thinking: 'Đang phân tích câu trả lời/);
   assert.doesNotMatch(reducedMotion, /\.interview-call-room\s*\*\s*,|animation:\s*none\s*!important/);
 });
 

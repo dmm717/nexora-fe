@@ -33,13 +33,18 @@ test('avatar validation, upload, header sync and removal preserve current user',
       return route.fulfill({ status: 204 });
     }
     if (path.endsWith('/me')) return json({ ...initialUser, avatarUrl });
-    if (path.endsWith('/me/career-profile')) return json({ profile: { displayName: 'Test User', avatarUrl }, onboarding: { isComplete: true } });
+    if (path.endsWith('/me/career-profile')) return json({
+      profile: { userId: initialUser.id, email: initialUser.email, displayName: 'Test User', yearsOfExperience: 2, avatarUrl },
+      primaryResume: null,
+      skillProfileSummary: { topCompetencies: [], topWeaknessSignals: [] },
+      onboarding: { hasDisplayName: true, hasYearsOfExperience: true, hasPrimaryResume: false, hasActiveCareerGoal: false, isComplete: false },
+    });
     if (path.includes('/avatars/')) return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==', 'base64') });
     if (path.endsWith('/me/feedback')) return json(null);
     return json({});
   });
 
-  await page.goto('/account');
+  await page.goto('/profile');
   const input = page.getByLabel('Chọn ảnh đại diện JPEG, PNG hoặc WebP');
   await expect(page.getByRole('button', { name: 'Tải ảnh lên' })).toBeVisible();
   await input.setInputFiles({ name: 'bad.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
@@ -54,7 +59,8 @@ test('avatar validation, upload, header sync and removal preserve current user',
   await expect(page.getByRole('button', { name: 'Thay ảnh' })).toBeVisible();
   expect(uploadCount).toBe(1);
   await expect(page.getByRole('button', { name: 'Tài khoản' }).locator('img')).toBeVisible();
-  await expect(page.locator('main')).toContainText('0 / 3 AI Credits');
+  await expect(page.getByLabel('Tên hiển thị', { exact: true })).toHaveValue('Test User');
+  await expect(page.getByLabel('Số năm kinh nghiệm làm việc', { exact: true })).toHaveValue('2');
 
   failNextUpload = true;
   await input.setInputFiles({ name: 'failed.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==', 'base64') });
@@ -70,7 +76,8 @@ test('avatar validation, upload, header sync and removal preserve current user',
   await expect(page.getByRole('button', { name: 'Tải ảnh lên' })).toBeVisible();
   expect(deleteCount).toBe(1);
   await expect(page.getByRole('button', { name: 'Tài khoản' }).locator('img')).toHaveCount(0);
-  await expect(page.locator('main')).toContainText('0 / 3 AI Credits');
+  await expect(page.getByLabel('Tên hiển thị', { exact: true })).toHaveValue('Test User');
+  await expect(page.getByLabel('Số năm kinh nghiệm làm việc', { exact: true })).toHaveValue('2');
 
   for (const width of [768, 390]) {
     await page.setViewportSize({ width, height: 900 });

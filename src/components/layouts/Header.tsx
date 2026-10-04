@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { Menu, X, LogIn, Rocket } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { NexoraLogo } from '@/components/brand/NexoraLogo';
+import { NavigationFrame, NavigationRow, NavigationBrand } from '@/components/header/NavigationFrame';
+import { NavigationMenu } from '@/components/header/NavigationMenu';
 import { PUBLIC_NAV_ITEMS, type NavItem } from '@/config/navigation';
 
 export const CANONICAL_PUBLIC_NAV: NavItem[] = PUBLIC_NAV_ITEMS;
@@ -69,53 +70,32 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header
+    <NavigationFrame
+      variant={pathname === '/' ? 'cinematic' : 'public'}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 motion-reduce:transition-none motion-reduce:duration-0 border-b ${
         isScrolled
           ? 'bg-surface/90 backdrop-blur-md border-outline-variant/40 py-2.5 shadow-sm'
           : 'bg-surface/60 backdrop-blur-sm border-outline-variant/20 py-4'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <NavigationRow>
         {/* Logo */}
-        <Link
-          href="/"
+        <NavigationBrand
           onClick={handleLogoClick}
           aria-label="Nexora AI — Trang chủ"
           className="flex items-center gap-2.5 select-none rounded-xl group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
-          <NexoraLogo
-            alt=""
-            className="h-8 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02] sm:h-9"
-          />
-          <div className="hidden sm:block">
-            <div className="text-[9px] text-on-surface-variant/80 font-medium tracking-wide mt-0.5">
+          <div className="hidden xl:block">
+            <div className="text-[11px] text-on-surface-variant font-medium mt-0.5">
               Chuẩn bị nghề nghiệp có định hướng
             </div>
           </div>
-        </Link>
+        </NavigationBrand>
 
         {/* Public Desktop Navigation */}
-        <nav aria-label="Điều hướng chính" className="hidden lg:flex items-center gap-1">
-          {CANONICAL_PUBLIC_NAV.map((item) => {
-            const isPricing = item.href === '/pricing' && pathname === '/pricing';
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={(e) => handleNavClick(e, item)}
-                aria-current={isPricing ? 'page' : undefined}
-                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  isPricing
-                    ? 'text-primary bg-primary-fixed/40 font-semibold'
-                    : 'text-on-surface hover:text-primary hover:bg-surface-container-low'
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <NavigationMenu items={CANONICAL_PUBLIC_NAV}
+          isActive={item => item.href === '/pricing' && pathname === '/pricing'}
+          onNavigate={handleNavClick} />
 
         {/* Desktop Auth Status Actions */}
         <div className="hidden lg:flex items-center gap-3" style={{ minHeight: '40px' }}>
@@ -184,29 +164,14 @@ export const Header: React.FC = () => {
             )}
           </button>
         </div>
-      </div>
+      </NavigationRow>
 
       {/* Mobile Dropdown Menu */}
       {isMobileMenuOpen && (
-        <nav
-          id="public-mobile-menu"
-          aria-label="Điều hướng di động"
-          className="lg:hidden border-t border-outline-variant/30 bg-white px-4 py-3 space-y-2 shadow-lg"
-        >
-          {CANONICAL_PUBLIC_NAV.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={(e) => {
-                handleNavClick(e, item);
-                setMobileMenuPath(null);
-              }}
-              aria-current={item.href === '/pricing' && pathname === '/pricing' ? 'page' : undefined}
-              className="block w-full px-3 py-2.5 rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <div id="public-mobile-menu" className="lg:hidden border-t border-outline-variant/30 px-4 py-3 shadow-lg">
+          <NavigationMenu mobile items={CANONICAL_PUBLIC_NAV}
+            isActive={item => item.href === '/pricing' && pathname === '/pricing'}
+            onNavigate={(event, item) => { handleNavClick(event, item); setMobileMenuPath(null); }} />
           <div className="pt-2 border-t border-outline-variant/20 flex flex-col gap-2">
             {!isAuthenticated && (
               <Link
@@ -219,9 +184,9 @@ export const Header: React.FC = () => {
               </Link>
             )}
           </div>
-        </nav>
+        </div>
       )}
-    </header>
+    </NavigationFrame>
   );
 };
 

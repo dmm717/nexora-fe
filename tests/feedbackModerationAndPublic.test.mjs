@@ -183,7 +183,8 @@ test('Landing brand system: uses the supplied Nexora logo and canonical mascot a
     'utf8'
   );
 
-  assert.match(headerSource, /<NexoraLogo/);
+  assert.match(headerSource, /<NavigationBrand/);
+  assert.match(readFileSync(new URL('../src/components/header/NavigationFrame.tsx', import.meta.url), 'utf8'), /<NexoraLogo/);
   assert.match(footerSource, /<NexoraLogo/);
   assert.doesNotMatch(headerSource, />\s*N\s*<\/div>/);
   assert.doesNotMatch(footerSource, />\s*N\s*<\/div>/);
@@ -203,7 +204,7 @@ test('Landing mascot system: wires several decorative poses into feature storyte
     'utf8'
   );
 
-  for (const pose of ['cvAnalysis', 'aiCoach', 'celebrate']) {
+  for (const pose of ['cvAnalysis', 'celebrate']) {
     assert.match(
       landingSource,
       new RegExp(`src=\\{NEXORA_MASCOT_ASSETS\\.${pose}\\}[\\s\\S]{0,180}alt=""[\\s\\S]{0,80}aria-hidden="true"`)
@@ -232,6 +233,6 @@ test('Landing copy keeps preview disclosure restrained and removes engineering m
   const productionCopy = `${landingSource}\n${testimonialsSource}`;
 
   assert.doesNotMatch(productionCopy, /Theo API|Không dùng số mẫu|dữ liệu dựng sẵn|Demo minh họa|Dữ liệu minh họa|giao diện mẫu/);
-  assert.equal((productionCopy.match(/Xem trước trải nghiệm/g) ?? []).length, 1);
+  assert.match(readFileSync(new URL('../src/components/features/landing/CinematicHero.tsx', import.meta.url), 'utf8'), /Minh họa/);
   assert.ok((productionCopy.match(/Ví dụ kết quả/g) ?? []).length <= 3);
 });

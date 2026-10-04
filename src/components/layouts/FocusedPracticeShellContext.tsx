@@ -34,7 +34,7 @@ export function FocusedPracticeShellProvider({ children }: { children: React.Rea
 
   return (
     <FocusedPracticeShellContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface antialiased product-app-shell">
+      <div className={`min-h-screen flex flex-col font-sans text-on-surface antialiased product-app-shell ${showFocusedHeader ? 'nexora-ambient-shell' : ''}`}>
         {showFocusedHeader ? (
           <FocusedPracticeHeader
             title={config?.title || 'Chế độ luyện tập tập trung'}

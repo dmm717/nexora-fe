@@ -21,8 +21,8 @@ test('Interview direct submit: interview-stage.css provides clear primary stylin
   const css = fs.readFileSync(interviewStageCssPath, 'utf8');
   assert.ok(css.includes('.interview-current-answer-actions'), 'Must style actions container');
   assert.ok(css.includes('.interview-submit-button'), 'Must style .interview-submit-button');
-  assert.ok(css.includes('#d1c6ff'), 'Submit button must have high-contrast light purple background');
-  assert.ok(css.includes('#21194b'), 'Submit button must have dark text for strong contrast');
+  assert.match(css, /interview-submit-button\s*\{[^}]*background:\s*#1b33c7/);
+  assert.match(css, /interview-submit-button\s*\{[^}]*color:\s*#ffffff/);
 });
 
 test('Interview direct submit: interview page wires direct onSubmit to canonical handleSubmitAnswer', () => {

@@ -1,0 +1,125 @@
+ M next.config.ts
+ M package-lock.json
+ M package.json
+ M src/app/(dashboard)/analytics/page.tsx
+ M src/app/(dashboard)/cv-analysis/history/page.tsx
+ M src/app/(dashboard)/interviews/[id]/page.tsx
+ M src/app/(dashboard)/interviews/history/page.tsx
+ M src/app/(dashboard)/interviews/new/page.tsx
+ M src/app/(dashboard)/interviews/page.tsx
+ M src/app/(dashboard)/overview/page.tsx
+ M src/app/(dashboard)/payment-history/page.tsx
+ M src/app/(dashboard)/profile/page.tsx
+ M src/app/(dashboard)/resume-analyses/[id]/page.tsx
+ M src/app/(dashboard)/resume-analyses/page.tsx
+ M src/app/(dashboard)/scenarios/page.tsx
+ M src/app/(dashboard)/star-builder/page.tsx
+ M src/app/design-system/page.tsx
+ M src/app/globals.css
+ M src/app/interview/page.tsx
+ M src/app/interview/room/page.tsx
+ M src/app/layout.tsx
+ M src/app/loading.tsx
+ M src/app/page.tsx
+ M src/components/brand/NexoraLogo.tsx
+ M src/components/features/account/AccountSettings.tsx
+ M src/components/features/account/AccountSkeleton.tsx
+ M src/components/features/career-profile/CareerGoalsPageContent.tsx
+ M src/components/features/career-profile/CareerProfileHeader.tsx
+ M src/components/features/cv-analysis/CvAnalysisHero.tsx
+ M src/components/features/interview/AiInterviewerPresence.tsx
+ D src/components/features/interview/InterviewRoom.tsx
+ D src/components/features/interview/InterviewWizard.tsx
+ M src/components/features/interview/QuestionSpeaker.tsx
+ M src/components/features/landing/MarketingLanding.tsx
+ M src/components/features/landing/landing.module.css
+ M src/components/features/landing/useLandingMotion.ts
+ M src/components/features/learning-path/LearningPathView.tsx
+ M src/components/features/practice/PracticeHub.tsx
+ M src/components/features/practice/StarPractice.tsx
+ M src/components/features/pricing/PricingCards.tsx
+ M src/components/features/pricing/PricingPageShell.tsx
+ M src/components/header/AuthenticatedHeader.tsx
+ M src/components/header/FocusedPracticeHeader.tsx
+ M src/components/layouts/FocusedPracticeShellContext.tsx
+ M src/components/layouts/Header.tsx
+ M src/components/product-visual/index.tsx
+ M src/components/ui/Badge.tsx
+ M src/components/ui/Button/Button.tsx
+ M src/components/ui/Card.tsx
+ M src/config/navigation.ts
+ M src/styles/interview-stage.css
+ M tests/e2e/account-avatar.spec.ts
+ M tests/e2e/bootstrap-request-audit.spec.ts
+ M tests/e2e/landing-motion.spec.ts
+ M tests/e2e/landing-testimonials-scroll.spec.ts
+ M tests/feedbackModerationAndPublic.test.mjs
+ M tests/interviewDirectSubmit.test.mjs
+ M tests/landingMotion.test.mjs
+ M tests/pricingAuthShell.test.mjs
+ M tests/pricingGsapAnimation.test.mjs
+ M tests/productRedesignAudit.test.mjs
+ M tests/productUiPolishRound2.test.mjs
+ M tests/publicAuthPolish.test.mjs
+ M tests/runtimeMotionAccessibility.test.mjs
+?? design/assets/nexora-emblem/emblem-preview.png
+?? design/assets/nexora-emblem/nexora-emblem.blend
+?? design/assets/nexora-mascot/README.md
+?? design/assets/nexora-mascot/nexora-prototype.blend
+?? design/assets/nexora-mascot/nexora-refined.blend
+?? design/assets/nexora-mascot/prototype-preview.png
+?? design/assets/nexora-mascot/refined-preview.png
+?? design/cinematic-redesign-report.md
+?? design/final-route-audit.md
+?? design/final-unification-git-status.txt
+?? design/final-unification-report.md
+?? design/kinetic-polish-report.md
+?? design/light-editorial-redesign-report.md
+?? design/paper-heroes-prompts.json
+?? public/assets/brand/3d/nexora-emblem.glb
+?? public/assets/features/paper/archive-v2.webp
+?? public/assets/features/paper/capabilities-v2.webp
+?? public/assets/features/paper/career-profile-v2.webp
+?? public/assets/features/paper/interview-v2.webp
+?? public/assets/features/paper/learning-path-v2.webp
+?? public/assets/features/paper/overview-v2.webp
+?? public/assets/features/paper/practice-v2.webp
+?? public/assets/features/paper/pricing-v2.webp
+?? public/assets/features/paper/profile-v2.webp
+?? public/assets/features/paper/scenario-v2.webp
+?? public/assets/features/paper/settings-v2.webp
+?? public/assets/features/paper/star-v2.webp
+?? public/assets/mascot/3d/nexora-prototype.glb
+?? public/assets/mascot/3d/nexora-refined.glb
+?? scripts/ambient_studio_edit.py
+?? scripts/blender/create_nexora_emblem.py
+?? scripts/blender/create_nexora_mascot.py
+?? scripts/blender/refine_nexora_mascot.py
+?? scripts/cinematic_cv_edit.py
+?? scripts/cinematic_delivery_report.py
+?? scripts/cinematic_landing_edit.py
+?? scripts/cinematic_test_update.py
+?? scripts/cv_report_layout.py
+?? src/components/brand/MascotCanvas.tsx
+?? src/components/brand/MascotVisual.module.css
+?? src/components/brand/MascotVisual.tsx
+?? src/components/brand/useVisualPolicy.ts
+?? src/components/features/cv-analysis/CvWorkspace.module.css
+?? src/components/features/cv-analysis/CvWorkspaceHeading.tsx
+?? src/components/features/interview/InterviewStudioShowcase.tsx
+?? src/components/features/landing/CinematicHero.tsx
+?? src/components/features/landing/NexoraBrandScene.tsx
+?? src/components/features/landing/PreparationJourney.module.css
+?? src/components/features/landing/brandMotion.ts
+?? src/components/features/landing/cinematic.module.css
+?? src/components/header/NavigationFrame.tsx
+?? src/components/header/NavigationMenu.tsx
+?? src/components/ui/WorkspaceHeading.tsx
+?? src/styles/nexora-studio-tokens.css
+?? src/styles/workspace-system.css
+?? tests/canonicalNavigation.test.mjs
+?? tests/e2e/cinematic-redesign.spec.ts
+?? tests/e2e/final-unification.spec.ts
+?? tests/e2e/kinetic-polish.spec.ts
+?? tests/e2e/light-editorial-redesign.spec.ts
+?? tests/mascotPrototype.test.mjs

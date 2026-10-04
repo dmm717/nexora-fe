@@ -1,6 +1,7 @@
 export default function Loading() {
   return (
     <div
+      data-route-loading
       role="status"
       aria-live="polite"
       className="flex flex-col items-center justify-center min-h-[50vh] sm:min-h-[calc(100vh-10rem)] w-full px-4 py-12"

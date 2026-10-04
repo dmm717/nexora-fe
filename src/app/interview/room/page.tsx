@@ -1,10 +1,6 @@
-import React from 'react';
-import InterviewRoom from '@/components/features/interview/InterviewRoom';
+import { redirect } from 'next/navigation';
 
 export default function InterviewRoomPage() {
-  return (
-    <main className="min-h-screen">
-      <InterviewRoom />
-    </main>
-  );
+  // The retired demo had no session ID. The live hub offers real session continuation.
+  redirect('/interviews');
 }

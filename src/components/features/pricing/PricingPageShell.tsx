@@ -17,7 +17,7 @@ export function PricingPageShell({ children }: PricingPageShellProps) {
   // If user is authenticated, keep them in the authenticated product shell
   if (authReady && isAuthenticated) {
     return (
-      <div className="min-h-screen bg-surface flex flex-col product-app-shell">
+      <div className="nexora-ambient-shell min-h-screen bg-surface flex flex-col product-app-shell">
         <AuthenticatedHeader />
         <main className="flex-1 pt-16 bg-surface product-main-surface">
           {children}

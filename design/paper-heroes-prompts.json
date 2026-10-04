@@ -1,0 +1,103 @@
+{
+  "tool": "Built-in imagegen, transparent background",
+  "style": "Use case: stylized-concept. Asset type: transparent Nexora AI workspace hero illustration. ONE centered isolated ivory white paper sculpture, thin layered sheets with softly rounded corners and pale periwinkle backing edges. Indigo #405cb0 accents, matte paper-ceramic material, almost front-facing orthographic camera with slight tilt, soft semitransparent lavender-blue shadow lower right, restrained editorial simplicity like a CV sheet with layered lavender paper depth. Square framing, 15% clear margin, transparent backdrop, no environment, no pedestal or ground. No text, letters, digits, logo, watermark, metallic gold, shiny plastic, person or mascot. No actual user data. Subject: ",
+  "subjects": [
+    [
+      "scenario",
+      "a single ivory paper card showing a raised indigo branching decision path with three endpoint circles, two lavender sheets offset behind it. Minimal decision-tree sculpture."
+    ],
+    [
+      "star",
+      "four thin ivory paper panels stacked in a gentle ascending sequence, a small raised indigo four-point star on the front panel, each panel with one short lavender embossed line. Minimal structured storytelling sculpture."
+    ],
+    [
+      "learning-path",
+      "three staggered white paper steps connected by a thin indigo route ribbon, a small indigo endpoint circle at the top, lavender backing edges. Minimal career learning roadmap sculpture."
+    ],
+    [
+      "career-profile",
+      "an ivory white identity card with a simple indigo abstract person silhouette emboss and three lavender horizontal lines, two thin lavender-white profile sheets layered behind. Minimal career context sculpture."
+    ],
+    [
+      "profile",
+      "an ivory white profile card with a simple raised indigo person bust glyph and a small pale lavender circle badge, two softly offset thin lavender sheets behind. Minimal personal profile sculpture, no actual portrait."
+    ],
+    [
+      "settings",
+      "a tall ivory white control panel card with three thin lavender horizontal tracks and small indigo slider knobs, a tiny indigo shield emboss at bottom, two thin lavender backing sheets. Minimal trustworthy settings sculpture."
+    ],
+    [
+      "archive",
+      "a very simple ivory white paper folder holding three offset ivory report sheets, a small indigo clock glyph embossed on the front, fine lavender sheet edges. Minimal history and saved reports sculpture."
+    ]
+  ],
+  "firstBatch": {
+    "overview": "Three layered dashboard sheets, blank panels and an indigo evidence arc.",
+    "interview": "Question card, conversational ribbons and a microphone.",
+    "practice": "Three fanned activity cards: check, star and decision path.",
+    "capabilities": "Competency report with a five-node evidence network.",
+    "pricing": "Three access passes with an indigo key."
+  },
+  "assets": [
+    {
+      "name": "overview",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-8e0f0040-6a7d-4048-933f-45aaa5abc686.png",
+      "output": "public/assets/features/paper/overview-v2.webp"
+    },
+    {
+      "name": "interview",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-70b1dd1c-9b2c-4324-a03a-6426ba3c80ae.png",
+      "output": "public/assets/features/paper/interview-v2.webp"
+    },
+    {
+      "name": "practice",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-87b6e6d4-4115-4697-a905-f413e7787a02.png",
+      "output": "public/assets/features/paper/practice-v2.webp"
+    },
+    {
+      "name": "capabilities",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-4749dc86-278e-40c0-af23-e3bb773f4719.png",
+      "output": "public/assets/features/paper/capabilities-v2.webp"
+    },
+    {
+      "name": "pricing",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-68f27d29-04ec-4b3e-8708-730703bbb23a.png",
+      "output": "public/assets/features/paper/pricing-v2.webp"
+    },
+    {
+      "name": "scenario",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-1255d53e-1245-48eb-b1eb-92d62552244a.png",
+      "output": "public/assets/features/paper/scenario-v2.webp"
+    },
+    {
+      "name": "star",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-4f4fd990-d86a-43b8-aa6b-284456f172fd.png",
+      "output": "public/assets/features/paper/star-v2.webp"
+    },
+    {
+      "name": "learning-path",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-b118297e-f771-46a8-b004-2d8987b876c5.png",
+      "output": "public/assets/features/paper/learning-path-v2.webp"
+    },
+    {
+      "name": "career-profile",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-ee5a6497-50b8-441a-9229-e159c44dbe54.png",
+      "output": "public/assets/features/paper/career-profile-v2.webp"
+    },
+    {
+      "name": "profile",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-db1d0038-8188-426f-b661-bc881b74d7fa.png",
+      "output": "public/assets/features/paper/profile-v2.webp"
+    },
+    {
+      "name": "settings",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-bce0a894-479b-4ed9-873b-caad1b265279.png",
+      "output": "public/assets/features/paper/settings-v2.webp"
+    },
+    {
+      "name": "archive",
+      "source": "C:\\Users\\PC\\.codex\\generated_images\\01a105e5-556c-7363-91a1-eb1baf7954e1\\exec-be6a985a-5b37-448e-8567-391b0913e40d.png",
+      "output": "public/assets/features/paper/archive-v2.webp"
+    }
+  ]
+}
