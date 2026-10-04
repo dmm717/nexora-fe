@@ -6,8 +6,9 @@ const readSource = (relPath) => readFile(new URL(relPath, import.meta.url), 'utf
 
 test('Brand: AuthenticatedHeader uses official NexoraLogo and removes synthetic blue N square', async () => {
   const headerSource = await readSource('../src/components/header/AuthenticatedHeader.tsx');
-  assert.match(headerSource, /import\s*\{\s*NexoraLogo\s*\}\s*from\s*['"]@\/components\/brand\/NexoraLogo['"]/);
-  assert.match(headerSource, /<NexoraLogo\s+variant="horizontal"/);
+  const brandSource = await readSource('../src/components/header/NavigationFrame.tsx');
+  assert.match(headerSource, /<NavigationBrand/);
+  assert.match(brandSource, /<NexoraLogo\s+variant="horizontal"/);
   assert.doesNotMatch(headerSource, /<div[^>]*bg-primary[^>]*>\s*N\s*<\/div>/);
 });
 
@@ -121,7 +122,8 @@ test('Copywriting Anti-Slop: Technical testing and machine jargon phrases are re
 
 test('Landing: product proof is visible without replay or empty-state controls', async () => {
   const landingSource = await readSource('../src/components/features/landing/MarketingLanding.tsx');
-  assert.match(landingSource, /data-cv-demo-result/);
+  assert.match(landingSource, /documentPreview/);
+  assert.doesNotMatch(landingSource, /data-cv-count/);
   assert.doesNotMatch(landingSource, /demo phân tích mẫu/);
   assert.doesNotMatch(landingSource, /Xem trạng thái tài khoản mới/);
 });

@@ -46,7 +46,7 @@ test('H: authenticated pricing stays in product shell and avoids public landing 
 
   assert.match(shellSource, /<AuthenticatedHeader \/>/);
   assert.doesNotMatch(headerSource, /Vào Dashboard/);
-  assert.match(headerSource, /item\.href === '\/pricing'/);
+  assert.match(headerSource, /isNavigationItemActive\(item.href, pathname\)/);
 });
 
 test('I: Pricing current-plan badge still uses real entitlement from user billing', async () => {

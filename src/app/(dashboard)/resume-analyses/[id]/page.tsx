@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import cvStyles from '@/components/features/cv-analysis/CvWorkspace.module.css';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useResumeAnalysis } from '@/hooks/queries/useResumes';
@@ -51,12 +52,9 @@ export default function ResumeAnalysisDetailsPage() {
 
   if (loading || (currentStatus === 'queued' || currentStatus === 'pending' || currentStatus === 'processing')) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 text-center max-w-lg mx-auto space-y-6">
-        <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping" />
-          <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white shadow-card">
-            <span className="material-symbols-outlined text-[32px] animate-pulse">document_scanner</span>
-          </div>
+      <div className={`${cvStyles.processing} min-h-[70vh] flex flex-col items-center justify-center px-4 text-center max-w-lg mx-auto space-y-6`} role="status">
+        <div className={cvStyles.processingDocument} aria-hidden="true">
+          <span className="material-symbols-outlined text-[32px]">document_scanner</span>
         </div>
 
         <div className="space-y-2">
@@ -65,7 +63,7 @@ export default function ResumeAnalysisDetailsPage() {
             <span>Xử lý bất đồng bộ · Nexora AI Engine</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
-            Đang phân tích hồ sơ chuyên sâu...
+            {loading ? 'Đang tải báo cáo của bạn...' : 'Đang phân tích hồ sơ chuyên sâu...'}
           </h2>
           <p className="text-xs sm:text-sm text-on-surface-variant max-w-sm mx-auto">
             Hệ thống đang trích xuất dữ liệu, đối chiếu các trục tiêu chuẩn và đánh giá bằng chứng.
@@ -207,7 +205,7 @@ export default function ResumeAnalysisDetailsPage() {
     : 'Mức độ tương thích đối chiếu trực tiếp với JD';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+    <div className={`${cvStyles.report} space-y-8`}>
       {/* Header & Meta */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -273,11 +271,18 @@ export default function ResumeAnalysisDetailsPage() {
         </div>
       </div>
 
+      {summary && (
+        <section className={cvStyles.summaryPanel} aria-labelledby="cv-summary-title">
+          <h2 id="cv-summary-title">Góc nhìn tổng quan từ Nexora AI</h2>
+          <p>{summary}</p>
+        </section>
+      )}
+
       {/* Hero Overview: Radial Score + Dimension Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Overall Score Card (5 cols) */}
         <div className="lg:col-span-5">
-          <Card variant="elevated" padding="lg" className="h-full flex flex-col justify-between space-y-5">
+          <Card variant="elevated" padding="lg" className={`${cvStyles.scorePanel} flex flex-col justify-between space-y-5`}>
             <div>
               <h3 className="font-bold text-base text-on-surface mb-4">
                 {isBenchmark ? 'Chỉ số sẵn sàng theo chuẩn vị trí' : 'Chỉ số tương thích tổng thể'}
@@ -292,12 +297,7 @@ export default function ResumeAnalysisDetailsPage() {
                 />
               </div>
 
-              {summary && (
-                <div className="text-xs sm:text-sm text-on-surface leading-relaxed p-4 bg-surface rounded-xl border border-outline-variant/40 mt-4 space-y-1">
-                  <span className="font-bold text-primary block">Tóm lược từ Nexora AI:</span>
-                  <p>{summary}</p>
-                </div>
-              )}
+
             </div>
 
             {data.rubricVersion && (
@@ -311,7 +311,7 @@ export default function ResumeAnalysisDetailsPage() {
 
         {/* Dimension Breakdown (7 cols) */}
         <div className="lg:col-span-7">
-          <Card variant="elevated" padding="lg" className="h-full flex flex-col justify-between space-y-4">
+          <Card variant="elevated" padding="lg" className="flex flex-col justify-between space-y-4">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-base text-on-surface">

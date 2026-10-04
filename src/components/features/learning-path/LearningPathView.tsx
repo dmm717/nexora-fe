@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
 import { Badge } from '@/components/ui/Badge';
 import { AnimatedProgressBar } from '@/components/motion/AnimatedProgressBar';
 import { StaggerContainer, StaggerItem } from '@/components/motion';
@@ -203,22 +204,12 @@ export default function LearningPathView() {
   const progress = getActiveLearningPathProgress(path.milestones);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8">
+    <div className="nexora-workspace max-w-5xl mx-auto px-4 py-8 sm:py-10 space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-primary text-xs font-semibold mb-2">
-            <span className="material-symbols-outlined text-[16px]">alt_route</span>
-            <span>Lộ trình thích ứng cá nhân hóa</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
-            Lộ trình chinh phục {activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Mục tiêu'}
-          </h1>
-          <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
-            Lộ trình tự động điều chỉnh theo các khoảng trống phát hiện từ kết quả phỏng vấn và CV của bạn.
-          </p>
-        </div>
-
+      <WorkspaceHeading feature="learning-path" eyebrow="Lộ trình thích ứng cá nhân hóa"
+        title={`Lộ trình chinh phục ${activeGoal ? `${activeGoal.targetRole} · ${activeGoal.seniority}` : 'Mục tiêu'}`}
+        description="Lộ trình tự động điều chỉnh theo các khoảng trống phát hiện từ kết quả phỏng vấn và CV của bạn."
+        actions={
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -238,7 +229,8 @@ export default function LearningPathView() {
             Luyện tập ngay
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {actionError && (
         <div className="p-3.5 bg-error/10 border border-error/20 rounded-xl text-xs text-error">

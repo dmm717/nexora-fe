@@ -13,72 +13,25 @@ export type ProductFeature =
   | 'capabilities'
   | 'learning-path'
   | 'career-profile'
-  | 'pricing';
+  | 'pricing'
+  | 'profile'
+  | 'settings'
+  | 'archive';
 
-export const FEATURE_ARTWORKS: Record<
-  ProductFeature,
-  { src: string; width: number; height: number; label: string }
-> = {
-  overview: {
-    src: '/assets/features/overview/career-command-center.webp',
-    width: 1200,
-    height: 800,
-    label: 'Mạch bằng chứng tổng quan',
-  },
-  cv: {
-    src: '/assets/features/cv/resume-evidence.webp',
-    width: 1200,
-    height: 800,
-    label: 'Bản đồ đối chiếu CV',
-  },
-  interview: {
-    src: '/assets/features/interview/interview-coaching.webp',
-    width: 1200,
-    height: 800,
-    label: 'Nhịp phỏng vấn',
-  },
-  practice: {
-    src: '/assets/features/practice/practice-hub.webp',
-    width: 1200,
-    height: 800,
-    label: 'Các đường luyện tập',
-  },
-  scenario: {
-    src: '/assets/features/scenario/decision-path.webp',
-    width: 1200,
-    height: 800,
-    label: 'Nhánh tình huống',
-  },
-  star: {
-    src: '/assets/features/star/star-sequence.webp',
-    width: 1200,
-    height: 800,
-    label: 'Cấu trúc STAR',
-  },
-  capabilities: {
-    src: '/assets/features/capabilities/competency-network.webp',
-    width: 1200,
-    height: 800,
-    label: 'Mạng bằng chứng năng lực',
-  },
-  'learning-path': {
-    src: '/assets/features/learning-path/milestone-roadmap.webp',
-    width: 1200,
-    height: 800,
-    label: 'Lộ trình cải thiện',
-  },
-  'career-profile': {
-    src: '/assets/features/career-profile/context-hub.webp',
-    width: 1200,
-    height: 800,
-    label: 'Hồ sơ nghề nghiệp',
-  },
-  pricing: {
-    src: '/assets/features/pricing/access-layers.webp',
-    width: 1200,
-    height: 800,
-    label: 'Các nấc mở rộng',
-  },
+export const FEATURE_ARTWORKS: Record<ProductFeature, { src: string; width: number; height: number; label: string }> = {
+  'overview': { src: '/assets/features/paper/overview-v2.webp', width: 512, height: 512, label: 'Tổng quan nghề nghiệp' },
+  cv: { src: '/assets/features/cv/resume-evidence.webp', width: 1200, height: 800, label: 'Bản đồ đối chiếu CV' },
+  'interview': { src: '/assets/features/paper/interview-v2.webp', width: 512, height: 512, label: 'Nhịp phỏng vấn' },
+  'practice': { src: '/assets/features/paper/practice-v2.webp', width: 512, height: 512, label: 'Các đường luyện tập' },
+  'scenario': { src: '/assets/features/paper/scenario-v2.webp', width: 512, height: 512, label: 'Nhánh tình huống' },
+  'star': { src: '/assets/features/paper/star-v2.webp', width: 512, height: 512, label: 'Cấu trúc STAR' },
+  'capabilities': { src: '/assets/features/paper/capabilities-v2.webp', width: 512, height: 512, label: 'Mạng bằng chứng năng lực' },
+  'learning-path': { src: '/assets/features/paper/learning-path-v2.webp', width: 512, height: 512, label: 'Lộ trình cải thiện' },
+  'career-profile': { src: '/assets/features/paper/career-profile-v2.webp', width: 512, height: 512, label: 'Hồ sơ nghề nghiệp' },
+  'pricing': { src: '/assets/features/paper/pricing-v2.webp', width: 512, height: 512, label: 'Các nấc mở rộng' },
+  'profile': { src: '/assets/features/paper/profile-v2.webp', width: 512, height: 512, label: 'Hồ sơ cá nhân' },
+  'settings': { src: '/assets/features/paper/settings-v2.webp', width: 512, height: 512, label: 'Cài đặt tài khoản' },
+  'archive': { src: '/assets/features/paper/archive-v2.webp', width: 512, height: 512, label: 'Lịch sử và báo cáo' },
 };
 
 export function FeatureVisual({
@@ -100,7 +53,7 @@ export function FeatureVisual({
         alt=""
         width={asset.width}
         height={asset.height}
-        priority={priority}
+        loading={priority ? 'eager' : 'lazy'}
         sizes="(max-width: 900px) 80vw, 34vw"
         aria-hidden="true"
       />

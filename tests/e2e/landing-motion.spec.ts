@@ -9,16 +9,14 @@ test.describe('landing runtime motion', () => {
     await expect(landing).toHaveAttribute('data-motion-mode', 'normal');
     await expect.poll(async () => Number(await landing.getAttribute('data-motion-trigger-count'))).toBeGreaterThan(0);
 
-    const parallax = page.locator('[data-parallax]');
-    const initialTransform = await parallax.evaluate((element) => getComputedStyle(element).transform);
+    await expect(page.locator('[data-parallax]')).toHaveCount(0);
     await page.locator('#preparation-loop').scrollIntoViewIfNeeded();
-    await expect.poll(async () => parallax.evaluate((element) => getComputedStyle(element).transform))
-      .not.toBe(initialTransform);
+    await expect(page.locator('[data-loop-node]').first()).toBeVisible();
 
-    const result = page.locator('[data-cv-demo-result]');
+    const result = page.locator('[data-document-preview]');
     await expect(result).toBeVisible({ timeout: 4_000 });
-    await expect(result.locator('[data-cv-count]')).toHaveText('78', { timeout: 2_000 });
-    await expect(result.locator('[data-cv-radial]')).toHaveCSS('stroke-dashoffset', '58px');
+    await expect(result).toContainText('Kinh nghiệm');
+    await expect(result.locator('[data-cv-count]')).toHaveCount(0);
 
     await expect(page.getByRole('button', { name: /demo phân tích mẫu/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /trạng thái tài khoản mới/i })).toHaveCount(0);
@@ -32,12 +30,11 @@ test.describe('landing runtime motion', () => {
     await expect(landing).toHaveAttribute('data-motion-mode', 'reduced');
     await expect(landing).toHaveAttribute('data-motion-trigger-count', '0');
 
-    const parallax = page.locator('[data-parallax]');
-    await expect(parallax).toHaveCSS('transform', 'none');
-    const result = page.locator('[data-cv-demo-result]');
+    await expect(page.locator('[data-cinematic-copy]').first()).toHaveCSS('transform', 'none');
+    const result = page.locator('[data-document-preview]');
     await expect(result).toBeVisible({ timeout: 4_000 });
-    await expect(result.locator('[data-cv-count]')).toHaveText('78');
-    await expect(result.locator('[data-cv-meter]').first()).toHaveCSS('transform', 'none');
+    await expect(result).toContainText('Kinh nghiệm');
+    await expect(result).not.toContainText('78');
   });
 
   test('route remount initializes motion again without duplicating ownership', async ({ page }) => {

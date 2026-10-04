@@ -1,3 +1,19 @@
+export const INTERVIEW_START_PATH = '/interviews/new';
+
+/** Shared desktop/mobile route ownership, including compatibility and detail routes. */
+export function isNavigationItemActive(href: string, pathname: string): boolean {
+  if (pathname === href) return true;
+  const groups: Record<string, string[]> = {
+    '/overview': ['/today'],
+    '/resume-analyses': ['/resume-analyses', '/resumes', '/cv-analysis/history'],
+    [INTERVIEW_START_PATH]: ['/interviews', '/interview', '/ai-interview'],
+    '/practice': ['/practice', '/scenarios', '/star-builder'],
+    '/analytics': ['/analytics', '/skill-profile', '/learning-path'],
+    '/pricing': ['/pricing', '/billing', '/payment-history'],
+  };
+  return (groups[href] ?? []).some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export interface NavItem {
   label: string;
   href: string;
@@ -20,7 +36,7 @@ export const CANONICAL_NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Phỏng vấn AI',
-    href: '/interviews/new',
+    href: INTERVIEW_START_PATH,
     icon: 'record_voice_over',
     sectionId: 'ai-interview',
   },
@@ -44,38 +60,9 @@ export const CANONICAL_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-export const PUBLIC_NAV_ITEMS: NavItem[] = [
-  {
-    label: 'Phân tích CV',
-    href: '/#cv-analysis',
-    icon: 'document_scanner',
-    sectionId: 'cv-analysis',
-  },
-  {
-    label: 'Phỏng vấn AI',
-    href: '/#ai-interview',
-    icon: 'record_voice_over',
-    sectionId: 'ai-interview',
-  },
-  {
-    label: 'Luyện tập',
-    href: '/#practice',
-    icon: 'psychology',
-    sectionId: 'practice',
-  },
-  {
-    label: 'Năng lực',
-    href: '/#capabilities',
-    icon: 'trending_up',
-    sectionId: 'capabilities',
-  },
-  {
-    label: 'Bảng giá',
-    href: '/pricing',
-    icon: 'payments',
-    sectionId: 'pricing',
-  },
-];
+export const PUBLIC_NAV_ITEMS: NavItem[] = CANONICAL_NAV_ITEMS
+  .filter(item => item.href !== '/overview')
+  .map(item => ({ ...item, href: item.href === '/pricing' ? item.href : `/#${item.sectionId}` }));
 
 export interface AvatarMenuItem {
   label: string;

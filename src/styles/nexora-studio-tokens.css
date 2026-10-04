@@ -1,0 +1,26 @@
+/* Shared presentational vocabulary for the public story and interview studio. */
+:root {
+  --nexora-paper: #fbfaf7;
+  --nexora-ink: #202437;
+  --nexora-muted: #626575;
+  --nexora-blue: #1b33c7;
+  --nexora-lavender: #eeeaf8;
+  --nexora-line: #e3e1e9;
+  --nexora-shadow: 0 24px 64px -32px rgb(48 43 82 / 24%);
+  --nexora-editorial: Georgia, 'Times New Roman', serif;
+  --nexora-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+header[data-cinematic="true"] { background: rgb(8 16 48 / .85); border-color: #b6c8ff22; backdrop-filter: blur(18px); color: #dce7ff; }
+header[data-cinematic="true"] > div:first-child > a img { filter: invert(1); }
+header[data-cinematic="true"] > div:first-child > a > div > div { color: #aebfe7; }
+header[data-cinematic="true"] > div:first-child nav a { color: #dce7ff; }
+header[data-cinematic="true"] > div:first-child nav a:hover { background: #dce7ff12; }
+header[data-cinematic="true"] > div:first-child > div :is(a, button) { color: #e3eaff; }
+header[data-cinematic="true"] > div:first-child > div a.bg-white { color: #243d7a; background: #edf3ff; }
+
+/* Shared CV-led blue paper palette; cinematic header is its inverse surface. */
+:root { --nexora-paper: #f0f5ff; --nexora-ink: #1e365b; --nexora-muted: #546b90; --nexora-line: #c5d3ed; --nexora-shadow: 0 24px 64px -32px #31558c40; }
+header[data-nexora-header="product"] { background: #edf3fff2; border-color: var(--nexora-line); }
+header[data-nexora-header="product"] nav a { font-weight: 600; letter-spacing: -.01em; }
+header:is([data-nexora-header="product"], [data-cinematic="true"]) :is(a,button):focus-visible { outline: 2px solid #8ca7ee; outline-offset: 4px; }

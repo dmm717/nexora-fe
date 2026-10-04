@@ -18,6 +18,7 @@ import {
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RadialScore } from '@/components/ui/RadialScore';
@@ -140,19 +141,13 @@ export default function StarPractice() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
-      <header className="flex flex-col gap-4 border-b border-outline-variant/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-3xl">
+    <main className="nexora-workspace mx-auto w-full max-w-6xl space-y-6 px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
+      <WorkspaceHeading feature="star" title="Luyện phản xạ STAR"
+        description="Viết một câu trả lời tự nhiên như trong buổi phỏng vấn. AI sẽ kiểm tra cấu trúc và trích dẫn bằng chứng từ chính câu trả lời của bạn."
+        actions={<>
           <Button variant="ghost" size="sm" icon={<ArrowLeft size={16} />} onClick={() => router.push('/practice')}>
             Trung tâm luyện tập
           </Button>
-          <h1 className="mt-3 text-2xl font-bold tracking-[-0.025em] text-on-surface sm:text-3xl">
-            Luyện phản xạ STAR
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-on-surface-variant sm:text-base">
-            Viết một câu trả lời tự nhiên như trong buổi phỏng vấn. AI sẽ kiểm tra cấu trúc và trích dẫn bằng chứng từ chính câu trả lời của bạn.
-          </p>
-        </div>
         {feature && (
           <Badge variant={isKnownLocked ? 'warning' : 'success'} size="md">
             {feature.unlimited
@@ -164,7 +159,8 @@ export default function StarPractice() {
                   : `Còn ${feature.available} lượt`}
           </Badge>
         )}
-      </header>
+        </>}
+      />
 
       {isKnownLocked && (
         <Alert

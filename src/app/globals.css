@@ -1,7 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap');
 @import "tailwindcss";
+@import "../styles/nexora-studio-tokens.css";
 @import "../styles/product-visual.css";
 @import "../styles/interview-stage.css";
+@import "../styles/workspace-system.css";
+
+/* A parsed noscript marker exists only when scripting is disabled. Only public home is revealed. */
+@layer base {
+  body:has([data-nexora-nojs]) div[hidden]:has(> #landing-content) { display: contents !important; }
+}
+body:has([data-nexora-nojs]) [data-route-loading],
+body:has([data-nexora-nojs]) [data-hero-support] > button { display: none; }
 
 :root {
   /* Legacy compatibility tokens */
@@ -26,20 +34,20 @@
 }
 
 @theme {
-  --color-surface: #faf8ff;
+  --color-surface: #f1f5ff;
   --color-surface-dim: #d2d9f4;
-  --color-surface-bright: #faf8ff;
+  --color-surface-bright: #f7faff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f2f3ff;
-  --color-surface-container: #eaedff;
-  --color-surface-container-high: #e2e7ff;
+  --color-surface-container-low: #edf3ff;
+  --color-surface-container: #e7effd;
+  --color-surface-container-high: #dce8fc;
   --color-surface-container-highest: #dae2fd;
-  --color-on-surface: #131b2e;
-  --color-on-surface-variant: #444655;
+  --color-on-surface: #1e365b;
+  --color-on-surface-variant: #546b90;
   --color-inverse-surface: #283044;
   --color-inverse-on-surface: #eef0ff;
   --color-outline: #757686;
-  --color-outline-variant: #c5c5d7;
+  --color-outline-variant: #c5d3ed;
   --color-surface-tint: #384ddc;
 
   --color-primary: #1b33c7;
@@ -71,8 +79,8 @@
   --color-on-error: #ffffff;
   --color-on-error-container: #93000a;
 
-  --font-sans: 'Plus Jakarta Sans', "Google Sans Flex", ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-sans: var(--font-nexora), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-nexora), ui-sans-serif, system-ui, sans-serif;
 
   --color-primary-hover: #162fc4;
   --color-secondary-hover: #005236;
@@ -85,12 +93,12 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
-  font-size: clamp(12px, calc(100vw / 1440 * 14), 16px);
+  font-size: 16px;
 }
 
 @media (max-width: 768px) {
   html {
-    font-size: clamp(10px, calc(100vw / 390 * 13), 14px);
+    font-size: 16px;
   }
 }
 

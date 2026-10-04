@@ -54,6 +54,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      data-nexora-button={variant}
       type={type}
       className={`${baseClasses} ${widthClass} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       disabled={disabled || isBusy}

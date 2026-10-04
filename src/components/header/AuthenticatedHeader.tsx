@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { NavigationMenu } from './NavigationMenu';
 import { Badge } from '@/components/ui/Badge';
-import { NexoraLogo } from '@/components/brand/NexoraLogo';
-import { CANONICAL_NAV_ITEMS, AVATAR_MENU_ITEMS, type AvatarMenuItem } from '@/config/navigation';
+import { NavigationFrame, NavigationRow, NavigationBrand } from './NavigationFrame';
+import { CANONICAL_NAV_ITEMS, AVATAR_MENU_ITEMS, isNavigationItemActive, type AvatarMenuItem } from '@/config/navigation';
 import { useCurrentUser } from '@/hooks/queries/useUser';
 import { useCareerProfile } from '@/hooks/queries/useCareerProfile';
 import { authApi } from '@/services/authApi';
@@ -29,6 +29,19 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileTrigger = useRef<HTMLButtonElement>(null);
+  const accountTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!userMenuOpen && !mobileMenuOpen) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setUserMenuOpen(false);
+      setMobileMenuOpen(false);
+      (userMenuOpen ? accountTrigger : mobileTrigger).current?.focus();
+    };
+    window.addEventListener('keydown', dismiss);
+    return () => window.removeEventListener('keydown', dismiss);
+  }, [userMenuOpen, mobileMenuOpen]);
 
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const { data: careerProfile } = useCareerProfile();
@@ -70,56 +83,29 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-40 bg-white/95 backdrop-blur-md border-b border-outline-variant/40 shadow-[0_1px_8px_rgba(15,23,42,0.03)]">
-      <div className="h-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+    <NavigationFrame variant="product">
+      <NavigationRow>
         {/* Left: Brand & Navigation Tabs */}
         <div className="flex items-center gap-6 lg:gap-8">
           {/* Logo */}
-          <Link
-            href="/"
+          <NavigationBrand
             className="flex items-center gap-2.5 group text-left"
           >
-            <NexoraLogo variant="horizontal" className="h-7 w-auto object-contain" />
             <Badge variant="primary" size="sm" className="hidden sm:inline-flex">
               AI Coach
             </Badge>
-          </Link>
+          </NavigationBrand>
 
           {/* Canonical Desktop Nav Items */}
-          <nav aria-label="Điều hướng chính" className="hidden md:flex items-center gap-6 h-16">
-            {CANONICAL_NAV_ITEMS.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href === '/overview' && (pathname === '/today' || pathname === '/')) ||
-                (item.href === '/resume-analyses' && (pathname.startsWith('/resume-analyses') || pathname.startsWith('/resumes'))) ||
-                (item.href === '/interviews/new' && pathname.startsWith('/interviews')) ||
-                (item.href === '/practice' && (pathname.startsWith('/practice') || pathname.startsWith('/scenarios') || pathname.startsWith('/star-builder')) && !pathname.startsWith('/practice/interview')) ||
-                (item.href === '/analytics' && (pathname.startsWith('/analytics') || pathname.startsWith('/skill-profile') || pathname.startsWith('/learning-path'))) ||
-                (item.href === '/pricing' && (pathname === '/pricing' || pathname === '/billing'));
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`h-full flex items-center px-1 text-sm font-semibold transition-all relative ${
-                    isActive
-                      ? 'text-primary border-b-2 border-primary'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <NavigationMenu items={CANONICAL_NAV_ITEMS}
+            isActive={item => isNavigationItemActive(item.href, pathname)} />
         </div>
 
         {/* Right: Active Goal Snapshot & User Profile */}
         <div className="flex items-center gap-3">
           {/* Active Goal Snapshot Pill */}
           {targetRole && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container border border-outline-variant/40">
+            <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container border border-outline-variant/40">
               <span aria-hidden="true" className="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span className="text-xs text-on-surface-variant font-medium">Mục tiêu:</span>
               <span className="text-xs font-semibold text-primary truncate max-w-[200px]">
@@ -131,6 +117,7 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
           {/* User Account Avatar Dropdown */}
           <div className="relative">
             <button
+              ref={accountTrigger}
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               aria-haspopup="menu"
@@ -203,43 +190,27 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
 
           {/* Mobile Hamburger Toggle */}
           <button
+            ref={mobileTrigger}
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
             aria-expanded={mobileMenuOpen}
             aria-controls="authenticated-mobile-menu"
-            className="md:hidden p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer"
+            className="lg:hidden p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[24px]">
               {mobileMenuOpen ? 'close' : 'menu'}
             </span>
           </button>
         </div>
-      </div>
+      </NavigationRow>
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div id="authenticated-mobile-menu" role="navigation" aria-label="Điều hướng di động" className="md:hidden border-t border-outline-variant/30 bg-white px-4 py-3 space-y-1 animate-in slide-in-from-top duration-150 shadow-md">
-          {CANONICAL_NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? 'page' : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-between ${
-                  isActive
-                    ? 'bg-primary-fixed text-primary'
-                    : 'text-on-surface hover:bg-surface-container-low'
-                }`}
-              >
-                <span>{item.label}</span>
-                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chevron_right</span>
-              </Link>
-            );
-          })}
+        <div id="authenticated-mobile-menu" className="lg:hidden border-t border-outline-variant/30 bg-white px-4 py-3 space-y-1 animate-in slide-in-from-top duration-150 shadow-md">
+          <NavigationMenu mobile items={CANONICAL_NAV_ITEMS}
+            isActive={item => isNavigationItemActive(item.href, pathname)}
+            onNavigate={() => setMobileMenuOpen(false)} />
           {targetRole && (
             <div className="pt-2 border-t border-outline-variant/30 text-xs text-on-surface-variant flex items-center gap-2 px-3 py-1">
               <span aria-hidden="true" className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -248,6 +219,6 @@ export const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({
           )}
         </div>
       )}
-    </header>
+    </NavigationFrame>
   );
 };

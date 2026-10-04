@@ -35,6 +35,7 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
+      data-nexora-badge={variant}
       className={`inline-flex items-center rounded-full transition-colors ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
     >
       {icon && <span className="flex-shrink-0">{icon}</span>}

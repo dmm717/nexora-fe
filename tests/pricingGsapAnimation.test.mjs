@@ -9,7 +9,7 @@ test('Pricing GSAP Animation: Master Timeline coordinates header, cards, feature
 
   // Uses containerRef for scoping
   assert.match(source, /containerRef\s*=\s*useRef<HTMLDivElement>\(null\)/);
-  assert.match(source, /<div\s+ref=\{containerRef\}\s+className="max-w-7xl/);
+  assert.match(source, /<div\s+ref=\{containerRef\}\s+className="[^"]*max-w-7xl/);
 
   // Guards against running prematurely or repeatedly
   assert.match(source, /useLayoutEffect/);

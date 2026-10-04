@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { WorkspaceHeading } from '@/components/ui/WorkspaceHeading';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaggerContainer, StaggerItem } from '@/components/motion';
@@ -151,26 +152,15 @@ export default function ScenarioAcademyPage() {
       </div>
 
       {/* Catalogue Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold mb-2">
-            <span className="material-symbols-outlined text-[16px]">terminal</span>
-            <span>Kho đề tình huống thực chiến</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
-            Kho tình huống kỹ thuật thực chiến
-          </h1>
-          <p className="text-xs sm:text-sm text-on-surface-variant mt-1.5 max-w-3xl leading-relaxed">
-            Chọn một tình huống thực tế để luyện cách phân tích, ra quyết định và trình bày hướng xử lý. Giải pháp được chấm điểm theo rubric Senior & Architect.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <WorkspaceHeading feature="scenario" title="Kho tình huống kỹ thuật thực chiến"
+        eyebrow="Kho đề tình huống thực chiến"
+        description="Chọn một tình huống thực tế để luyện cách phân tích, ra quyết định và trình bày hướng xử lý. Giải pháp được chấm điểm theo rubric Senior & Architect."
+        actions={
           <span className="text-xs text-on-surface-variant font-medium bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30">
             {displayedScenarioCount} tình huống khả dụng
           </span>
-        </div>
-      </div>
+        }
+      />
 
       {/* Top Highlight / Recommended Scenario Card */}
       {recommendedScenario && (

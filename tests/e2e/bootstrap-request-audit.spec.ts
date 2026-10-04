@@ -255,6 +255,16 @@ test.describe('Bootstrap & Navigation Request Deduplication Audit', () => {
           contentType: 'application/json',
           body: JSON.stringify({ success: true }),
         });
+      } else if (url.includes('/auth/login')) {
+        isLoggedOut = false;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: {
+            accessToken: createMockJwt(currentUserId, `${currentUserId}@nexora.ai`),
+            user: { id: currentUserId, email: `${currentUserId}@nexora.ai`, fullName: 'User Two', displayName: 'User Two' },
+          } }),
+        });
       } else if (url.includes('/auth/refresh')) {
         if (isLoggedOut) {
           await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Unauthorized' }) });
@@ -326,13 +336,15 @@ test.describe('Bootstrap & Navigation Request Deduplication Audit', () => {
     await logoutMenuItem.click();
     await page.waitForURL('**/auth');
 
-    // 3. Switch credentials to user-2 for next authentication and clear logout flag
+    // 3. Switch credentials for the next explicit login. A reload must not bypass logout.
     currentUserId = 'user-2';
-    isLoggedOut = false;
 
-    // 4. Authenticate as user-2 and navigate to /overview
-    await page.goto('/overview');
-    await page.waitForLoadState('networkidle');
+    // 4. Authenticate through the real login form to clear the logout barrier.
+    await page.getByLabel('Email', { exact: true }).fill('user-2@nexora.ai');
+    await page.getByLabel('Mật khẩu', { exact: true }).fill('Test123!');
+    await page.getByRole('button', { name: 'Đăng nhập ngay' }).click();
+    await page.waitForURL('**/overview');
+    await expect.poll(() => profileFetchCountUser2).toBe(1);
 
     console.log('FLOW_F_USER1_PROFILES:', profileFetchCountUser1, 'USER2_PROFILES:', profileFetchCountUser2);
 

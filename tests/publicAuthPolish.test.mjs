@@ -285,8 +285,8 @@ test('auth, landing demo, and header motion respect reduced-motion preferences',
   assert.match(auth, /prefers-reduced-motion/);
   assert.match(authCss, /prefers-reduced-motion:\s*reduce/);
   assert.match(landingMotion, /prefers-reduced-motion:\s*no-preference/);
-  assert.match(landing, /prefers-reduced-motion/);
-  assert.match(landing, /78/);
+  assert.match(await source('src/components/brand/useVisualPolicy.ts'), /prefers-reduced-motion/);
+  assert.doesNotMatch(landing, /data-cv-count/);
   assert.match(header, /prefers-reduced-motion:\s*reduce/);
 });
 
@@ -372,7 +372,7 @@ test('public header keeps canonical navigation, Escape close, aria-expanded, and
   assert.match(header, /usePathname/);
   assert.match(header, /prefers-reduced-motion:\s*reduce/);
   for (const id of ['cv-analysis', 'ai-interview', 'practice', 'capabilities']) {
-    assert.match(landing, new RegExp(`id=["']${id}["']`));
+    assert.match(id === 'ai-interview' ? await source('src/components/features/landing/CinematicHero.tsx') : landing, new RegExp(`id=["']${id}["']`));
   }
   assert.match(footer, /\['Điều khoản dịch vụ', '\/terms'\]/);
   assert.match(footer, /\['Chính sách bảo mật', '\/privacy'\]/);
