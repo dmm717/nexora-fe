@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { NexoraLogo } from '@/components/brand/NexoraLogo';
+import { OFFICIAL_SUPPORT_EMAIL } from '@/config/contact';
 import { useAuth } from '@/components/providers/AuthBootstrapProvider';
 import { siteContentApi } from '@/services/siteContentApi';
 
@@ -60,8 +61,8 @@ export const Footer = () => {
           <p className="max-w-sm text-sm leading-7">{data?.brandDescription || 'Luyện phỏng vấn có định hướng, nhận phản hồi bám sát câu trả lời và từng bước cải thiện năng lực.'}</p>
           <div className="space-y-2 text-sm">
             <p className="font-bold text-[#172554]">Liên hệ</p>
-            <a className="inline-block break-all text-primary hover:underline" href={`mailto:${data?.contactEmail || 'nexorainterview@gmail.com'}`}>
-              {data?.contactEmail || 'nexorainterview@gmail.com'}
+            <a className="inline-block break-all text-primary hover:underline" href={`mailto:${data?.contactEmail || OFFICIAL_SUPPORT_EMAIL}`}>
+              {data?.contactEmail || OFFICIAL_SUPPORT_EMAIL}
             </a>
           </div>
           <div className="flex flex-wrap gap-3" aria-label="Mạng xã hội">

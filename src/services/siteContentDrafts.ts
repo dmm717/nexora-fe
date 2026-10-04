@@ -1,4 +1,5 @@
 import type { AboutContent } from './siteContentApi';
+import { OFFICIAL_SUPPORT_EMAIL } from '../config/contact.ts';
 
 export const RECOMMENDED_ABOUT_CONTENT: AboutContent = {
   heroTitle: 'Luyện đúng điều cần cải thiện.\nTự tin hơn ở mỗi lần phỏng vấn.',
@@ -95,7 +96,7 @@ Nexora không chịu trách nhiệm thay cho nhà tuyển dụng, nền tảng t
 ## 10. Thay đổi điều khoản và liên hệ
 Khi nội dung điều khoản thay đổi, bản được công bố sẽ hiển thị ngày hiệu lực hoặc ngày cập nhật tương ứng.
 
-Nếu có câu hỏi về điều khoản dịch vụ, liên hệ nexorainterview@gmail.com.`;
+Nếu có câu hỏi về điều khoản dịch vụ, liên hệ ${OFFICIAL_SUPPORT_EMAIL}.`;
 
 export const INITIAL_TERMS_DRAFT = RECOMMENDED_TERMS_TEMPLATE;
 
@@ -150,6 +151,6 @@ Không công bố một thời hạn lưu giữ cố định nếu hệ thống 
 ## 9. Thay đổi chính sách và liên hệ
 Khi chính sách này thay đổi, bản được công bố sẽ hiển thị ngày hiệu lực hoặc ngày cập nhật tương ứng.
 
-Nếu có câu hỏi về dữ liệu cá nhân hoặc chính sách bảo mật, liên hệ nexorainterview@gmail.com.`;
+Nếu có câu hỏi về dữ liệu cá nhân hoặc chính sách bảo mật, liên hệ ${OFFICIAL_SUPPORT_EMAIL}.`;
 
 export const INITIAL_PRIVACY_DRAFT = RECOMMENDED_PRIVACY_TEMPLATE;
