@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { OFFICIAL_SUPPORT_EMAIL } from '@/config/contact';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, ListFilter, ShieldCheck } from 'lucide-react';
 import { PublicSiteShell } from '@/components/layouts/PublicSiteShell';
@@ -276,10 +277,10 @@ export function PublicLegalDocument({
                     <p>
                       Vui lòng liên hệ{' '}
                       <a
-                        href="mailto:nexorainterview@gmail.com"
+                        href={`mailto:${OFFICIAL_SUPPORT_EMAIL}`}
                         className="font-semibold text-primary hover:underline"
                       >
-                        nexorainterview@gmail.com
+                        {OFFICIAL_SUPPORT_EMAIL}
                       </a>{' '}
                       nếu bạn cần thông tin hoặc hỗ trợ trước khi sử dụng dịch vụ.
                     </p>

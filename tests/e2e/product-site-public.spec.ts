@@ -77,7 +77,7 @@ test('configured social destinations render accessible external links with hover
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ data: { facebookUrl: 'https://www.facebook.com/nexora', tiktokUrl: 'https://www.tiktok.com/@nexora',
-      contactEmail: 'nexorainterview@gmail.com', brandDescription: 'Nexora', madeInVietnamEnabled: true,
+      contactEmail: 'nexorainterview.vn@gmail.com', brandDescription: 'Nexora', madeInVietnamEnabled: true,
       supportAvailabilityEnabled: false, supportLabel: null } }),
   }));
   await page.goto('/about');
