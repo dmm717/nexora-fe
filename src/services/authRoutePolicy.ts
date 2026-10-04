@@ -14,6 +14,7 @@
 // Truly stateless public routes whose UI has zero auth dependencies
 export const STATELESS_NON_AUTH_ROUTES: readonly string[] = [
   '/design-system',
+  '/account-deletion',
 ];
 
 export const normalizePathname = (pathname?: string | null): string => {
