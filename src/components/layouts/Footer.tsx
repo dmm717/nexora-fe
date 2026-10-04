@@ -44,7 +44,7 @@ export const Footer = () => {
     ['Năng lực', isAuthenticated ? '/analytics' : '/#capabilities'],
     ['Bảng giá', '/pricing'],
   ];
-  const aboutLinks = [['Giới thiệu', '/about'], ['Điều khoản dịch vụ', '/terms'], ['Chính sách bảo mật', '/privacy']];
+  const aboutLinks = [['Giới thiệu', '/about'], ['Điều khoản dịch vụ', '/terms'], ['Chính sách bảo mật', '/privacy'], ['Xóa tài khoản', '/account-deletion']];
   const socials = [
     { label: 'Facebook', url: safeExternal(data?.facebookUrl), icon: FacebookMark },
     { label: 'TikTok', url: safeExternal(data?.tiktokUrl), icon: TikTokMark },
