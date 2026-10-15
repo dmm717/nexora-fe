@@ -10,9 +10,9 @@
 }
 
 /* Cinematic chapter surfaces. The opening scene has its own bounded canvas. */
-.landing { background: #f0f4ff; --ink: #17284b; --muted: #596a88; }
+.landing { background: var(--nexora-ambient-background); background-attachment: fixed; --ink: #17284b; --muted: #596a88; }
 .reportScene { padding-top: 112px; padding-bottom: 112px; position: relative; }
-.reportScene::before { content: ''; position: absolute; inset: 0 -100vw; z-index: 0; background: radial-gradient(ellipse at 80% 20%, #dce7ff 0, #f0f4ff 60%); }
+.reportScene::before { content: ''; position: absolute; inset: 0 -100vw; z-index: 0; background: radial-gradient(ellipse at 80% 20%, #dce7ff88 0, transparent 70%); }
 .reportScene > * { position: relative; }
 .evidencePreview { padding: 24px; background: #fff; border: 1px solid #d5e0f4; border-radius: 18px; box-shadow: 0 32px 75px -28px #31549538; }
 .evidenceQuote { margin: 24px 0 20px; padding: 20px; border-left: 2px solid #788edc; background: #f2f5fd; border-radius: 0 12px 12px 0; }

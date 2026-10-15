@@ -28,7 +28,7 @@ export default function DesignSystemShowcase() {
   const [selectValue, setSelectValue] = useState('vi');
 
   return (
-    <div className="min-h-screen bg-surface p-6 sm:p-10 font-sans text-on-surface">
+    <div className="nexora-ambient-shell min-h-screen p-6 sm:p-10 font-sans text-on-surface">
       <div className="max-w-6xl mx-auto space-y-12">
         {/* Header */}
         <header className="border-b border-outline-variant/60 pb-6">

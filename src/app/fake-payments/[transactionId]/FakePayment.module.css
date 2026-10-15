@@ -3,7 +3,8 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f3f4f6;
+  background: var(--nexora-ambient-background);
+  background-attachment: fixed;
   font-family: system-ui, -apple-system, sans-serif;
 }
 

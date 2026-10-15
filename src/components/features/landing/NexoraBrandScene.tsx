@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import styles from './cinematic.module.css';
-import { observeBrandMotion, type BrandMotion } from './brandMotion';
+import { observeBrandMotion, observeBrandPresence, type BrandMotion, type BrandPresence } from './brandMotion';
 
 function release(object: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -52,10 +52,14 @@ export default function NexoraBrandScene({ onReady, onError }: { onReady: () => 
     scene.add(key, rim);
     const rings = new THREE.Group();
     for (let i = 0; i < 2; i += 1) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6 + i * .5, .006, 4, 100),
-        new THREE.MeshBasicMaterial({ color: i ? 0x929eea : 0x80baff, transparent: true, opacity: i ? .17 : .30 }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6 + i * .5, .012, 6, 120),
+        new THREE.MeshBasicMaterial({ color: i ? 0xb6abff : 0x9bceff, transparent: true, opacity: i ? .42 : .58 }));
       ring.rotation.set(1.2 + i * .2, .15, -.28 + i * .1);
       rings.add(ring);
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(.045, 10, 8), new THREE.MeshBasicMaterial({ color: 0xdbeaff }));
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(.095, 10, 8), new THREE.MeshBasicMaterial({ color: 0x88baff, transparent: true, opacity: .28, depthWrite: false }));
+      beacon.add(glow);
+      ring.add(beacon);
     }
     rings.position.set(0, 1.9, -.7);
     scene.add(rings);
@@ -65,6 +69,8 @@ export default function NexoraBrandScene({ onReady, onError }: { onReady: () => 
     let viewportWidth = 1;
     let viewportHeight = 1;
     let cleanupMotion: (() => void) | undefined;
+    let cleanupPresence: (() => void) | undefined;
+    let presence: BrandPresence = { time: 0, x: 0, y: 0 };
     let motion: BrandMotion = { entrance: 1, travel: 0, light: 1 };
     const fail = () => { if (!disposed) onError(); };
     const draw = () => {
@@ -73,19 +79,35 @@ export default function NexoraBrandScene({ onReady, onError }: { onReady: () => 
     };
     const frame = () => {
       const t = motion.travel;
+      const strength = 1 - Math.min(1, t);
+      const phase = presence.time;
+      const frustum = 2 * 8.8 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const originY = ((viewportHeight / 2 - (viewportWidth < 600 ? 150 : 170)) / viewportHeight) * frustum;
       camera.position.set(.5 + 1.4 * t, -.2 * t, 8.8 - 1.6 * t);
       if (model) {
         const width = viewportWidth;
         const height = viewportHeight;
-        const frustum = 2 * 8.8 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-        const originY = ((height / 2 - (width < 600 ? 150 : 170)) / height) * frustum;
         model.position.set(-1.7 * t, originY * (1 - t) + .45 * t, -1.6 * t + (1 - motion.entrance) * -1.8);
         model.rotation.set(.06 + .16 * t, -.42 + 1.52 * t - (1 - motion.entrance) * .6, -.12 + .2 * t);
+        model.position.y += Math.sin(phase * .75) * .055 * strength;
+        model.rotation.x += (presence.y * .07 + Math.sin(phase * .45) * .025) * strength;
+        model.rotation.y += (presence.x * .14 + Math.sin(phase * .4) * .06) * strength;
         model.scale.setScalar(((width < 600 ? 190 : 250) / height) * frustum / 3.22);
       }
       key.intensity = 2 + 2 * motion.light;
       rim.intensity = 3 + 2 * motion.light;
+      rings.scale.setScalar(Math.min(viewportWidth * .9, 760) / viewportHeight * frustum / 6.2);
+      rings.position.y = originY;
       rings.rotation.set(0, .7 * t, .3 * t);
+      rings.rotation.y += Math.sin(phase * .3) * .09 * strength;
+      rings.rotation.z += Math.sin(phase * .23) * .055 * strength;
+      rings.children.forEach((ring, index) => {
+        ring.rotation.x = 1.2 + index * .2 + Math.sin(phase * .32 + index) * .07 * strength;
+        ring.rotation.z = -.28 + index * .1 + Math.sin(phase * .25 + index) * .08 * strength;
+        const beacon = ring.children[0];
+        const angle = phase * (index ? -.32 : .38) + index * Math.PI;
+        beacon.position.set(Math.cos(angle) * (2.6 + index * .5), Math.sin(angle) * (2.6 + index * .5), 0);
+      });
       camera.lookAt(0, 0, 0);
       if (model) journey.dataset.cameraX = camera.position.x.toFixed(3);
       draw();
@@ -114,11 +136,13 @@ export default function NexoraBrandScene({ onReady, onError }: { onReady: () => 
       model = gltf.scene;
       scene.add(model);
       cleanupMotion = observeBrandMotion(journey, next => { motion = next; frame(); });
+      cleanupPresence = observeBrandPresence(journey, next => { presence = next; frame(); });
       onReady();
     }, undefined, fail);
     return () => {
       disposed = true;
       cleanupMotion?.();
+      cleanupPresence?.();
       sizeObserver.disconnect();
       visibility.disconnect();
       document.removeEventListener('visibilitychange', frame);

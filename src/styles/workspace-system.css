@@ -8,7 +8,28 @@
 .nexora-navigation [aria-controls$="mobile-menu"] { min-width: 44px; min-height: 44px; }
 .nexora-navigation :is(#public-mobile-menu, #authenticated-mobile-menu) { max-height: calc(100dvh - 64px); overflow-y: auto; background: #f2f6ff; }
 .product-main-surface.pt-16, #landing-content { padding-top: 64px; }
-.nexora-ambient-shell { background: radial-gradient(ellipse at 88% 0, #c8d9ff 0, transparent 44rem), linear-gradient(180deg, #f1f6ff, #e8f0ff); }
+:root {
+  /* Viewport-sized light fields continue through long pages instead of fading after the hero. */
+  --nexora-ambient-background:
+    radial-gradient(ellipse at 95% 12%, #c6d8ff 0, transparent 58%),
+    radial-gradient(ellipse at 4% 66%, #d3d0f8 0, transparent 55%),
+    radial-gradient(ellipse at 78% 100%, #c5dcf8 0, transparent 52%),
+    linear-gradient(135deg, #edf3ff, #e6edfc 55%, #edf1ff);
+}
+.nexora-ambient-shell, .nexora-editorial-shell {
+  background: var(--nexora-ambient-background);
+  background-attachment: fixed;
+}
+.product-focused-surface, .product-focused-surface .product-main-surface {
+  background: radial-gradient(ellipse at 90% 10%, #2b3d79, transparent 65%),
+    radial-gradient(ellipse at 4% 85%, #30345e, transparent 60%), #111a3e;
+  background-attachment: fixed;
+}
+.product-focused-surface:has(.interview-call-room),
+.product-focused-surface:has(.interview-call-room) .product-main-surface {
+  background: var(--nexora-ambient-background);
+  background-attachment: fixed;
+}
 .product-app-shell { --product-ground: #edf3ff; --product-surface: #ffffff; --product-lavender: #e7efff; --product-lavender-strong: #cdddfb; --product-ink: #1e365b; --product-muted: #546b90; --color-action: #1b33c7; --color-action-hover: #162fc4; --color-on-action: #ffffff; }
 .action-forward { border-color: #1b33c7; }
 .nexora-workspace { width: 100%; max-width: 1280px; margin-inline: auto; padding: 32px; }

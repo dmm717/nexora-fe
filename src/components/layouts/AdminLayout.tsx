@@ -49,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="nexora-ambient-shell min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 lg:block">{sidebar}</aside>
       {open && <button type="button" className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setOpen(false)} aria-label="Đóng menu quản trị" />}
       <aside className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] transition-transform lg:hidden ${open ? 'translate-x-0' : '-translate-x-full'}`}>{sidebar}</aside>
