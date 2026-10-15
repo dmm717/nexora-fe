@@ -1,7 +1,8 @@
 .appWrapper {
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #E6F0FF 0%, #F5F7FA 100%);
+  background: var(--nexora-ambient-background);
+  background-attachment: fixed;
   display: flex;
   align-items: center;
   justify-content: center;

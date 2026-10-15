@@ -7,7 +7,7 @@ export default function CvAnalysisPage() {
   return (
     <>
       <Header />
-      <main className="bg-[#FAFAFA] min-h-screen">
+      <main className="nexora-ambient-shell min-h-screen">
         <CvAnalysisHero />
       </main>
       <Footer />

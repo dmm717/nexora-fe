@@ -8,6 +8,8 @@
 .hidden { opacity: 0; }
 .canvas { position: sticky; top: 0; height: 100dvh; min-height: 680px; width: 100%; }
 .canvas canvas { width: 100%; height: 100%; display: block; }
+.cursorField { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.sceneIndex, .scrollCue, .openingFooter { position: relative; z-index: 1; }
 .opening { min-height: max(850px, calc(100dvh - 64px)); position: relative; display: flex; flex-direction: column; padding: 34px max(48px, calc((100vw - 1344px)/2)) 32px; }
 .sceneIndex { display: flex; justify-content: space-between; gap: 20px; font-size: 11px; letter-spacing: .06em; color: #b8c6f0; }
 .openingCopy { padding-top: clamp(310px, 38vh, 410px); position: relative; text-align: center; z-index: 1; }

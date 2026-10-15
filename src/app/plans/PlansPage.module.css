@@ -1,6 +1,7 @@
 .container {
   min-height: 100vh;
-  background-color: var(--background);
+  background: var(--nexora-ambient-background);
+  background-attachment: fixed;
   color: var(--text-primary);
   padding: 4rem 2rem;
   font-family: var(--font-family, system-ui, sans-serif);

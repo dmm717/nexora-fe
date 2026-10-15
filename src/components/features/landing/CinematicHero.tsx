@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUpRight, Mic, Sparkles } from 'lucide-react';
 import { useVisualPolicy } from '@/components/brand/useVisualPolicy';
 import { NEXORA_MASCOT_ASSETS } from '@/config/brandAssets';
 import styles from './cinematic.module.css';
+import { HeroAtmosphere } from './HeroAtmosphere';
 
 const BrandScene = dynamic(() => import('./NexoraBrandScene'), { ssr: false, loading: () => null });
 class SceneBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
@@ -35,6 +36,7 @@ export function CinematicHero({ action }: { action: ReactNode }) {
         {allowed && !failed && <SceneBoundary onError={onError}><BrandScene onReady={onReady} onError={onError} /></SceneBoundary>}
       </div>
       <section id="hero" className={styles.opening} aria-labelledby="cinematic-title">
+        <HeroAtmosphere enabled={allowed} />
         <div className={styles.sceneIndex} data-cinematic-copy><span>01 — Enter Nexora</span><span>Không gian luyện phỏng vấn cùng AI</span></div>
         <div className={styles.openingCopy}>
           {/* Each glyph uses the unchanged official logo sprite, preserving its geometry. */}

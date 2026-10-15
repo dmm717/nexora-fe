@@ -20,3 +20,16 @@ export function observeBrandMotion(element: HTMLElement, listener: (motion: Bran
   listener(current.value);
   return () => { current.listeners.delete(listener); };
 }
+
+/** Ambient motion is additive: it never overwrites the intro/scroll timeline. */
+export interface BrandPresence { time: number; x: number; y: number }
+const presence = new WeakMap<HTMLElement, Set<(value: BrandPresence) => void>>();
+export function publishBrandPresence(element: HTMLElement, value: BrandPresence) {
+  presence.get(element)?.forEach(listener => listener(value));
+}
+export function observeBrandPresence(element: HTMLElement, listener: (value: BrandPresence) => void) {
+  let listeners = presence.get(element);
+  if (!listeners) { listeners = new Set(); presence.set(element, listeners); }
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
