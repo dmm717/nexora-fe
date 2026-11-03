@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Activity, BadgeDollarSign, CreditCard, RefreshCw, UserCheck, Users } from 'lucide-react';
+import { Activity, BadgeDollarSign, CreditCard, RefreshCw, Star, UserCheck, Users } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAdminDashboard } from '@/hooks/queries/useAdminDashboard';
+import { useAdminFeedbackSummary } from '@/hooks/queries/useFeedback';
 import type { AdminDashboardView, AdminGranularity, AdminTransactionView } from '@/services/adminApi';
 import { Button } from '@/components/ui/Button/Button';
 import { formatMoneyMinor } from '@/utils/formatters';
@@ -45,6 +46,7 @@ export default function AdminDashboardScreen() {
   const granularity: AdminGranularity = rawGranularity === 'month' || rawGranularity === 'year' ? rawGranularity : 'day';
   const currency = (searchParams.get('currency') || 'VND').toUpperCase();
   const dashboard = useAdminDashboard({ granularity, currency });
+  const feedback = useAdminFeedbackSummary();
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -59,23 +61,23 @@ export default function AdminDashboardScreen() {
         <div className="flex flex-wrap gap-2">
           <label className="text-xs font-semibold text-on-surface-variant">Khoảng thời gian<select value={granularity} onChange={(event) => updateFilter('granularity', event.target.value)} className="ml-2 min-h-10 rounded-lg border border-outline-variant bg-white px-3 text-sm text-on-surface"><option value="day">30 ngày</option><option value="month">12 tháng</option><option value="year">5 năm</option></select></label>
           <label className="text-xs font-semibold text-on-surface-variant">Tiền tệ<select value={currency} onChange={(event) => updateFilter('currency', event.target.value)} className="ml-2 min-h-10 rounded-lg border border-outline-variant bg-white px-3 text-sm text-on-surface"><option value="VND">VND</option><option value="USD">USD</option></select></label>
-          <Button variant="outline" size="sm" onClick={() => void dashboard.refetch()} loading={dashboard.isFetching}><RefreshCw size={16} /> Làm mới</Button>
+          <Button variant="outline" size="sm" onClick={() => { void dashboard.refetch(); void feedback.refetch(); }} loading={dashboard.isFetching || feedback.isFetching}><RefreshCw size={16} /> Làm mới</Button>
         </div>
       </header>
 
       {dashboard.isLoading && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải số liệu dashboard">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl bg-surface-container" />)}</div>}
       {dashboard.isError && <div role="alert" className="rounded-xl border border-error/30 bg-error-container/40 p-5"><p className="font-semibold text-on-error-container">Không thể tải dashboard.</p><Button className="mt-3" variant="outline" onClick={() => void dashboard.refetch()}>Thử lại</Button></div>}
-      {dashboard.data && <DashboardData data={dashboard.data} currency={currency} />}
+      {dashboard.data && <DashboardData data={dashboard.data} currency={currency} feedback={feedback} />}
     </div>
   );
 }
 
-function DashboardData({ data, currency }: { data: AdminDashboardView; currency: string }) {
+function DashboardData({ data, currency, feedback }: { data: AdminDashboardView; currency: string; feedback: ReturnType<typeof useAdminFeedbackSummary> }) {
   const totalRevenue = data.summary.totalRevenueByCurrency.find((item) => item.currency === currency)?.amountMinor ?? 0;
   const periodRevenue = data.summary.periodRevenueByCurrency.find((item) => item.currency === currency)?.amountMinor ?? 0;
   const kpis = [
     { label: 'Tổng người dùng', value: numberFormatter.format(data.summary.totalUsers), note: `+${numberFormatter.format(data.summary.newUsersInPeriod)} trong kỳ`, icon: Users },
-    { label: 'Người dùng hoạt động', value: numberFormatter.format(data.summary.activeUsers), note: `${numberFormatter.format(data.summary.inactiveUsers)} không hoạt động`, icon: UserCheck },
+    { label: 'Đánh giá bình quân', value: feedback.isLoading ? '…' : feedback.isError ? '—' : feedback.data?.averageRating != null ? `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(feedback.data.averageRating)} / 5` : '—', note: feedback.isLoading ? 'Đang tải đánh giá…' : feedback.isError ? 'Chưa tải được đánh giá. Nhấn Làm mới để thử lại.' : feedback.data ? `Tổng ${numberFormatter.format(feedback.data.total)} lượt đánh giá · Toàn thời gian` : 'Chưa có đánh giá', icon: Star },
     { label: `Doanh thu lũy kế (${currency})`, value: formatMoneyMinor(totalRevenue, currency), note: 'Chỉ giao dịch thành công', icon: BadgeDollarSign },
     { label: `Doanh thu trong kỳ (${currency})`, value: formatMoneyMinor(periodRevenue, currency), note: `${data.range.from} – ${data.range.to}`, icon: Activity },
     { label: 'Giao dịch thành công', value: numberFormatter.format(data.summary.fulfilledTransactionsAllTime), note: `${numberFormatter.format(data.summary.fulfilledTransactionsInPeriod)} trong kỳ`, icon: CreditCard },
