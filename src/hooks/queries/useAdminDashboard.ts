@@ -13,6 +13,13 @@ export function useAdminDashboard(filters: AdminDashboardFilters) {
   });
 }
 
+export function useAdminPaidBuyers() {
+  return useQuery({
+    queryKey: ['adminDashboard', 'paidBuyers'],
+    queryFn: ({ signal }) => adminApi.countPaidBuyers(signal),
+  });
+}
+
 export function useAdminTransactions(filters: AdminTransactionFilters) {
   return useQuery({
     queryKey: adminDashboardKeys.transactions(filters),

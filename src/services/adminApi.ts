@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from './apiClient.ts';
 
 // --- Types ---
 export interface AdminPlanFeatureView {
@@ -204,10 +204,28 @@ export const adminApi = {
     const response = await apiClient.get(`/admin/dashboard${query}`) as { data: AdminDashboardView };
     return response.data;
   },
-  getTransactions: async (filters: AdminTransactionFilters) => {
+  getTransactions: async (filters: AdminTransactionFilters, signal?: AbortSignal) => {
     const query = toQueryString(filters);
-    const response = await apiClient.get(`/admin/transactions${query}`) as { data: AdminTransactionPage };
+    const response = await apiClient.get(`/admin/transactions${query}`, { signal }) as { data: AdminTransactionPage };
     return response.data;
+  },
+  countPaidBuyers: async (signal?: AbortSignal) => {
+    // shortcut: reads fulfilled order pages until the dashboard API provides a distinct buyer count.
+    const buyers = new Set<string>();
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
+    do {
+      const page = await adminApi.getTransactions({ status: 'fulfilled', pageSize: 100, cursor }, signal);
+      for (const order of page.items) {
+        if (order.amountMinor > 0) buyers.add(order.userId);
+      }
+      cursor = page.nextCursor ?? undefined;
+      if (cursor) {
+        if (seenCursors.has(cursor)) throw new Error('Repeated transaction cursor');
+        seenCursors.add(cursor);
+      }
+    } while (cursor);
+    return buyers.size;
   },
 
   // --- Plans Management ---

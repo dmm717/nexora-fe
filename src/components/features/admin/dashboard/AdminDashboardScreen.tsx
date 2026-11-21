@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Activity, BadgeDollarSign, CreditCard, RefreshCw, Star, UserCheck, Users } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useAdminDashboard } from '@/hooks/queries/useAdminDashboard';
+import { useAdminDashboard, useAdminPaidBuyers } from '@/hooks/queries/useAdminDashboard';
 import { useAdminFeedbackSummary } from '@/hooks/queries/useFeedback';
 import type { AdminDashboardView, AdminGranularity, AdminTransactionView } from '@/services/adminApi';
 import { Button } from '@/components/ui/Button/Button';
@@ -47,6 +47,20 @@ export default function AdminDashboardScreen() {
   const currency = (searchParams.get('currency') || 'VND').toUpperCase();
   const dashboard = useAdminDashboard({ granularity, currency });
   const feedback = useAdminFeedbackSummary();
+  const paidBuyers = useAdminPaidBuyers();
+
+  const refresh = () => {
+    void dashboard.refetch();
+    void feedback.refetch();
+    void paidBuyers.refetch();
+  };
+
+  let buyerNote = 'Đang tải số người đã thanh toán…';
+  if (paidBuyers.data !== undefined) {
+    buyerNote = `${numberFormatter.format(paidBuyers.data)} người đã thanh toán · Toàn thời gian`;
+  } else if (paidBuyers.isError) {
+    buyerNote = 'Chưa tải được số người đã thanh toán. Nhấn Làm mới để thử lại.';
+  }
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -61,18 +75,18 @@ export default function AdminDashboardScreen() {
         <div className="flex flex-wrap gap-2">
           <label className="text-xs font-semibold text-on-surface-variant">Khoảng thời gian<select value={granularity} onChange={(event) => updateFilter('granularity', event.target.value)} className="ml-2 min-h-10 rounded-lg border border-outline-variant bg-white px-3 text-sm text-on-surface"><option value="day">30 ngày</option><option value="month">12 tháng</option><option value="year">5 năm</option></select></label>
           <label className="text-xs font-semibold text-on-surface-variant">Tiền tệ<select value={currency} onChange={(event) => updateFilter('currency', event.target.value)} className="ml-2 min-h-10 rounded-lg border border-outline-variant bg-white px-3 text-sm text-on-surface"><option value="VND">VND</option><option value="USD">USD</option></select></label>
-          <Button variant="outline" size="sm" onClick={() => { void dashboard.refetch(); void feedback.refetch(); }} loading={dashboard.isFetching || feedback.isFetching}><RefreshCw size={16} /> Làm mới</Button>
+          <Button variant="outline" size="sm" onClick={refresh} loading={dashboard.isFetching || feedback.isFetching || paidBuyers.isFetching}><RefreshCw size={16} /> Làm mới</Button>
         </div>
       </header>
 
       {dashboard.isLoading && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải số liệu dashboard">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl bg-surface-container" />)}</div>}
       {dashboard.isError && <div role="alert" className="rounded-xl border border-error/30 bg-error-container/40 p-5"><p className="font-semibold text-on-error-container">Không thể tải dashboard.</p><Button className="mt-3" variant="outline" onClick={() => void dashboard.refetch()}>Thử lại</Button></div>}
-      {dashboard.data && <DashboardData data={dashboard.data} currency={currency} feedback={feedback} />}
+      {dashboard.data && <DashboardData data={dashboard.data} currency={currency} feedback={feedback} buyerNote={buyerNote} />}
     </div>
   );
 }
 
-function DashboardData({ data, currency, feedback }: { data: AdminDashboardView; currency: string; feedback: ReturnType<typeof useAdminFeedbackSummary> }) {
+function DashboardData({ data, currency, feedback, buyerNote }: { data: AdminDashboardView; currency: string; feedback: ReturnType<typeof useAdminFeedbackSummary>; buyerNote: string }) {
   const totalRevenue = data.summary.totalRevenueByCurrency.find((item) => item.currency === currency)?.amountMinor ?? 0;
   const periodRevenue = data.summary.periodRevenueByCurrency.find((item) => item.currency === currency)?.amountMinor ?? 0;
   const kpis = [
@@ -80,14 +94,14 @@ function DashboardData({ data, currency, feedback }: { data: AdminDashboardView;
     { label: 'Đánh giá bình quân', value: feedback.isLoading ? '…' : feedback.isError ? '—' : feedback.data?.averageRating != null ? `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(feedback.data.averageRating)} / 5` : '—', note: feedback.isLoading ? 'Đang tải đánh giá…' : feedback.isError ? 'Chưa tải được đánh giá. Nhấn Làm mới để thử lại.' : feedback.data ? `Tổng ${numberFormatter.format(feedback.data.total)} lượt đánh giá · Toàn thời gian` : 'Chưa có đánh giá', icon: Star },
     { label: `Doanh thu lũy kế (${currency})`, value: formatMoneyMinor(totalRevenue, currency), note: 'Chỉ giao dịch thành công', icon: BadgeDollarSign },
     { label: `Doanh thu trong kỳ (${currency})`, value: formatMoneyMinor(periodRevenue, currency), note: `${data.range.from} – ${data.range.to}`, icon: Activity },
-    { label: 'Giao dịch thành công', value: numberFormatter.format(data.summary.fulfilledTransactionsAllTime), note: `${numberFormatter.format(data.summary.fulfilledTransactionsInPeriod)} trong kỳ`, icon: CreditCard },
-    { label: 'Người dùng trả phí', value: numberFormatter.format(data.summary.activePaidUsers), note: 'Entitlement trả phí hiện hành', icon: UserCheck },
+    { label: 'Giao dịch thành công', value: numberFormatter.format(data.summary.fulfilledTransactionsAllTime), note: `${numberFormatter.format(data.summary.fulfilledTransactionsInPeriod)} giao dịch trong kỳ`, detail: buyerNote, icon: CreditCard },
+    { label: 'Gói trả phí đang hiệu lực', value: numberFormatter.format(data.summary.activePaidUsers), note: 'Mỗi tài khoản được tính một gói hiện hành', icon: UserCheck },
   ];
   const revenue = data.revenueSeries;
   const growth = data.userGrowthSeries.map((item) => ({ ...item, label: new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(item.bucketStart)) }));
   const statuses = data.transactionStatusDistribution.map((item) => ({ ...item, name: statusLabels[item.status] ?? item.status }));
   return <>
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Chỉ số chính">{kpis.map(({ label, value, note, icon: Icon }) => <article key={label} className="rounded-xl border border-outline-variant/60 bg-white p-5 shadow-subtle"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-on-surface-variant">{label}</p><p className="mt-2 text-2xl font-bold tracking-tight text-on-surface">{value}</p><p className="mt-1 text-xs text-on-surface-variant">{note}</p></div><span className="rounded-lg bg-primary-fixed p-2.5 text-on-primary-fixed"><Icon size={20} /></span></div></article>)}</section>
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Chỉ số chính">{kpis.map(({ label, value, note, detail, icon: Icon }) => <article key={label} className="rounded-xl border border-outline-variant/60 bg-white p-5 shadow-subtle"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-on-surface-variant">{label}</p><p className="mt-2 text-2xl font-bold tracking-tight text-on-surface">{value}</p><p className="mt-1 text-xs text-on-surface-variant">{note}</p>{detail && <p className="mt-1 text-xs font-semibold text-on-surface">{detail}</p>}</div><span className="rounded-lg bg-primary-fixed p-2.5 text-on-primary-fixed"><Icon size={20} /></span></div></article>)}</section>
     <section className="grid gap-4 xl:grid-cols-2">
       <ChartCard title="Doanh thu" description={`Đơn vị ${currency}; chỉ tính order fulfilled.`}>{revenue.some((item) => item.amountMinor > 0) ? <ResponsiveContainer width="100%" height={300}><AreaChart data={revenue} accessibilityLayer><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" minTickGap={28} /><YAxis tickFormatter={(value) => formatMoneyMinor(Number(value), currency)} width={88} /><Tooltip formatter={(value) => formatMoneyMinor(Number(value), currency)} /><Area type="monotone" dataKey="amountMinor" name="Doanh thu" stroke="#1b33c7" fill="#dfe0ff" /></AreaChart></ResponsiveContainer> : <EmptyChart message="Chưa có doanh thu thành công trong khoảng thời gian này." />}</ChartCard>
       <ChartCard title="Tăng trưởng người dùng" description="Người dùng mới và tổng lũy kế."><ResponsiveContainer width="100%" height={300}><ComposedChart data={growth} accessibilityLayer><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" minTickGap={28} /><YAxis allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="newUsers" name="Người dùng mới" fill="#bcc3ff" /><Line type="monotone" dataKey="cumulativeUsers" name="Tổng lũy kế" stroke="#006c49" strokeWidth={2} /></ComposedChart></ResponsiveContainer></ChartCard>

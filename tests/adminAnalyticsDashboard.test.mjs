@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { formatMoneyMinor } from '../src/utils/formatters.ts';
+import { adminApi } from '../src/services/adminApi.ts';
 import {
   advanceAdminTransactionCursor,
   canRetreatAdminTransactionCursor,
@@ -10,6 +11,32 @@ import {
 } from '../src/services/adminTransactionPagination.ts';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('paid buyers count each user once across fulfilled transaction pages', async (t) => {
+  const pages = new Map([
+    [null, { items: [
+      { userId: 'buyer-a', amountMinor: 49000 },
+      { userId: 'free-order', amountMinor: 0 },
+    ], nextCursor: 'page-2' }],
+    ['page-2', { items: [
+      { userId: 'buyer-a', amountMinor: 59000 },
+      { userId: 'buyer-b', amountMinor: 99000 },
+    ] }],
+  ]);
+  const signal = new AbortController().signal;
+  const fetch = t.mock.method(globalThis, 'fetch', async (input, options) => {
+    const url = new URL(input, 'http://localhost');
+    assert.match(url.pathname, /\/admin\/transactions$/);
+    assert.equal(url.searchParams.get('status'), 'fulfilled');
+    assert.equal(url.searchParams.has('currency'), false);
+    assert.equal(options.signal, signal);
+    const page = pages.get(url.searchParams.get('cursor'));
+    assert.ok(page);
+    return Response.json({ data: page });
+  });
+  assert.equal(await adminApi.countPaidBuyers(signal), 2);
+  assert.equal(fetch.mock.callCount(), 2);
+});
 
 test('admin routes use a dedicated route group and no candidate dashboard layout', () => {
   assert.ok(existsSync(new URL('../src/app/(admin)/layout.tsx', import.meta.url)));
