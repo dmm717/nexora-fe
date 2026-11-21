@@ -91,10 +91,10 @@ function DashboardData({ data, currency, feedback, paidBuyers }: { data: AdminDa
     { label: `Doanh thu lũy kế (${currency})`, value: formatMoneyMinor(totalRevenue, currency), note: 'Chỉ giao dịch thành công', icon: BadgeDollarSign },
     { label: `Doanh thu trong kỳ (${currency})`, value: formatMoneyMinor(periodRevenue, currency), note: `${data.range.from} – ${data.range.to}`, icon: Activity },
     {
-      label: 'Người đã thanh toán',
+      label: 'Người dùng trả phí',
       value: buyerCount,
       note: `${numberFormatter.format(data.summary.fulfilledTransactionsAllTime)} giao dịch thành công · Toàn thời gian`,
-      detail: paidBuyers.isError && 'Chưa tải được số người đã thanh toán. Nhấn Làm mới để thử lại.',
+      detail: paidBuyers.isError && 'Chưa tải được số người dùng trả phí. Nhấn Làm mới để thử lại.',
       icon: CreditCard,
     },
     { label: 'Gói trả phí đang hiệu lực', value: numberFormatter.format(data.summary.activePaidUsers), note: 'Mỗi tài khoản được tính một gói hiện hành', icon: UserCheck },
