@@ -72,7 +72,7 @@ export default function AdminDashboardScreen() {
         </div>
       </header>
 
-      {dashboard.isLoading && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải số liệu dashboard">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl bg-surface-container" />)}</div>}
+      {dashboard.isLoading && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải số liệu dashboard">{Array.from({ length: 7 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl bg-surface-container" />)}</div>}
       {dashboard.isError && <div role="alert" className="rounded-xl border border-error/30 bg-error-container/40 p-5"><p className="font-semibold text-on-error-container">Không thể tải dashboard.</p><Button className="mt-3" variant="outline" onClick={() => void dashboard.refetch()}>Thử lại</Button></div>}
       {dashboard.data && <DashboardData data={dashboard.data} currency={currency} feedback={feedback} paidBuyers={paidBuyers} />}
     </div>
@@ -93,8 +93,15 @@ function DashboardData({ data, currency, feedback, paidBuyers }: { data: AdminDa
     {
       label: 'Người dùng trả phí',
       value: buyerCount,
-      note: `${numberFormatter.format(data.summary.fulfilledTransactionsAllTime)} giao dịch thành công · Toàn thời gian`,
-      detail: paidBuyers.isError && 'Chưa tải được số người dùng trả phí. Nhấn Làm mới để thử lại.',
+      note: paidBuyers.isError
+        ? 'Chưa tải được số người dùng trả phí. Nhấn Làm mới để thử lại.'
+        : 'Toàn thời gian · Mỗi người tính một lần',
+      icon: Users,
+    },
+    {
+      label: 'Giao dịch thành công',
+      value: numberFormatter.format(data.summary.fulfilledTransactionsAllTime),
+      note: 'Toàn thời gian',
       icon: CreditCard,
     },
     { label: 'Gói trả phí đang hiệu lực', value: numberFormatter.format(data.summary.activePaidUsers), note: 'Mỗi tài khoản được tính một gói hiện hành', icon: UserCheck },
@@ -103,7 +110,7 @@ function DashboardData({ data, currency, feedback, paidBuyers }: { data: AdminDa
   const growth = data.userGrowthSeries.map((item) => ({ ...item, label: new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(item.bucketStart)) }));
   const statuses = data.transactionStatusDistribution.map((item) => ({ ...item, name: statusLabels[item.status] ?? item.status }));
   return <>
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Chỉ số chính">{kpis.map(({ label, value, note, detail, icon: Icon }) => <article key={label} className="rounded-xl border border-outline-variant/60 bg-white p-5 shadow-subtle"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-on-surface-variant">{label}</p><p className="mt-2 text-2xl font-bold tracking-tight text-on-surface">{value}</p><p className="mt-1 text-xs text-on-surface-variant">{note}</p>{detail && <p className="mt-1 text-xs font-semibold text-on-surface">{detail}</p>}</div><span className="rounded-lg bg-primary-fixed p-2.5 text-on-primary-fixed"><Icon size={20} /></span></div></article>)}</section>
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Chỉ số chính">{kpis.map(({ label, value, note, icon: Icon }) => <article key={label} className="rounded-xl border border-outline-variant/60 bg-white p-5 shadow-subtle"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-on-surface-variant">{label}</p><p className="mt-2 text-2xl font-bold tracking-tight text-on-surface">{value}</p><p className="mt-1 text-xs text-on-surface-variant">{note}</p></div><span className="rounded-lg bg-primary-fixed p-2.5 text-on-primary-fixed"><Icon size={20} /></span></div></article>)}</section>
     <section className="grid gap-4 xl:grid-cols-2">
       <ChartCard title="Doanh thu" description={`Đơn vị ${currency}; chỉ tính order fulfilled.`}>{revenue.some((item) => item.amountMinor > 0) ? <ResponsiveContainer width="100%" height={300}><AreaChart data={revenue} accessibilityLayer><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" minTickGap={28} /><YAxis tickFormatter={(value) => formatMoneyMinor(Number(value), currency)} width={88} /><Tooltip formatter={(value) => formatMoneyMinor(Number(value), currency)} /><Area type="monotone" dataKey="amountMinor" name="Doanh thu" stroke="#1b33c7" fill="#dfe0ff" /></AreaChart></ResponsiveContainer> : <EmptyChart message="Chưa có doanh thu thành công trong khoảng thời gian này." />}</ChartCard>
       <ChartCard title="Tăng trưởng người dùng" description="Người dùng mới và tổng lũy kế."><ResponsiveContainer width="100%" height={300}><ComposedChart data={growth} accessibilityLayer><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" minTickGap={28} /><YAxis allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="newUsers" name="Người dùng mới" fill="#bcc3ff" /><Line type="monotone" dataKey="cumulativeUsers" name="Tổng lũy kế" stroke="#006c49" strokeWidth={2} /></ComposedChart></ResponsiveContainer></ChartCard>
