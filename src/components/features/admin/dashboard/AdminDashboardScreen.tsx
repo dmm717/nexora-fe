@@ -55,13 +55,6 @@ export default function AdminDashboardScreen() {
     void paidBuyers.refetch();
   };
 
-  let buyerNote = 'Đang tải số người đã thanh toán…';
-  if (paidBuyers.data !== undefined) {
-    buyerNote = `${numberFormatter.format(paidBuyers.data)} người đã thanh toán · Toàn thời gian`;
-  } else if (paidBuyers.isError) {
-    buyerNote = 'Chưa tải được số người đã thanh toán. Nhấn Làm mới để thử lại.';
-  }
-
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set(key, value);
@@ -81,20 +74,29 @@ export default function AdminDashboardScreen() {
 
       {dashboard.isLoading && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải số liệu dashboard">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl bg-surface-container" />)}</div>}
       {dashboard.isError && <div role="alert" className="rounded-xl border border-error/30 bg-error-container/40 p-5"><p className="font-semibold text-on-error-container">Không thể tải dashboard.</p><Button className="mt-3" variant="outline" onClick={() => void dashboard.refetch()}>Thử lại</Button></div>}
-      {dashboard.data && <DashboardData data={dashboard.data} currency={currency} feedback={feedback} buyerNote={buyerNote} />}
+      {dashboard.data && <DashboardData data={dashboard.data} currency={currency} feedback={feedback} paidBuyers={paidBuyers} />}
     </div>
   );
 }
 
-function DashboardData({ data, currency, feedback, buyerNote }: { data: AdminDashboardView; currency: string; feedback: ReturnType<typeof useAdminFeedbackSummary>; buyerNote: string }) {
+function DashboardData({ data, currency, feedback, paidBuyers }: { data: AdminDashboardView; currency: string; feedback: ReturnType<typeof useAdminFeedbackSummary>; paidBuyers: ReturnType<typeof useAdminPaidBuyers> }) {
   const totalRevenue = data.summary.totalRevenueByCurrency.find((item) => item.currency === currency)?.amountMinor ?? 0;
   const periodRevenue = data.summary.periodRevenueByCurrency.find((item) => item.currency === currency)?.amountMinor ?? 0;
+  const buyerCount = paidBuyers.data === undefined
+    ? (paidBuyers.isPending ? '…' : '—')
+    : numberFormatter.format(paidBuyers.data);
   const kpis = [
     { label: 'Tổng người dùng', value: numberFormatter.format(data.summary.totalUsers), note: `+${numberFormatter.format(data.summary.newUsersInPeriod)} trong kỳ`, icon: Users },
     { label: 'Đánh giá bình quân', value: feedback.isLoading ? '…' : feedback.isError ? '—' : feedback.data?.averageRating != null ? `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(feedback.data.averageRating)} / 5` : '—', note: feedback.isLoading ? 'Đang tải đánh giá…' : feedback.isError ? 'Chưa tải được đánh giá. Nhấn Làm mới để thử lại.' : feedback.data ? `Tổng ${numberFormatter.format(feedback.data.total)} lượt đánh giá · Toàn thời gian` : 'Chưa có đánh giá', icon: Star },
     { label: `Doanh thu lũy kế (${currency})`, value: formatMoneyMinor(totalRevenue, currency), note: 'Chỉ giao dịch thành công', icon: BadgeDollarSign },
     { label: `Doanh thu trong kỳ (${currency})`, value: formatMoneyMinor(periodRevenue, currency), note: `${data.range.from} – ${data.range.to}`, icon: Activity },
-    { label: 'Giao dịch thành công', value: numberFormatter.format(data.summary.fulfilledTransactionsAllTime), note: `${numberFormatter.format(data.summary.fulfilledTransactionsInPeriod)} giao dịch trong kỳ`, detail: buyerNote, icon: CreditCard },
+    {
+      label: 'Người đã thanh toán',
+      value: buyerCount,
+      note: `${numberFormatter.format(data.summary.fulfilledTransactionsAllTime)} giao dịch thành công · Toàn thời gian`,
+      detail: paidBuyers.isError && 'Chưa tải được số người đã thanh toán. Nhấn Làm mới để thử lại.',
+      icon: CreditCard,
+    },
     { label: 'Gói trả phí đang hiệu lực', value: numberFormatter.format(data.summary.activePaidUsers), note: 'Mỗi tài khoản được tính một gói hiện hành', icon: UserCheck },
   ];
   const revenue = data.revenueSeries;
